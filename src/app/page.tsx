@@ -1,101 +1,89 @@
+"use client";
+
+import { usePrivy } from "@privy-io/react-auth";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { FaBolt } from "react-icons/fa";
 import Image from "next/image";
+import { tickers } from "@/data/tickers";
+import { pools } from "@/data/pools";
+import AutoScroller from "@/app/components/AutoScroller";
+import PoolScroller from "@/app/components/PoolScroller";
 
-export default function Home() {
+export default function LandingPage() {
+  const { login, authenticated } = usePrivy();
+  const router = useRouter();
+
+  // Use useEffect to handle navigation after render
+  useEffect(() => {
+    if (authenticated) {
+      router.push("/pools");
+    }
+  }, [authenticated, router]);
+
+  // Don't return null here, as it can cause issues
+  // Instead, render the page normally and let the useEffect handle navigation
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="flex flex-col min-h-screen bg-[#1E1B2E] text-white">
+      {/* Header */}
+      <header className="flex justify-between items-center p-6">
+        <div className="w-12 h-12 bg-purple-500 rounded-lg rotate-45 flex items-center justify-center">
+          <div className="w-8 h-8 bg-[#1E1B2E] rounded-md -rotate-45"></div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+        <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M16 8V6C16 4.89543 15.1046 4 14 4H6C4.89543 4 4 4.89543 4 6V18C4 19.1046 4.89543 20 6 20H14C15.1046 20 16 19.1046 16 18V16M9 12H21M21 12L18 9M21 12L18 15"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      </header>
+
+      {/* Auto-scrolling Navigation */}
+      <div className="px-6 mt-6">
+        <AutoScroller items={tickers} />
+      </div>
+
+      {/* Token Cards - Auto Scrolling */}
+      <div className="px-6 mt-8">
+        <PoolScroller pools={pools} />
+      </div>
+
+      {/* Heading */}
+      <div className="px-6 mt-12">
+        <h1 className="text-5xl font-bold leading-tight">
+          Community event
+          <br />
+          financing for crypto
+        </h1>
+      </div>
+
+      {/* Login Button */}
+      <div className="px-6 mt-12 mb-8">
+        <button
+          onClick={login}
+          className="w-full bg-purple-500 py-4 rounded-full text-white text-lg font-medium"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          Log in with 𝕏
+        </button>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-auto px-6 pb-6 flex items-center justify-center">
+        <span className="text-gray-500 mr-2">powered by</span>
+        <span className="font-bold">MONAD</span>
+      </div>
     </div>
   );
 }

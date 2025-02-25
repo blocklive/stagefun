@@ -3,19 +3,102 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --foreground: 255, 255, 255;
+  --background: 0, 0, 0;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: rgb(var(--foreground));
+  background-color: rgb(var(--background));
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(
+      calc(-250px * 7)
+    ); /* Adjust based on your content width */
+  }
+}
+
+.auto-scroll {
+  animation: scroll 30s linear infinite;
+  width: max-content;
+}
+
+.auto-scroll:hover {
+  animation-play-state: paused;
+}
+
+.scroll-container {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.scroll-container::before,
+.scroll-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 50px;
+  height: 100%;
+  z-index: 2;
+}
+
+.scroll-container::before {
+  left: 0;
+  background: linear-gradient(
+    to right,
+    rgba(30, 27, 46, 1),
+    rgba(30, 27, 46, 0)
+  );
+}
+
+.scroll-container::after {
+  right: 0;
+  background: linear-gradient(
+    to left,
+    rgba(30, 27, 46, 1),
+    rgba(30, 27, 46, 0)
+  );
+}
+
+@keyframes scrollPools {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(
+      calc(-180px * 5)
+    ); /* Adjust based on card width + gap */
+  }
+}
+
+.auto-scroll-pools {
+  animation: scrollPools 45s linear infinite;
+  width: max-content;
+}
+
+.auto-scroll-pools:hover {
+  animation-play-state: paused;
 }
