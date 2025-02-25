@@ -1,24 +1,46 @@
 "use client";
 
 import { usePrivy } from "@privy-io/react-auth";
-import {
-  FaHome,
-  FaEnvelope,
-  FaBell,
-  FaCompass,
-  FaPlus,
-  FaUserAlt,
-} from "react-icons/fa";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import BottomNavbar from "../components/BottomNavbar";
 
 export default function PoolsPage() {
   const { logout } = usePrivy();
+  const router = useRouter();
+  const [viewportHeight, setViewportHeight] = useState("100vh");
+
+  // Set the correct viewport height, accounting for mobile browsers
+  useEffect(() => {
+    const updateHeight = () => {
+      // Use the window's inner height for a more accurate measurement
+      setViewportHeight(`${window.innerHeight}px`);
+    };
+
+    // Set initial height
+    updateHeight();
+
+    // Update on resize
+    window.addEventListener("resize", updateHeight);
+
+    // Clean up
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
 
   return (
-    <div className="flex flex-col h-screen bg-black text-white">
+    <div
+      className="flex flex-col bg-black text-white relative"
+      style={{ height: viewportHeight }}
+    >
       {/* Header */}
       <header className="flex justify-between items-center p-4 border-b border-gray-700">
-        <FaPlus className="text-xl" />
-        <FaUserAlt className="text-xl" />
+        {/* App Logo - Same as login page */}
+        <div className="w-10 h-10 bg-purple-500 rounded-lg rotate-45 flex items-center justify-center">
+          <div className="w-7 h-7 bg-black rounded-md -rotate-45"></div>
+        </div>
+
+        {/* Empty div to maintain flex spacing */}
+        <div></div>
       </header>
 
       {/* Header Title */}
@@ -34,8 +56,11 @@ export default function PoolsPage() {
         </button>
       </div>
 
-      {/* List of Items */}
-      <div className="flex-1 overflow-y-auto mt-4">
+      {/* List of Items - Add padding bottom to prevent content from being hidden behind navbar */}
+      <div
+        className="flex-1 overflow-y-auto mt-4"
+        style={{ paddingBottom: "70px" }}
+      >
         <ul>
           <li className="p-4 border-b border-gray-700">
             1X Technologies - Matt Hill
@@ -46,16 +71,21 @@ export default function PoolsPage() {
           <li className="p-4 border-b border-gray-700">
             kotopia - Lucas Wilson
           </li>
+          {/* Add more items to test scrolling */}
+          <li className="p-4 border-b border-gray-700">
+            Quantum Labs - Sarah Johnson
+          </li>
+          <li className="p-4 border-b border-gray-700">
+            Nexus Protocol - James Chen
+          </li>
+          <li className="p-4 border-b border-gray-700">
+            Zenith Network - Alex Rodriguez
+          </li>
         </ul>
       </div>
 
-      {/* Navigation Bar */}
-      <nav className="flex justify-around items-center p-4 bg-gray-800">
-        <FaHome className="text-xl" />
-        <FaEnvelope className="text-xl" />
-        <FaBell className="text-xl" />
-        <FaCompass className="text-xl" />
-      </nav>
+      {/* Shared Bottom Navigation Bar */}
+      <BottomNavbar activeTab="party" />
     </div>
   );
 }
