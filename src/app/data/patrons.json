@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Matt Hill",
+    "username": "@FireFlamez11",
+    "avatar": "/placeholder-avatar.png",
+    "amount": "100",
+    "verified": true
+  },
+  {
+    "name": "Darrell Steward",
+    "username": "@AlphaWave",
+    "avatar": "/placeholder-avatar.png",
+    "amount": "100",
+    "verified": true
+  },
+  {
+    "name": "Jerome Bell",
+    "username": "@Xplor92",
+    "avatar": "/placeholder-avatar.png",
+    "amount": "100",
+    "verified": true
+  },
+  {
+    "name": "Dianne Russell",
+    "username": "@EchoSync20",
+    "avatar": "/placeholder-avatar.png",
+    "amount": "100",
+    "verified": true
+  },
+  {
+    "name": "Eleanor Pena",
+    "username": "@ZephyrX",
+    "avatar": "/placeholder-avatar.png",
+    "amount": "100",
+    "verified": true
+  },
+  {
+    "name": "Marvin McKinney",
+    "username": "@TechNode5",
+    "avatar": "/placeholder-avatar.png",
+    "amount": "100",
+    "verified": true
+  }
+]

@@ -3,9 +3,16 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FaArrowLeft, FaCheck, FaMapMarkerAlt } from "react-icons/fa";
+import {
+  FaArrowLeft,
+  FaCheck,
+  FaMapMarkerAlt,
+  FaChevronRight,
+  FaChevronUp,
+} from "react-icons/fa";
 import Image from "next/image";
 import BottomNavbar from "../../components/BottomNavbar";
+import patronsData from "../../data/patrons.json";
 
 export default function PoolDetailsPage() {
   const { user } = usePrivy();
@@ -22,6 +29,7 @@ export default function PoolDetailsPage() {
     minutes: 59,
     seconds: 12,
   });
+  const [showPatrons, setShowPatrons] = useState(true);
 
   // Mock pool data - in a real app, you would fetch this from an API
   const poolData = {
@@ -38,8 +46,14 @@ export default function PoolDetailsPage() {
     tokenAmount: "100,000",
     tokenSymbol: "$PARTY",
     description:
-      "Patrons will receive an all inclusive dinner with the founders in Denver, Colorado",
+      "Patrons will receive an all inclusive dinner with drinks provided. Planning for Nobu, subject to change",
     location: "Denver, Colorado",
+    venue: "Convergence Station",
+    organizer: {
+      name: "Matt Hill",
+      username: "Eth Denver",
+      avatar: "/placeholder-avatar.png",
+    },
   };
 
   // Set the correct viewport height, accounting for mobile browsers
@@ -135,57 +149,47 @@ export default function PoolDetailsPage() {
               />
             </div>
             <div>
-              <div className="text-purple-500">{poolData.status}</div>
-              <h1 className="text-3xl font-bold">{poolData.name}</h1>
+              <div className="text-purple-500 text-sm">{poolData.status}</div>
+              <h1 className="text-2xl font-bold">{poolData.name}</h1>
             </div>
           </div>
 
-          {/* Funding Status */}
-          <div className="flex items-center text-gray-400 mb-4">
-            <span>{poolData.fundingStage}</span>
-            <span className="mx-2">•</span>
-            <span>Ends in {poolData.endsIn}</span>
-          </div>
-
-          {/* Funding Amount */}
-          <div className="mb-2">
-            <div className="flex justify-between items-end">
-              <h2 className="text-5xl font-bold">${poolData.targetAmount}</h2>
-              <div className="text-right">
-                <span className="text-xl">{poolData.percentComplete}%</span>
-                <span className="text-gray-400 ml-2">
-                  {poolData.raisedAmount}/{poolData.targetAmount.slice(0, -3)}m
-                </span>
+          {/* Funding Progress */}
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-1">
+              <div className="text-gray-400">
+                {poolData.fundingStage} • Ends in {poolData.endsIn}
+              </div>
+              <div>
+                {poolData.percentComplete}% • {poolData.raisedAmount}/
+                {poolData.targetAmount}
               </div>
             </div>
+            <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-purple-500 rounded-full"
+                style={{ width: `${poolData.percentComplete}%` }}
+              ></div>
+            </div>
           </div>
-
-          {/* Progress Bar */}
-          <div className="w-full h-2 bg-gray-700 rounded-full mb-6">
-            <div
-              className="h-full bg-purple-500 rounded-full"
-              style={{ width: `${poolData.percentComplete}%` }}
-            ></div>
-          </div>
-        </div>
-
-        {/* Patron Round Section */}
-        <div className="px-4 mb-6">
-          <h3 className="text-2xl font-bold mb-4">Patron round</h3>
 
           {/* Tabs */}
-          <div className="flex bg-[#1A1724] rounded-lg mb-4">
+          <div className="flex mb-6 border-b border-gray-700">
             <button
-              className={`flex-1 py-3 rounded-lg ${
-                activeTab === "commit" ? "bg-[#2A2640]" : ""
+              className={`flex-1 py-3 text-center ${
+                activeTab === "commit"
+                  ? "text-white border-b-2 border-purple-500"
+                  : "text-gray-400"
               }`}
               onClick={() => setActiveTab("commit")}
             >
               Commit
             </button>
             <button
-              className={`flex-1 py-3 rounded-lg ${
-                activeTab === "withdraw" ? "bg-[#2A2640]" : ""
+              className={`flex-1 py-3 text-center ${
+                activeTab === "withdraw"
+                  ? "text-white border-b-2 border-purple-500"
+                  : "text-gray-400"
               }`}
               onClick={() => setActiveTab("withdraw")}
             >
@@ -273,9 +277,130 @@ export default function PoolDetailsPage() {
 
                 {/* Location */}
                 {poolData.location && (
-                  <div className="flex items-center text-gray-400">
-                    <FaMapMarkerAlt className="mr-2" />
-                    <span>{poolData.location}</span>
+                  <div className="bg-[#1A1724] rounded-lg p-4">
+                    <div className="flex items-center text-gray-400 mb-1">
+                      <FaMapMarkerAlt className="mr-2" />
+                      <span>{poolData.location}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>{poolData.venue}</span>
+                      <FaChevronRight className="text-gray-400" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Organizer Section */}
+              <div className="mb-4">
+                <h3 className="text-2xl font-bold mb-2">Organizer</h3>
+                <div className="bg-[#1A1724] rounded-lg p-4 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-600 mr-3">
+                      <Image
+                        src={poolData.organizer.avatar}
+                        alt={poolData.organizer.name}
+                        width={48}
+                        height={48}
+                        className="object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <div className="font-medium">
+                        {poolData.organizer.name}
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {poolData.organizer.username}
+                      </div>
+                    </div>
+                  </div>
+                  <FaChevronRight className="text-gray-400" />
+                </div>
+              </div>
+
+              {/* Patrons Section */}
+              <div className="mb-4">
+                <div
+                  className="flex items-center justify-between mb-2 cursor-pointer"
+                  onClick={() => setShowPatrons(!showPatrons)}
+                >
+                  <h3 className="text-2xl font-bold">
+                    Patrons {patronsData.length}
+                  </h3>
+                  {showPatrons ? (
+                    <FaChevronUp className="text-gray-400" />
+                  ) : (
+                    <FaChevronRight className="text-gray-400" />
+                  )}
+                </div>
+
+                {showPatrons && (
+                  <div className="space-y-2">
+                    {patronsData.map((patron, index) => (
+                      <div
+                        key={index}
+                        className="bg-[#1A1724] rounded-lg p-4 flex items-center justify-between"
+                      >
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-600 mr-3">
+                            {patron.name.charAt(0) === "D" ||
+                            patron.name.charAt(0) === "M" ? (
+                              <div className="w-full h-full bg-teal-400 flex items-center justify-center text-white font-bold">
+                                {patron.name.charAt(0)}
+                              </div>
+                            ) : (
+                              <Image
+                                src={patron.avatar}
+                                alt={patron.name}
+                                width={40}
+                                height={40}
+                                className="object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = "none";
+                                }}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <div className="flex items-center">
+                              <span className="font-medium mr-1">
+                                {patron.name}
+                              </span>
+                              {patron.verified && (
+                                <svg
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                                    stroke="#8B5CF6"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-400">
+                              {patron.username}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-2">
+                            <span className="text-white text-xs">$</span>
+                          </div>
+                          <span>{patron.amount}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
