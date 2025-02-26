@@ -114,3 +114,23 @@ export async function updatePool(
 
   return data;
 }
+
+export async function getUserPools(userId: string): Promise<Pool[]> {
+  try {
+    const { data, error } = await supabase
+      .from("pools")
+      .select("*")
+      .eq("creator_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching user pools:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in getUserPools:", error);
+    return [];
+  }
+}

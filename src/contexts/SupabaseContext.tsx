@@ -75,7 +75,46 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         console.log("Created user:", createdUser);
         setDbUser(createdUser);
       } else {
-        setDbUser(user);
+        // Check if we need to update the user with new Privy data
+        const updatedFields: Partial<User> = {};
+        let needsUpdate = false;
+
+        if (privyUser.name?.first && privyUser.name.first !== user.name) {
+          updatedFields.name = privyUser.name.first;
+          needsUpdate = true;
+        }
+
+        if (
+          privyUser.email?.address &&
+          privyUser.email.address !== user.email
+        ) {
+          updatedFields.email = privyUser.email.address;
+          needsUpdate = true;
+        }
+
+        if (
+          privyUser.twitter?.username &&
+          privyUser.twitter.username !== user.twitter_username
+        ) {
+          updatedFields.twitter_username = privyUser.twitter.username;
+          needsUpdate = true;
+        }
+
+        if (privyUser.avatar && privyUser.avatar !== user.avatar_url) {
+          updatedFields.avatar_url = privyUser.avatar;
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          console.log("Updating user with new Privy data:", updatedFields);
+          const updatedUser = await createOrUpdateUser({
+            ...updatedFields,
+            wallet_address: walletAddress,
+          });
+          setDbUser(updatedUser);
+        } else {
+          setDbUser(user);
+        }
       }
     } catch (error) {
       console.error("Error fetching user:", error);

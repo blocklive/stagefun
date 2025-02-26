@@ -1,4 +1,5 @@
 import { supabase, User } from "../supabase";
+import { getAuthenticatedSupabaseClient } from "../supabase";
 
 export async function createOrUpdateUser(
   userData: Partial<User>
@@ -6,6 +7,8 @@ export async function createOrUpdateUser(
   try {
     console.log("Creating or updating user with data:", userData);
 
+    // Use the standard client for user operations since we might not have
+    // an authenticated client yet during initial user creation
     const { data, error } = await supabase
       .from("users")
       .upsert(userData)
