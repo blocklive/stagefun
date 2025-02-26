@@ -1,8 +1,8 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 import {
   FaArrowLeft,
   FaPencilAlt,
@@ -15,9 +15,16 @@ import {
   FaMapMarkerAlt,
 } from "react-icons/fa";
 import Image from "next/image";
+import { useSupabase } from "../../../contexts/SupabaseContext";
+import { createPool } from "../../../lib/services/pool-service";
+import { useAuthenticatedSupabase } from "@/hooks/useAuthenticatedSupabase";
+import { Pool } from "@/lib/supabase";
 
 export default function CreatePoolPage() {
-  const { user } = usePrivy();
+  const { user: privyUser } = usePrivy();
+  const { dbUser } = useSupabase();
+  const { client: supabase, isLoading: isClientLoading } =
+    useAuthenticatedSupabase();
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [poolName, setPoolName] = useState("");
@@ -29,6 +36,7 @@ export default function CreatePoolPage() {
   const [location, setLocation] = useState("");
   const [currency, setCurrency] = useState("USDC");
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -47,21 +55,61 @@ export default function CreatePoolPage() {
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
-  const handleLaunch = () => {
-    // Handle pool creation logic here
-    console.log({
-      poolName,
-      ticker,
-      fundingGoal,
-      currency,
-      minCommitment,
-      patrons,
-      description,
-      location,
-    });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-    // Navigate back to pools page after creation
-    router.push("/pools");
+    if (!dbUser || !supabase || isClientLoading) {
+      alert("Please wait for authentication to complete");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      // Create pool data directly from state variables
+      const poolData = {
+        name: poolName,
+        ticker: ticker,
+        description: description,
+        target_amount: parseFloat(fundingGoal) || 0,
+        min_commitment: parseFloat(minCommitment) || 0,
+        currency: currency,
+        token_amount: 100000, // Default token amount
+        token_symbol: "$PARTY",
+        location: location,
+        venue: "Convergence Station",
+        status: "Accepting patrons",
+        funding_stage: "Raising",
+        ends_at: new Date(
+          new Date().setDate(new Date().getDate() + 2)
+        ).toISOString(), // 2 days from now
+        creator_id: dbUser.id,
+        raised_amount: 0,
+      };
+
+      console.log("Submitting pool data:", poolData);
+
+      // Insert the pool using the authenticated client
+      const { data, error } = await supabase
+        .from("pools")
+        .insert(poolData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating pool:", error);
+        alert("Failed to create pool: " + error.message);
+        return;
+      }
+
+      console.log("Pool created successfully:", data);
+      router.push(`/pools/${data.id}`);
+    } catch (error) {
+      console.error("Error:", error);
+      alert("An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -105,12 +153,13 @@ export default function CreatePoolPage() {
         </div>
 
         {/* Form */}
-        <div className="mt-8">
+        <form id="createPoolForm" onSubmit={handleSubmit} className="mt-8">
           {/* Pool Name Input */}
           <div className="mb-6">
             <input
               type="text"
               placeholder="Party Round Name"
+              name="name"
               value={poolName}
               onChange={(e) => setPoolName(e.target.value)}
               className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -122,6 +171,7 @@ export default function CreatePoolPage() {
             <input
               type="text"
               placeholder="$TICKER"
+              name="ticker"
               value={ticker}
               onChange={(e) => setTicker(e.target.value)}
               className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -142,6 +192,7 @@ export default function CreatePoolPage() {
                 <input
                   type="number"
                   placeholder="0"
+                  name="fundingGoal"
                   value={fundingGoal}
                   onChange={(e) => setFundingGoal(e.target.value)}
                   className="w-full p-4 pl-16 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -152,7 +203,10 @@ export default function CreatePoolPage() {
               <div className="relative">
                 <button
                   className="h-full px-4 bg-[#2A2640] rounded-lg flex items-center gap-2"
-                  onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowCurrencyDropdown(!showCurrencyDropdown);
+                  }}
                 >
                   <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                     <span className="text-white font-bold">$</span>
@@ -183,7 +237,8 @@ export default function CreatePoolPage() {
                   <div className="absolute top-full right-0 mt-2 w-full bg-[#2A2640] rounded-lg shadow-lg z-10">
                     <button
                       className="w-full p-3 text-left hover:bg-[#3A3650] transition-colors"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
                         setCurrency("USDC");
                         setShowCurrencyDropdown(false);
                       }}
@@ -192,7 +247,8 @@ export default function CreatePoolPage() {
                     </button>
                     <button
                       className="w-full p-3 text-left hover:bg-[#3A3650] transition-colors"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
                         setCurrency("ETH");
                         setShowCurrencyDropdown(false);
                       }}
@@ -216,6 +272,7 @@ export default function CreatePoolPage() {
               <input
                 type="text"
                 placeholder="Minimum commitment"
+                name="minCommitment"
                 value={minCommitment}
                 onChange={(e) => setMinCommitment(e.target.value)}
                 className="w-full p-4 pl-16 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -228,6 +285,7 @@ export default function CreatePoolPage() {
             <input
               type="text"
               placeholder="Patrons"
+              name="patrons"
               value={patrons}
               onChange={(e) => setPatrons(e.target.value)}
               className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -240,6 +298,7 @@ export default function CreatePoolPage() {
             <div className="bg-[#2A2640] rounded-lg overflow-hidden">
               <textarea
                 placeholder="Write your story..."
+                name="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none min-h-[200px] resize-none"
@@ -278,22 +337,24 @@ export default function CreatePoolPage() {
               <input
                 type="text"
                 placeholder="Location (Optional)"
+                name="location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full p-4 pl-12 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
           </div>
-        </div>
+        </form>
       </div>
 
       {/* Launch Button - Fixed at bottom */}
       <div className="absolute bottom-0 left-0 right-0 px-6 py-6 bg-[#121212]">
         <button
-          onClick={handleLaunch}
+          onClick={handleSubmit}
           className="w-full py-4 bg-purple-500 rounded-full text-white font-medium text-lg"
+          disabled={isSubmitting}
         >
-          Launch Party Round
+          {isSubmitting ? "Creating..." : "Launch Party Round"}
         </button>
       </div>
     </div>

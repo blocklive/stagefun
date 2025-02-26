@@ -12,16 +12,24 @@ import {
 } from "react-icons/fa";
 import Image from "next/image";
 import BottomNavbar from "../../components/BottomNavbar";
-import patronsData from "../../data/patrons.json";
+import { useSupabase } from "../../../contexts/SupabaseContext";
+import { getPoolById } from "../../../lib/services/pool-service";
+import {
+  commitToPool,
+  getPatronsByPoolId,
+} from "../../../lib/services/patron-service";
+import { getUserById } from "../../../lib/services/user-service";
+import { Pool, User } from "../../../lib/supabase";
 
 export default function PoolDetailsPage() {
-  const { user } = usePrivy();
+  const { user: privyUser } = usePrivy();
+  const { dbUser } = useSupabase();
   const router = useRouter();
   const params = useParams();
-  const poolId = params.id;
+  const poolId = params.id as string;
 
   const [viewportHeight, setViewportHeight] = useState("100vh");
-  const [activeTab, setActiveTab] = useState("commit"); // "commit" or "withdraw"
+  const [activeTab, setActiveTab] = useState("commit");
   const [commitAmount, setCommitAmount] = useState("100");
   const [availableBalance, setAvailableBalance] = useState("140.04");
   const [timeLeft, setTimeLeft] = useState({
@@ -30,33 +38,12 @@ export default function PoolDetailsPage() {
     seconds: 12,
   });
   const [showPatrons, setShowPatrons] = useState(true);
+  const [pool, setPool] = useState<Pool | null>(null);
+  const [patrons, setPatrons] = useState<any[]>([]);
+  const [creator, setCreator] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock pool data - in a real app, you would fetch this from an API
-  const poolData = {
-    id: poolId,
-    name: "1X Technologies",
-    status: "Accepting patrons",
-    fundingStage: "Raising",
-    endsIn: "2 days",
-    targetAmount: "1,500,000",
-    raisedAmount: "0.47m",
-    percentComplete: 64,
-    currency: "USDC",
-    patronPass: true,
-    tokenAmount: "100,000",
-    tokenSymbol: "$PARTY",
-    description:
-      "Patrons will receive an all inclusive dinner with drinks provided. Planning for Nobu, subject to change",
-    location: "Denver, Colorado",
-    venue: "Convergence Station",
-    organizer: {
-      name: "Matt Hill",
-      username: "Eth Denver",
-      avatar: "/placeholder-avatar.png",
-    },
-  };
-
-  // Set the correct viewport height, accounting for mobile browsers
+  // Set the correct viewport height
   useEffect(() => {
     const updateHeight = () => {
       setViewportHeight(`${window.innerHeight}px`);
@@ -66,6 +53,54 @@ export default function PoolDetailsPage() {
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
+
+  // Fetch pool data
+  useEffect(() => {
+    const fetchPoolData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch pool details
+        const poolData = await getPoolById(poolId);
+        if (!poolData) {
+          console.error("Pool not found");
+          router.push("/pools");
+          return;
+        }
+
+        setPool(poolData);
+
+        // Fetch pool creator
+        const creatorData = await getUserById(poolData.creator_id);
+        setCreator(creatorData);
+
+        // Fetch patrons
+        const patronsData = await getPatronsByPoolId(poolId);
+        setPatrons(patronsData);
+
+        // Calculate time left
+        if (poolData.ends_at) {
+          const endTime = new Date(poolData.ends_at).getTime();
+          const now = new Date().getTime();
+          const diff = Math.max(0, endTime - now);
+
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+          setTimeLeft({ hours, minutes, seconds });
+        }
+      } catch (error) {
+        console.error("Error fetching pool data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (poolId) {
+      fetchPoolData();
+    }
+  }, [poolId, router]);
 
   // Countdown timer
   useEffect(() => {
@@ -90,10 +125,86 @@ export default function PoolDetailsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleCommit = () => {
-    console.log(`Committing ${commitAmount} USDC to pool ${poolId}`);
-    // In a real app, you would call an API to process the commitment
-    alert(`Successfully committed ${commitAmount} USDC!`);
+  const handleCommit = async () => {
+    if (!dbUser) {
+      alert("You must be logged in to commit to a pool");
+      return;
+    }
+
+    if (!pool) {
+      alert("Pool data not available");
+      return;
+    }
+
+    try {
+      const amount = parseFloat(commitAmount);
+      if (isNaN(amount) || amount <= 0) {
+        alert("Please enter a valid amount");
+        return;
+      }
+
+      const result = await commitToPool(dbUser.id, poolId, amount);
+
+      if (result) {
+        alert(`Successfully committed ${amount} ${pool.currency} to the pool!`);
+
+        // Refresh pool data
+        const updatedPool = await getPoolById(poolId);
+        if (updatedPool) setPool(updatedPool);
+
+        // Refresh patrons
+        const updatedPatrons = await getPatronsByPoolId(poolId);
+        setPatrons(updatedPatrons);
+      } else {
+        alert("Failed to commit to the pool");
+      }
+    } catch (error) {
+      console.error("Error committing to pool:", error);
+      alert("An error occurred while committing to the pool");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-black text-white">
+        <div className="text-center">
+          <div className="w-16 h-16 border-t-4 border-purple-500 border-solid rounded-full animate-spin mx-auto mb-4"></div>
+          <p>Loading pool details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!pool) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-black text-white">
+        <div className="text-center">
+          <p className="text-xl mb-4">Pool not found</p>
+          <button
+            onClick={() => router.push("/pools")}
+            className="bg-purple-500 px-6 py-3 rounded-full font-medium"
+          >
+            Back to Pools
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Format percentage
+  const percentComplete = Math.min(
+    100,
+    Math.round((pool.raised_amount / pool.target_amount) * 100)
+  );
+
+  // Format amounts
+  const formatAmount = (amount: number) => {
+    if (amount >= 1000000) {
+      return `${(amount / 1000000).toFixed(1)}M`;
+    } else if (amount >= 1000) {
+      return `${(amount / 1000).toFixed(1)}K`;
+    }
+    return amount.toString();
   };
 
   return (
@@ -101,234 +212,235 @@ export default function PoolDetailsPage() {
       className="flex flex-col bg-black text-white relative"
       style={{ height: viewportHeight }}
     >
-      {/* Header */}
-      <header className="flex justify-between items-center p-4">
+      {/* Header with back button */}
+      <header className="flex items-center p-4">
         <button
           onClick={() => router.back()}
-          className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
+          className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center mr-4"
         >
           <FaArrowLeft className="text-white" />
         </button>
 
-        {/* User profile image - right side of header */}
-        <div className="w-10 h-10 rounded-full overflow-hidden bg-purple-600">
-          {user?.avatar ? (
-            <Image
-              src={user.avatar}
-              alt="Profile"
-              width={40}
-              height={40}
-              className="object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-lg font-bold">
-              {user?.twitter?.username?.charAt(0).toUpperCase() || "U"}
-            </div>
-          )}
+        {/* Pool info */}
+        <div className="flex-1 flex items-center">
+          <div className="w-12 h-12 rounded-lg bg-purple-600 mr-3 flex items-center justify-center">
+            {pool.image_url ? (
+              <Image
+                src={pool.image_url}
+                alt={pool.name}
+                width={48}
+                height={48}
+                className="rounded-lg"
+              />
+            ) : (
+              <span className="text-xl font-bold">
+                {pool.name.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div>
+            <div className="text-purple-500 text-sm">{pool.status}</div>
+            <h1 className="text-2xl font-bold">{pool.name}</h1>
+          </div>
         </div>
       </header>
 
-      {/* Main content with scrolling */}
-      <div className="flex-1 overflow-y-auto" style={{ paddingBottom: "70px" }}>
-        {/* Pool Header */}
-        <div className="px-4">
-          {/* Pool Logo and Status */}
-          <div className="flex items-center mb-2">
-            <div className="w-16 h-16 bg-gray-300 rounded-lg mr-4 overflow-hidden">
-              <Image
-                src="/placeholder-logo.png"
-                alt={poolData.name}
-                width={64}
-                height={64}
-                className="object-cover"
-                onError={(e) => {
-                  // Fallback for image error
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = "none";
-                }}
-              />
+      <div className="flex-1 overflow-y-auto px-4 pb-24">
+        {/* Funding Progress */}
+        <div className="mb-4">
+          <div className="flex justify-between text-sm mb-1">
+            <div className="text-gray-400">
+              {pool.funding_stage} • Ends in{" "}
+              {new Date(pool.ends_at).toLocaleDateString()}
             </div>
             <div>
-              <div className="text-purple-500 text-sm">{poolData.status}</div>
-              <h1 className="text-2xl font-bold">{poolData.name}</h1>
+              {percentComplete}% • {formatAmount(pool.raised_amount)}/
+              {formatAmount(pool.target_amount)}
             </div>
           </div>
-
-          {/* Funding Progress */}
-          <div className="mb-4">
-            <div className="flex justify-between text-sm mb-1">
-              <div className="text-gray-400">
-                {poolData.fundingStage} • Ends in {poolData.endsIn}
-              </div>
-              <div>
-                {poolData.percentComplete}% • {poolData.raisedAmount}/
-                {poolData.targetAmount}
-              </div>
-            </div>
-            <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-purple-500 rounded-full"
-                style={{ width: `${poolData.percentComplete}%` }}
-              ></div>
-            </div>
+          <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-purple-500 rounded-full"
+              style={{ width: `${percentComplete}%` }}
+            ></div>
           </div>
+        </div>
 
-          {/* Tabs */}
-          <div className="flex mb-6 border-b border-gray-700">
-            <button
-              className={`flex-1 py-3 text-center ${
-                activeTab === "commit"
-                  ? "text-white border-b-2 border-purple-500"
-                  : "text-gray-400"
-              }`}
-              onClick={() => setActiveTab("commit")}
-            >
-              Commit
-            </button>
-            <button
-              className={`flex-1 py-3 text-center ${
-                activeTab === "withdraw"
-                  ? "text-white border-b-2 border-purple-500"
-                  : "text-gray-400"
-              }`}
-              onClick={() => setActiveTab("withdraw")}
-            >
-              Withdraw
-            </button>
-          </div>
+        {/* Tabs */}
+        <div className="flex mb-6 border-b border-gray-700">
+          <button
+            className={`flex-1 py-3 text-center ${
+              activeTab === "commit"
+                ? "text-white border-b-2 border-purple-500"
+                : "text-gray-400"
+            }`}
+            onClick={() => setActiveTab("commit")}
+          >
+            Commit
+          </button>
+          <button
+            className={`flex-1 py-3 text-center ${
+              activeTab === "withdraw"
+                ? "text-white border-b-2 border-purple-500"
+                : "text-gray-400"
+            }`}
+            onClick={() => setActiveTab("withdraw")}
+          >
+            Withdraw
+          </button>
+        </div>
 
-          {/* Commit Form */}
-          {activeTab === "commit" && (
-            <div>
-              <div className="mb-4">
-                <label className="block text-gray-400 mb-2">You commit</label>
-                <div className="flex items-center bg-[#1A1724] rounded-lg p-2">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-2">
+        {/* Commit Form */}
+        {activeTab === "commit" && (
+          <div>
+            {/* Amount Input */}
+            <div className="mb-6">
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                     <span className="text-white font-bold">$</span>
                   </div>
-                  <input
-                    type="text"
-                    value={commitAmount}
-                    onChange={(e) => setCommitAmount(e.target.value)}
-                    className="bg-transparent flex-1 text-3xl font-bold focus:outline-none"
-                  />
                 </div>
-                <div className="text-right text-gray-400 mt-1">
-                  Available {availableBalance} {poolData.currency}
+                <input
+                  type="text"
+                  value={commitAmount}
+                  onChange={(e) => setCommitAmount(e.target.value)}
+                  className="w-full p-4 pl-16 bg-[#1A1724] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+                  {pool.currency}
                 </div>
               </div>
+              <div className="flex justify-between text-sm mt-2">
+                <span className="text-gray-400">
+                  Available: {availableBalance} {pool.currency}
+                </span>
+                <button
+                  className="text-purple-500"
+                  onClick={() => setCommitAmount(availableBalance)}
+                >
+                  Max
+                </button>
+              </div>
+            </div>
 
-              {/* Patron Benefits */}
+            {/* You Receive Section */}
+            <div className="mb-6">
+              <h3 className="text-xl font-bold mb-2">You receive</h3>
               <div className="bg-[#1A1724] rounded-lg p-4 mb-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center mr-2">
-                      <FaCheck className="text-white text-xs" />
-                    </div>
-                    <span>Patron</span>
-                  </div>
-                  <div>
-                    {commitAmount} {poolData.currency}
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-700 my-4"></div>
-
                 <div className="flex items-center mb-2">
-                  <span className="text-gray-400 mr-2">1 ×</span>
-                  <span>Patron Pass</span>
+                  <div className="w-6 h-6 bg-purple-600 rounded-full mr-2 flex items-center justify-center">
+                    <FaCheck className="text-white text-xs" />
+                  </div>
+                  <span>1 x Patron Pass</span>
                 </div>
-
                 <div className="flex items-center">
-                  <span className="text-gray-400 mr-2">1 ×</span>
-                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center mr-2">
+                  <div className="w-6 h-6 bg-purple-600 rounded-full mr-2 flex items-center justify-center">
                     <span className="text-white text-xs">$</span>
                   </div>
                   <span>
-                    {poolData.tokenAmount} {poolData.tokenSymbol}
+                    {pool.token_amount.toLocaleString()} {pool.token_symbol}
                   </span>
                 </div>
               </div>
 
-              {/* Timer */}
+              {/* Time Left */}
               <div className="bg-[#1A1724] rounded-lg p-4 mb-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Time left</span>
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 bg-[#2A2640] rounded-lg flex items-center justify-center text-xl font-bold">
-                      {String(timeLeft.hours).padStart(2, "0")}
-                    </div>
-                    <span className="mx-2 text-xl">:</span>
-                    <div className="w-12 h-12 bg-[#2A2640] rounded-lg flex items-center justify-center text-xl font-bold">
-                      {String(timeLeft.minutes).padStart(2, "0")}
-                    </div>
-                    <span className="mx-2 text-xl">:</span>
-                    <div className="w-12 h-12 bg-[#2A2640] rounded-lg flex items-center justify-center text-xl font-bold">
-                      {String(timeLeft.seconds).padStart(2, "0")}
-                    </div>
+                <div className="text-gray-400 mb-2">Time left</div>
+                <div className="flex justify-center gap-2">
+                  <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
+                    {String(timeLeft.hours).padStart(2, "0")}
+                  </div>
+                  <div className="text-2xl font-bold flex items-center">:</div>
+                  <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
+                    {String(timeLeft.minutes).padStart(2, "0")}
+                  </div>
+                  <div className="text-2xl font-bold flex items-center">:</div>
+                  <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
+                    {String(timeLeft.seconds).padStart(2, "0")}
                   </div>
                 </div>
               </div>
 
-              {/* You Receive Section */}
+              {/* Description */}
               <div className="mb-4">
-                <h3 className="text-2xl font-bold mb-2">You receive</h3>
-                <p className="text-gray-400 mb-4">{poolData.description}</p>
-
-                {/* Location */}
-                {poolData.location && (
-                  <div className="bg-[#1A1724] rounded-lg p-4">
-                    <div className="flex items-center text-gray-400 mb-1">
-                      <FaMapMarkerAlt className="mr-2" />
-                      <span>{poolData.location}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>{poolData.venue}</span>
-                      <FaChevronRight className="text-gray-400" />
-                    </div>
-                  </div>
-                )}
+                <h3 className="text-xl font-bold mb-2">You receive</h3>
+                <p className="text-gray-400">{pool.description}</p>
               </div>
 
-              {/* Organizer Section */}
-              <div className="mb-4">
-                <h3 className="text-2xl font-bold mb-2">Organizer</h3>
-                <div className="bg-[#1A1724] rounded-lg p-4 flex items-center justify-between">
+              {/* Location */}
+              {pool.location && (
+                <div
+                  className="bg-[#1A1724] rounded-lg p-4 mb-4 flex items-center justify-between cursor-pointer"
+                  onClick={() => {
+                    // Open map or location details
+                  }}
+                >
                   <div className="flex items-center">
-                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-600 mr-3">
-                      <Image
-                        src={poolData.organizer.avatar}
-                        alt={poolData.organizer.name}
-                        width={48}
-                        height={48}
-                        className="object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = "none";
-                        }}
-                      />
+                    <div className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center mr-3">
+                      <FaMapMarkerAlt className="text-gray-400" />
                     </div>
                     <div>
-                      <div className="font-medium">
-                        {poolData.organizer.name}
-                      </div>
-                      <div className="text-sm text-gray-400">
-                        {poolData.organizer.username}
-                      </div>
+                      <div className="font-medium">{pool.location}</div>
+                      {pool.venue && (
+                        <div className="text-sm text-gray-400">
+                          {pool.venue}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <FaChevronRight className="text-gray-400" />
                 </div>
-              </div>
+              )}
 
-              {/* Patrons Section */}
+              {/* Organizer */}
+              {creator && (
+                <div className="mb-4">
+                  <h3 className="text-xl font-bold mb-2">Organizer</h3>
+                  <div
+                    className="bg-[#1A1724] rounded-lg p-4 flex items-center justify-between cursor-pointer"
+                    onClick={() => {
+                      // View organizer profile
+                    }}
+                  >
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-purple-600 mr-3">
+                        {creator.avatar_url ? (
+                          <Image
+                            src={creator.avatar_url}
+                            alt={creator.name || ""}
+                            width={48}
+                            height={48}
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <span className="text-xl font-bold">
+                              {creator.name?.charAt(0).toUpperCase() || "A"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium">{creator.name}</div>
+                        <div className="text-sm text-gray-400">
+                          {creator.username || "Anonymous"}
+                        </div>
+                      </div>
+                    </div>
+                    <FaChevronRight className="text-gray-400" />
+                  </div>
+                </div>
+              )}
+
+              {/* Patrons */}
               <div className="mb-4">
                 <div
                   className="flex items-center justify-between mb-2 cursor-pointer"
                   onClick={() => setShowPatrons(!showPatrons)}
                 >
-                  <h3 className="text-2xl font-bold">
-                    Patrons {patronsData.length}
+                  <h3 className="text-xl font-bold">
+                    Patrons {patrons.length}
                   </h3>
                   {showPatrons ? (
                     <FaChevronUp className="text-gray-400" />
@@ -339,36 +451,34 @@ export default function PoolDetailsPage() {
 
                 {showPatrons && (
                   <div className="space-y-2">
-                    {patronsData.map((patron, index) => (
+                    {patrons.map((patron, index) => (
                       <div
                         key={index}
                         className="bg-[#1A1724] rounded-lg p-4 flex items-center justify-between"
                       >
                         <div className="flex items-center">
-                          <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-600 mr-3">
-                            {patron.name.charAt(0) === "D" ||
-                            patron.name.charAt(0) === "M" ? (
-                              <div className="w-full h-full bg-teal-400 flex items-center justify-center text-white font-bold">
-                                {patron.name.charAt(0)}
-                              </div>
-                            ) : (
+                          <div className="w-12 h-12 rounded-full overflow-hidden bg-purple-600 mr-3">
+                            {patron.user?.avatar_url ? (
                               <Image
-                                src={patron.avatar}
-                                alt={patron.name}
-                                width={40}
-                                height={40}
+                                src={patron.user.avatar_url}
+                                alt={patron.user.name || ""}
+                                width={48}
+                                height={48}
                                 className="object-cover"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = "none";
-                                }}
                               />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className="text-xl font-bold">
+                                  {patron.user?.name?.charAt(0).toUpperCase() ||
+                                    "A"}
+                                </span>
+                              </div>
                             )}
                           </div>
                           <div>
                             <div className="flex items-center">
                               <span className="font-medium mr-1">
-                                {patron.name}
+                                {patron.user?.name || "Anonymous"}
                               </span>
                               {patron.verified && (
                                 <svg
@@ -389,7 +499,7 @@ export default function PoolDetailsPage() {
                               )}
                             </div>
                             <div className="text-sm text-gray-400">
-                              {patron.username}
+                              {patron.user?.username || "@anonymous"}
                             </div>
                           </div>
                         </div>
@@ -405,23 +515,23 @@ export default function PoolDetailsPage() {
                 )}
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Withdraw Form - Just a placeholder for now */}
-          {activeTab === "withdraw" && (
-            <div className="bg-[#1A1724] rounded-lg p-6 text-center">
-              <p className="text-gray-400 mb-4">
-                You haven't committed any funds to this pool yet.
-              </p>
-              <button
-                className="bg-purple-500 px-6 py-3 rounded-full font-medium"
-                onClick={() => setActiveTab("commit")}
-              >
-                Make a commitment
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Withdraw Form - Just a placeholder for now */}
+        {activeTab === "withdraw" && (
+          <div className="bg-[#1A1724] rounded-lg p-6 text-center">
+            <p className="text-gray-400 mb-4">
+              You haven't committed any funds to this pool yet.
+            </p>
+            <button
+              className="bg-purple-500 px-6 py-3 rounded-full font-medium"
+              onClick={() => setActiveTab("commit")}
+            >
+              Make a commitment
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Commit Button - Fixed at bottom */}

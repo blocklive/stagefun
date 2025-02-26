@@ -1,0 +1,79 @@
+import { createClient } from "@supabase/supabase-js";
+import { usePrivy } from "@privy-io/react-auth";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+console.log("Initializing Supabase client with URL:", supabaseUrl);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Create a function to get a Supabase client with the Privy JWT
+export async function getAuthenticatedSupabaseClient() {
+  const { getAccessToken } = usePrivy();
+
+  try {
+    // Get the Privy JWT
+    const privyToken = await getAccessToken();
+
+    if (!privyToken) {
+      console.error("No Privy token available");
+      return supabase;
+    }
+
+    // Create a new Supabase client with the Privy JWT
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${privyToken}`,
+        },
+      },
+    });
+
+    return authClient;
+  } catch (error) {
+    console.error("Error getting authenticated Supabase client:", error);
+    return supabase;
+  }
+}
+
+// Define types for your database tables
+export interface User {
+  id: string;
+  wallet_address: string;
+  name: string;
+  email?: string;
+  twitter_username?: string;
+  avatar_url?: string;
+  created_at: string;
+}
+
+export type Pool = {
+  id: string;
+  created_at?: string;
+  name: string;
+  status: string;
+  description: string;
+  funding_stage: string;
+  ends_at: string;
+  target_amount: number;
+  raised_amount: number;
+  currency: string;
+  token_amount: number;
+  token_symbol: string;
+  location?: string;
+  venue?: string;
+  image_url?: string;
+  creator_id: string;
+  creator_name?: string;
+  min_commitment?: number;
+  ticker?: string;
+};
+
+export type Patron = {
+  id: string;
+  created_at?: string;
+  user_id: string;
+  pool_id: string;
+  amount: number;
+  verified: boolean;
+};
