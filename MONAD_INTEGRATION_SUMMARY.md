@@ -9,7 +9,7 @@ We've successfully integrated the StageFun application with the Monad blockchain
 ### 1. Hardhat Configuration
 
 - Updated `hardhat.config.js` to add Monad network configurations:
-  - Added `monadTestnet` network (chainId: 2525)
+  - Added `monadTestnet` network (chainId: 10143)
   - Added `monadMainnet` network (chainId: 1024)
   - Updated solidity version to 0.8.24
 

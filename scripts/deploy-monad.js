@@ -7,8 +7,29 @@ async function main() {
   const network = hre.network.name;
   console.log(`Network: ${network}`);
 
+  // Debug: Check if the private key is being loaded
+  console.log(
+    "Checking network config:",
+    JSON.stringify({
+      url: hre.config.networks[network].url,
+      chainId: hre.config.networks[network].chainId,
+      hasAccounts:
+        Array.isArray(hre.config.networks[network].accounts) &&
+        hre.config.networks[network].accounts.length > 0,
+    })
+  );
+
   // Get the deployer account
-  const [deployer] = await hre.ethers.getSigners();
+  const signers = await hre.ethers.getSigners();
+  console.log(`Found ${signers.length} signers`);
+
+  if (signers.length === 0) {
+    throw new Error(
+      "No signers found. Make sure BLOCKCHAIN_PRIVATE_KEY is set in .env.local"
+    );
+  }
+
+  const deployer = signers[0];
   console.log(`Deploying with account: ${deployer.address}`);
 
   // Check balance
@@ -18,7 +39,7 @@ async function main() {
   // Deploy MockUSDC
   console.log("Deploying MockUSDC...");
   const MockUSDC = await hre.ethers.getContractFactory("MockUSDC");
-  const mockUSDC = await MockUSDC.deploy();
+  const mockUSDC = await MockUSDC.deploy("USD Coin", "USDC", 6);
   await mockUSDC.waitForDeployment();
   const mockUSDCAddress = await mockUSDC.getAddress();
   console.log(`MockUSDC deployed to: ${mockUSDCAddress}`);
@@ -54,7 +75,7 @@ async function main() {
     try {
       await hre.run("verify:verify", {
         address: mockUSDCAddress,
-        constructorArguments: [],
+        constructorArguments: ["USD Coin", "USDC", 6],
       });
     } catch (error) {
       console.log("Error verifying MockUSDC:", error.message);

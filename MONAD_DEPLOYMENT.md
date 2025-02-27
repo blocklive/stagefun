@@ -99,5 +99,5 @@ If contract verification fails:
 ## Resources
 
 - [Monad Documentation](https://docs.monad.xyz/)
-- [Monad Explorer](https://explorer.testnet.monad.xyz/)
+- [Monad Explorer](https://testnet.monadexplorer.com/)
 - [Monad Faucet](https://faucet.monad.xyz/)

@@ -226,7 +226,13 @@ export default function PoolDetailsPage() {
             <div className="flex justify-between items-center mb-2">
               <span className="text-gray-400">Transaction:</span>
               <a
-                href={pool.blockchain_explorer_url || getExplorerUrl(pool)}
+                href={
+                  pool.blockchain_explorer_url
+                    ? pool.blockchain_explorer_url
+                    : pool.blockchain_network === "monad"
+                    ? `https://testnet.monadexplorer.com/tx/${pool.blockchain_tx_hash}`
+                    : `https://sepolia.etherscan.io/tx/${pool.blockchain_tx_hash}`
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-400 underline text-sm truncate max-w-[200px]"
@@ -270,7 +276,7 @@ export default function PoolDetailsPage() {
     if (network === "monad") {
       return `${
         process.env.NEXT_PUBLIC_BLOCKCHAIN_EXPLORER ||
-        "https://explorer.testnet.monad.xyz"
+        "https://testnet.monadexplorer.com"
       }/tx/${txHash}`;
     } else if (network === "base") {
       return `https://sepolia.basescan.org/tx/${txHash}`;

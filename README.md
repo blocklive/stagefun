@@ -50,9 +50,9 @@ For detailed deployment instructions, see [MONAD_DEPLOYMENT.md](./MONAD_DEPLOYME
 
    # Blockchain Configuration
    BLOCKCHAIN_PRIVATE_KEY=your_private_key
-   MONAD_TESTNET_RPC_URL=https://rpc.testnet.monad.xyz
+   MONAD_TESTNET_RPC_URL=https://testnet-rpc.monad.xyz
    NEXT_PUBLIC_BLOCKCHAIN_NETWORK=monad
-   NEXT_PUBLIC_BLOCKCHAIN_EXPLORER=https://explorer.testnet.monad.xyz
+   NEXT_PUBLIC_BLOCKCHAIN_EXPLORER=https://testnet.monadexplorer.com
    ```
 
 4. Deploy the contracts to Monad:
