@@ -13,6 +13,7 @@ import {
 import Image from "next/image";
 import BottomNavbar from "../../components/BottomNavbar";
 import { useSupabase } from "../../../contexts/SupabaseContext";
+import { useContractInteraction } from "../../../hooks/useContractInteraction";
 import { getPoolById } from "../../../lib/services/pool-service";
 import {
   commitToPool,
@@ -42,6 +43,7 @@ export default function PoolDetailsPage() {
   const [patrons, setPatrons] = useState<any[]>([]);
   const [creator, setCreator] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCommitting, setIsCommitting] = useState(false);
 
   // Set the correct viewport height
   useEffect(() => {
@@ -143,24 +145,137 @@ export default function PoolDetailsPage() {
         return;
       }
 
-      const result = await commitToPool(dbUser.id, poolId, amount);
+      // First, commit to the blockchain
+      try {
+        // Get the contract interaction hook
+        const { commitToPool: commitToBlockchain } = useContractInteraction();
 
-      if (result) {
-        alert(`Successfully committed ${amount} ${pool.currency} to the pool!`);
+        // Show loading state
+        setIsCommitting(true);
 
-        // Refresh pool data
-        const updatedPool = await getPoolById(poolId);
-        if (updatedPool) setPool(updatedPool);
+        // Commit to the blockchain
+        await commitToBlockchain(poolId, amount);
 
-        // Refresh patrons
-        const updatedPatrons = await getPatronsByPoolId(poolId);
-        setPatrons(updatedPatrons);
-      } else {
-        alert("Failed to commit to the pool");
+        // If successful, also commit to the database
+        const result = await commitToPool(dbUser.id, poolId, amount);
+
+        if (result) {
+          alert(
+            `Successfully committed ${amount} ${pool.currency} to the pool!`
+          );
+
+          // Refresh pool data
+          const updatedPool = await getPoolById(poolId);
+          if (updatedPool) setPool(updatedPool);
+
+          // Refresh patrons
+          const updatedPatrons = await getPatronsByPoolId(poolId);
+          setPatrons(updatedPatrons);
+        } else {
+          alert("Failed to commit to the pool in the database");
+        }
+      } catch (error: any) {
+        console.error("Error committing to blockchain:", error);
+        alert(
+          `Blockchain transaction failed: ${error.message || "Unknown error"}`
+        );
+      } finally {
+        setIsCommitting(false);
       }
     } catch (error) {
       console.error("Error committing to pool:", error);
       alert("An error occurred while committing to the pool");
+      setIsCommitting(false);
+    }
+  };
+
+  // Render blockchain information section
+  const renderBlockchainInfo = () => {
+    if (!pool) return null;
+
+    return (
+      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+        <h3 className="text-lg font-semibold mb-2">Blockchain Information</h3>
+
+        {pool.blockchain_tx_hash ? (
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-400">Status:</span>
+              <span
+                className={`font-medium ${
+                  pool.blockchain_status === "confirmed"
+                    ? "text-green-400"
+                    : pool.blockchain_status === "pending"
+                    ? "text-yellow-400"
+                    : "text-red-400"
+                }`}
+              >
+                {pool.blockchain_status || "Unknown"}
+              </span>
+            </div>
+
+            {pool.blockchain_network && (
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400">Network:</span>
+                <span className="font-medium capitalize">
+                  {pool.blockchain_network}
+                </span>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-400">Transaction:</span>
+              <a
+                href={pool.blockchain_explorer_url || getExplorerUrl(pool)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 underline text-sm truncate max-w-[200px]"
+              >
+                {pool.blockchain_tx_hash.substring(0, 10)}...
+                {pool.blockchain_tx_hash.substring(
+                  pool.blockchain_tx_hash.length - 8
+                )}
+              </a>
+            </div>
+
+            {pool.blockchain_block_number && (
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Block:</span>
+                <span className="font-medium">
+                  {pool.blockchain_block_number}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-gray-400 text-center py-2">
+            No blockchain data available
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Helper function to get the explorer URL based on the network
+  const getExplorerUrl = (pool: Pool) => {
+    if (pool.blockchain_explorer_url) {
+      return pool.blockchain_explorer_url;
+    }
+
+    const network = pool.blockchain_network || "monad";
+    const txHash = pool.blockchain_tx_hash;
+
+    if (!txHash) return "#";
+
+    if (network === "monad") {
+      return `${
+        process.env.NEXT_PUBLIC_BLOCKCHAIN_EXPLORER ||
+        "https://explorer.testnet.monad.xyz"
+      }/tx/${txHash}`;
+    } else if (network === "base") {
+      return `https://sepolia.basescan.org/tx/${txHash}`;
+    } else {
+      return `https://sepolia.etherscan.io/tx/${txHash}`;
     }
   };
 
@@ -424,7 +539,7 @@ export default function PoolDetailsPage() {
                       <div>
                         <div className="font-medium">{creator.name}</div>
                         <div className="text-sm text-gray-400">
-                          {creator.username || "Anonymous"}
+                          {creator.twitter_username || "@anonymous"}
                         </div>
                       </div>
                     </div>
@@ -475,31 +590,12 @@ export default function PoolDetailsPage() {
                               </div>
                             )}
                           </div>
-                          <div>
-                            <div className="flex items-center">
-                              <span className="font-medium mr-1">
-                                {patron.user?.name || "Anonymous"}
-                              </span>
-                              {patron.verified && (
-                                <svg
-                                  width="16"
-                                  height="16"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                >
-                                  <path
-                                    d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
-                                    stroke="#8B5CF6"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              )}
+                          <div className="ml-3">
+                            <div className="font-semibold">
+                              {patron.user?.name || "Anonymous"}
                             </div>
                             <div className="text-sm text-gray-400">
-                              {patron.user?.username || "@anonymous"}
+                              {patron.user?.twitter_username || "@anonymous"}
                             </div>
                           </div>
                         </div>
@@ -530,6 +626,22 @@ export default function PoolDetailsPage() {
             >
               Make a commitment
             </button>
+          </div>
+        )}
+
+        {/* About Tab */}
+        {activeTab === "about" && (
+          <div className="p-6">
+            <h2 className="text-2xl font-bold mb-4">About</h2>
+            <p className="text-gray-300 mb-6">
+              {pool?.description || "No description available."}
+            </p>
+
+            {/* Add the blockchain information section */}
+            {renderBlockchainInfo()}
+
+            {/* Rest of the about tab content */}
+            {/* ... */}
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@
 
 import { PrivyProvider } from "@privy-io/react-auth";
 import { SupabaseProvider } from "../contexts/SupabaseContext";
+import { ContractInteractionProvider } from "../contexts/ContractInteractionContext";
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -19,7 +20,9 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
         },
       }}
     >
-      <SupabaseProvider>{children}</SupabaseProvider>
+      <SupabaseProvider>
+        <ContractInteractionProvider>{children}</ContractInteractionProvider>
+      </SupabaseProvider>
     </PrivyProvider>
   );
 }

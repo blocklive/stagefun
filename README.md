@@ -1,54 +1,100 @@
-# Party Rounds App
+# StageFun - Party Rounds on Monad
 
-A web application for creating and participating in funding pools.
-
-## Setup
-
-1. Clone the repository
-2. Install dependencies:
-   ```
-   npm install
-   ```
-3. Install Supabase CLI:
-   ```
-   brew install supabase/tap/supabase
-   ```
-4. Create a `.env.local` file with the following variables:
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-   NEXT_PUBLIC_PRIVY_APP_ID=your-privy-app-id
-   ```
-5. Apply the database schema:
-   ```
-   npm run apply-schema
-   ```
-6. Start the development server:
-   ```
-   npm run dev
-   ```
-
-## Database Management
-
-This project uses Supabase CLI for database management:
-
-- Apply migrations: `npm run db:push`
-- Reset database: `npm run db:reset`
-- Create a new migration: `npm run db:diff`
-
-## Database Structure
-
-The application uses Supabase as its database with the following tables:
-
-- **users**: Stores user information
-- **pools**: Stores pool/round information
-- **patrons**: Stores commitments from users to pools
+StageFun is a decentralized platform for creating and managing party rounds for events, built on the Monad blockchain.
 
 ## Features
 
-- User authentication via Privy
-- Create funding pools with customizable parameters
-- Browse open pools
+- Create party rounds with funding goals
 - Commit funds to pools
-- View pool details and participants
+- Receive tokens and patron passes
+- Track pool progress and status
+- Blockchain integration with Monad
+
+## Blockchain Integration
+
+StageFun is integrated with the Monad blockchain, a high-performance Ethereum-compatible L1 that offers 10,000 transactions per second. The integration includes:
+
+- Smart contracts for pool creation and commitments
+- Backend API for blockchain interactions
+- Transaction tracking and status updates
+- Explorer links for transparency
+
+For detailed deployment instructions, see [MONAD_DEPLOYMENT.md](./MONAD_DEPLOYMENT.md).
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js and npm
+- Supabase account
+- Privy account
+- Monad wallet with testnet tokens
+
+### Installation
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Set up environment variables in `.env.local`:
+
+   ```
+   # Supabase
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+   # Privy
+   NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
+
+   # Blockchain Configuration
+   BLOCKCHAIN_PRIVATE_KEY=your_private_key
+   MONAD_TESTNET_RPC_URL=https://rpc.testnet.monad.xyz
+   NEXT_PUBLIC_BLOCKCHAIN_NETWORK=monad
+   NEXT_PUBLIC_BLOCKCHAIN_EXPLORER=https://explorer.testnet.monad.xyz
+   ```
+
+4. Deploy the contracts to Monad:
+
+   ```bash
+   ./scripts/deploy-to-monad.sh
+   ```
+
+5. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+## Database Setup
+
+1. Initialize Supabase:
+
+   ```bash
+   npm run db:start
+   ```
+
+2. Apply migrations:
+   ```bash
+   npm run db:push
+   ```
+
+## Deployment
+
+To deploy to production:
+
+1. Build the application:
+
+   ```bash
+   npm run build
+   ```
+
+2. Deploy to your hosting provider of choice.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

@@ -67,6 +67,12 @@ export type Pool = {
   creator_name?: string;
   min_commitment?: number;
   ticker?: string;
+  // Blockchain fields
+  blockchain_tx_hash?: string;
+  blockchain_block_number?: number;
+  blockchain_status?: string;
+  blockchain_network?: string;
+  blockchain_explorer_url?: string;
 };
 
 export type Patron = {

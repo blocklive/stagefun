@@ -55,7 +55,9 @@ export default function CreatePoolPage() {
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>
+  ) => {
     e.preventDefault();
 
     if (!dbUser || !supabase || isClientLoading) {
@@ -102,7 +104,42 @@ export default function CreatePoolPage() {
         return;
       }
 
-      console.log("Pool created successfully:", data);
+      console.log("Pool created successfully in database:", data);
+
+      // Now create the pool on the blockchain using the backend API
+      try {
+        console.log("Creating pool on blockchain via backend API...");
+
+        const response = await fetch("/api/blockchain/create-pool", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            poolId: data.id,
+            targetAmount: poolData.target_amount,
+            userId: dbUser.id,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            result.error || "Failed to create pool on blockchain"
+          );
+        }
+
+        console.log("Pool created successfully on blockchain:", result);
+      } catch (blockchainError: any) {
+        console.error("Error creating pool on blockchain:", blockchainError);
+        // We don't want to block the user from proceeding if the blockchain transaction fails
+        // Just show a warning
+        alert(
+          "Warning: Pool was created in the database but blockchain transaction failed. Some features may be limited."
+        );
+      }
+
       router.push(`/pools/${data.id}`);
     } catch (error) {
       console.error("Error:", error);
