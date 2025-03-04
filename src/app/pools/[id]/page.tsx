@@ -2,7 +2,8 @@
 
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { ethers } from "ethers";
 import {
   FaArrowLeft,
   FaCheck,
@@ -20,6 +21,7 @@ import {
   getPatronsByPoolId,
 } from "../../../lib/services/patron-service";
 import { getUserById } from "../../../lib/services/user-service";
+import { getUSDCBalance } from "../../../lib/services/contract-service";
 import { Pool, User } from "../../../lib/supabase";
 
 export default function PoolDetailsPage() {
@@ -30,13 +32,16 @@ export default function PoolDetailsPage() {
   const poolId = params.id as string;
 
   // Use the context hook instead of the direct hook
-  const { commitToPool: commitToBlockchain, isLoading: isBlockchainLoading } =
-    useContractInteraction();
+  const {
+    commitToPool: commitToBlockchain,
+    isLoading: isBlockchainLoading,
+    getBalance,
+  } = useContractInteraction();
 
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState("commit");
   const [commitAmount, setCommitAmount] = useState("100");
-  const [availableBalance, setAvailableBalance] = useState("140.04");
+  const [availableBalance, setAvailableBalance] = useState<string>("0.00");
   const [timeLeft, setTimeLeft] = useState({
     hours: 47,
     minutes: 59,
@@ -49,6 +54,8 @@ export default function PoolDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [isApproving, setIsApproving] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
+  const [usdcBalance, setUsdcBalance] = useState<string>("0");
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
 
   // Set the correct viewport height
   useEffect(() => {
@@ -132,6 +139,40 @@ export default function PoolDetailsPage() {
     return () => clearInterval(timer);
   }, []);
 
+  // Single effect to handle balance checking
+  useEffect(() => {
+    const userAddress = privyUser?.wallet?.address;
+    if (!userAddress) {
+      console.log("No wallet address available, skipping balance check");
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingBalance(true);
+
+    const checkBalance = async () => {
+      try {
+        console.log("Checking balance for address:", userAddress);
+        const balance = await getBalance(userAddress);
+        if (isMounted) {
+          console.log("Setting balance to:", balance);
+          setUsdcBalance(balance);
+        }
+      } catch (error) {
+        console.error("Error checking balance:", error);
+      } finally {
+        if (isMounted) {
+          setIsLoadingBalance(false);
+        }
+      }
+    };
+
+    checkBalance();
+    return () => {
+      isMounted = false;
+    };
+  }, [privyUser?.wallet?.address, getBalance]);
+
   const handleCommit = async () => {
     if (!dbUser) {
       alert("You must be logged in to commit to a pool");
@@ -200,6 +241,10 @@ export default function PoolDetailsPage() {
       setIsCommitting(false);
     }
   };
+
+  const handleMaxClick = useCallback(() => {
+    setCommitAmount(usdcBalance);
+  }, [usdcBalance]);
 
   // Render blockchain information section
   const renderBlockchainInfo = () => {
@@ -445,13 +490,14 @@ export default function PoolDetailsPage() {
                 </div>
               </div>
               <div className="flex justify-between text-sm mt-2">
-                <span className="text-gray-400">
-                  Available: {availableBalance} {pool.currency}
-                </span>
-                <button
-                  className="text-purple-500"
-                  onClick={() => setCommitAmount(availableBalance)}
-                >
+                {isLoadingBalance ? (
+                  <p>Loading balance...</p>
+                ) : (
+                  <span className="text-gray-400">
+                    Available: {usdcBalance} {pool.currency}
+                  </span>
+                )}
+                <button className="text-purple-500" onClick={handleMaxClick}>
                   Max
                 </button>
               </div>

@@ -50,7 +50,7 @@ export const CONTRACT_ADDRESSES = {
     "0x0000000000000000000000000000000000000000",
   usdc:
     process.env.NEXT_PUBLIC_USDC_ADDRESS ||
-    "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea", // Monad testnet USDC
 };
 
 // Pool type matching the contract
@@ -81,7 +81,18 @@ export function getPoolCommitmentContract(
 }
 
 export function getUSDCContract(provider: ethers.Provider | ethers.Signer) {
-  return new ethers.Contract(CONTRACT_ADDRESSES.usdc, USDC_ABI, provider);
+  console.log("Getting USDC contract at address:", CONTRACT_ADDRESSES.usdc);
+  console.log("Using provider:", {
+    type: provider.constructor.name,
+    isProvider: "provider" in provider,
+  });
+  const contract = new ethers.Contract(
+    CONTRACT_ADDRESSES.usdc,
+    USDC_ABI,
+    provider
+  );
+  console.log("USDC contract created successfully");
+  return contract;
 }
 
 // Helper function to format USDC amounts (6 decimals)

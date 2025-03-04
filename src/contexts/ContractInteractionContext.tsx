@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useCallback } from "react";
 import { useContractInteraction as useContractInteractionHook } from "../hooks/useContractInteraction";
 import {
   ContractPool,
@@ -21,9 +21,30 @@ interface ContractInteractionContextType {
 }
 
 // Create the context
-const ContractInteractionContext = createContext<
-  ContractInteractionContextType | undefined
->(undefined);
+export const ContractInteractionContext =
+  createContext<ContractInteractionContextType>({
+    isLoading: false,
+    error: null,
+    createPool: async () => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
+    commitToPool: async () => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
+    getPool: async () => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
+    getPoolCommitments: async () => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
+    getUserCommitment: async () => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
+    getBalance: async () => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
+    walletAddress: null,
+  });
 
 // Provider component
 export const ContractInteractionProvider: React.FC<{

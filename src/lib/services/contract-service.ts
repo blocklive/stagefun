@@ -173,11 +173,15 @@ export async function getUSDCBalance(
   provider: ethers.Provider,
   userAddress: string
 ): Promise<string> {
+  console.log("Checking USDC balance for address:", userAddress);
   const contract = getUSDCContract(provider);
 
   try {
     const balance = await contract.balanceOf(userAddress);
-    return formatUSDC(balance);
+    console.log("Raw USDC balance:", balance.toString());
+    const formatted = formatUSDC(balance);
+    console.log("Formatted USDC balance:", formatted);
+    return formatted;
   } catch (error) {
     console.error("Error getting USDC balance:", error);
     return "0";

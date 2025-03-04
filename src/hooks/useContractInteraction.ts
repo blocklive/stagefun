@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import {
@@ -15,33 +15,53 @@ import {
 } from "../lib/contracts/PoolCommitment";
 
 export function useContractInteraction() {
-  const { user } = usePrivy();
-  const { wallets } = useWallets();
+  const { user, ready: privyReady } = usePrivy();
+  const { wallets, ready: walletsReady } = useWallets();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get the embedded wallet from Privy
-  const embeddedWallet = wallets.find(
-    (wallet) => wallet.walletClientType === "privy"
-  );
-
   // Function to get a provider for read operations
-  const getProvider = async () => {
-    if (!embeddedWallet) {
-      throw new Error("No embedded wallet found");
+  const getProvider = useCallback(async () => {
+    if (!privyReady) {
+      console.log("Privy not ready yet:", { privyReady });
+      throw new Error("Privy not initialized");
     }
 
-    return new ethers.BrowserProvider(
-      await embeddedWallet.getEthereumProvider()
+    // For read operations, we can use a direct RPC provider
+    console.log("Creating provider for Monad testnet");
+    const provider = new ethers.JsonRpcProvider(
+      "https://testnet-rpc.monad.xyz"
     );
-  };
+    console.log("Provider created successfully");
+    return provider;
+  }, [privyReady]);
 
   // Function to get a signer for write operations
   const getSigner = async () => {
+    if (!privyReady || !walletsReady) {
+      console.log("Privy or wallets not ready yet:", {
+        privyReady,
+        walletsReady,
+      });
+      throw new Error("Wallet not initialized");
+    }
+
+    console.log("Getting signer with wallets:", wallets.length);
+
+    // Find the embedded wallet
+    const embeddedWallet = wallets.find(
+      (wallet) => wallet.walletClientType === "privy"
+    );
+
     if (!embeddedWallet) {
+      console.error(
+        "No embedded wallet found in wallets:",
+        wallets.map((w) => ({ type: w.walletClientType, address: w.address }))
+      );
       throw new Error("No embedded wallet found");
     }
 
+    console.log("Found embedded wallet for signing:", embeddedWallet.address);
     const provider = new ethers.BrowserProvider(
       await embeddedWallet.getEthereumProvider()
     );
@@ -136,20 +156,43 @@ export function useContractInteraction() {
   };
 
   // Get USDC balance
-  const getBalance = async (userAddress: string): Promise<string> => {
-    setIsLoading(true);
-    setError(null);
+  const getBalance = useCallback(
+    async (userAddress: string): Promise<string> => {
+      if (!privyReady) {
+        console.log("Skipping balance check - Privy not ready:", {
+          privyReady,
+        });
+        return "0";
+      }
 
-    try {
-      const provider = await getProvider();
-      return await getUSDCBalance(provider, userAddress);
-    } catch (err: any) {
-      setError(err.message || "Error getting USDC balance");
-      return "0";
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      if (!user) {
+        console.log("Skipping balance check - user not logged in");
+        return "0";
+      }
+
+      try {
+        console.log(
+          "useContractInteraction: Getting balance for address:",
+          userAddress
+        );
+        const provider = await getProvider();
+        const balance = await getUSDCBalance(provider, userAddress);
+        console.log("useContractInteraction: Retrieved balance:", balance);
+        return balance;
+      } catch (err: any) {
+        console.error("useContractInteraction: Error getting balance:", err);
+        return "0";
+      }
+    },
+    [privyReady, user, getProvider]
+  );
+
+  // Get the current wallet address - only if everything is ready
+  const walletAddress =
+    privyReady && walletsReady
+      ? wallets.find((wallet) => wallet.walletClientType === "privy")
+          ?.address || null
+      : null;
 
   return {
     isLoading,
@@ -160,6 +203,6 @@ export function useContractInteraction() {
     getPoolCommitments,
     getUserCommitment,
     getBalance,
-    walletAddress: embeddedWallet?.address || null,
+    walletAddress,
   };
 }
