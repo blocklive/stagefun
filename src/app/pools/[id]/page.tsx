@@ -13,7 +13,7 @@ import {
 import Image from "next/image";
 import BottomNavbar from "../../components/BottomNavbar";
 import { useSupabase } from "../../../contexts/SupabaseContext";
-import { useContractInteraction } from "../../../hooks/useContractInteraction";
+import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
 import { getPoolById } from "../../../lib/services/pool-service";
 import {
   commitToPool,
@@ -29,6 +29,10 @@ export default function PoolDetailsPage() {
   const params = useParams();
   const poolId = params.id as string;
 
+  // Use the context hook instead of the direct hook
+  const { commitToPool: commitToBlockchain, isLoading: isBlockchainLoading } =
+    useContractInteraction();
+
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState("commit");
   const [commitAmount, setCommitAmount] = useState("100");
@@ -43,6 +47,7 @@ export default function PoolDetailsPage() {
   const [patrons, setPatrons] = useState<any[]>([]);
   const [creator, setCreator] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isApproving, setIsApproving] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
 
   // Set the correct viewport height
@@ -145,16 +150,21 @@ export default function PoolDetailsPage() {
         return;
       }
 
-      // First, commit to the blockchain
+      // Show loading state
+      setIsApproving(true);
+
       try {
-        // Get the contract interaction hook
-        const { commitToPool: commitToBlockchain } = useContractInteraction();
+        // Use the commitToBlockchain function from the hook
+        const { approvalTx, commitTx } = await commitToBlockchain(
+          poolId,
+          amount
+        );
 
-        // Show loading state
-        setIsCommitting(true);
-
-        // Commit to the blockchain
-        await commitToBlockchain(poolId, amount);
+        // If we needed to approve, show the commit step
+        if (approvalTx) {
+          setIsApproving(false);
+          setIsCommitting(true);
+        }
 
         // If successful, also commit to the database
         const result = await commitToPool(dbUser.id, poolId, amount);
@@ -180,11 +190,13 @@ export default function PoolDetailsPage() {
           `Blockchain transaction failed: ${error.message || "Unknown error"}`
         );
       } finally {
+        setIsApproving(false);
         setIsCommitting(false);
       }
     } catch (error) {
       console.error("Error committing to pool:", error);
       alert("An error occurred while committing to the pool");
+      setIsApproving(false);
       setIsCommitting(false);
     }
   };
@@ -657,9 +669,25 @@ export default function PoolDetailsPage() {
         <div className="absolute bottom-0 left-0 right-0 px-4 py-4 bg-black">
           <button
             onClick={handleCommit}
-            className="w-full py-4 bg-purple-500 rounded-full text-white font-medium text-lg"
+            disabled={isApproving || isCommitting || isBlockchainLoading}
+            className={`w-full py-4 ${
+              isApproving || isCommitting || isBlockchainLoading
+                ? "bg-purple-700 cursor-not-allowed"
+                : "bg-purple-500 hover:bg-purple-600"
+            } rounded-full text-white font-medium text-lg flex items-center justify-center`}
           >
-            Commit
+            {isApproving || isCommitting || isBlockchainLoading ? (
+              <>
+                <div className="w-5 h-5 border-t-2 border-white rounded-full animate-spin mr-3"></div>
+                {isApproving
+                  ? "Approving USDC..."
+                  : isCommitting
+                  ? "Committing..."
+                  : "Confirming..."}
+              </>
+            ) : (
+              "Commit"
+            )}
           </button>
         </div>
       )}

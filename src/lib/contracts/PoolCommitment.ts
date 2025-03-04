@@ -22,13 +22,24 @@ export const PoolCommitmentABI = [
   "function updateUsdcToken(address) external",
 ];
 
-// USDC ABI (simplified for our needs)
+// Full ERC20 ABI for USDC
 export const USDC_ABI = [
-  "function approve(address spender, uint256 amount) external returns (bool)",
-  "function allowance(address owner, address spender) external view returns (uint256)",
-  "function balanceOf(address account) external view returns (uint256)",
-  "function transfer(address recipient, uint256 amount) external returns (bool)",
-  "function transferFrom(address sender, address recipient, uint256 amount) external returns (bool)",
+  // Read-only functions
+  "function name() view returns (string)",
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
+  "function totalSupply() view returns (uint256)",
+  "function balanceOf(address owner) view returns (uint256)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+
+  // State-changing functions
+  "function transfer(address to, uint256 value) returns (bool)",
+  "function approve(address spender, uint256 value) returns (bool)",
+  "function transferFrom(address from, address to, uint256 value) returns (bool)",
+
+  // Events
+  "event Transfer(address indexed from, address indexed to, uint256 value)",
+  "event Approval(address indexed owner, address indexed spender, uint256 value)",
 ];
 
 // Contract addresses (to be updated after deployment)

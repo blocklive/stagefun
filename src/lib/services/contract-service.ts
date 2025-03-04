@@ -6,6 +6,7 @@ import {
   formatUSDC,
   ContractPool,
   ContractCommitment,
+  CONTRACT_ADDRESSES,
 } from "../contracts/PoolCommitment";
 
 /**
@@ -38,21 +39,58 @@ export async function commitToPoolOnChain(
   signer: ethers.Signer,
   poolId: string,
   amount: number
-): Promise<ethers.TransactionReceipt> {
-  const poolContract = getPoolCommitmentContract(signer);
-  const usdcContract = getUSDCContract(signer);
-  const amountWei = parseUSDC(amount.toString());
+): Promise<{
+  approvalTx: ethers.TransactionReceipt | null;
+  commitTx: ethers.TransactionReceipt;
+}> {
+  try {
+    const poolContract = getPoolCommitmentContract(signer);
+    const usdcContract = getUSDCContract(signer);
+    const signerAddress = await signer.getAddress();
+    const amountBigInt = parseUSDC(amount.toString());
 
-  // First, approve the USDC transfer
-  const approveTx = await usdcContract.approve(
-    await poolContract.getAddress(),
-    amountWei
-  );
-  await approveTx.wait();
+    console.log(
+      `Checking USDC allowance for pool contract: ${CONTRACT_ADDRESSES.poolCommitment}`
+    );
+    const currentAllowance = await usdcContract.allowance(
+      signerAddress,
+      CONTRACT_ADDRESSES.poolCommitment
+    );
+    console.log(`Current allowance: ${currentAllowance.toString()}`);
 
-  // Then, commit to the pool
-  const tx = await poolContract.commitToPool(poolId, amountWei);
-  return await tx.wait();
+    let approvalReceipt: ethers.TransactionReceipt | null = null;
+
+    if (currentAllowance < amountBigInt) {
+      console.log(`Approving USDC transfer of ${amount} USDC`);
+      const approveTx = await usdcContract.approve(
+        CONTRACT_ADDRESSES.poolCommitment,
+        amountBigInt
+      );
+      approvalReceipt = await approveTx.wait();
+      console.log(
+        `USDC approval confirmed in block ${approvalReceipt.blockNumber}`
+      );
+    } else {
+      console.log(
+        `Sufficient allowance exists: ${currentAllowance.toString()}`
+      );
+    }
+
+    console.log(`Committing ${amount} USDC to pool ${poolId}`);
+    const commitTx = await poolContract.commitToPool(poolId, amountBigInt);
+    const commitReceipt = await commitTx.wait();
+    console.log(
+      `Pool commitment confirmed in block ${commitReceipt.blockNumber}`
+    );
+
+    return {
+      approvalTx: approvalReceipt,
+      commitTx: commitReceipt,
+    };
+  } catch (error) {
+    console.error("Error in commitToPoolOnChain:", error);
+    throw error;
+  }
 }
 
 /**
