@@ -39,11 +39,11 @@ export const ContractInteractionProvider: React.FC<{
 };
 
 // Hook to use the context
-export function useContractInteraction() {
+export function useContractInteractionContext() {
   const context = useContext(ContractInteractionContext);
   if (context === undefined) {
     throw new Error(
-      "useContractInteraction must be used within a ContractInteractionProvider"
+      "useContractInteractionContext must be used within a ContractInteractionProvider"
     );
   }
   return context;

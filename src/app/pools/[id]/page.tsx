@@ -1,6 +1,6 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -13,7 +13,7 @@ import {
 import Image from "next/image";
 import BottomNavbar from "../../components/BottomNavbar";
 import { useSupabase } from "../../../contexts/SupabaseContext";
-import { useContractInteraction } from "../../../hooks/useContractInteraction";
+import { useContractInteractionContext } from "../../../contexts/ContractInteractionContext";
 import { getPoolById } from "../../../lib/services/pool-service";
 import {
   commitToPool,
@@ -28,6 +28,7 @@ export default function PoolDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const poolId = params.id as string;
+  const { commitToPool: commitToBlockchain } = useContractInteractionContext();
 
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState("commit");
@@ -145,46 +146,34 @@ export default function PoolDetailsPage() {
         return;
       }
 
-      // First, commit to the blockchain
-      try {
-        // Get the contract interaction hook
-        const { commitToPool: commitToBlockchain } = useContractInteraction();
+      // Show loading state
+      setIsCommitting(true);
 
-        // Show loading state
-        setIsCommitting(true);
+      // Commit to the blockchain
+      await commitToBlockchain(poolId, amount);
 
-        // Commit to the blockchain
-        await commitToBlockchain(poolId, amount);
+      // If successful, also commit to the database
+      const result = await commitToPool(dbUser.id, poolId, amount);
 
-        // If successful, also commit to the database
-        const result = await commitToPool(dbUser.id, poolId, amount);
+      if (result) {
+        alert(`Successfully committed ${amount} ${pool.currency} to the pool!`);
 
-        if (result) {
-          alert(
-            `Successfully committed ${amount} ${pool.currency} to the pool!`
-          );
+        // Refresh pool data
+        const updatedPool = await getPoolById(poolId);
+        if (updatedPool) setPool(updatedPool);
 
-          // Refresh pool data
-          const updatedPool = await getPoolById(poolId);
-          if (updatedPool) setPool(updatedPool);
-
-          // Refresh patrons
-          const updatedPatrons = await getPatronsByPoolId(poolId);
-          setPatrons(updatedPatrons);
-        } else {
-          alert("Failed to commit to the pool in the database");
-        }
-      } catch (error: any) {
-        console.error("Error committing to blockchain:", error);
-        alert(
-          `Blockchain transaction failed: ${error.message || "Unknown error"}`
-        );
-      } finally {
-        setIsCommitting(false);
+        // Refresh patrons
+        const updatedPatrons = await getPatronsByPoolId(poolId);
+        setPatrons(updatedPatrons);
+      } else {
+        alert("Failed to commit to the pool in the database");
       }
-    } catch (error) {
-      console.error("Error committing to pool:", error);
-      alert("An error occurred while committing to the pool");
+    } catch (error: any) {
+      console.error("Error committing to blockchain:", error);
+      alert(
+        `Blockchain transaction failed: ${error.message || "Unknown error"}`
+      );
+    } finally {
       setIsCommitting(false);
     }
   };

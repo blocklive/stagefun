@@ -3,6 +3,7 @@
 import { PrivyProvider } from "@privy-io/react-auth";
 import { SupabaseProvider } from "../contexts/SupabaseContext";
 import { ContractInteractionProvider } from "../contexts/ContractInteractionContext";
+import { NETWORK_CONFIG } from "../lib/contracts/PoolCommitment";
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -18,6 +19,34 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
         embeddedWallets: {
           createOnLogin: "users-without-wallets",
         },
+        defaultChain: {
+          id: 10143, // Monad Testnet chain ID
+          name: "Monad Testnet",
+          rpcUrls: {
+            default: { http: ["https://testnet-rpc.monad.xyz"] },
+            public: { http: ["https://testnet-rpc.monad.xyz"] },
+          },
+          nativeCurrency: {
+            name: "Monad",
+            symbol: "MON",
+            decimals: 18,
+          },
+        },
+        supportedChains: [
+          {
+            id: 10143, // Monad Testnet chain ID
+            name: "Monad Testnet",
+            rpcUrls: {
+              default: { http: ["https://testnet-rpc.monad.xyz"] },
+              public: { http: ["https://testnet-rpc.monad.xyz"] },
+            },
+            nativeCurrency: {
+              name: "Monad",
+              symbol: "MON",
+              decimals: 18,
+            },
+          },
+        ],
       }}
     >
       <SupabaseProvider>

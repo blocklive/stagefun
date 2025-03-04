@@ -33,13 +33,21 @@ export const USDC_ABI = [
 
 // Contract addresses (to be updated after deployment)
 export const CONTRACT_ADDRESSES = {
-  // Default to test addresses, will be updated with environment variables
+  // Default to Monad testnet addresses
   poolCommitment:
     process.env.NEXT_PUBLIC_POOL_COMMITMENT_ADDRESS ||
-    "0x0000000000000000000000000000000000000000",
+    "0x0000000000000000000000000000000000000000", // Update this with your deployed contract address
   usdc:
     process.env.NEXT_PUBLIC_USDC_ADDRESS ||
-    "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238", // Monad testnet USDC address
+};
+
+// Network configuration
+export const NETWORK_CONFIG = {
+  chainId: 10143, // Monad testnet chain ID
+  name: "Monad Testnet",
+  rpcUrl: "https://testnet-rpc.monad.xyz",
+  explorerUrl: "https://testnet.monadexplorer.com",
 };
 
 // Pool type matching the contract

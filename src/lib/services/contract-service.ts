@@ -6,7 +6,19 @@ import {
   formatUSDC,
   ContractPool,
   ContractCommitment,
+  NETWORK_CONFIG,
 } from "../contracts/PoolCommitment";
+
+// Helper function to get a provider with Monad network
+export function getMonadProvider() {
+  return new ethers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl);
+}
+
+// Helper function to get a signer with Monad network
+export async function getMonadSigner(signer: ethers.Signer) {
+  const provider = new ethers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl);
+  return await provider.getSigner();
+}
 
 /**
  * Creates a pool in the smart contract
@@ -23,7 +35,9 @@ export async function createPoolOnChain(
   const contract = getPoolCommitmentContract(signer);
   const targetAmountWei = parseUSDC(targetAmount.toString());
 
-  const tx = await contract.createPool(poolId, targetAmountWei);
+  const tx = await contract.createPool(poolId, targetAmountWei, {
+    gasLimit: 500000, // Adjust gas limit for Monad
+  });
   return await tx.wait();
 }
 
@@ -46,13 +60,18 @@ export async function commitToPoolOnChain(
   // First, approve the USDC transfer
   const approveTx = await usdcContract.approve(
     await poolContract.getAddress(),
-    amountWei
+    amountWei,
+    {
+      gasLimit: 100000, // Adjust gas limit for Monad
+    }
   );
   await approveTx.wait();
 
-  // Then, commit to the pool
-  const tx = await poolContract.commitToPool(poolId, amountWei);
-  return await tx.wait();
+  // Then commit to the pool
+  const commitTx = await poolContract.commitToPool(poolId, amountWei, {
+    gasLimit: 200000, // Adjust gas limit for Monad
+  });
+  return await commitTx.wait();
 }
 
 /**
