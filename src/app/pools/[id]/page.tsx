@@ -1,6 +1,6 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { ethers } from "ethers";
@@ -26,219 +26,159 @@ import { Pool, User } from "../../../lib/supabase";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
+  const { wallets, ready } = useWallets();
   const { dbUser } = useSupabase();
   const router = useRouter();
   const params = useParams();
   const poolId = params.id as string;
+  console.log("wallets >>", wallets, ready);
 
-  // Use the context hook instead of the direct hook
   const {
     commitToPool: commitToBlockchain,
     isLoading: isBlockchainLoading,
     getBalance,
+    walletsReady,
+    privyReady,
   } = useContractInteraction();
 
+  // Basic states
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState("commit");
-  const [commitAmount, setCommitAmount] = useState("100");
-  const [availableBalance, setAvailableBalance] = useState<string>("0.00");
+  const [commitAmount, setCommitAmount] = useState("1");
+  const [showPatrons, setShowPatrons] = useState(true);
   const [timeLeft, setTimeLeft] = useState({
     hours: 47,
     minutes: 59,
     seconds: 12,
   });
-  const [showPatrons, setShowPatrons] = useState(true);
+
+  // Data states
   const [pool, setPool] = useState<Pool | null>(null);
-  const [patrons, setPatrons] = useState<any[]>([]);
   const [creator, setCreator] = useState<User | null>(null);
+  const [patrons, setPatrons] = useState<any[]>([]);
+  const [usdcBalance, setUsdcBalance] = useState("0");
   const [loading, setLoading] = useState(true);
   const [isApproving, setIsApproving] = useState(false);
-  const [isCommitting, setIsCommitting] = useState(false);
-  const [usdcBalance, setUsdcBalance] = useState<string>("0");
-  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
 
-  // Set the correct viewport height
+  // Load initial pool data
   useEffect(() => {
-    const updateHeight = () => {
-      setViewportHeight(`${window.innerHeight}px`);
-    };
+    let mounted = true;
 
+    async function loadPoolData() {
+      try {
+        setLoading(true);
+        const poolData = await getPoolById(poolId);
+        if (!poolData || !mounted) return;
+
+        const [creatorData, patronsData] = await Promise.all([
+          getUserById(poolData.creator_id),
+          getPatronsByPoolId(poolId),
+        ]);
+
+        if (!mounted) return;
+
+        setPool(poolData);
+        setCreator(creatorData);
+        setPatrons(patronsData);
+      } catch (error) {
+        console.error("Error loading pool data:", error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadPoolData();
+    return () => {
+      mounted = false;
+    };
+  }, [poolId]);
+
+  // Separate effect for balance checking
+  useEffect(() => {
+    const address = privyUser?.wallet?.address;
+    if (!address || !privyReady) {
+      console.log("Skipping balance check - no address or Privy not ready");
+      return;
+    }
+
+    let mounted = true;
+
+    async function checkBalance() {
+      try {
+        console.log("Checking balance for address:", address);
+        const balance = await getBalance(address as string);
+        if (!mounted) return;
+        console.log("Setting balance:", balance);
+        setUsdcBalance(balance);
+      } catch (error) {
+        console.error("Error checking balance:", error);
+      }
+    }
+
+    checkBalance();
+    return () => {
+      mounted = false;
+    };
+  }, [privyUser?.wallet?.address, privyReady, getBalance]);
+
+  // Viewport height effect
+  useEffect(() => {
+    const updateHeight = () => setViewportHeight(`${window.innerHeight}px`);
     updateHeight();
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
-  // Fetch pool data
-  useEffect(() => {
-    const fetchPoolData = async () => {
-      try {
-        setLoading(true);
-
-        // Fetch pool details
-        const poolData = await getPoolById(poolId);
-        if (!poolData) {
-          console.error("Pool not found");
-          router.push("/pools");
-          return;
-        }
-
-        setPool(poolData);
-
-        // Fetch pool creator
-        const creatorData = await getUserById(poolData.creator_id);
-        setCreator(creatorData);
-
-        // Fetch patrons
-        const patronsData = await getPatronsByPoolId(poolId);
-        setPatrons(patronsData);
-
-        // Calculate time left
-        if (poolData.ends_at) {
-          const endTime = new Date(poolData.ends_at).getTime();
-          const now = new Date().getTime();
-          const diff = Math.max(0, endTime - now);
-
-          const hours = Math.floor(diff / (1000 * 60 * 60));
-          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-          setTimeLeft({ hours, minutes, seconds });
-        }
-      } catch (error) {
-        console.error("Error fetching pool data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (poolId) {
-      fetchPoolData();
-    }
-  }, [poolId, router]);
-
-  // Countdown timer
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        const newSeconds = prev.seconds - 1;
-        if (newSeconds >= 0) return { ...prev, seconds: newSeconds };
-
-        const newMinutes = prev.minutes - 1;
-        if (newMinutes >= 0)
-          return { ...prev, minutes: newMinutes, seconds: 59 };
-
-        const newHours = prev.hours - 1;
-        if (newHours >= 0) return { hours: newHours, minutes: 59, seconds: 59 };
-
-        // Timer reached zero
-        clearInterval(timer);
-        return { hours: 0, minutes: 0, seconds: 0 };
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  // Single effect to handle balance checking
-  useEffect(() => {
-    const userAddress = privyUser?.wallet?.address;
-    if (!userAddress) {
-      console.log("No wallet address available, skipping balance check");
-      return;
-    }
-
-    let isMounted = true;
-    setIsLoadingBalance(true);
-
-    const checkBalance = async () => {
-      try {
-        console.log("Checking balance for address:", userAddress);
-        const balance = await getBalance(userAddress);
-        if (isMounted) {
-          console.log("Setting balance to:", balance);
-          setUsdcBalance(balance);
-        }
-      } catch (error) {
-        console.error("Error checking balance:", error);
-      } finally {
-        if (isMounted) {
-          setIsLoadingBalance(false);
-        }
-      }
-    };
-
-    checkBalance();
-    return () => {
-      isMounted = false;
-    };
-  }, [privyUser?.wallet?.address, getBalance]);
-
   const handleCommit = async () => {
-    if (!dbUser) {
-      alert("You must be logged in to commit to a pool");
+    if (!dbUser || !pool) {
+      alert("Please ensure you are logged in");
       return;
     }
 
-    if (!pool) {
-      alert("Pool data not available");
+    if (!privyUser?.wallet?.address) {
+      alert("Please connect your wallet first");
       return;
     }
+
+    const amount = parseFloat(commitAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Please enter a valid amount");
+      return;
+    }
+
+    setIsApproving(true);
 
     try {
-      const amount = parseFloat(commitAmount);
-      if (isNaN(amount) || amount <= 0) {
-        alert("Please enter a valid amount");
-        return;
+      // Proceed with the blockchain transaction
+      console.log("Proceeding with commit transaction");
+      const receipt = await commitToBlockchain(poolId, amount);
+      console.log("Transaction receipt:", receipt);
+
+      // If blockchain transaction successful, update the database
+      const result = await commitToPool(dbUser.id, poolId, amount);
+      console.log("Database update result:", result);
+
+      if (result) {
+        // Refresh pool data
+        const [newPool, newPatrons] = await Promise.all([
+          getPoolById(poolId),
+          getPatronsByPoolId(poolId),
+        ]);
+
+        if (newPool) setPool(newPool);
+        if (newPatrons) setPatrons(newPatrons);
+
+        // Update balance
+        const newBalance = await getBalance(privyUser.wallet.address);
+        setUsdcBalance(newBalance);
+
+        alert(`Successfully committed ${amount} ${pool.currency} to the pool!`);
       }
-
-      // Show loading state
-      setIsApproving(true);
-
-      try {
-        // Use the commitToBlockchain function from the hook
-        const { approvalTx, commitTx } = await commitToBlockchain(
-          poolId,
-          amount
-        );
-
-        // If we needed to approve, show the commit step
-        if (approvalTx) {
-          setIsApproving(false);
-          setIsCommitting(true);
-        }
-
-        // If successful, also commit to the database
-        const result = await commitToPool(dbUser.id, poolId, amount);
-
-        if (result) {
-          alert(
-            `Successfully committed ${amount} ${pool.currency} to the pool!`
-          );
-
-          // Refresh pool data
-          const updatedPool = await getPoolById(poolId);
-          if (updatedPool) setPool(updatedPool);
-
-          // Refresh patrons
-          const updatedPatrons = await getPatronsByPoolId(poolId);
-          setPatrons(updatedPatrons);
-        } else {
-          alert("Failed to commit to the pool in the database");
-        }
-      } catch (error: any) {
-        console.error("Error committing to blockchain:", error);
-        alert(
-          `Blockchain transaction failed: ${error.message || "Unknown error"}`
-        );
-      } finally {
-        setIsApproving(false);
-        setIsCommitting(false);
-      }
-    } catch (error) {
-      console.error("Error committing to pool:", error);
-      alert("An error occurred while committing to the pool");
+    } catch (error: any) {
+      console.error("Error during commit:", error);
+      alert(`Transaction failed: ${error.message || "Unknown error"}`);
+    } finally {
       setIsApproving(false);
-      setIsCommitting(false);
     }
   };
 
@@ -490,13 +430,9 @@ export default function PoolDetailsPage() {
                 </div>
               </div>
               <div className="flex justify-between text-sm mt-2">
-                {isLoadingBalance ? (
-                  <p>Loading balance...</p>
-                ) : (
-                  <span className="text-gray-400">
-                    Available: {usdcBalance} {pool.currency}
-                  </span>
-                )}
+                <span className="text-gray-400">
+                  Available: {usdcBalance} {pool.currency}
+                </span>
                 <button className="text-purple-500" onClick={handleMaxClick}>
                   Max
                 </button>
@@ -715,21 +651,17 @@ export default function PoolDetailsPage() {
         <div className="absolute bottom-0 left-0 right-0 px-4 py-4 bg-black">
           <button
             onClick={handleCommit}
-            disabled={isApproving || isCommitting || isBlockchainLoading}
+            disabled={isApproving || isBlockchainLoading}
             className={`w-full py-4 ${
-              isApproving || isCommitting || isBlockchainLoading
+              isApproving || isBlockchainLoading
                 ? "bg-purple-700 cursor-not-allowed"
                 : "bg-purple-500 hover:bg-purple-600"
             } rounded-full text-white font-medium text-lg flex items-center justify-center`}
           >
-            {isApproving || isCommitting || isBlockchainLoading ? (
+            {isApproving || isBlockchainLoading ? (
               <>
                 <div className="w-5 h-5 border-t-2 border-white rounded-full animate-spin mr-3"></div>
-                {isApproving
-                  ? "Approving USDC..."
-                  : isCommitting
-                  ? "Committing..."
-                  : "Confirming..."}
+                {isApproving ? "Approving USDC..." : "Confirming..."}
               </>
             ) : (
               "Commit"

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useCallback } from "react";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useContractInteraction as useContractInteractionHook } from "../hooks/useContractInteraction";
 import {
   ContractPool,
@@ -18,6 +19,8 @@ interface ContractInteractionContextType {
   getUserCommitment: (userAddress: string, poolId: string) => Promise<string>;
   getBalance: (userAddress: string) => Promise<string>;
   walletAddress: string | null;
+  walletsReady: boolean;
+  privyReady: boolean;
 }
 
 // Create the context
@@ -44,6 +47,8 @@ export const ContractInteractionContext =
       throw new Error("ContractInteractionContext not initialized");
     },
     walletAddress: null,
+    walletsReady: false,
+    privyReady: false,
   });
 
 // Provider component
@@ -51,9 +56,17 @@ export const ContractInteractionProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   const contractInteraction = useContractInteractionHook();
+  const { ready: privyReady } = usePrivy();
+  const { ready: walletsReady } = useWallets();
+
+  const contextValue = {
+    ...contractInteraction,
+    privyReady,
+    walletsReady,
+  };
 
   return (
-    <ContractInteractionContext.Provider value={contractInteraction}>
+    <ContractInteractionContext.Provider value={contextValue}>
       {children}
     </ContractInteractionContext.Provider>
   );

@@ -8,6 +8,7 @@ import { ContractInteractionProvider } from "../contexts/ContractInteractionCont
 const MONAD_TESTNET = {
   id: 10143,
   name: "Monad Testnet",
+  network: "monad-testnet",
   rpcUrls: {
     default: {
       http: ["https://testnet-rpc.monad.xyz"],
@@ -21,6 +22,16 @@ const MONAD_TESTNET = {
     symbol: "MON",
     decimals: 18,
   },
+  blockExplorers: {
+    default: {
+      name: "Monad Explorer",
+      url: "https://testnet.monadexplorer.com",
+    },
+  },
+  testnet: true,
+  chainId: 10143,
+  networkId: 10143,
+  chainName: "Monad Testnet",
 };
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
@@ -40,7 +51,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
           useSandbox: true,
         },
         embeddedWallets: {
-          createOnLogin: "users-without-wallets",
+          createOnLogin: "all-users",
         },
       }}
     >

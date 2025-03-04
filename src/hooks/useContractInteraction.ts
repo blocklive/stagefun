@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { usePrivy, useWallets, ConnectedWallet } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import {
   commitToPoolOnChain,
@@ -15,58 +15,106 @@ import {
 } from "../lib/contracts/PoolCommitment";
 
 export function useContractInteraction() {
-  const { user, ready: privyReady } = usePrivy();
+  const { user, ready: privyReady, login } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [embeddedWallet, setEmbeddedWallet] = useState<ConnectedWallet | null>(
+    null
+  );
+  const initializationAttempted = useRef(false);
+
+  // Initialize the wallet when Privy is ready
+  useEffect(() => {
+    async function initWallet() {
+      if (!privyReady || !user?.wallet?.address) {
+        console.log("Waiting for Privy and user to be ready...");
+        return;
+      }
+
+      try {
+        // First ensure the user is logged in
+        if (!user) {
+          console.log("User not logged in, logging in...");
+          await login();
+          return;
+        }
+
+        // Then check for existing wallets
+        if (walletsReady) {
+          console.log("Checking wallets:", wallets);
+          const embedded = wallets.find(
+            (wallet: ConnectedWallet) => wallet.walletClientType === "privy"
+          );
+
+          if (embedded) {
+            console.log("Found embedded wallet, linking...");
+            await embedded.loginOrLink();
+            setEmbeddedWallet(embedded);
+          }
+        }
+      } catch (error) {
+        console.error("Error in wallet initialization:", error);
+      }
+    }
+
+    initWallet();
+  }, [privyReady, walletsReady, user, wallets, login]);
 
   // Function to get a provider for read operations
   const getProvider = useCallback(async () => {
-    if (!privyReady) {
-      console.log("Privy not ready yet:", { privyReady });
-      throw new Error("Privy not initialized");
-    }
-
-    // For read operations, we can use a direct RPC provider
-    console.log("Creating provider for Monad testnet");
-    const provider = new ethers.JsonRpcProvider(
-      "https://testnet-rpc.monad.xyz"
-    );
-    console.log("Provider created successfully");
-    return provider;
-  }, [privyReady]);
-
-  // Function to get a signer for write operations
-  const getSigner = async () => {
-    if (!privyReady || !walletsReady) {
-      console.log("Privy or wallets not ready yet:", {
+    if (!embeddedWallet) {
+      console.error("No embedded wallet available. Current state:", {
         privyReady,
         walletsReady,
+        hasUser: !!user,
+        userWallet: user?.wallet,
       });
-      throw new Error("Wallet not initialized");
+      throw new Error(
+        "No embedded wallet found - please check wallet connection"
+      );
     }
 
-    console.log("Getting signer with wallets:", wallets.length);
+    try {
+      console.log("Getting ethereum provider from wallet");
+      const provider = await embeddedWallet.getEthereumProvider();
+      console.log("Creating BrowserProvider with provider:", provider);
+      const ethersProvider = new ethers.BrowserProvider(provider);
+      return ethersProvider;
+    } catch (error) {
+      console.error("Error creating provider:", error);
+      throw error;
+    }
+  }, [embeddedWallet, privyReady, walletsReady, user]);
 
-    // Find the embedded wallet
-    const embeddedWallet = wallets.find(
-      (wallet) => wallet.walletClientType === "privy"
-    );
+  // Function to get a signer for write operations
+  const getSigner = useCallback(async () => {
+    if (!user) {
+      throw new Error("User not logged in");
+    }
 
     if (!embeddedWallet) {
-      console.error(
-        "No embedded wallet found in wallets:",
-        wallets.map((w) => ({ type: w.walletClientType, address: w.address }))
+      console.error("No embedded wallet found. Current wallet:", user?.wallet);
+      throw new Error(
+        "No embedded wallet found - please check wallet connection"
       );
-      throw new Error("No embedded wallet found");
     }
 
-    console.log("Found embedded wallet for signing:", embeddedWallet.address);
-    const provider = new ethers.BrowserProvider(
-      await embeddedWallet.getEthereumProvider()
-    );
-    return await provider.getSigner();
-  };
+    try {
+      const provider = await getProvider();
+      console.log("Getting signer");
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+      console.log("Successfully got signer for address:", address);
+      return signer;
+    } catch (error) {
+      console.error("Error getting signer:", error);
+      throw new Error(
+        "Failed to initialize wallet signer: " +
+          (error instanceof Error ? error.message : "Unknown error")
+      );
+    }
+  }, [user, embeddedWallet, getProvider]);
 
   // Create a pool on the blockchain
   const createPool = async (poolId: string, targetAmount: number) => {
@@ -86,21 +134,45 @@ export function useContractInteraction() {
   };
 
   // Commit to a pool on the blockchain
-  const commitToPool = async (poolId: string, amount: number) => {
-    setIsLoading(true);
-    setError(null);
+  const commitToPool = useCallback(
+    async (poolId: string, amount: number) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const signer = await getSigner();
-      const receipt = await commitToPoolOnChain(signer, poolId, amount);
-      return receipt;
-    } catch (err: any) {
-      setError(err.message || "Error committing to pool on chain");
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      try {
+        if (!user) {
+          throw new Error("User not logged in");
+        }
+
+        console.log(
+          "Starting commit process for pool:",
+          poolId,
+          "amount:",
+          amount
+        );
+
+        const signer = await getSigner();
+        const signerAddress = await signer.getAddress();
+        console.log("Got signer for address:", signerAddress);
+
+        console.log("Proceeding with commit");
+        const receipt = await commitToPoolOnChain(signer, poolId, amount);
+        console.log("Commit successful, receipt:", receipt);
+        return receipt;
+      } catch (err) {
+        console.error("Error in commitToPool:", err);
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Error committing to pool on chain";
+        setError(errorMessage);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user, getSigner]
+  );
 
   // Get pool data from the blockchain
   const getPool = async (poolId: string): Promise<ContractPool | null> => {
@@ -155,44 +227,29 @@ export function useContractInteraction() {
     }
   };
 
-  // Get USDC balance
+  // Get USDC balance with optimized memory usage
   const getBalance = useCallback(
     async (userAddress: string): Promise<string> => {
-      if (!privyReady) {
-        console.log("Skipping balance check - Privy not ready:", {
-          privyReady,
-        });
-        return "0";
-      }
-
-      if (!user) {
-        console.log("Skipping balance check - user not logged in");
+      if (!user || !userAddress || !embeddedWallet) {
+        console.log(
+          "Skipping balance check - user not logged in, no address, or no wallet"
+        );
         return "0";
       }
 
       try {
-        console.log(
-          "useContractInteraction: Getting balance for address:",
-          userAddress
-        );
+        console.log("Getting balance for address:", userAddress);
         const provider = await getProvider();
         const balance = await getUSDCBalance(provider, userAddress);
-        console.log("useContractInteraction: Retrieved balance:", balance);
+        console.log("Retrieved balance:", balance);
         return balance;
-      } catch (err: any) {
-        console.error("useContractInteraction: Error getting balance:", err);
+      } catch (error) {
+        console.error("Error getting balance:", error);
         return "0";
       }
     },
-    [privyReady, user, getProvider]
+    [user, embeddedWallet, getProvider]
   );
-
-  // Get the current wallet address - only if everything is ready
-  const walletAddress =
-    privyReady && walletsReady
-      ? wallets.find((wallet) => wallet.walletClientType === "privy")
-          ?.address || null
-      : null;
 
   return {
     isLoading,
@@ -203,6 +260,8 @@ export function useContractInteraction() {
     getPoolCommitments,
     getUserCommitment,
     getBalance,
-    walletAddress,
+    walletAddress: embeddedWallet?.address || null,
+    walletsReady: privyReady && walletsReady && !!user?.wallet,
+    privyReady,
   };
 }

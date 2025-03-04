@@ -44,44 +44,45 @@ export async function commitToPoolOnChain(
   commitTx: ethers.TransactionReceipt;
 }> {
   try {
+    const signerAddress = await signer.getAddress();
+    console.log("Using signer address:", signerAddress);
+
+    // Create contracts with explicit provider configuration
     const poolContract = getPoolCommitmentContract(signer);
     const usdcContract = getUSDCContract(signer);
-    const signerAddress = await signer.getAddress();
     const amountBigInt = parseUSDC(amount.toString());
 
-    console.log(
-      `Checking USDC allowance for pool contract: ${CONTRACT_ADDRESSES.poolCommitment}`
-    );
+    // Check allowance
+    console.log("Checking USDC allowance");
     const currentAllowance = await usdcContract.allowance(
       signerAddress,
       CONTRACT_ADDRESSES.poolCommitment
     );
-    console.log(`Current allowance: ${currentAllowance.toString()}`);
+    console.log("Current allowance:", currentAllowance.toString());
 
     let approvalReceipt: ethers.TransactionReceipt | null = null;
 
+    // Handle approval if needed
     if (currentAllowance < amountBigInt) {
-      console.log(`Approving USDC transfer of ${amount} USDC`);
+      console.log("Approving USDC transfer");
       const approveTx = await usdcContract.approve(
         CONTRACT_ADDRESSES.poolCommitment,
-        amountBigInt
+        amountBigInt,
+        {
+          gasLimit: 100000,
+        }
       );
       approvalReceipt = await approveTx.wait();
-      console.log(
-        `USDC approval confirmed in block ${approvalReceipt.blockNumber}`
-      );
-    } else {
-      console.log(
-        `Sufficient allowance exists: ${currentAllowance.toString()}`
-      );
+      console.log("Approval confirmed in block:", approvalReceipt?.blockNumber);
     }
 
-    console.log(`Committing ${amount} USDC to pool ${poolId}`);
-    const commitTx = await poolContract.commitToPool(poolId, amountBigInt);
+    // Execute commitment
+    console.log("Executing pool commitment");
+    const commitTx = await poolContract.commitToPool(poolId, amountBigInt, {
+      gasLimit: 200000,
+    });
     const commitReceipt = await commitTx.wait();
-    console.log(
-      `Pool commitment confirmed in block ${commitReceipt.blockNumber}`
-    );
+    console.log("Commitment confirmed in block:", commitReceipt.blockNumber);
 
     return {
       approvalTx: approvalReceipt,
@@ -89,7 +90,10 @@ export async function commitToPoolOnChain(
     };
   } catch (error) {
     console.error("Error in commitToPoolOnChain:", error);
-    throw error;
+    if (error instanceof Error) {
+      throw new Error(`Transaction failed: ${error.message}`);
+    }
+    throw new Error("Transaction failed with unknown error");
   }
 }
 
@@ -173,14 +177,17 @@ export async function getUSDCBalance(
   provider: ethers.Provider,
   userAddress: string
 ): Promise<string> {
-  console.log("Checking USDC balance for address:", userAddress);
-  const contract = getUSDCContract(provider);
+  if (!userAddress) {
+    console.log("No address provided for balance check");
+    return "0";
+  }
 
   try {
+    console.log("Getting USDC balance for:", userAddress);
+    const contract = getUSDCContract(provider);
     const balance = await contract.balanceOf(userAddress);
-    console.log("Raw USDC balance:", balance.toString());
     const formatted = formatUSDC(balance);
-    console.log("Formatted USDC balance:", formatted);
+    console.log("Balance:", formatted, "USDC");
     return formatted;
   } catch (error) {
     console.error("Error getting USDC balance:", error);
