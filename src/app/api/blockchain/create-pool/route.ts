@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { ethers } from "ethers";
 import { createClient } from "@supabase/supabase-js";
 import {
-  getPoolCommitmentContract,
-  parseUSDC,
-} from "@/lib/contracts/PoolCommitment";
+  getStageDotFunPoolContract,
+  getPoolId,
+} from "@/lib/contracts/StageDotFunPool";
 
 // Initialize Supabase admin client for verification
 const supabaseAdmin = createClient(
@@ -15,19 +15,11 @@ const supabaseAdmin = createClient(
 export async function POST(req: NextRequest) {
   try {
     // Get pool data from request
-    const { poolId, targetAmount, userId } = await req.json();
+    const { poolId, name, userId } = await req.json();
 
-    if (!poolId || !targetAmount || !userId) {
+    if (!poolId || !name || !userId) {
       return NextResponse.json(
         { error: "Missing required parameters" },
-        { status: 400 }
-      );
-    }
-
-    // Validate target amount
-    if (isNaN(parseFloat(targetAmount)) || parseFloat(targetAmount) <= 0) {
-      return NextResponse.json(
-        { error: "Target amount must be a positive number" },
         { status: 400 }
       );
     }
@@ -135,16 +127,11 @@ export async function POST(req: NextRequest) {
     console.log(`Using wallet address: ${wallet.address}`);
 
     // Get the contract
-    const contract = getPoolCommitmentContract(wallet);
-
-    // Convert target amount to the correct format (USDC has 6 decimals)
-    const targetAmountWei = parseUSDC(targetAmount.toString());
+    const contract = getStageDotFunPoolContract(wallet);
 
     // Create the pool on the blockchain
-    console.log(
-      `Creating pool ${poolId} with target amount ${targetAmountWei} on ${blockchainNetwork}`
-    );
-    const tx = await contract.createPool(poolId, targetAmountWei);
+    console.log(`Creating pool ${name} on ${blockchainNetwork}`);
+    const tx = await contract.createPool(name);
     console.log("Transaction sent:", tx.hash);
 
     // Update the pool in the database with pending blockchain information
@@ -159,6 +146,14 @@ export async function POST(req: NextRequest) {
 
     const receipt = await tx.wait();
     console.log("Transaction confirmed in block:", receipt.blockNumber);
+
+    // Get the LP token address from the PoolCreated event
+    const poolCreatedEvent = receipt.logs.find(
+      (log: any) => log.eventName === "PoolCreated"
+    );
+    if (!poolCreatedEvent) {
+      throw new Error("PoolCreated event not found");
+    }
 
     // Determine the explorer URL based on the blockchain network
     let explorerUrl;
@@ -185,6 +180,7 @@ export async function POST(req: NextRequest) {
         blockchain_status: "confirmed",
         blockchain_network: blockchainNetwork,
         blockchain_explorer_url: `${explorerUrl}/tx/${receipt.hash}`,
+        contract_address: poolCreatedEvent.args.lpTokenAddress,
       })
       .eq("id", poolId);
 
@@ -199,6 +195,7 @@ export async function POST(req: NextRequest) {
       blockNumber: receipt.blockNumber,
       network: blockchainNetwork,
       explorerUrl: `${explorerUrl}/tx/${receipt.hash}`,
+      lpTokenAddress: poolCreatedEvent.args.lpTokenAddress,
     });
   } catch (error: any) {
     console.error("Error creating pool on blockchain:", error);

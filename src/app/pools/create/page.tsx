@@ -117,7 +117,7 @@ export default function CreatePoolPage() {
           },
           body: JSON.stringify({
             poolId: data.id,
-            targetAmount: poolData.target_amount,
+            name: poolData.name,
             userId: dbUser.id,
           }),
         });

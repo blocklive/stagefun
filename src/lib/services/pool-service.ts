@@ -1,4 +1,6 @@
 import { supabase, getAuthenticatedSupabaseClient, Pool } from "../supabase";
+import { createPoolOnChain } from "./contract-service";
+import { ethers } from "ethers";
 
 export async function createPool(
   poolData: Omit<Pool, "id" | "created_at" | "creator_id">,
@@ -28,6 +30,77 @@ export async function createPool(
     if (error) {
       console.error("Supabase error:", error);
       throw error;
+    }
+
+    // Create the pool on the blockchain
+    try {
+      // Get the user's wallet address
+      const { data: userData } = await authClient
+        .from("users")
+        .select("wallet_address")
+        .eq("id", userId)
+        .single();
+
+      if (!userData?.wallet_address) {
+        throw new Error("User wallet address not found");
+      }
+
+      // Get the provider and signer
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner(userData.wallet_address);
+
+      const { receipt, poolId } = await createPoolOnChain(
+        signer,
+        poolData.name
+      );
+
+      // Get the LP token address from the PoolCreated event
+      const poolCreatedEvent = receipt.logs.find(
+        (log: any) => log.eventName === "PoolCreated"
+      );
+      if (!poolCreatedEvent) {
+        throw new Error("PoolCreated event not found");
+      }
+
+      // Parse the event data
+      const iface = new ethers.Interface([
+        "event PoolCreated(bytes32 indexed poolId, string name, address lpTokenAddress)",
+      ]);
+      const parsedLog = iface.parseLog({
+        topics: poolCreatedEvent.topics,
+        data: poolCreatedEvent.data,
+      });
+
+      if (!parsedLog) {
+        throw new Error("Failed to parse PoolCreated event");
+      }
+
+      const lpTokenAddress = parsedLog.args[2]; // lpTokenAddress is the third argument
+
+      // Update the pool with the contract address
+      const { error: updateError } = await authClient
+        .from("pools")
+        .update({
+          contract_address: lpTokenAddress,
+          blockchain_tx_hash: receipt.hash,
+          blockchain_block_number: receipt.blockNumber,
+          blockchain_status: "confirmed",
+        })
+        .eq("id", data.id);
+
+      if (updateError) {
+        console.error(
+          "Error updating pool with contract address:",
+          updateError
+        );
+        throw updateError;
+      }
+
+      // Update the returned data with the contract address
+      data.contract_address = lpTokenAddress;
+    } catch (error) {
+      console.error("Error creating pool on blockchain:", error);
+      // Don't throw here, as the pool was created in the database
     }
 
     return data as Pool;

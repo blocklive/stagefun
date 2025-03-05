@@ -2,17 +2,13 @@ import { useState, useCallback } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import {
-  commitToPoolOnChain,
+  depositToPoolOnChain,
   createPoolOnChain,
   getPoolFromChain,
-  getPoolCommitmentsFromChain,
-  getUserCommitmentFromChain,
-  getUSDCBalance,
+  getPoolLpHoldersFromChain,
+  getUserPoolBalanceFromChain,
 } from "../lib/services/contract-service";
-import {
-  ContractPool,
-  ContractCommitment,
-} from "../lib/contracts/PoolCommitment";
+import { ContractPool } from "../lib/contracts/StageDotFunPool";
 
 export function useContractInteraction() {
   const { user, ready: privyReady } = usePrivy();
@@ -63,14 +59,14 @@ export function useContractInteraction() {
   }, [user, getProvider]);
 
   // Create a pool on the blockchain
-  const createPool = async (poolId: string, targetAmount: number) => {
+  const createPool = async (name: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
       const signer = await getSigner();
-      const receipt = await createPoolOnChain(signer, poolId, targetAmount);
-      return receipt;
+      const { receipt, poolId } = await createPoolOnChain(signer, name);
+      return { receipt, poolId };
     } catch (err: any) {
       setError(err.message || "Error creating pool on chain");
       throw err;
@@ -79,8 +75,8 @@ export function useContractInteraction() {
     }
   };
 
-  // Commit to a pool on the blockchain
-  const commitToPool = useCallback(
+  // Deposit to a pool on the blockchain
+  const depositToPool = useCallback(
     async (poolId: string, amount: number) => {
       setIsLoading(true);
       setError(null);
@@ -91,7 +87,7 @@ export function useContractInteraction() {
         }
 
         console.log(
-          "Starting commit process for pool:",
+          "Starting deposit process for pool:",
           poolId,
           "amount:",
           amount
@@ -101,16 +97,16 @@ export function useContractInteraction() {
         const signerAddress = await signer.getAddress();
         console.log("Got signer for address:", signerAddress);
 
-        console.log("Proceeding with commit");
-        const receipt = await commitToPoolOnChain(signer, poolId, amount);
-        console.log("Commit successful, receipt:", receipt);
+        console.log("Proceeding with deposit");
+        const receipt = await depositToPoolOnChain(signer, poolId, amount);
+        console.log("Deposit successful, receipt:", receipt);
         return receipt;
       } catch (err) {
-        console.error("Error in commitToPool:", err);
+        console.error("Error in depositToPool:", err);
         const errorMessage =
           err instanceof Error
             ? err.message
-            : "Error committing to pool on chain";
+            : "Error depositing to pool on chain";
         setError(errorMessage);
         throw err;
       } finally {
@@ -136,26 +132,24 @@ export function useContractInteraction() {
     }
   };
 
-  // Get pool commitments from the blockchain
-  const getPoolCommitments = async (
-    poolId: string
-  ): Promise<ContractCommitment[]> => {
+  // Get pool LP token holders from the blockchain
+  const getPoolLpHolders = async (poolId: string): Promise<string[]> => {
     setIsLoading(true);
     setError(null);
 
     try {
       const provider = await getProvider();
-      return await getPoolCommitmentsFromChain(provider, poolId);
+      return await getPoolLpHoldersFromChain(provider, poolId);
     } catch (err: any) {
-      setError(err.message || "Error getting pool commitments from chain");
+      setError(err.message || "Error getting pool LP holders from chain");
       return [];
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Get user commitment from the blockchain
-  const getUserCommitment = async (
+  // Get user's LP token balance for a pool
+  const getUserPoolBalance = async (
     userAddress: string,
     poolId: string
   ): Promise<string> => {
@@ -164,48 +158,23 @@ export function useContractInteraction() {
 
     try {
       const provider = await getProvider();
-      return await getUserCommitmentFromChain(provider, userAddress, poolId);
+      return await getUserPoolBalanceFromChain(provider, userAddress, poolId);
     } catch (err: any) {
-      setError(err.message || "Error getting user commitment from chain");
+      setError(err.message || "Error getting user pool balance from chain");
       return "0";
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Get USDC balance
-  const getBalance = useCallback(
-    async (userAddress: string): Promise<string> => {
-      if (!user || !userAddress) {
-        console.log(
-          "Skipping balance check - user not logged in or no address"
-        );
-        return "0";
-      }
-
-      try {
-        console.log("Getting balance for address:", userAddress);
-        const provider = await getProvider();
-        const balance = await getUSDCBalance(provider, userAddress);
-        console.log("Retrieved balance:", balance);
-        return balance;
-      } catch (error) {
-        console.error("Error getting balance:", error);
-        return "0";
-      }
-    },
-    [user, getProvider]
-  );
-
   return {
     isLoading,
     error,
     createPool,
-    commitToPool,
+    depositToPool,
     getPool,
-    getPoolCommitments,
-    getUserCommitment,
-    getBalance,
+    getPoolLpHolders,
+    getUserPoolBalance,
     walletAddress: user?.wallet?.address || null,
     walletsReady: privyReady && walletsReady && !!user?.wallet,
     privyReady,

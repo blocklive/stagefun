@@ -1,62 +1,73 @@
 import { ethers } from "ethers";
 import {
-  getPoolCommitmentContract,
+  getStageDotFunPoolContract,
   getUSDCContract,
-  parseUSDC,
-  formatUSDC,
+  parseToken,
+  formatToken,
   ContractPool,
-  ContractCommitment,
+  getPoolId,
   CONTRACT_ADDRESSES,
-} from "../contracts/PoolCommitment";
+} from "../contracts/StageDotFunPool";
 
 /**
  * Creates a pool in the smart contract
  * @param signer The signer to use for the transaction
- * @param poolId The ID of the pool to create
- * @param targetAmount The target amount to raise in USDC
- * @returns The transaction receipt
+ * @param name The name of the pool
+ * @returns The transaction receipt and pool ID
  */
 export async function createPoolOnChain(
   signer: ethers.Signer,
-  poolId: string,
-  targetAmount: number
-): Promise<ethers.TransactionReceipt> {
-  const contract = getPoolCommitmentContract(signer);
-  const targetAmountWei = parseUSDC(targetAmount.toString());
+  name: string
+): Promise<{ receipt: ethers.TransactionReceipt; poolId: string }> {
+  const contract = getStageDotFunPoolContract(signer);
+  const poolId = getPoolId(name);
 
-  const tx = await contract.createPool(poolId, targetAmountWei);
-  return await tx.wait();
+  const tx = await contract.createPool(name);
+  const receipt = await tx.wait();
+
+  // Get the LP token address from the PoolCreated event
+  const poolCreatedEvent = receipt.logs.find(
+    (log: any) => log.eventName === "PoolCreated"
+  );
+  if (!poolCreatedEvent) {
+    throw new Error("PoolCreated event not found");
+  }
+
+  return {
+    receipt,
+    poolId,
+  };
 }
 
 /**
- * Commits USDC to a pool
+ * Deposits USDC to a pool
  * @param signer The signer to use for the transaction
- * @param poolId The ID of the pool to commit to
- * @param amount The amount to commit in USDC
+ * @param poolId The ID of the pool to deposit to
+ * @param amount The amount to deposit in USDC
  * @returns The transaction receipt
  */
-export async function commitToPoolOnChain(
+export async function depositToPoolOnChain(
   signer: ethers.Signer,
   poolId: string,
   amount: number
 ): Promise<{
   approvalTx: ethers.TransactionReceipt | null;
-  commitTx: ethers.TransactionReceipt;
+  depositTx: ethers.TransactionReceipt;
 }> {
   try {
     const signerAddress = await signer.getAddress();
     console.log("Using signer address:", signerAddress);
 
     // Create contracts with explicit provider configuration
-    const poolContract = getPoolCommitmentContract(signer);
+    const poolContract = getStageDotFunPoolContract(signer);
     const usdcContract = getUSDCContract(signer);
-    const amountBigInt = parseUSDC(amount.toString());
+    const amountBigInt = parseToken(amount.toString());
 
     // Check allowance
     console.log("Checking USDC allowance");
     const currentAllowance = await usdcContract.allowance(
       signerAddress,
-      CONTRACT_ADDRESSES.poolCommitment
+      CONTRACT_ADDRESSES.stageDotFunPool
     );
     console.log("Current allowance:", currentAllowance.toString());
 
@@ -66,7 +77,7 @@ export async function commitToPoolOnChain(
     if (currentAllowance < amountBigInt) {
       console.log("Approving USDC transfer");
       const approveTx = await usdcContract.approve(
-        CONTRACT_ADDRESSES.poolCommitment,
+        CONTRACT_ADDRESSES.stageDotFunPool,
         amountBigInt,
         {
           gasLimit: 100000,
@@ -76,20 +87,20 @@ export async function commitToPoolOnChain(
       console.log("Approval confirmed in block:", approvalReceipt?.blockNumber);
     }
 
-    // Execute commitment
-    console.log("Executing pool commitment");
-    const commitTx = await poolContract.commitToPool(poolId, amountBigInt, {
+    // Execute deposit
+    console.log("Executing pool deposit");
+    const depositTx = await poolContract.deposit(poolId, amountBigInt, {
       gasLimit: 200000,
     });
-    const commitReceipt = await commitTx.wait();
-    console.log("Commitment confirmed in block:", commitReceipt.blockNumber);
+    const depositReceipt = await depositTx.wait();
+    console.log("Deposit confirmed in block:", depositReceipt.blockNumber);
 
     return {
       approvalTx: approvalReceipt,
-      commitTx: commitReceipt,
+      depositTx: depositReceipt,
     };
   } catch (error) {
-    console.error("Error in commitToPoolOnChain:", error);
+    console.error("Error in depositToPoolOnChain:", error);
     if (error instanceof Error) {
       throw new Error(`Transaction failed: ${error.message}`);
     }
@@ -107,16 +118,18 @@ export async function getPoolFromChain(
   provider: ethers.Provider,
   poolId: string
 ): Promise<ContractPool | null> {
-  const contract = getPoolCommitmentContract(provider);
+  const contract = getStageDotFunPoolContract(provider);
 
   try {
-    const pool = await contract.pools(poolId);
+    const pool = await contract.getPool(poolId);
     return {
-      id: pool.id,
-      creator: pool.creator,
-      targetAmount: pool.targetAmount,
-      raisedAmount: pool.raisedAmount,
-      active: pool.active,
+      name: pool.name,
+      totalDeposits: pool.totalDeposits,
+      revenueAccumulated: pool.revenueAccumulated,
+      lpHolderCount: pool.lpHolderCount,
+      status: pool.status,
+      exists: pool.exists,
+      lpTokenAddress: pool.lpTokenAddress,
     };
   } catch (error) {
     console.error("Error getting pool from chain:", error);
@@ -125,72 +138,44 @@ export async function getPoolFromChain(
 }
 
 /**
- * Gets all commitments for a pool
+ * Gets all LP token holders for a pool
  * @param provider The provider to use for the query
- * @param poolId The ID of the pool to get commitments for
- * @returns The commitments for the pool
+ * @param poolId The ID of the pool to get holders for
+ * @returns The LP token holders
  */
-export async function getPoolCommitmentsFromChain(
+export async function getPoolLpHoldersFromChain(
   provider: ethers.Provider,
   poolId: string
-): Promise<ContractCommitment[]> {
-  const contract = getPoolCommitmentContract(provider);
+): Promise<string[]> {
+  const contract = getStageDotFunPoolContract(provider);
 
   try {
-    return await contract.getPoolCommitments(poolId);
+    return await contract.getPoolLpHolders(poolId);
   } catch (error) {
-    console.error("Error getting pool commitments from chain:", error);
+    console.error("Error getting pool LP holders from chain:", error);
     return [];
   }
 }
 
 /**
- * Gets a user's commitment amount for a pool
+ * Gets a user's LP token balance for a pool
  * @param provider The provider to use for the query
  * @param userAddress The address of the user
  * @param poolId The ID of the pool
- * @returns The user's commitment amount in USDC
+ * @returns The user's LP token balance
  */
-export async function getUserCommitmentFromChain(
+export async function getUserPoolBalanceFromChain(
   provider: ethers.Provider,
   userAddress: string,
   poolId: string
 ): Promise<string> {
-  const contract = getPoolCommitmentContract(provider);
+  const contract = getStageDotFunPoolContract(provider);
 
   try {
-    const amount = await contract.getUserCommitment(userAddress, poolId);
-    return formatUSDC(amount);
+    const amount = await contract.getPoolBalance(poolId, userAddress);
+    return formatToken(amount);
   } catch (error) {
-    console.error("Error getting user commitment from chain:", error);
-    return "0";
-  }
-}
-
-/**
- * Gets the USDC balance of a user
- * @param provider The provider to use for the query
- * @param userAddress The address of the user
- * @returns The user's USDC balance
- */
-export async function getUSDCBalance(
-  provider: ethers.Provider,
-  userAddress: string
-): Promise<string> {
-  if (!userAddress) {
-    console.log("No address provided for balance check");
-    return "0";
-  }
-
-  try {
-    console.log("Getting USDC balance for:", userAddress);
-    const contract = getUSDCContract(provider);
-    const balance = await contract.balanceOf(userAddress);
-    const formatted = formatUSDC(balance);
-    console.log("Balance:", formatted, "USDC");
-    return formatted;
-  } catch (error) {
-    console.error("Error getting USDC balance:", error);
+    console.error("Error getting user pool balance from chain:", error);
     return "0";
   }
 }
