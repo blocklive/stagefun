@@ -12,11 +12,11 @@ import {
 interface ContractInteractionContextType {
   isLoading: boolean;
   error: string | null;
-  createPool: (poolId: string, targetAmount: number) => Promise<any>;
-  commitToPool: (poolId: string, amount: number) => Promise<any>;
+  createPool: (name: string) => Promise<any>;
+  depositToPool: (poolId: string, amount: number) => Promise<any>;
   getPool: (poolId: string) => Promise<ContractPool | null>;
-  getPoolCommitments: (poolId: string) => Promise<ContractCommitment[]>;
-  getUserCommitment: (userAddress: string, poolId: string) => Promise<string>;
+  getPoolLpHolders: (poolId: string) => Promise<string[]>;
+  getUserPoolBalance: (userAddress: string, poolId: string) => Promise<string>;
   getBalance: (userAddress: string) => Promise<string>;
   walletAddress: string | null;
   walletsReady: boolean;
@@ -31,16 +31,16 @@ export const ContractInteractionContext =
     createPool: async () => {
       throw new Error("ContractInteractionContext not initialized");
     },
-    commitToPool: async () => {
+    depositToPool: async () => {
       throw new Error("ContractInteractionContext not initialized");
     },
     getPool: async () => {
       throw new Error("ContractInteractionContext not initialized");
     },
-    getPoolCommitments: async () => {
+    getPoolLpHolders: async () => {
       throw new Error("ContractInteractionContext not initialized");
     },
-    getUserCommitment: async () => {
+    getUserPoolBalance: async () => {
       throw new Error("ContractInteractionContext not initialized");
     },
     getBalance: async () => {

@@ -7,8 +7,10 @@ import {
   getPoolFromChain,
   getPoolLpHoldersFromChain,
   getUserPoolBalanceFromChain,
+  getUSDCBalance,
 } from "../lib/services/contract-service";
 import { ContractPool } from "../lib/contracts/StageDotFunPool";
+import { getUSDCContract, formatToken } from "../lib/contracts/StageDotFunPool";
 
 export function useContractInteraction() {
   const { user, ready: privyReady } = usePrivy();
@@ -167,6 +169,24 @@ export function useContractInteraction() {
     }
   };
 
+  // Get user's USDC balance
+  const getBalance = async (userAddress: string): Promise<string> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const provider = await getProvider();
+      const usdcContract = getUSDCContract(provider);
+      const balance = await usdcContract.balanceOf(userAddress);
+      return formatToken(balance);
+    } catch (err: any) {
+      setError(err.message || "Error getting USDC balance");
+      return "0";
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     isLoading,
     error,
@@ -175,6 +195,7 @@ export function useContractInteraction() {
     getPool,
     getPoolLpHolders,
     getUserPoolBalance,
+    getBalance,
     walletAddress: user?.wallet?.address || null,
     walletsReady: privyReady && walletsReady && !!user?.wallet,
     privyReady,

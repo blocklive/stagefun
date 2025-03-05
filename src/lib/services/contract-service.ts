@@ -9,6 +9,7 @@ import {
   CONTRACT_ADDRESSES,
   getStageDotFunLiquidityContract,
 } from "../contracts/StageDotFunPool";
+import { supabase } from "../supabase";
 
 /**
  * Creates a pool in the smart contract
@@ -61,10 +62,26 @@ export async function depositToPoolOnChain(
     const signerAddress = await signer.getAddress();
     console.log("Using signer address:", signerAddress);
 
+    // Get the pool name from the database
+    const { data: pool } = await supabase
+      .from("pools")
+      .select("name")
+      .eq("id", poolId)
+      .single();
+
+    if (!pool) {
+      throw new Error("Pool not found");
+    }
+
     // Create contracts with explicit provider configuration
     const poolContract = getStageDotFunPoolContract(signer);
     const usdcContract = getUSDCContract(signer);
     const amountBigInt = parseToken(amount.toString());
+
+    // Generate the correct pool ID from the pool name
+    const bytes32PoolId = getPoolId(pool.name);
+    console.log("Using pool name:", pool.name);
+    console.log("Generated poolId:", bytes32PoolId);
 
     // Check allowance
     console.log("Checking USDC allowance");
@@ -91,10 +108,21 @@ export async function depositToPoolOnChain(
     }
 
     // Execute deposit
-    console.log("Executing pool deposit");
-    const depositTx = await poolContract.deposit(poolId, amountBigInt, {
-      gasLimit: 200000,
+    console.log("Executing pool deposit with params:", {
+      bytes32PoolId,
+      amountBigInt: amountBigInt.toString(),
+      poolContract: poolContract.target,
     });
+
+    // Get the pool status first
+    const poolInfo = await poolContract.getPool(bytes32PoolId);
+    console.log("Pool status:", poolInfo.status);
+
+    const depositTx = await poolContract.deposit(bytes32PoolId, amountBigInt, {
+      gasLimit: 300000, // Increased gas limit
+    });
+    console.log("Deposit transaction sent:", depositTx.hash);
+
     const depositReceipt = await depositTx.wait();
     console.log("Deposit confirmed in block:", depositReceipt.blockNumber);
 
@@ -221,5 +249,49 @@ export async function getLPTokenSymbol(
   } catch (error) {
     console.error("Error getting LP token symbol:", error);
     return "";
+  }
+}
+
+/**
+ * Activates a pool in the smart contract
+ * @param signer The signer to use for the transaction
+ * @param poolId The ID of the pool to activate
+ * @returns The transaction receipt
+ */
+export async function activatePoolOnChain(
+  signer: ethers.Signer,
+  poolId: string
+): Promise<ethers.TransactionReceipt> {
+  const contract = getStageDotFunPoolContract(signer);
+
+  try {
+    // Get the pool name from the database
+    const { data: pool } = await supabase
+      .from("pools")
+      .select("name")
+      .eq("id", poolId)
+      .single();
+
+    if (!pool) {
+      throw new Error("Pool not found");
+    }
+
+    // Generate the correct pool ID from the pool name
+    const bytes32PoolId = getPoolId(pool.name);
+    console.log("Activating pool:", pool.name);
+    console.log("Pool ID:", bytes32PoolId);
+
+    // Call updatePoolStatus with PoolStatus.ACTIVE (1)
+    const tx = await contract.updatePoolStatus(bytes32PoolId, 1);
+    const receipt = await tx.wait();
+    console.log("Pool activated in block:", receipt.blockNumber);
+
+    return receipt;
+  } catch (error) {
+    console.error("Error activating pool:", error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to activate pool: ${error.message}`);
+    }
+    throw new Error("Failed to activate pool with unknown error");
   }
 }

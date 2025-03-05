@@ -24,8 +24,10 @@ import { getUserById } from "../../../lib/services/user-service";
 import {
   getUSDCBalance,
   getLPTokenSymbol,
+  activatePoolOnChain,
 } from "../../../lib/services/contract-service";
 import { Pool, User } from "../../../lib/supabase";
+import { toast } from "react-hot-toast";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -34,10 +36,9 @@ export default function PoolDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const poolId = params.id as string;
-  console.log("wallets >>", wallets, ready);
 
   const {
-    commitToPool: commitToBlockchain,
+    depositToPool: commitToBlockchain,
     isLoading: isBlockchainLoading,
     getBalance,
     walletsReady,
@@ -61,16 +62,22 @@ export default function PoolDetailsPage() {
   const [patrons, setPatrons] = useState<any[]>([]);
   const [usdcBalance, setUsdcBalance] = useState("0");
   const [lpTokenSymbol, setLpTokenSymbol] = useState<string>("");
+  const [lpTokenError, setLpTokenError] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [isApproving, setIsApproving] = useState(false);
+
+  // Add state for activation
+  const [isActivating, setIsActivating] = useState(false);
 
   // Load initial pool data
   useEffect(() => {
     let mounted = true;
+    let provider: ethers.Provider | null = null;
 
     async function loadPoolData() {
       try {
         setLoading(true);
+        setLpTokenError("");
         const poolData = await getPoolById(poolId);
         if (!poolData || !mounted) return;
 
@@ -85,19 +92,31 @@ export default function PoolDetailsPage() {
         setCreator(creatorData);
         setPatrons(patronsData);
 
-        // If the pool has a contract address, fetch the LP token symbol
-        if (poolData.contract_address && privyReady) {
-          const provider = new ethers.JsonRpcProvider(
-            process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
-              ? "https://testnet-rpc.monad.xyz"
-              : "https://sepolia.base.org"
-          );
-          const symbol = await getLPTokenSymbol(
-            provider,
-            poolData.contract_address
-          );
-          if (mounted) {
-            setLpTokenSymbol(symbol);
+        // Only fetch LP token symbol once if we have both contract address and confirmed status
+        if (
+          poolData.contract_address &&
+          privyReady &&
+          poolData.blockchain_status === "confirmed" &&
+          !lpTokenSymbol
+        ) {
+          try {
+            if (!provider) {
+              provider = new ethers.JsonRpcProvider(
+                process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
+                  ? "https://testnet-rpc.monad.xyz"
+                  : "https://sepolia.base.org"
+              );
+            }
+            const symbol = await getLPTokenSymbol(
+              provider,
+              poolData.contract_address
+            );
+            if (mounted && symbol) {
+              setLpTokenSymbol(symbol);
+            }
+          } catch (error) {
+            console.error("Error fetching LP token symbol:", error);
+            setLpTokenError("Unable to fetch token symbol");
           }
         }
       } catch (error) {
@@ -110,10 +129,11 @@ export default function PoolDetailsPage() {
     loadPoolData();
     return () => {
       mounted = false;
+      provider = null;
     };
-  }, [poolId, privyReady]);
+  }, [poolId, privyReady, lpTokenSymbol]);
 
-  // Separate effect for balance checking
+  // Separate effect for balance checking - only run on mount and after successful deposits
   useEffect(() => {
     const address = privyUser?.wallet?.address;
     if (!address || !privyReady) {
@@ -139,7 +159,7 @@ export default function PoolDetailsPage() {
     return () => {
       mounted = false;
     };
-  }, [privyUser?.wallet?.address, privyReady, getBalance]);
+  }, [privyReady]); // Only run on mount and when Privy becomes ready
 
   // Viewport height effect
   useEffect(() => {
@@ -188,9 +208,11 @@ export default function PoolDetailsPage() {
         if (newPool) setPool(newPool);
         if (newPatrons) setPatrons(newPatrons);
 
-        // Update balance
-        const newBalance = await getBalance(privyUser.wallet.address);
-        setUsdcBalance(newBalance);
+        // Update balance after successful deposit
+        if (privyUser?.wallet?.address) {
+          const newBalance = await getBalance(privyUser.wallet.address);
+          setUsdcBalance(newBalance);
+        }
 
         alert(`Successfully committed ${amount} ${pool.currency} to the pool!`);
       }
@@ -205,6 +227,46 @@ export default function PoolDetailsPage() {
   const handleMaxClick = useCallback(() => {
     setCommitAmount(usdcBalance);
   }, [usdcBalance]);
+
+  // Update function to handle pool activation
+  const handleActivatePool = async () => {
+    if (!pool || !dbUser) return;
+
+    setIsActivating(true);
+    try {
+      const response = await fetch("/api/blockchain/activate-pool", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          poolId: pool.id,
+          userId: dbUser.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to activate pool");
+      }
+
+      const result = await response.json();
+      console.log("Pool activated:", result);
+
+      // Show success message
+      toast.success("Pool activated successfully!");
+
+      // Refresh the page to show updated status
+      router.refresh();
+    } catch (error) {
+      console.error("Error activating pool:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to activate pool"
+      );
+    } finally {
+      setIsActivating(false);
+    }
+  };
 
   // Render blockchain information section
   const renderBlockchainInfo = () => {
@@ -273,7 +335,13 @@ export default function PoolDetailsPage() {
             {pool.contract_address && (
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-400">
-                  LP Token {lpTokenSymbol && `(${lpTokenSymbol})`}:
+                  LP Token{" "}
+                  {lpTokenSymbol && !lpTokenError && `(${lpTokenSymbol})`}
+                  {lpTokenError && (
+                    <span className="text-xs text-gray-500 ml-1">
+                      (loading...)
+                    </span>
+                  )}
                 </span>
                 <a
                   href={
@@ -459,7 +527,13 @@ export default function PoolDetailsPage() {
               {pool.contract_address && (
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-gray-400">
-                    LP Token {lpTokenSymbol && `(${lpTokenSymbol})`}:
+                    LP Token{" "}
+                    {lpTokenSymbol && !lpTokenError && `(${lpTokenSymbol})`}
+                    {lpTokenError && (
+                      <span className="text-xs text-gray-500 ml-1">
+                        (loading...)
+                      </span>
+                    )}
                   </span>
                   <a
                     href={
@@ -499,6 +573,24 @@ export default function PoolDetailsPage() {
                   )}
                 </a>
               </div>
+
+              {/* Add activation button for pool creator */}
+              {dbUser?.id === pool.creator_id &&
+                pool.blockchain_status === "confirmed" && (
+                  <div className="mt-4">
+                    <button
+                      onClick={handleActivatePool}
+                      disabled={isActivating}
+                      className={`w-full py-2 px-4 rounded-lg font-medium ${
+                        isActivating
+                          ? "bg-gray-600 cursor-not-allowed"
+                          : "bg-blue-600 hover:bg-blue-700"
+                      }`}
+                    >
+                      {isActivating ? "Activating..." : "Activate Pool"}
+                    </button>
+                  </div>
+                )}
             </div>
           </div>
         )}
