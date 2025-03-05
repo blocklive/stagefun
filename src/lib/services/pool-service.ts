@@ -1,4 +1,83 @@
-import { supabase, getAuthenticatedSupabaseClient, Pool } from "../supabase";
+import { createClient } from "@/lib/supabase/client";
+import { Pool, PoolLpHolder } from "@/lib/supabase";
+
+const supabase = createClient();
+
+export interface PoolWithDetails extends Pool {
+  creator?: {
+    id: string;
+    full_name: string;
+    avatar_url: string;
+  };
+  lp_holders?: PoolLpHolder[];
+}
+
+export const poolService = {
+  async getPool(poolId: string): Promise<PoolWithDetails | null> {
+    const { data, error } = await supabase
+      .from("pools")
+      .select(
+        `
+        *,
+        creator:creator_id(id, full_name, avatar_url),
+        lp_holders:pool_lp_holders(
+          user_id,
+          amount,
+          lp_token_address
+        )
+      `
+      )
+      .eq("id", poolId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching pool:", error);
+      throw error;
+    }
+
+    return data;
+  },
+
+  async getAllPools(): Promise<PoolWithDetails[]> {
+    const { data, error } = await supabase
+      .from("pools")
+      .select(
+        `
+        *,
+        creator:creator_id(id, full_name, avatar_url)
+      `
+      )
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching pools:", error);
+      throw error;
+    }
+
+    return data || [];
+  },
+
+  async updatePoolDeposit(
+    poolId: string,
+    userId: string,
+    amount: number,
+    lpTokenAddress: string,
+    txHash: string
+  ) {
+    const { error } = await supabase.rpc("update_pool_deposit", {
+      p_pool_id: poolId,
+      p_user_id: userId,
+      p_amount: amount,
+      p_lp_token_address: lpTokenAddress,
+      p_tx_hash: txHash,
+    });
+
+    if (error) {
+      console.error("Error updating pool deposit:", error);
+      throw error;
+    }
+  },
+};
 
 export async function createPool(
   poolData: Omit<Pool, "id" | "created_at" | "creator_id">,

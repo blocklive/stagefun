@@ -47,33 +47,36 @@ export interface User {
   created_at: string;
 }
 
-export type Pool = {
+export interface Pool {
   id: string;
-  created_at?: string;
   name: string;
-  status: string;
-  description: string;
-  funding_stage: string;
-  ends_at: string;
-  target_amount: number;
-  raised_amount: number;
-  currency: string;
-  token_amount: number;
-  token_symbol: string;
-  location?: string;
-  venue?: string;
-  image_url?: string;
   creator_id: string;
-  creator_name?: string;
-  min_commitment?: number;
-  ticker?: string;
-  // Blockchain fields
-  blockchain_tx_hash?: string;
-  blockchain_block_number?: number;
-  blockchain_status?: string;
-  blockchain_network?: string;
-  blockchain_explorer_url?: string;
-};
+  target_amount: number;
+  total_deposits: number;
+  revenue_accumulated: number;
+  lp_holder_count: number;
+  pool_status: "INACTIVE" | "ACTIVE" | "PAUSED" | "CLOSED";
+  blockchain_tx_hash: string;
+  blockchain_status: "pending" | "confirmed" | "failed";
+  blockchain_network: string;
+  blockchain_block_number: number;
+  blockchain_explorer_url: string;
+  lp_token_address: string;
+  created_at: string;
+  creator?: User;
+  lp_holders?: PoolLpHolder[];
+}
+
+export interface PoolLpHolder {
+  pool_id: string;
+  user_id: string;
+  amount: number;
+  lp_token_address: string;
+  blockchain_tx_hash: string;
+  blockchain_status: string;
+  blockchain_block_number: number;
+  blockchain_explorer_url: string;
+}
 
 export type Patron = {
   id: string;

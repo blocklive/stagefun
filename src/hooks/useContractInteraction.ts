@@ -81,7 +81,7 @@ export function useContractInteraction() {
 
   // Commit to a pool on the blockchain
   const commitToPool = useCallback(
-    async (poolId: string, amount: number) => {
+    async (poolId: string, amount: number, contractAddress: string) => {
       setIsLoading(true);
       setError(null);
 
@@ -102,7 +102,12 @@ export function useContractInteraction() {
         console.log("Got signer for address:", signerAddress);
 
         console.log("Proceeding with commit");
-        const receipt = await commitToPoolOnChain(signer, poolId, amount);
+        const receipt = await commitToPoolOnChain(
+          signer,
+          poolId,
+          amount,
+          contractAddress
+        );
         console.log("Commit successful, receipt:", receipt);
         return receipt;
       } catch (err) {
