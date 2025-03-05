@@ -77,7 +77,7 @@ export default function CreatePoolPage() {
         min_commitment: parseFloat(minCommitment) || 0,
         currency: currency,
         token_amount: 100000, // Default token amount
-        token_symbol: "$PARTY",
+        token_symbol: ticker || "$PARTY", // Use the ticker if provided
         location: location,
         venue: "Convergence Station",
         status: "Accepting patrons",
@@ -119,6 +119,7 @@ export default function CreatePoolPage() {
             poolId: data.id,
             name: poolData.name,
             userId: dbUser.id,
+            ticker: poolData.ticker || poolData.token_symbol || "LP",
           }),
         });
 

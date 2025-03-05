@@ -17,7 +17,7 @@ export const StageDotFunPoolABI = [
   "function depositToken() view returns (address)",
 
   // State-changing functions
-  "function createPool(string) external",
+  "function createPool(string, string) external",
   "function deposit(bytes32, uint256) external",
   "function receiveRevenue(bytes32, uint256) external",
   "function distributeRevenue(bytes32) external",

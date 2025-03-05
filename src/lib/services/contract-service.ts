@@ -7,22 +7,25 @@ import {
   ContractPool,
   getPoolId,
   CONTRACT_ADDRESSES,
+  getStageDotFunLiquidityContract,
 } from "../contracts/StageDotFunPool";
 
 /**
  * Creates a pool in the smart contract
  * @param signer The signer to use for the transaction
  * @param name The name of the pool
+ * @param symbol The symbol of the pool
  * @returns The transaction receipt and pool ID
  */
 export async function createPoolOnChain(
   signer: ethers.Signer,
-  name: string
+  name: string,
+  symbol: string
 ): Promise<{ receipt: ethers.TransactionReceipt; poolId: string }> {
   const contract = getStageDotFunPoolContract(signer);
   const poolId = getPoolId(name);
 
-  const tx = await contract.createPool(name);
+  const tx = await contract.createPool(name, symbol);
   const receipt = await tx.wait();
 
   // Get the LP token address from the PoolCreated event
@@ -177,5 +180,46 @@ export async function getUserPoolBalanceFromChain(
   } catch (error) {
     console.error("Error getting user pool balance from chain:", error);
     return "0";
+  }
+}
+
+/**
+ * Gets a user's USDC balance
+ * @param provider The provider to use for the query
+ * @param userAddress The address of the user
+ * @returns The user's USDC balance
+ */
+export async function getUSDCBalance(
+  provider: ethers.Provider,
+  userAddress: string
+): Promise<string> {
+  const contract = getUSDCContract(provider);
+
+  try {
+    const balance = await contract.balanceOf(userAddress);
+    return formatToken(balance);
+  } catch (error) {
+    console.error("Error getting USDC balance:", error);
+    return "0";
+  }
+}
+
+/**
+ * Gets the symbol of an LP token
+ * @param provider The provider to use for the query
+ * @param lpTokenAddress The address of the LP token contract
+ * @returns The token symbol
+ */
+export async function getLPTokenSymbol(
+  provider: ethers.Provider,
+  lpTokenAddress: string
+): Promise<string> {
+  const contract = getStageDotFunLiquidityContract(provider, lpTokenAddress);
+
+  try {
+    return await contract.symbol();
+  } catch (error) {
+    console.error("Error getting LP token symbol:", error);
+    return "";
   }
 }

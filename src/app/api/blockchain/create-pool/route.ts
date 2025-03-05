@@ -131,7 +131,10 @@ export async function POST(req: NextRequest) {
 
     // Create the pool on the blockchain
     console.log(`Creating pool ${name} on ${blockchainNetwork}`);
-    const tx = await contract.createPool(name);
+    const tx = await contract.createPool(
+      name,
+      pool.ticker || pool.token_symbol || "LP"
+    );
     console.log("Transaction sent:", tx.hash);
 
     // Update the pool in the database with pending blockchain information

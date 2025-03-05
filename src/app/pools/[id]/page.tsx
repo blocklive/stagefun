@@ -21,7 +21,10 @@ import {
   getPatronsByPoolId,
 } from "../../../lib/services/patron-service";
 import { getUserById } from "../../../lib/services/user-service";
-import { getUSDCBalance } from "../../../lib/services/contract-service";
+import {
+  getUSDCBalance,
+  getLPTokenSymbol,
+} from "../../../lib/services/contract-service";
 import { Pool, User } from "../../../lib/supabase";
 
 export default function PoolDetailsPage() {
@@ -57,6 +60,7 @@ export default function PoolDetailsPage() {
   const [creator, setCreator] = useState<User | null>(null);
   const [patrons, setPatrons] = useState<any[]>([]);
   const [usdcBalance, setUsdcBalance] = useState("0");
+  const [lpTokenSymbol, setLpTokenSymbol] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [isApproving, setIsApproving] = useState(false);
 
@@ -80,6 +84,22 @@ export default function PoolDetailsPage() {
         setPool(poolData);
         setCreator(creatorData);
         setPatrons(patronsData);
+
+        // If the pool has a contract address, fetch the LP token symbol
+        if (poolData.contract_address && privyReady) {
+          const provider = new ethers.JsonRpcProvider(
+            process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
+              ? "https://testnet-rpc.monad.xyz"
+              : "https://sepolia.base.org"
+          );
+          const symbol = await getLPTokenSymbol(
+            provider,
+            poolData.contract_address
+          );
+          if (mounted) {
+            setLpTokenSymbol(symbol);
+          }
+        }
       } catch (error) {
         console.error("Error loading pool data:", error);
       } finally {
@@ -91,7 +111,7 @@ export default function PoolDetailsPage() {
     return () => {
       mounted = false;
     };
-  }, [poolId]);
+  }, [poolId, privyReady]);
 
   // Separate effect for balance checking
   useEffect(() => {
@@ -242,17 +262,40 @@ export default function PoolDetailsPage() {
             </div>
 
             {pool.blockchain_block_number && (
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-400">Block:</span>
                 <span className="font-medium">
                   {pool.blockchain_block_number}
                 </span>
               </div>
             )}
+
+            {pool.contract_address && (
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400">
+                  LP Token {lpTokenSymbol && `(${lpTokenSymbol})`}:
+                </span>
+                <a
+                  href={
+                    pool.blockchain_network === "monad"
+                      ? `https://testnet.monadexplorer.com/address/${pool.contract_address}`
+                      : `https://sepolia.etherscan.io/address/${pool.contract_address}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 underline text-sm truncate max-w-[200px]"
+                >
+                  {pool.contract_address.substring(0, 10)}...
+                  {pool.contract_address.substring(
+                    pool.contract_address.length - 8
+                  )}
+                </a>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="text-gray-400 text-center py-2">
-            No blockchain data available
+          <div className="text-gray-400">
+            No blockchain information available
           </div>
         )}
       </div>
@@ -383,6 +426,82 @@ export default function PoolDetailsPage() {
             ></div>
           </div>
         </div>
+
+        {/* Blockchain Information */}
+        {pool.blockchain_tx_hash && (
+          <div className="mb-6 p-4 bg-[#1A1724] rounded-lg">
+            <h3 className="text-xl font-bold mb-2">Contract Details</h3>
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400">Status:</span>
+                <span
+                  className={`font-medium ${
+                    pool.blockchain_status === "confirmed"
+                      ? "text-green-400"
+                      : pool.blockchain_status === "pending"
+                      ? "text-yellow-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {pool.blockchain_status || "Unknown"}
+                </span>
+              </div>
+
+              {pool.blockchain_network && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-400">Network:</span>
+                  <span className="font-medium capitalize">
+                    {pool.blockchain_network}
+                  </span>
+                </div>
+              )}
+
+              {pool.contract_address && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-400">
+                    LP Token {lpTokenSymbol && `(${lpTokenSymbol})`}:
+                  </span>
+                  <a
+                    href={
+                      pool.blockchain_network === "monad"
+                        ? `https://testnet.monadexplorer.com/address/${pool.contract_address}`
+                        : `https://sepolia.etherscan.io/address/${pool.contract_address}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 underline text-sm truncate max-w-[200px]"
+                  >
+                    {pool.contract_address.substring(0, 10)}...
+                    {pool.contract_address.substring(
+                      pool.contract_address.length - 8
+                    )}
+                  </a>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Transaction:</span>
+                <a
+                  href={
+                    pool.blockchain_explorer_url
+                      ? pool.blockchain_explorer_url
+                      : pool.blockchain_network === "monad"
+                      ? `https://testnet.monadexplorer.com/tx/${pool.blockchain_tx_hash}`
+                      : `https://sepolia.etherscan.io/tx/${pool.blockchain_tx_hash}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 underline text-sm truncate max-w-[200px]"
+                >
+                  {pool.blockchain_tx_hash.substring(0, 10)}...
+                  {pool.blockchain_tx_hash.substring(
+                    pool.blockchain_tx_hash.length - 8
+                  )}
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex mb-6 border-b border-gray-700">

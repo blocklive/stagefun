@@ -101,11 +101,12 @@ contract StageDotFunPool is Ownable {
         _;
     }
 
-    function createPool(string memory name) external onlyOwner {
+    function createPool(string memory name, string memory symbol) external onlyOwner {
         bytes32 poolId = keccak256(abi.encodePacked(name));
         require(!pools[poolId].exists, "Pool already exists");
 
-        StageDotFunLiquidity lpToken = new StageDotFunLiquidity();
+        string memory tokenName = string(abi.encodePacked(name, " LP Token"));
+        StageDotFunLiquidity lpToken = new StageDotFunLiquidity(tokenName, symbol);
         
         Pool storage newPool = pools[poolId];
         newPool.name = name;
