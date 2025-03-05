@@ -28,6 +28,7 @@ import {
 } from "../../../lib/services/contract-service";
 import { Pool, User } from "../../../lib/supabase";
 import { toast } from "react-hot-toast";
+import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -41,10 +42,12 @@ export default function PoolDetailsPage() {
   const {
     depositToPool: commitToBlockchain,
     isLoading: isBlockchainLoading,
-    getBalance,
     walletsReady,
     privyReady,
   } = useContractInteraction();
+
+  // Update the balance hook to get the refresh function
+  const { balance: usdcBalance, refresh: refreshBalance } = useUSDCBalance();
 
   // Basic states
   const [viewportHeight, setViewportHeight] = useState("100vh");
@@ -61,7 +64,6 @@ export default function PoolDetailsPage() {
   const [pool, setPool] = useState<Pool | null>(null);
   const [creator, setCreator] = useState<User | null>(null);
   const [patrons, setPatrons] = useState<any[]>([]);
-  const [usdcBalance, setUsdcBalance] = useState("0");
   const [lpTokenSymbol, setLpTokenSymbol] = useState<string>("");
   const [lpTokenError, setLpTokenError] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -134,34 +136,6 @@ export default function PoolDetailsPage() {
     };
   }, [poolId, privyReady, lpTokenSymbol]);
 
-  // Separate effect for balance checking - only run on mount and after successful deposits
-  useEffect(() => {
-    const address = privyUser?.wallet?.address;
-    if (!address || !privyReady) {
-      console.log("Skipping balance check - no address or Privy not ready");
-      return;
-    }
-
-    let mounted = true;
-
-    async function checkBalance() {
-      try {
-        console.log("Checking balance for address:", address);
-        const balance = await getBalance(address as string);
-        if (!mounted) return;
-        console.log("Setting balance:", balance);
-        setUsdcBalance(balance);
-      } catch (error) {
-        console.error("Error checking balance:", error);
-      }
-    }
-
-    checkBalance();
-    return () => {
-      mounted = false;
-    };
-  }, [privyReady, getBalance, privyUser?.wallet?.address]);
-
   // Viewport height effect
   useEffect(() => {
     const updateHeight = () => setViewportHeight(`${window.innerHeight}px`);
@@ -210,10 +184,7 @@ export default function PoolDetailsPage() {
         if (newPatrons) setPatrons(newPatrons);
 
         // Update balance after successful deposit
-        if (privyUser?.wallet?.address) {
-          const newBalance = await getBalance(privyUser.wallet.address);
-          setUsdcBalance(newBalance);
-        }
+        await refreshBalance();
 
         alert(`Successfully committed ${amount} ${pool.currency} to the pool!`);
       }
