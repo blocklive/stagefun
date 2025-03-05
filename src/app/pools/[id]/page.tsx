@@ -32,6 +32,7 @@ import { toast } from "react-hot-toast";
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
   const { wallets, ready } = useWallets();
+
   const { dbUser } = useSupabase();
   const router = useRouter();
   const params = useParams();

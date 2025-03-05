@@ -311,11 +311,18 @@ export function useContractInteraction(): ContractInteractionHookResult {
     setError(null);
 
     try {
-      const provider = await getProvider();
+      const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
+      if (!rpcUrl) {
+        throw new Error("RPC URL not configured");
+      }
+
+      // Create a direct RPC provider instead of using the embedded wallet
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
       const usdcContract = getUSDCContract(provider);
       const balance = await usdcContract.balanceOf(userAddress);
       return formatToken(balance);
     } catch (err: any) {
+      console.error("Error getting USDC balance:", err);
       setError(err.message || "Error getting USDC balance");
       return "0";
     } finally {
