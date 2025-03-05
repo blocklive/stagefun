@@ -9,7 +9,7 @@ import { ContractPool } from "../lib/contracts/StageDotFunPool";
 interface ContractInteractionContextType {
   isLoading: boolean;
   error: string | null;
-  createPool: (name: string) => Promise<any>;
+  createPool: (name: string, ticker: string) => Promise<any>;
   depositToPool: (poolId: string, amount: number) => Promise<any>;
   getPool: (poolId: string) => Promise<ContractPool | null>;
   getPoolLpHolders: (poolId: string) => Promise<string[]>;
