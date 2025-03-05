@@ -160,7 +160,7 @@ export default function PoolDetailsPage() {
     return () => {
       mounted = false;
     };
-  }, [privyReady]); // Only run on mount and when Privy becomes ready
+  }, [privyReady, getBalance, privyUser?.wallet?.address]);
 
   // Viewport height effect
   useEffect(() => {
@@ -830,7 +830,7 @@ export default function PoolDetailsPage() {
         {activeTab === "withdraw" && (
           <div className="bg-[#1A1724] rounded-lg p-6 text-center">
             <p className="text-gray-400 mb-4">
-              You haven't committed any funds to this pool yet.
+              You haven&apos;t committed any funds to this pool yet.
             </p>
             <button
               className="bg-purple-500 px-6 py-3 rounded-full font-medium"

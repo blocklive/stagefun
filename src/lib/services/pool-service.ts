@@ -1,4 +1,4 @@
-import { supabase, getAuthenticatedSupabaseClient, Pool } from "../supabase";
+import { supabase, Pool } from "../supabase";
 import { createPoolOnChain } from "./contract-service";
 import { ethers } from "ethers";
 
@@ -7,9 +7,6 @@ export async function createPool(
   userId?: string // Optional userId parameter
 ): Promise<Pool> {
   try {
-    // Get the authenticated Supabase client
-    const authClient = await getAuthenticatedSupabaseClient();
-
     // Add the creator_id to the pool data
     const fullPoolData = {
       ...poolData,
@@ -21,7 +18,7 @@ export async function createPool(
     console.log("Creating pool with data:", fullPoolData);
 
     // Insert the pool using the authenticated client
-    const { data, error } = await authClient
+    const { data, error } = await supabase
       .from("pools")
       .insert(fullPoolData)
       .select()
@@ -35,7 +32,7 @@ export async function createPool(
     // Create the pool on the blockchain
     try {
       // Get the user's wallet address
-      const { data: userData } = await authClient
+      const { data: userData } = await supabase
         .from("users")
         .select("wallet_address")
         .eq("id", userId)
@@ -79,7 +76,7 @@ export async function createPool(
       const lpTokenAddress = parsedLog.args[2]; // lpTokenAddress is the third argument
 
       // Update the pool with the contract address
-      const { error: updateError } = await authClient
+      const { error: updateError } = await supabase
         .from("pools")
         .update({
           contract_address: lpTokenAddress,

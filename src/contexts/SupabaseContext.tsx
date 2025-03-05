@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { supabase, User } from "../lib/supabase";
 import {
@@ -33,7 +39,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
   const [dbUser, setDbUser] = useState<User | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     if (!authenticated || !privyUser) {
       setDbUser(null);
       setIsLoadingUser(false);
@@ -53,7 +59,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log("Fetching user with wallet address:", walletAddress);
 
       // Try to get the user from the database
-      let user = await getUserByWalletAddress(walletAddress);
+      const user = await getUserByWalletAddress(walletAddress);
       console.log("User from database:", user);
 
       // If the user doesn't exist, create a new one
@@ -62,12 +68,12 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         const newUser = {
           wallet_address: walletAddress,
           name:
-            privyUser.name?.first ||
-            privyUser.email?.address?.split("@")[0] ||
+            (privyUser as any).name?.first ||
+            (privyUser as any).email?.address?.split("@")[0] ||
             "Anonymous",
-          email: privyUser.email?.address,
-          twitter_username: privyUser.twitter?.username || undefined,
-          avatar_url: privyUser.avatar || undefined,
+          email: (privyUser as any).email?.address,
+          twitter_username: (privyUser as any).twitter?.username || undefined,
+          avatar_url: (privyUser as any).avatar || undefined,
         };
 
         console.log("New user data:", newUser);
@@ -79,29 +85,28 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         const updatedFields: Partial<User> = {};
         let needsUpdate = false;
 
-        if (privyUser.name?.first && privyUser.name.first !== user.name) {
-          updatedFields.name = privyUser.name.first;
+        const privyName = (privyUser as any).name?.first;
+        const privyEmail = (privyUser as any).email?.address;
+        const privyTwitter = (privyUser as any).twitter?.username;
+        const privyAvatar = (privyUser as any).avatar;
+
+        if (privyName && privyName !== user.name) {
+          updatedFields.name = privyName;
           needsUpdate = true;
         }
 
-        if (
-          privyUser.email?.address &&
-          privyUser.email.address !== user.email
-        ) {
-          updatedFields.email = privyUser.email.address;
+        if (privyEmail && privyEmail !== user.email) {
+          updatedFields.email = privyEmail;
           needsUpdate = true;
         }
 
-        if (
-          privyUser.twitter?.username &&
-          privyUser.twitter.username !== user.twitter_username
-        ) {
-          updatedFields.twitter_username = privyUser.twitter.username;
+        if (privyTwitter && privyTwitter !== user.twitter_username) {
+          updatedFields.twitter_username = privyTwitter;
           needsUpdate = true;
         }
 
-        if (privyUser.avatar && privyUser.avatar !== user.avatar_url) {
-          updatedFields.avatar_url = privyUser.avatar;
+        if (privyAvatar && privyAvatar !== user.avatar_url) {
+          updatedFields.avatar_url = privyAvatar;
           needsUpdate = true;
         }
 
@@ -128,13 +133,13 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setIsLoadingUser(false);
     }
-  };
+  }, [authenticated, privyUser, getUserByWalletAddress, createOrUpdateUser]);
 
   useEffect(() => {
     if (ready) {
       fetchUser();
     }
-  }, [ready, authenticated, privyUser]);
+  }, [ready, authenticated, privyUser, fetchUser]);
 
   const refreshUser = async () => {
     await fetchUser();

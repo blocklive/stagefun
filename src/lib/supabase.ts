@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { usePrivy } from "@privy-io/react-auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -7,33 +6,9 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 console.log("Initializing Supabase client with URL:", supabaseUrl);
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Create a function to get a Supabase client with the Privy JWT
+// For backwards compatibility
 export async function getAuthenticatedSupabaseClient() {
-  const { getAccessToken } = usePrivy();
-
-  try {
-    // Get the Privy JWT
-    const privyToken = await getAccessToken();
-
-    if (!privyToken) {
-      console.error("No Privy token available");
-      return supabase;
-    }
-
-    // Create a new Supabase client with the Privy JWT
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${privyToken}`,
-        },
-      },
-    });
-
-    return authClient;
-  } catch (error) {
-    console.error("Error getting authenticated Supabase client:", error);
-    return supabase;
-  }
+  return supabase;
 }
 
 // Define types for your database tables

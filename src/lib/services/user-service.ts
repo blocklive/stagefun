@@ -1,5 +1,4 @@
 import { supabase, User } from "../supabase";
-import { getAuthenticatedSupabaseClient } from "../supabase";
 
 export async function createOrUpdateUser(
   userData: Partial<User>
