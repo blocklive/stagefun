@@ -52,6 +52,10 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
         },
         embeddedWallets: {
           createOnLogin: "all-users",
+          priceDisplay: {
+            primary: "native-token",
+            secondary: null,
+          },
         },
       }}
     >

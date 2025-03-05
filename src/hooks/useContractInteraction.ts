@@ -1,5 +1,9 @@
 import { useState, useCallback } from "react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
+import type {
+  UnsignedTransactionRequest,
+  SendTransactionModalUIOptions,
+} from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import {
   depositToPoolOnChain,
@@ -10,11 +14,33 @@ import {
   getUSDCBalance,
 } from "../lib/services/contract-service";
 import { ContractPool } from "../lib/contracts/StageDotFunPool";
-import { getUSDCContract, formatToken } from "../lib/contracts/StageDotFunPool";
+import {
+  getUSDCContract,
+  formatToken,
+  getPoolId,
+  CONTRACT_ADDRESSES,
+  StageDotFunPoolABI,
+} from "../lib/contracts/StageDotFunPool";
+import { supabase } from "../lib/supabase";
 
-export function useContractInteraction() {
+interface ContractInteractionHookResult {
+  isLoading: boolean;
+  error: string | null;
+  createPool: (name: string, ticker: string) => Promise<any>;
+  depositToPool: (poolId: string, amount: number) => Promise<any>;
+  getPool: (poolId: string) => Promise<ContractPool | null>;
+  getPoolLpHolders: (poolId: string) => Promise<string[]>;
+  getUserPoolBalance: (userAddress: string, poolId: string) => Promise<string>;
+  getBalance: (userAddress: string) => Promise<string>;
+  walletAddress: string | null;
+  walletsReady: boolean;
+  privyReady: boolean;
+}
+
+export function useContractInteraction(): ContractInteractionHookResult {
   const { user, ready: privyReady } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
+  const { sendTransaction } = useSendTransaction();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,13 +87,13 @@ export function useContractInteraction() {
   }, [user, getProvider]);
 
   // Create a pool on the blockchain
-  const createPool = async (name: string) => {
+  const createPool = async (name: string, ticker: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
       const signer = await getSigner();
-      const { receipt, poolId } = await createPoolOnChain(signer, name);
+      const { receipt, poolId } = await createPoolOnChain(signer, name, ticker);
       return { receipt, poolId };
     } catch (err: any) {
       setError(err.message || "Error creating pool on chain");
@@ -99,8 +125,118 @@ export function useContractInteraction() {
         const signerAddress = await signer.getAddress();
         console.log("Got signer for address:", signerAddress);
 
-        console.log("Proceeding with deposit");
-        const receipt = await depositToPoolOnChain(signer, poolId, amount);
+        // Get the embedded wallet
+        const embeddedWallet = wallets.find(
+          (wallet) => wallet.walletClientType === "privy"
+        );
+
+        if (!embeddedWallet) {
+          throw new Error("No embedded wallet found");
+        }
+
+        // Get the provider and create contract instances
+        const provider = await embeddedWallet.getEthereumProvider();
+        const ethersProvider = new ethers.BrowserProvider(provider);
+        const usdcContract = getUSDCContract(ethersProvider);
+        const usdcSymbol = await usdcContract.symbol();
+        const usdcDecimals = await usdcContract.decimals();
+        const amountBigInt = ethers.parseUnits(amount.toString(), usdcDecimals);
+        const amountFormatted = ethers.formatUnits(amountBigInt, usdcDecimals);
+
+        // Get the pool name from the database
+        const { data: pool } = await supabase
+          .from("pools")
+          .select("name")
+          .eq("id", poolId)
+          .single();
+
+        if (!pool) {
+          throw new Error("Pool not found");
+        }
+
+        // Generate the correct pool ID from the pool name
+        const bytes32PoolId = getPoolId(pool.name);
+
+        // Check allowance
+        const currentAllowance = await usdcContract.allowance(
+          signerAddress,
+          CONTRACT_ADDRESSES.stageDotFunPool
+        );
+
+        // Handle approval if needed
+        if (currentAllowance < amountBigInt) {
+          // Create contract interface for USDC
+          const usdcInterface = new ethers.Interface([
+            "function approve(address spender, uint256 value) returns (bool)",
+          ]);
+
+          const approvalData = usdcInterface.encodeFunctionData("approve", [
+            CONTRACT_ADDRESSES.stageDotFunPool,
+            amountBigInt,
+          ]);
+
+          // Prepare the approval transaction request
+          const approvalRequest = {
+            to: CONTRACT_ADDRESSES.usdc,
+            data: approvalData,
+            value: "0",
+            from: signerAddress,
+            chainId: 10143, // Monad Testnet
+          };
+
+          // Set UI options for the approval transaction
+          const approvalUiOptions: SendTransactionModalUIOptions = {
+            description: `Approving ${amountFormatted} ${usdcSymbol} for deposit`,
+            buttonText: "Approve USDC",
+            transactionInfo: {
+              title: "USDC Approval",
+              action: "Approve USDC",
+              contractInfo: {
+                name: "USDC Token",
+              },
+            },
+          };
+
+          console.log("Sending approval transaction");
+          await sendTransaction(approvalRequest, {
+            uiOptions: approvalUiOptions,
+          });
+          console.log("Approval transaction confirmed");
+        }
+
+        // Create contract interface for pool deposit
+        const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+        const depositData = poolInterface.encodeFunctionData("deposit", [
+          bytes32PoolId,
+          amountBigInt,
+        ]);
+
+        // Prepare the deposit transaction request
+        const depositRequest = {
+          to: CONTRACT_ADDRESSES.stageDotFunPool,
+          data: depositData,
+          value: "0",
+          from: signerAddress,
+          chainId: 10143, // Monad Testnet
+        };
+
+        // Set UI options for the deposit transaction
+        const depositUiOptions: SendTransactionModalUIOptions = {
+          description: `Depositing ${amountFormatted} ${usdcSymbol} to the pool`,
+          buttonText: "Confirm Deposit",
+          transactionInfo: {
+            title: "Pool Deposit",
+            action: "Deposit USDC",
+            contractInfo: {
+              name: "StageDotFun Pool",
+            },
+          },
+        };
+
+        console.log("Sending deposit transaction");
+        const receipt = await sendTransaction(depositRequest, {
+          uiOptions: depositUiOptions,
+        });
         console.log("Deposit successful, receipt:", receipt);
         return receipt;
       } catch (err) {
@@ -115,7 +251,7 @@ export function useContractInteraction() {
         setIsLoading(false);
       }
     },
-    [user, getSigner]
+    [user, getSigner, wallets, sendTransaction]
   );
 
   // Get pool data from the blockchain

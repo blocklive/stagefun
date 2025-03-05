@@ -51,7 +51,8 @@ export async function createPool(
 
       const { receipt, poolId } = await createPoolOnChain(
         signer,
-        poolData.name
+        poolData.name,
+        poolData.ticker || poolData.token_symbol || "LP"
       );
 
       // Get the LP token address from the PoolCreated event

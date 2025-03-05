@@ -3,10 +3,7 @@
 import React, { createContext, useContext, useCallback } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useContractInteraction as useContractInteractionHook } from "../hooks/useContractInteraction";
-import {
-  ContractPool,
-  ContractCommitment,
-} from "../lib/contracts/PoolCommitment";
+import { ContractPool } from "../lib/contracts/StageDotFunPool";
 
 // Define the context type
 interface ContractInteractionContextType {
