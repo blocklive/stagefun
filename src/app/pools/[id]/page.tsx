@@ -68,6 +68,7 @@ export default function PoolDetailsPage() {
   } = usePoolCommitments(pool?.name || null);
 
   const {
+    days,
     hours,
     minutes,
     seconds,
@@ -418,7 +419,8 @@ export default function PoolDetailsPage() {
           </div>
           <div className="flex justify-between text-sm mb-1">
             <div className="text-gray-400">
-              {pool.funding_stage} • {hasEnded ? "Ended" : "Ends in"}
+              {pool.funding_stage} •{" "}
+              {hasEnded ? "Ended" : `Ends in ${days}d ${hours}h ${minutes}m`}
             </div>
             <div>
               {percentComplete}% • ${formatAmount(totalCommitted)}/ $
@@ -432,9 +434,13 @@ export default function PoolDetailsPage() {
             ></div>
           </div>
 
-          {/* Time Left - Moved up here */}
+          {/* Time Left - Updated with days and labels */}
           <div className="bg-[#1A1724] rounded-lg p-4">
             <div className="flex justify-center gap-2">
+              <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
+                {String(days).padStart(2, "0")}
+              </div>
+              <div className="text-2xl font-bold flex items-center">:</div>
               <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
                 {String(hours).padStart(2, "0")}
               </div>
@@ -446,6 +452,15 @@ export default function PoolDetailsPage() {
               <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
                 {String(seconds).padStart(2, "0")}
               </div>
+            </div>
+            <div className="flex justify-center gap-2 mt-2 text-sm text-gray-400">
+              <div className="w-16 text-center">DAYS</div>
+              <div className="w-4"></div>
+              <div className="w-16 text-center">HRS</div>
+              <div className="w-4"></div>
+              <div className="w-16 text-center">MIN</div>
+              <div className="w-4"></div>
+              <div className="w-16 text-center">SEC</div>
             </div>
           </div>
         </div>

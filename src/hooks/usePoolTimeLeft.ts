@@ -30,12 +30,16 @@ export function usePoolTimeLeft(poolName: string | null) {
       const now = Date.now();
       const timeLeft = Math.max(0, endTime - now);
 
-      // Calculate hours, minutes, seconds
-      const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+      // Calculate days, hours, minutes, seconds
+      const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+      const hours = Math.floor(
+        (timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+      );
       const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
 
       return {
+        days,
         hours,
         minutes,
         seconds,
@@ -51,6 +55,7 @@ export function usePoolTimeLeft(poolName: string | null) {
   );
 
   return {
+    days: timeData?.days || 0,
     hours: timeData?.hours || 0,
     minutes: timeData?.minutes || 0,
     seconds: timeData?.seconds || 0,
