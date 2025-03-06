@@ -284,6 +284,7 @@ export default function PoolDetailsPage() {
       location,
       venue,
       currency,
+      min_commitment,
     } = pool;
 
     return (
@@ -319,6 +320,13 @@ export default function PoolDetailsPage() {
           <span className="text-gray-400">Target Amount:</span>
           <span className="font-medium">
             {target_amount.toLocaleString()} {currency}
+          </span>
+        </div>
+
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-gray-400">Minimum Commitment:</span>
+          <span className="font-medium">
+            {min_commitment?.toLocaleString() || "0"} {currency}
           </span>
         </div>
 

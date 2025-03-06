@@ -177,8 +177,8 @@ export async function POST(req: NextRequest) {
       name,
       symbol,
       BigInt(endTime),
-      ethers.parseUnits(targetAmount.toString(), 6), // USDC has 6 decimals
-      ethers.parseUnits(minCommitment.toString(), 6) // USDC has 6 decimals
+      BigInt(targetAmount), // Already in base units from frontend
+      BigInt(minCommitment) // Already in base units from frontend
     );
     console.log("Transaction sent:", tx.hash);
 

@@ -1,4 +1,6 @@
 const hre = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 require("dotenv").config({ path: ".env.local" });
 const { CONTRACT_ADDRESSES } = require("./addresses");
 
@@ -22,18 +24,43 @@ async function main() {
   const factoryAddress = await factory.getAddress();
   console.log("StageDotFunPoolFactory deployed to:", factoryAddress);
 
-  // Save the addresses to a file
-  const addresses = {
-    stageDotFunPoolFactory: factoryAddress,
-    usdc: usdcAddress,
-  };
-
-  const fs = require("fs");
-  fs.writeFileSync(
-    "deployed-addresses.json",
-    JSON.stringify(addresses, null, 2)
+  // Update addresses.ts
+  const addressesPath = path.join(
+    __dirname,
+    "../src/lib/contracts/addresses.ts"
   );
-  console.log("Deployed addresses saved to deployed-addresses.json");
+  const addressesContent = `/**
+ * Contract addresses for different networks
+ * Update these addresses when deploying new contracts
+ */
+export const CONTRACT_ADDRESSES = {
+  baseSepolia: {
+    stageDotFunPoolFactory: "0x...", // We'll fill this after deployment
+    usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
+  },
+  monadTestnet: {
+    stageDotFunPoolFactory: "${factoryAddress}",
+    usdc: "${usdcAddress}",
+  },
+} as const;
+
+/**
+ * Network configuration
+ */
+export const NETWORK = {
+  chainId: 10143, // Monad Testnet
+  rpcUrl: "https://testnet-rpc.monad.xyz",
+  explorerUrl: "https://testnet.monadexplorer.com",
+} as const;
+
+// Helper to get addresses for current network
+export function getContractAddresses() {
+  return CONTRACT_ADDRESSES.monadTestnet;
+}
+`;
+
+  fs.writeFileSync(addressesPath, addressesContent);
+  console.log("Updated addresses.ts with new contract address");
 
   // Wait for a few block confirmations
   console.log("Waiting for block confirmations...");

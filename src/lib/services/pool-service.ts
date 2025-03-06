@@ -3,6 +3,7 @@ import {
   getDeployedPools,
   getPoolDetails,
   createPool as createPoolOnChain,
+  ContractPool,
 } from "../contracts/StageDotFunPool";
 import { ethers } from "ethers";
 
@@ -126,17 +127,22 @@ export async function getPoolById(id: string): Promise<Pool | null> {
   if (dbError) throw dbError;
   if (!dbPool) return null;
 
-  let chainData = {
+  let chainData: ContractPool = {
     address: "",
     name: "",
     totalDeposits: BigInt(0),
     revenueAccumulated: BigInt(0),
     endTime: BigInt(0),
+    targetAmount: BigInt(0),
+    minCommitment: BigInt(0),
     status: 0,
-    lpTokenAddress: null,
+    lpTokenAddress: "",
     lpHolders: [],
+    deposits: [],
     milestones: [],
-    emergencyStatus: false,
+    emergencyMode: false,
+    emergencyWithdrawalRequestTime: BigInt(0),
+    authorizedWithdrawer: "",
   };
 
   // Only try to get blockchain data if we have a contract address
@@ -148,6 +154,15 @@ export async function getPoolById(id: string): Promise<Pool | null> {
           : "https://sepolia.base.org"
       );
       chainData = await getPoolDetails(provider, dbPool.contract_address);
+
+      // Add detailed logging for pool status
+      console.log("Chain data for pool:", {
+        poolId: id,
+        contractAddress: dbPool.contract_address,
+        rawStatus: chainData.status,
+        isActive: chainData.status === 1,
+        chainData,
+      });
     } catch (error) {
       console.error("Error fetching chain data:", error);
       // Continue with default values if blockchain fetch fails
@@ -157,20 +172,27 @@ export async function getPoolById(id: string): Promise<Pool | null> {
   // Convert BigInt values to numbers and handle division by 1_000_000 for USDC amounts
   const totalDeposits = Number(chainData.totalDeposits) / 1_000_000;
   const revenueAccumulated = Number(chainData.revenueAccumulated) / 1_000_000;
+  const targetAmount = Number(chainData.targetAmount) / 1_000_000;
+  const minCommitment = Number(chainData.minCommitment) / 1_000_000;
 
   return {
     ...dbPool,
     creator_name: dbPool.creator?.name || "Anonymous",
     creator_avatar_url: dbPool.creator?.avatar_url || null,
-    target_amount: Number(dbPool.target_amount) || 0,
+    target_amount: targetAmount || Number(dbPool.target_amount) || 0,
+    min_commitment: minCommitment || Number(dbPool.min_commitment) || 0,
     raised_amount: totalDeposits || 0,
     revenue_accumulated: revenueAccumulated || 0,
     status: chainData.status === 1 ? "active" : "inactive",
     end_time: Number(chainData.endTime) || 0,
     lp_token_address: chainData.lpTokenAddress || null,
     lp_holders: chainData.lpHolders || [],
+    deposits: chainData.deposits || [],
     milestones: chainData.milestones || [],
-    emergency_status: chainData.emergencyStatus || false,
+    emergency_mode: chainData.emergencyMode || false,
+    emergency_withdrawal_request_time:
+      Number(chainData.emergencyWithdrawalRequestTime) || 0,
+    authorized_withdrawer: chainData.authorizedWithdrawer || "",
   };
 }
 

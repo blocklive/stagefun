@@ -15,13 +15,10 @@ export const StageDotFunPoolFactoryABI = [
   "function getDeployedPools() view returns (address[])",
   "function getPoolCount() view returns (uint256)",
   "function getPoolByAddress(address poolAddress) view returns (address)",
-  "function getPoolByName(string name) view returns (address)",
 
   // State-changing functions
   "function createPool(string name, string symbol, uint256 endTime, uint256 targetAmount, uint256 minCommitment) external returns (address)",
   "function updatePoolStatus(address poolAddress, uint8 status) external",
-  "function deposit(string name, uint256 amount) external",
-  "function withdraw(string name, uint256 amount) external",
 ];
 
 // ABI for the StageDotFunPool contract
@@ -41,8 +38,12 @@ export const StageDotFunPoolABI = [
   "event WithdrawerRevoked(address withdrawer)",
 
   // View functions
+  "function getPoolDetails() view returns (string _name, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _minCommitment, uint8 _status, address _lpTokenAddress, address[] _lpHolders, tuple(string description, uint256 amount, uint256 unlockTime, bool approved, bool released)[] _milestones, bool _emergencyMode, uint256 _emergencyWithdrawalRequestTime, address _authorizedWithdrawer)",
+  "function getLpBalance(address holder) view returns (uint256)",
+  "function getLpBalances(address[] holders) view returns (uint256[] balances)",
   "function depositToken() view returns (address)",
   "function lpToken() view returns (address)",
+  "function deposit(uint256 amount) returns ()",
   "function name() view returns (string)",
   "function totalDeposits() view returns (uint256)",
   "function revenueAccumulated() view returns (uint256)",
@@ -55,9 +56,6 @@ export const StageDotFunPoolABI = [
   "function emergencyMode() view returns (bool)",
   "function emergencyWithdrawalRequestTime() view returns (uint256)",
   "function authorizedWithdrawer() view returns (address)",
-  "function getLpHolders() view returns (address[])",
-  "function getMilestones() view returns (tuple(string description, uint256 amount, uint256 unlockTime, bool approved, bool released)[])",
-  "function getEmergencyStatus() view returns (bool isEmergency, uint256 withdrawalUnlockTime, bool canExecuteWithdrawal)",
 
   // State-changing functions
   "function deposit(uint256 amount) external",
@@ -123,11 +121,22 @@ export interface ContractPool {
   name: string;
   totalDeposits: bigint;
   revenueAccumulated: bigint;
-  lpHolderCount: bigint;
-  status: number;
-  exists: boolean;
-  lpTokenAddress: string;
   endTime: bigint;
+  targetAmount: bigint;
+  minCommitment: bigint;
+  status: number;
+  lpTokenAddress: string;
+  lpHolders: string[];
+  milestones: {
+    description: string;
+    amount: bigint;
+    unlockTime: bigint;
+    approved: boolean;
+    released: boolean;
+  }[];
+  emergencyMode: boolean;
+  emergencyWithdrawalRequestTime: bigint;
+  authorizedWithdrawer: string;
 }
 
 // Get the factory contract instance
@@ -154,35 +163,10 @@ export async function getDeployedPools(provider: ethers.Provider) {
   const factory = getStageDotFunPoolFactoryContract(provider);
   const poolAddresses = await factory.getDeployedPools();
 
-  // Get pool details for each address
+  // Get pool details for each address using our new function
   const pools = await Promise.all(
     poolAddresses.map(async (address: string) => {
-      const pool = getPoolContract(provider, address);
-      const [
-        name,
-        totalDeposits,
-        revenueAccumulated,
-        endTime,
-        status,
-        lpTokenAddress,
-      ] = await Promise.all([
-        pool.name(),
-        pool.totalDeposits(),
-        pool.revenueAccumulated(),
-        pool.endTime(),
-        pool.status(),
-        pool.lpToken(),
-      ]);
-
-      return {
-        address,
-        name,
-        totalDeposits,
-        revenueAccumulated,
-        endTime,
-        status,
-        lpTokenAddress,
-      };
+      return await getPoolDetails(provider, address);
     })
   );
 
@@ -228,76 +212,49 @@ export async function createPool(
 export async function getPoolDetails(
   provider: ethers.Provider,
   poolAddress: string
-) {
+): Promise<ContractPool> {
+  if (!poolAddress || poolAddress === ethers.ZeroAddress) {
+    throw new Error("Pool not found");
+  }
+
   const pool = getPoolContract(provider, poolAddress);
 
-  const [
-    name,
-    totalDeposits,
-    revenueAccumulated,
-    endTime,
-    status,
-    lpTokenAddress,
-    lpHolders,
-    milestones,
-    emergencyStatus,
-  ] = await Promise.all([
-    pool.name(),
-    pool.totalDeposits(),
-    pool.revenueAccumulated(),
-    pool.endTime(),
-    pool.status(),
-    pool.lpToken(),
-    pool.getLpHolders(),
-    pool.getMilestones(),
-    pool.getEmergencyStatus(),
-  ]);
+  try {
+    const [
+      name,
+      totalDeposits,
+      revenueAccumulated,
+      endTime,
+      targetAmount,
+      minCommitment,
+      status,
+      lpTokenAddress,
+      lpHolders,
+      milestones,
+      emergencyMode,
+      emergencyWithdrawalRequestTime,
+      authorizedWithdrawer,
+    ] = await pool.getPoolDetails();
 
-  return {
-    address: poolAddress,
-    name,
-    totalDeposits,
-    revenueAccumulated,
-    endTime,
-    status,
-    lpTokenAddress,
-    lpHolders,
-    milestones,
-    emergencyStatus,
-  };
-}
-
-// Make a deposit to a pool through the factory
-export async function depositToPool(
-  signer: ethers.Signer,
-  poolName: string,
-  amount: bigint
-) {
-  const factory = getStageDotFunPoolFactoryContract(signer);
-  const tx = await factory.deposit(poolName, amount);
-  return tx.wait();
-}
-
-// Withdraw from a pool through the factory
-export async function withdrawFromPool(
-  signer: ethers.Signer,
-  poolName: string,
-  amount: bigint
-) {
-  const factory = getStageDotFunPoolFactoryContract(signer);
-  const tx = await factory.withdraw(poolName, amount);
-  return tx.wait();
-}
-
-// Update pool status through the factory
-export async function updatePoolStatus(
-  signer: ethers.Signer,
-  poolAddress: string,
-  status: number
-) {
-  const factory = getStageDotFunPoolFactoryContract(signer);
-  const tx = await factory.updatePoolStatus(poolAddress, status);
-  return tx.wait();
+    return {
+      name,
+      totalDeposits,
+      revenueAccumulated,
+      endTime,
+      targetAmount,
+      minCommitment,
+      status,
+      lpTokenAddress,
+      lpHolders,
+      milestones,
+      emergencyMode,
+      emergencyWithdrawalRequestTime,
+      authorizedWithdrawer,
+    };
+  } catch (error) {
+    console.error("Error getting pool details:", error);
+    throw error;
+  }
 }
 
 // Get pool by name
@@ -307,7 +264,18 @@ export async function getPoolByName(
 ): Promise<string | null> {
   const factory = getStageDotFunPoolFactoryContract(provider);
   try {
-    return await factory.getPoolByName(name);
+    const pools = await factory.getDeployedPools();
+
+    // Check each pool's name
+    for (const poolAddress of pools) {
+      const pool = getPoolContract(provider, poolAddress);
+      const poolName = await pool.name();
+      if (poolName === name) {
+        return poolAddress;
+      }
+    }
+
+    return null;
   } catch (error) {
     console.error("Error getting pool by name:", error);
     return null;

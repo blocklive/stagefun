@@ -8,7 +8,7 @@ export const CONTRACT_ADDRESSES = {
     usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
   },
   monadTestnet: {
-    stageDotFunPoolFactory: "0x918A0aA3b103b39D9Bc2c643Fd706E8b36757BC9",
+    stageDotFunPoolFactory: "0xE2C71E9b2FBF394Ec97955af3D97e8404D7348BF",
     usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
   },
 } as const;

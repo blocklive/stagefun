@@ -20,6 +20,8 @@ import {
   getPoolId,
   getContractAddresses,
   StageDotFunPoolABI,
+  getPoolByName,
+  getPoolContract,
 } from "../lib/contracts/StageDotFunPool";
 import { supabase } from "../lib/supabase";
 
@@ -154,7 +156,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
         // Get the pool contract address from the database
         const { data: pool } = await supabase
           .from("pools")
-          .select("contract_address")
+          .select("contract_address, status")
           .eq("id", poolId)
           .single();
 
@@ -162,11 +164,129 @@ export function useContractInteraction(): ContractInteractionHookResult {
           throw new Error("Pool contract address not found");
         }
 
+        // Check if pool is active
+        const poolContract = new ethers.Contract(
+          pool.contract_address,
+          StageDotFunPoolABI,
+          ethersProvider
+        );
+        const poolStatus = await poolContract.status();
+        console.log("Pool status:", poolStatus);
+
+        if (poolStatus !== BigInt(1)) {
+          throw new Error("Pool is not active");
+        }
+
+        // Check USDC balance
+        const usdcBalance = await usdcContract.balanceOf(signerAddress);
+        console.log("USDC Balance check:", {
+          balance: ethers.formatUnits(usdcBalance, usdcDecimals),
+          required: amountFormatted,
+          hasEnough: usdcBalance >= amountBigInt,
+        });
+
+        if (usdcBalance < amountBigInt) {
+          throw new Error(
+            `Insufficient USDC balance. You have ${ethers.formatUnits(
+              usdcBalance,
+              usdcDecimals
+            )} USDC but trying to deposit ${amountFormatted} USDC`
+          );
+        }
+
+        // Get pool details to check constraints
+        const poolDetails = await poolContract.getPoolDetails();
+
+        console.log("Raw pool details from contract:", {
+          name: poolDetails._name,
+          minCommitment: poolDetails._minCommitment.toString(),
+          totalDeposits: poolDetails._totalDeposits.toString(),
+          targetAmount: poolDetails._targetAmount.toString(),
+          status: poolDetails._status.toString(),
+          endTime: poolDetails._endTime.toString(),
+          lpTokenAddress: poolDetails._lpTokenAddress,
+          lpHolders: poolDetails._lpHolders,
+          milestones: poolDetails._milestones,
+          emergencyMode: poolDetails._emergencyMode,
+          emergencyWithdrawalRequestTime:
+            poolDetails._emergencyWithdrawalRequestTime,
+          authorizedWithdrawer: poolDetails._authorizedWithdrawer,
+        });
+
+        // Convert all amounts to natural USDC values for display and comparison
+        const displayValues = {
+          minCommitment: Number(
+            ethers.formatUnits(poolDetails._minCommitment, usdcDecimals)
+          ),
+          totalDeposits: Number(
+            ethers.formatUnits(poolDetails._totalDeposits, usdcDecimals)
+          ),
+          targetAmount: Number(
+            ethers.formatUnits(poolDetails._targetAmount, usdcDecimals)
+          ),
+          status: Number(poolDetails._status),
+          endTime: new Date(Number(poolDetails._endTime) * 1000),
+        };
+
+        console.log("Converted values:", {
+          displayValues,
+          inputAmount: amount,
+          inputAmountInWei: amountBigInt.toString(),
+        });
+
+        // Check minimum commitment (using raw USDC amounts)
+        console.log("Detailed commitment check:", {
+          minCommitmentRaw: poolDetails._minCommitment.toString(),
+          amountRaw: amountBigInt.toString(),
+          minCommitmentFormatted: ethers.formatUnits(
+            poolDetails._minCommitment,
+            usdcDecimals
+          ),
+          amountFormatted: ethers.formatUnits(amountBigInt, usdcDecimals),
+          isSufficient: amountBigInt >= poolDetails._minCommitment,
+        });
+
+        // Convert min commitment to natural USDC value for comparison
+        const minCommitmentNatural = Number(
+          ethers.formatUnits(poolDetails._minCommitment, usdcDecimals)
+        );
+
+        if (amount < minCommitmentNatural) {
+          throw new Error(
+            `Amount is below minimum commitment of ${minCommitmentNatural} USDC`
+          );
+        }
+
+        // Check end time
+        if (displayValues.endTime < new Date()) {
+          throw new Error("Pool has ended");
+        }
+
+        console.log("Pool checks passed:", {
+          status: displayValues.status,
+          minCommitment: `${displayValues.minCommitment} USDC`,
+          endTime: displayValues.endTime.toISOString(),
+          amount: `${amount} USDC`,
+        });
+
+        console.log("Contract setup complete:", {
+          usdcSymbol,
+          usdcDecimals,
+          amountBigInt: amountBigInt.toString(),
+          amountFormatted,
+        });
+
         // Check allowance
         const currentAllowance = await usdcContract.allowance(
           signerAddress,
           pool.contract_address
         );
+
+        console.log("Current allowance:", {
+          allowance: currentAllowance.toString(),
+          required: amountBigInt.toString(),
+          needsApproval: currentAllowance < amountBigInt,
+        });
 
         // Handle approval if needed
         if (currentAllowance < amountBigInt) {
@@ -187,7 +307,6 @@ export function useContractInteraction(): ContractInteractionHookResult {
             value: "0",
             from: signerAddress,
             chainId: 10143, // Monad Testnet
-            gas: "500000", // Add sufficient gas for approval
           };
 
           // Set UI options for the approval transaction
@@ -203,11 +322,21 @@ export function useContractInteraction(): ContractInteractionHookResult {
             },
           };
 
-          console.log("Sending approval transaction");
-          await sendTransaction(approvalRequest, {
+          console.log("Sending approval transaction", approvalRequest);
+          const approvalTxHash = await sendTransaction(approvalRequest, {
             uiOptions: approvalUiOptions,
           });
-          console.log("Approval transaction confirmed");
+          console.log("Approval transaction sent:", approvalTxHash);
+
+          // Wait for approval to be mined
+          const approvalReceipt = await ethersProvider.waitForTransaction(
+            approvalTxHash.hash
+          );
+          console.log("Approval confirmed:", approvalReceipt);
+
+          if (!approvalReceipt.status) {
+            throw new Error("USDC approval failed");
+          }
         }
 
         // Create contract interface for pool deposit
@@ -223,7 +352,6 @@ export function useContractInteraction(): ContractInteractionHookResult {
           value: "0",
           from: signerAddress,
           chainId: 10143, // Monad Testnet
-          gas: "1000000", // Add sufficient gas for deposit
         };
 
         // Set UI options for the deposit transaction
@@ -239,14 +367,124 @@ export function useContractInteraction(): ContractInteractionHookResult {
           },
         };
 
-        console.log("Sending deposit transaction");
-        const receipt = await sendTransaction(depositRequest, {
-          uiOptions: depositUiOptions,
+        console.log("Sending deposit transaction", {
+          request: depositRequest,
+          encodedData: depositData,
+          functionSelector: depositData.slice(0, 10),
         });
-        console.log("Deposit successful, receipt:", receipt);
-        return receipt;
+
+        console.log("🔄 About to call Privy sendTransaction...");
+        try {
+          const txHash = await sendTransaction(depositRequest, {
+            uiOptions: depositUiOptions,
+          });
+
+          console.log("Transaction hash received:", txHash);
+
+          // Wait for transaction to be mined using ethers provider
+          const receipt = await ethersProvider.waitForTransaction(txHash.hash);
+
+          if (!receipt) {
+            throw new Error("Transaction receipt not found");
+          }
+
+          // Add detailed logging of the transaction receipt
+          console.log("Transaction receipt:", {
+            hash: receipt.hash,
+            blockNumber: receipt.blockNumber,
+            status: receipt.status,
+            logs: receipt.logs.map((log) => ({
+              address: log.address,
+              topics: log.topics,
+              data: log.data,
+            })),
+          });
+
+          // Check if the transaction was successful
+          if (!receipt.status) {
+            // Try to get the revert reason
+            const code = await ethersProvider.call({
+              ...depositRequest,
+              blockTag: receipt.blockNumber,
+            });
+            console.error("Transaction failed with code:", code);
+            throw new Error("Transaction failed on chain");
+          }
+
+          // Create pool contract instance to parse logs
+          const poolContract = new ethers.Contract(
+            pool.contract_address,
+            StageDotFunPoolABI,
+            ethersProvider
+          );
+
+          try {
+            // Look for Deposit event in the logs by checking the topics
+            const depositEventSignature =
+              poolContract.interface.getEvent("Deposit")?.topicHash;
+
+            if (depositEventSignature) {
+              const depositEvent = receipt.logs.find(
+                (log) => log.topics[0] === depositEventSignature
+              );
+
+              if (!depositEvent) {
+                console.warn("No Deposit event found in transaction logs");
+              } else {
+                const parsedEvent = poolContract.interface.parseLog({
+                  topics: depositEvent.topics,
+                  data: depositEvent.data,
+                });
+                console.log("Found and parsed Deposit event:", parsedEvent);
+              }
+            } else {
+              console.warn(
+                "Could not get Deposit event signature from contract interface"
+              );
+            }
+          } catch (error) {
+            console.warn("Error parsing Deposit event:", error);
+            // Don't throw since the transaction itself succeeded
+          }
+
+          // Fetch updated pool details to confirm the deposit
+          const updatedPoolDetails = await poolContract.getPoolDetails();
+          console.log("Deposit successful, receipt:", receipt);
+          return receipt;
+        } catch (err) {
+          console.error("Error in depositToPool transaction:", {
+            error: err,
+            message: err instanceof Error ? err.message : "Unknown error",
+            code: (err as any).code,
+            data: (err as any).data,
+            transaction: (err as any).transaction,
+            receipt: (err as any).receipt,
+          });
+
+          // Try to get more error details if possible
+          if (
+            err instanceof Error &&
+            err.message.includes("execution reverted")
+          ) {
+            const revertReason = err.message
+              .split("execution reverted:")[1]
+              ?.trim();
+            throw new Error(
+              `Transaction reverted: ${revertReason || "Unknown reason"}`
+            );
+          }
+
+          throw err;
+        }
       } catch (err) {
-        console.error("Error in depositToPool:", err);
+        console.error("Error in depositToPool:", {
+          error: err,
+          message: err instanceof Error ? err.message : "Unknown error",
+          code: (err as any).code,
+          data: (err as any).data,
+          transaction: (err as any).transaction,
+          receipt: (err as any).receipt,
+        });
         const errorMessage =
           err instanceof Error
             ? err.message
@@ -267,7 +505,39 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
     try {
       const provider = await getProvider();
-      return await getPoolFromChain(provider, poolId);
+      const poolAddress = await getPoolByName(provider, poolId);
+
+      if (!poolAddress) {
+        return null;
+      }
+
+      const pool = getPoolContract(provider, poolAddress);
+      const details = await pool.getPoolDetails();
+
+      // Add detailed logging for pool status
+      console.log("Pool status from chain:", {
+        poolId,
+        rawStatus: details._status,
+        isActive: details._status === 1,
+        poolDetails: details,
+      });
+
+      return {
+        _name: details._name,
+        _totalDeposits: details._totalDeposits,
+        _revenueAccumulated: details._revenueAccumulated,
+        _endTime: details._endTime,
+        _targetAmount: details._targetAmount,
+        _minCommitment: details._minCommitment,
+        _status: details._status,
+        _lpTokenAddress: details._lpTokenAddress,
+        _lpHolders: details._lpHolders,
+        _milestones: details._milestones,
+        _emergencyMode: details._emergencyMode,
+        _emergencyWithdrawalRequestTime:
+          details._emergencyWithdrawalRequestTime,
+        _authorizedWithdrawer: details._authorizedWithdrawer,
+      };
     } catch (err: any) {
       setError(err.message || "Error getting pool from chain");
       return null;

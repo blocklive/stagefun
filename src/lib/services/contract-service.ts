@@ -6,9 +6,12 @@ import {
   formatToken,
   parseToken,
   getPoolId,
+  getPoolDetails,
+  getPoolByName,
 } from "../contracts/StageDotFunPool";
 import { supabase } from "../supabase";
 import { POOL_ABI } from "../abi/pool-abi";
+import { StageDotFunPoolABI } from "../contracts/StageDotFunPool";
 
 /**
  * Creates a pool in the smart contract
@@ -74,39 +77,38 @@ export async function getPoolFromChain(
   lpTokenAddress: string;
   exists: boolean;
 }> {
-  const factory = getStageDotFunPoolFactoryContract(provider);
-  const poolAddress = await factory.getPoolByName(poolId);
+  try {
+    const poolAddress = await getPoolByName(provider, poolId);
 
-  if (!poolAddress) {
-    throw new Error("Pool not found");
+    if (!poolAddress) {
+      return {
+        name: "",
+        totalDeposits: "0",
+        revenueAccumulated: "0",
+        endTime: "0",
+        status: "0",
+        lpTokenAddress: ethers.ZeroAddress,
+        exists: false,
+      };
+    }
+
+    console.log("Pool address:", poolAddress);
+    const details = await getPoolDetails(provider, poolAddress);
+    console.log("Pool details:", details);
+
+    return {
+      name: details._name,
+      totalDeposits: details._totalDeposits.toString(),
+      revenueAccumulated: details._revenueAccumulated.toString(),
+      endTime: details._endTime.toString(),
+      status: details._status.toString(),
+      lpTokenAddress: details._lpTokenAddress,
+      exists: true,
+    };
+  } catch (error) {
+    console.error("Error getting pool from chain:", error);
+    throw error;
   }
-
-  const pool = getPoolContractInstance(provider, poolAddress);
-  const [
-    name,
-    totalDeposits,
-    revenueAccumulated,
-    endTime,
-    status,
-    lpTokenAddress,
-  ] = await Promise.all([
-    pool.name(),
-    pool.totalDeposits(),
-    pool.revenueAccumulated(),
-    pool.endTime(),
-    pool.status(),
-    pool.lpToken(),
-  ]);
-
-  return {
-    name,
-    totalDeposits,
-    revenueAccumulated,
-    endTime,
-    status,
-    lpTokenAddress,
-    exists: true,
-  };
 }
 
 /**
@@ -119,15 +121,19 @@ export async function getPoolLpHoldersFromChain(
   provider: ethers.Provider,
   poolId: string
 ): Promise<string[]> {
-  const factory = getStageDotFunPoolFactoryContract(provider);
-  const poolAddress = await factory.getPoolByName(poolId);
+  try {
+    const poolAddress = await getPoolByName(provider, poolId);
 
-  if (!poolAddress) {
-    throw new Error("Pool not found");
+    if (!poolAddress) {
+      return [];
+    }
+
+    const details = await getPoolDetails(provider, poolAddress);
+    return details.lpHolders;
+  } catch (error) {
+    console.error("Error getting LP holders from chain:", error);
+    return [];
   }
-
-  const pool = getPoolContractInstance(provider, poolAddress);
-  return await pool.getLpHolders();
 }
 
 /**
@@ -142,16 +148,22 @@ export async function getUserPoolBalanceFromChain(
   userAddress: string,
   poolId: string
 ): Promise<string> {
-  const factory = getStageDotFunPoolFactoryContract(provider);
-  const poolAddress = await factory.getPoolByName(poolId);
+  try {
+    const poolAddress = await getPoolByName(provider, poolId);
 
-  if (!poolAddress) {
-    throw new Error("Pool not found");
+    if (!poolAddress) {
+      return "0";
+    }
+
+    const details = await getPoolDetails(provider, poolAddress);
+    const deposit = details.deposits.find(
+      (d) => d.address.toLowerCase() === userAddress.toLowerCase()
+    );
+    return formatToken(deposit?.amount || BigInt(0));
+  } catch (error) {
+    console.error("Error getting user pool balance from chain:", error);
+    return "0";
   }
-
-  const pool = getPoolContract(provider, poolAddress);
-  const balance = await pool.lpBalances(userAddress);
-  return formatToken(balance);
 }
 
 /**
@@ -180,8 +192,8 @@ export async function getLPTokenSymbol(
   poolAddress: string
 ): Promise<string> {
   try {
-    const pool = getPoolContract(provider, poolAddress);
-    const lpTokenAddress = await pool.lpToken();
+    const details = await getPoolDetails(provider, poolAddress);
+    const lpTokenAddress = details.lpTokenAddress;
 
     if (!lpTokenAddress || lpTokenAddress === ethers.ZeroAddress) {
       return "Not deployed";
@@ -243,5 +255,5 @@ export async function deactivatePoolOnChain(
 }
 
 export function getPoolContract(provider: ethers.Provider, address: string) {
-  return new ethers.Contract(address, POOL_ABI, provider);
+  return new ethers.Contract(address, StageDotFunPoolABI, provider);
 }

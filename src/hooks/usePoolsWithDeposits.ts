@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 import {
   getStageDotFunPoolFactoryContract,
   getPoolContract,
-  formatToken,
+  getPoolDetails,
 } from "../lib/contracts/StageDotFunPool";
 import { getAllPools } from "../lib/services/pool-service";
 
@@ -72,16 +72,12 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           );
           if (!poolAddress) return null;
 
-          const poolContract = getPoolContract(provider, poolAddress);
-          const [totalDeposits, status] = await Promise.all([
-            poolContract.totalDeposits(),
-            poolContract.status(),
-          ]);
+          const details = await getPoolDetails(provider, pool.contract_address);
 
           return {
             address: pool.contract_address,
-            totalDeposits: Number(totalDeposits),
-            status: Number(status),
+            totalDeposits: Number(details.totalDeposits),
+            status: details.status,
           };
         })
       );

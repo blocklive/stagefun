@@ -2,7 +2,10 @@ import useSWR from "swr";
 import { Pool } from "../lib/supabase";
 import { supabase } from "../lib/supabase";
 import { ethers } from "ethers";
-import { getPoolDetails } from "../lib/contracts/StageDotFunPool";
+import {
+  getPoolDetails,
+  getPoolContract,
+} from "../lib/contracts/StageDotFunPool";
 
 async function fetchPool(poolId: string) {
   // Get pool and patrons from database
@@ -29,20 +32,14 @@ async function fetchPool(poolId: string) {
   const dbPool = poolResult.data;
   const patrons = patronsResult.data || [];
 
-  console.log("DB Pool data:", {
-    id: dbPool.id,
-    contract_address: dbPool.contract_address,
-    target_amount: dbPool.target_amount,
-  });
-
-  console.log("Patrons data:", patrons);
-
   let chainData = {
     totalDeposits: BigInt(0),
     revenueAccumulated: BigInt(0),
     endTime: BigInt(0),
     status: 0,
   };
+
+  let details = null;
 
   // Only try to get blockchain data if we have a contract address
   if (dbPool.contract_address) {
@@ -52,25 +49,49 @@ async function fetchPool(poolId: string) {
           ? "https://testnet-rpc.monad.xyz"
           : "https://sepolia.base.org"
       );
-      console.log(
-        "Fetching blockchain data for contract:",
-        dbPool.contract_address
-      );
-      const details = await getPoolDetails(provider, dbPool.contract_address);
-      console.log("Raw blockchain data:", {
-        totalDeposits: details.totalDeposits.toString(),
-        revenueAccumulated: details.revenueAccumulated.toString(),
-        endTime: details.endTime.toString(),
-        status: details.status,
-      });
+
+      // First verify the contract exists and is accessible
+      const code = await provider.getCode(dbPool.contract_address);
+      if (code === "0x") {
+        console.error(
+          "Contract not found at address:",
+          dbPool.contract_address,
+          "This could mean the contract is not deployed or the address is incorrect"
+        );
+        throw new Error("Contract not found at specified address");
+      }
+
+      details = await getPoolDetails(provider, dbPool.contract_address);
       chainData = {
         totalDeposits: details.totalDeposits,
         revenueAccumulated: details.revenueAccumulated,
         endTime: details.endTime,
         status: details.status,
       };
-    } catch (error) {
-      console.error("Error fetching chain data:", error);
+    } catch (error: any) {
+      // Enhanced error logging
+      console.error("Error fetching chain data:", {
+        error: error.message,
+        code: error.code,
+        method: error.method,
+        transaction: error.transaction,
+        pool_id: dbPool.id,
+        contract_address: dbPool.contract_address,
+        network: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK,
+        stack: error.stack, // Add stack trace
+      });
+
+      if (error.code === "CALL_EXCEPTION") {
+        console.error(
+          "Contract call failed. This could mean the contract doesn't have the expected interface or the function reverted.",
+          "Function signature:",
+          error.transaction?.data
+        );
+      } else if (error.code === "NETWORK_ERROR") {
+        console.error(
+          "Network error occurred. This could mean the RPC endpoint is down or unreachable."
+        );
+      }
       // Continue with default values if blockchain fetch fails
     }
   } else {
@@ -82,19 +103,11 @@ async function fetchPool(poolId: string) {
   const revenueAccumulated = Number(chainData.revenueAccumulated) / 1_000_000;
   const target_amount = Number(dbPool.target_amount); // This is already in USDC (not base units)
 
-  console.log("Processed amounts:", {
-    totalDeposits,
-    revenueAccumulated,
-    target_amount,
-  });
-
   // Calculate total patron commitments
   const patronCommitments = patrons.reduce(
     (sum, patron) => sum + Number(patron.amount),
     0
   );
-
-  console.log("Total patron commitments:", patronCommitments);
 
   const pool = {
     ...dbPool,
@@ -106,18 +119,18 @@ async function fetchPool(poolId: string) {
     status: chainData.status === 1 ? "active" : "inactive",
     end_time: Number(chainData.endTime) || 0,
     patrons,
+    deposits: details?.deposits || [],
+    milestones: details?.milestones || [],
+    emergency_mode: details?.emergencyMode || false,
+    emergency_withdrawal_request_time:
+      details?.emergencyWithdrawalRequestTime || BigInt(0),
+    authorized_withdrawer: details?.authorizedWithdrawer || ethers.ZeroAddress,
   };
 
   const percentage =
     target_amount > 0
       ? ((totalDeposits || patronCommitments) / target_amount) * 100
       : 0;
-
-  console.log("Final pool data:", {
-    target_amount,
-    raised_amount: totalDeposits || patronCommitments,
-    percentage,
-  });
 
   return {
     pool,

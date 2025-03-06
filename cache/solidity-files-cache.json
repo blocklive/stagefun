@@ -12,6 +12,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
@@ -52,6 +53,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
@@ -88,6 +90,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
@@ -126,6 +129,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
@@ -162,6 +166,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
@@ -198,6 +203,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
@@ -237,6 +243,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
@@ -278,6 +285,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
@@ -316,6 +324,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
@@ -344,8 +353,8 @@
       ]
     },
     "/Users/brentlong/working/ch3ckin/stagefun/contracts/StageDotFunPool.sol": {
-      "lastModificationDate": 1741293620220,
-      "contentHash": "1e6f1c20bd600a826efc3d17cd1904e6",
+      "lastModificationDate": 1741298818443,
+      "contentHash": "470e3bddbae83fc311453e0add1057d3",
       "sourceName": "contracts/StageDotFunPool.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -354,6 +363,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
@@ -394,6 +404,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {
@@ -423,7 +434,7 @@
       ]
     },
     "/Users/brentlong/working/ch3ckin/stagefun/contracts/StageDotFunPoolFactory.sol": {
-      "lastModificationDate": 1741293585477,
+      "lastModificationDate": 1741293673830,
       "contentHash": "8cd1e8ae4190bc3dfface993bd93c134",
       "sourceName": "contracts/StageDotFunPoolFactory.sol",
       "solcConfig": {
@@ -433,6 +444,7 @@
             "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
           "evmVersion": "paris",
           "outputSelection": {
             "*": {

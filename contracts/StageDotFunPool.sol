@@ -60,6 +60,39 @@ contract StageDotFunPool is Ownable {
     event WithdrawerAuthorized(address withdrawer);
     event WithdrawerRevoked(address withdrawer);
     
+    // View functions to get all pool details in a single call
+    function getPoolDetails() external view returns (
+        string memory _name,
+        uint256 _totalDeposits,
+        uint256 _revenueAccumulated,
+        uint256 _endTime,
+        uint256 _targetAmount,
+        uint256 _minCommitment,
+        uint8 _status,
+        address _lpTokenAddress,
+        address[] memory _lpHolders,
+        Milestone[] memory _milestones,
+        bool _emergencyMode,
+        uint256 _emergencyWithdrawalRequestTime,
+        address _authorizedWithdrawer
+    ) {
+        return (
+            name,
+            totalDeposits,
+            revenueAccumulated,
+            endTime,
+            targetAmount,
+            minCommitment,
+            uint8(status),
+            address(lpToken),
+            lpHolders,
+            milestones,
+            emergencyMode,
+            emergencyWithdrawalRequestTime,
+            authorizedWithdrawer
+        );
+    }
+    
     constructor(
         string memory _name,
         string memory symbol,
@@ -277,5 +310,17 @@ contract StageDotFunPool is Ownable {
             emergencyMode &&
             withdrawalUnlockTime > 0 &&
             block.timestamp >= withdrawalUnlockTime;
+    }
+
+    function getLpBalance(address holder) external view returns (uint256) {
+        return lpBalances[holder];
+    }
+
+    function getLpBalances(address[] calldata holders) external view returns (uint256[] memory balances) {
+        balances = new uint256[](holders.length);
+        for (uint i = 0; i < holders.length; i++) {
+            balances[i] = lpBalances[holders[i]];
+        }
+        return balances;
     }
 } 

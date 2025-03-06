@@ -19,8 +19,23 @@ async function main() {
   const StageDotFunPool = await hre.ethers.getContractFactory(
     "StageDotFunPool"
   );
+
+  // Constructor parameters
+  const poolName = "Stage.fun Pool";
+  const symbol = "SFP";
+  const endTime = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60; // 1 year from now
+  const depositTokenAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS;
+  const targetAmount = hre.ethers.parseUnits("1000000", 6); // 1M USDC
+  const minCommitment = hre.ethers.parseUnits("1000", 6); // 1000 USDC
+
   const stageDotFunPool = await StageDotFunPool.deploy(
-    process.env.NEXT_PUBLIC_USDC_ADDRESS
+    poolName,
+    symbol,
+    endTime,
+    depositTokenAddress,
+    deployer.address,
+    targetAmount,
+    minCommitment
   );
   await stageDotFunPool.waitForDeployment();
   const stageDotFunPoolAddress = await stageDotFunPool.getAddress();
@@ -50,7 +65,15 @@ async function main() {
     try {
       await hre.run("sourcify:verify", {
         address: stageDotFunPoolAddress,
-        constructorArguments: [process.env.NEXT_PUBLIC_USDC_ADDRESS],
+        constructorArguments: [
+          poolName,
+          symbol,
+          endTime,
+          depositTokenAddress,
+          deployer.address,
+          targetAmount,
+          minCommitment,
+        ],
       });
       console.log("Contract verified on Sourcify");
     } catch (error) {
