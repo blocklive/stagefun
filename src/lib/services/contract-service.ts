@@ -164,6 +164,7 @@ export async function getPoolFromChain(
       status: pool.status,
       exists: pool.exists,
       lpTokenAddress: pool.lpTokenAddress,
+      endTime: pool.endTime,
     };
   } catch (error) {
     console.error("Error getting pool from chain:", error);

@@ -9,6 +9,7 @@ import { ContractPool } from "../lib/contracts/StageDotFunPool";
 interface ContractInteractionContextType {
   isLoading: boolean;
   error: string | null;
+  /** Creates a pool with a default end time of 2 days from now */
   createPool: (name: string, ticker: string) => Promise<any>;
   depositToPool: (poolId: string, amount: number) => Promise<any>;
   getPool: (poolId: string) => Promise<ContractPool | null>;

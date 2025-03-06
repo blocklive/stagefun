@@ -93,7 +93,14 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
     try {
       const signer = await getSigner();
-      const { receipt, poolId } = await createPoolOnChain(signer, name, ticker);
+      // Set end time to 2 days from now by default
+      const endTime = Math.floor(Date.now() / 1000) + 2 * 24 * 60 * 60;
+      const { receipt, poolId } = await createPoolOnChain(
+        signer,
+        name,
+        ticker,
+        endTime
+      );
       return { receipt, poolId };
     } catch (err: any) {
       setError(err.message || "Error creating pool on chain");
