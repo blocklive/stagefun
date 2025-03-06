@@ -10,23 +10,26 @@ import {
   getStageDotFunLiquidityContract,
 } from "../contracts/StageDotFunPool";
 import { supabase } from "../supabase";
+import { POOL_ABI } from "../abi/pool-abi";
 
 /**
  * Creates a pool in the smart contract
  * @param signer The signer to use for the transaction
  * @param name The name of the pool
  * @param symbol The symbol of the pool
+ * @param endTime The end time of the pool
  * @returns The transaction receipt and pool ID
  */
 export async function createPoolOnChain(
   signer: ethers.Signer,
   name: string,
-  symbol: string
+  symbol: string,
+  endTime: number
 ): Promise<{ receipt: ethers.TransactionReceipt; poolId: string }> {
   const contract = getStageDotFunPoolContract(signer);
   const poolId = getPoolId(name);
 
-  const tx = await contract.createPool(name, symbol);
+  const tx = await contract.createPool(name, symbol, endTime);
   const receipt = await tx.wait();
 
   // Get the LP token address from the PoolCreated event
@@ -294,4 +297,8 @@ export async function activatePoolOnChain(
     }
     throw new Error("Failed to activate pool with unknown error");
   }
+}
+
+export function getPoolContract(provider: ethers.Provider, address: string) {
+  return new ethers.Contract(address, POOL_ABI, provider);
 }

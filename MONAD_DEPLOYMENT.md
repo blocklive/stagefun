@@ -62,7 +62,7 @@ This will:
 After deployment, update your `.env.local` file with the contract addresses:
 
 ```
-NEXT_PUBLIC_POOL_COMMITMENT_ADDRESS=<deployed-address>
+NEXT_PUBLIC_POOL_CONTRACT_ADDRESS=<deployed-address>
 NEXT_PUBLIC_USDC_ADDRESS=<deployed-address>
 ```
 

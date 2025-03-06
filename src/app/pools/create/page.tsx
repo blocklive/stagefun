@@ -37,6 +37,9 @@ export default function CreatePoolPage() {
   const [currency, setCurrency] = useState("USDC");
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [endDate, setEndDate] = useState<Date>(
+    new Date(new Date().setDate(new Date().getDate() + 2))
+  );
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -82,9 +85,7 @@ export default function CreatePoolPage() {
         venue: "Convergence Station",
         status: "Accepting patrons",
         funding_stage: "Raising",
-        ends_at: new Date(
-          new Date().setDate(new Date().getDate() + 2)
-        ).toISOString(), // 2 days from now
+        ends_at: endDate.toISOString(),
         creator_id: dbUser.id,
         raised_amount: 0,
       };
@@ -120,6 +121,7 @@ export default function CreatePoolPage() {
             name: poolData.name,
             userId: dbUser.id,
             ticker: poolData.ticker || poolData.token_symbol || "LP",
+            ends_at: poolData.ends_at,
           }),
         });
 
@@ -381,6 +383,24 @@ export default function CreatePoolPage() {
                 className="w-full p-4 pl-12 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
+          </div>
+
+          {/* End Time Picker */}
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold mb-4">End Time</h2>
+            <div className="flex gap-4">
+              <input
+                type="datetime-local"
+                value={endDate.toISOString().slice(0, 16)}
+                min={new Date().toISOString().slice(0, 16)}
+                onChange={(e) => setEndDate(new Date(e.target.value))}
+                className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <p className="text-sm text-gray-400 mt-2">
+              Set when your party round will end. After this time, no new
+              commitments will be accepted.
+            </p>
           </div>
         </form>
       </div>

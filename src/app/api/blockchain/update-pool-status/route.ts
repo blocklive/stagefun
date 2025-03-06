@@ -15,9 +15,9 @@ const supabaseAdmin = createClient(
 export async function POST(req: NextRequest) {
   try {
     // Get pool data from request
-    const { poolId, name, userId, ends_at } = await req.json();
+    const { poolId, userId, status } = await req.json();
 
-    if (!poolId || !name || !userId || !ends_at) {
+    if (!poolId || !userId || status === undefined) {
       return NextResponse.json(
         { error: "Missing required parameters" },
         { status: 400 }
@@ -53,94 +53,34 @@ export async function POST(req: NextRequest) {
       process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK || "monad";
 
     // Set up provider and wallet for the backend
-    // Use environment-specific RPC URL based on the selected blockchain
     let rpcUrl;
-
     if (blockchainNetwork === "monad") {
-      rpcUrl =
-        process.env.NODE_ENV === "production"
-          ? process.env.MONAD_MAINNET_RPC_URL || "https://rpc.monad.xyz"
-          : process.env.MONAD_TESTNET_RPC_URL ||
-            "https://testnet-rpc.monad.xyz";
+      rpcUrl = "https://testnet-rpc.monad.xyz";
     } else if (
       blockchainNetwork === "hardhat" ||
       blockchainNetwork === "localhost"
     ) {
-      // Use local Hardhat node
       rpcUrl = "http://127.0.0.1:8545";
     } else {
-      // Fallback to Base
-      rpcUrl =
-        process.env.NODE_ENV === "production"
-          ? process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org"
-          : "http://127.0.0.1:8545"; // Local Hardhat node for development
+      rpcUrl = "https://sepolia.base.org";
     }
 
-    console.log(`Using RPC URL: ${rpcUrl} for network: ${blockchainNetwork}`);
-
-    // Create provider with simpler configuration to avoid type errors
     const provider = new ethers.JsonRpcProvider(rpcUrl);
-
-    // Set a reasonable timeout for requests
-    provider.pollingInterval = 4000; // 4 seconds polling interval
-
-    // Test the connection to the provider
-    try {
-      console.log("Testing connection to blockchain provider...");
-      const blockNumber = await provider.getBlockNumber();
-      console.log(
-        `Successfully connected to blockchain. Current block: ${blockNumber}`
-      );
-    } catch (connectionError) {
-      console.error(
-        "Failed to connect to blockchain provider:",
-        connectionError
-      );
-
-      // Update the pool with error status
-      await supabaseAdmin
-        .from("pools")
-        .update({
-          blockchain_status: "failed",
-          blockchain_network: blockchainNetwork,
-        })
-        .eq("id", poolId);
-
-      return NextResponse.json(
-        {
-          error: "Failed to connect to blockchain provider",
-          details:
-            connectionError instanceof Error
-              ? connectionError.message
-              : String(connectionError),
-          network: blockchainNetwork,
-          rpcUrl: rpcUrl,
-        },
-        { status: 503 }
-      );
-    }
-
-    // In production, you would use an environment variable for the private key
     const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY!;
-
     const wallet = new ethers.Wallet(privateKey, provider);
     console.log(`Using wallet address: ${wallet.address}`);
 
     // Get the contract
     const contract = getStageDotFunPoolContract(wallet);
 
-    // Create the pool on the blockchain
-    console.log(`Creating pool ${name} on ${blockchainNetwork}`);
-    const endTimeUnix = Math.floor(new Date(ends_at).getTime() / 1000);
+    // Get the pool name from the database
+    const bytes32PoolId = getPoolId(pool.name);
     console.log(
-      `End time: ${endTimeUnix} (${new Date(ends_at).toISOString()})`
+      `Updating pool status for ${pool.name} (${bytes32PoolId}) to ${status}`
     );
 
-    const tx = await contract.createPool(
-      name,
-      pool.ticker || pool.token_symbol || "LP",
-      endTimeUnix
-    );
+    // Update the pool status on the blockchain
+    const tx = await contract.updatePoolStatus(bytes32PoolId, status);
     console.log("Transaction sent:", tx.hash);
 
     // Update the pool in the database with pending blockchain information
@@ -149,20 +89,11 @@ export async function POST(req: NextRequest) {
       .update({
         blockchain_tx_hash: tx.hash,
         blockchain_status: "pending",
-        blockchain_network: blockchainNetwork,
       })
       .eq("id", poolId);
 
     const receipt = await tx.wait();
     console.log("Transaction confirmed in block:", receipt.blockNumber);
-
-    // Get the LP token address from the PoolCreated event
-    const poolCreatedEvent = receipt.logs.find(
-      (log: any) => log.eventName === "PoolCreated"
-    );
-    if (!poolCreatedEvent) {
-      throw new Error("PoolCreated event not found");
-    }
 
     // Determine the explorer URL based on the blockchain network
     let explorerUrl;
@@ -175,7 +106,7 @@ export async function POST(req: NextRequest) {
       blockchainNetwork === "hardhat" ||
       blockchainNetwork === "localhost"
     ) {
-      explorerUrl = "http://localhost:8545"; // Local explorer not typically available
+      explorerUrl = "http://localhost:8545";
     } else {
       explorerUrl = "https://sepolia.etherscan.io";
     }
@@ -186,10 +117,8 @@ export async function POST(req: NextRequest) {
       .update({
         blockchain_tx_hash: receipt.hash,
         blockchain_block_number: receipt.blockNumber,
-        blockchain_status: "active",
-        blockchain_network: blockchainNetwork,
+        blockchain_status: status === 1 ? "active" : "inactive",
         blockchain_explorer_url: `${explorerUrl}/tx/${receipt.hash}`,
-        contract_address: poolCreatedEvent.args.lpTokenAddress,
       })
       .eq("id", poolId);
 
@@ -204,10 +133,10 @@ export async function POST(req: NextRequest) {
       blockNumber: receipt.blockNumber,
       network: blockchainNetwork,
       explorerUrl: `${explorerUrl}/tx/${receipt.hash}`,
-      lpTokenAddress: poolCreatedEvent.args.lpTokenAddress,
+      status: status === 1 ? "active" : "inactive",
     });
   } catch (error: any) {
-    console.error("Error creating pool on blockchain:", error);
+    console.error("Error updating pool status:", error);
 
     // Provide more specific error messages based on the error type
     if (error.code === "NETWORK_ERROR" || error.message?.includes("network")) {
@@ -234,7 +163,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       {
-        error: "Failed to create pool on blockchain",
+        error: "Failed to update pool status",
         details: error.message || String(error),
       },
       { status: 500 }

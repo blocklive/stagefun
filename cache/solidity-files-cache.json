@@ -344,8 +344,8 @@
       ]
     },
     "/Users/brentlong/working/ch3ckin/stagefun/contracts/StageDotFunPool.sol": {
-      "lastModificationDate": 1741137543688,
-      "contentHash": "b87a1d11d301216dcf52d6e5d9f7838b",
+      "lastModificationDate": 1741220493145,
+      "contentHash": "3f0feb84458d9cb55c636e58cba1e4c0",
       "sourceName": "contracts/StageDotFunPool.sol",
       "solcConfig": {
         "version": "0.8.27",

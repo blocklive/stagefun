@@ -49,7 +49,8 @@ export async function createPool(
       const { receipt, poolId } = await createPoolOnChain(
         signer,
         poolData.name,
-        poolData.ticker || poolData.token_symbol || "LP"
+        poolData.ticker || poolData.token_symbol || "LP",
+        Math.floor(new Date(poolData.ends_at).getTime() / 1000) // Convert ends_at to Unix timestamp
       );
 
       // Get the LP token address from the PoolCreated event

@@ -34,7 +34,7 @@ async function main() {
 
   console.log("Deployment complete!");
   console.log("Contract addresses to add to your .env.local file:");
-  console.log(`NEXT_PUBLIC_POOL_COMMITMENT_ADDRESS=${poolAddress}`);
+  console.log(`NEXT_PUBLIC_POOL_CONTRACT_ADDRESS=${poolAddress}`);
   console.log(`NEXT_PUBLIC_USDC_ADDRESS=${usdcAddress}`);
 }
 

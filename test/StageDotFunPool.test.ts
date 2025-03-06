@@ -35,7 +35,8 @@ describe("StageDotFunPool", function () {
   describe("Pool Creation", function () {
     it("should create a new pool", async function () {
       const poolName = "Test Pool";
-      await expect(stageDotFunPool.createPool(poolName))
+      const endTime = Math.floor(Date.now() / 1000) + 86400; // 24 hours from now
+      await expect(stageDotFunPool.createPool(poolName, "LP", endTime))
         .to.emit(stageDotFunPool, "PoolCreated")
         .withArgs(ethers.keccak256(ethers.toUtf8Bytes(poolName)), poolName);
 
@@ -44,24 +45,36 @@ describe("StageDotFunPool", function () {
       );
       expect(pool.name).to.equal(poolName);
       expect(pool.exists).to.be.true;
+      expect(pool.endTime).to.equal(endTime);
     });
 
     it("should not create a pool with the same name", async function () {
       const poolName = "Test Pool";
-      await stageDotFunPool.createPool(poolName);
+      const endTime = Math.floor(Date.now() / 1000) + 86400; // 24 hours from now
+      await stageDotFunPool.createPool(poolName, "LP", endTime);
 
-      await expect(stageDotFunPool.createPool(poolName)).to.be.revertedWith(
-        "Pool already exists"
-      );
+      await expect(
+        stageDotFunPool.createPool(poolName, "LP", endTime)
+      ).to.be.revertedWith("Pool already exists");
+    });
+
+    it("should not create a pool with end time in the past", async function () {
+      const poolName = "Test Pool";
+      const endTime = Math.floor(Date.now() / 1000) - 86400; // 24 hours ago
+      await expect(
+        stageDotFunPool.createPool(poolName, "LP", endTime)
+      ).to.be.revertedWith("End time must be in future");
     });
   });
 
   describe("Deposits", function () {
     const poolName = "Test Pool";
     const depositAmount = ethers.parseUnits("100", 6); // 100 USDC
+    let endTime: number;
 
     beforeEach(async function () {
-      await stageDotFunPool.createPool(poolName);
+      endTime = Math.floor(Date.now() / 1000) + 86400; // 24 hours from now
+      await stageDotFunPool.createPool(poolName, "LP", endTime);
     });
 
     it("should allow users to deposit USDC", async function () {

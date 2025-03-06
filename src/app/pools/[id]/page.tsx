@@ -29,15 +29,27 @@ import {
 import { Pool, User } from "../../../lib/supabase";
 import { toast } from "react-hot-toast";
 import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
+import { usePoolDetails } from "../../../hooks/usePoolDetails";
+import { usePoolCommitments } from "../../../hooks/usePoolCommitments";
+import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
   const { wallets, ready } = useWallets();
-
   const { dbUser } = useSupabase();
   const router = useRouter();
   const params = useParams();
   const poolId = params.id as string;
+
+  const {
+    pool,
+    creator,
+    patrons,
+    lpTokenSymbol,
+    lpTokenError,
+    isLoading,
+    refresh: refreshPool,
+  } = usePoolDetails(poolId);
 
   const {
     depositToPool: commitToBlockchain,
@@ -46,95 +58,32 @@ export default function PoolDetailsPage() {
     privyReady,
   } = useContractInteraction();
 
-  // Update the balance hook to get the refresh function
   const { balance: usdcBalance, refresh: refreshBalance } = useUSDCBalance();
+
+  const {
+    totalCommitted,
+    targetAmount,
+    isLoading: isCommitmentsLoading,
+    refresh: refreshCommitments,
+  } = usePoolCommitments(pool?.name || null);
+
+  const {
+    hours,
+    minutes,
+    seconds,
+    hasEnded,
+    isLoading: isTimeLoading,
+  } = usePoolTimeLeft(pool?.name || null);
 
   // Basic states
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState("commit");
   const [commitAmount, setCommitAmount] = useState("1");
   const [showPatrons, setShowPatrons] = useState(true);
-  const [timeLeft, setTimeLeft] = useState({
-    hours: 47,
-    minutes: 59,
-    seconds: 12,
-  });
 
-  // Data states
-  const [pool, setPool] = useState<Pool | null>(null);
-  const [creator, setCreator] = useState<User | null>(null);
-  const [patrons, setPatrons] = useState<any[]>([]);
-  const [lpTokenSymbol, setLpTokenSymbol] = useState<string>("");
-  const [lpTokenError, setLpTokenError] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-  const [isApproving, setIsApproving] = useState(false);
-
-  // Add state for activation
+  // Add state for activation and approving
   const [isActivating, setIsActivating] = useState(false);
-
-  // Load initial pool data
-  useEffect(() => {
-    let mounted = true;
-    let provider: ethers.Provider | null = null;
-
-    async function loadPoolData() {
-      try {
-        setLoading(true);
-        setLpTokenError("");
-        const poolData = await getPoolById(poolId);
-        if (!poolData || !mounted) return;
-
-        const [creatorData, patronsData] = await Promise.all([
-          getUserById(poolData.creator_id),
-          getPatronsByPoolId(poolId),
-        ]);
-
-        if (!mounted) return;
-
-        setPool(poolData);
-        setCreator(creatorData);
-        setPatrons(patronsData);
-
-        // Only fetch LP token symbol once if we have both contract address and confirmed status
-        if (
-          poolData.contract_address &&
-          privyReady &&
-          poolData.blockchain_status === "confirmed" &&
-          !lpTokenSymbol
-        ) {
-          try {
-            if (!provider) {
-              provider = new ethers.JsonRpcProvider(
-                process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
-                  ? "https://testnet-rpc.monad.xyz"
-                  : "https://sepolia.base.org"
-              );
-            }
-            const symbol = await getLPTokenSymbol(
-              provider,
-              poolData.contract_address
-            );
-            if (mounted && symbol) {
-              setLpTokenSymbol(symbol);
-            }
-          } catch (error) {
-            console.error("Error fetching LP token symbol:", error);
-            setLpTokenError("Unable to fetch token symbol");
-          }
-        }
-      } catch (error) {
-        console.error("Error loading pool data:", error);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-
-    loadPoolData();
-    return () => {
-      mounted = false;
-      provider = null;
-    };
-  }, [poolId, privyReady, lpTokenSymbol]);
+  const [isApproving, setIsApproving] = useState(false);
 
   // Viewport height effect
   useEffect(() => {
@@ -143,6 +92,57 @@ export default function PoolDetailsPage() {
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
+
+  // Update function to handle pool status toggle
+  const handleTogglePoolStatus = async () => {
+    if (!pool || !dbUser) return;
+
+    setIsActivating(true);
+    try {
+      const newStatus =
+        pool.blockchain_status === "active" ||
+        pool.blockchain_status === "confirmed"
+          ? 0
+          : 1;
+      const response = await fetch("/api/blockchain/update-pool-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          poolId: pool.id,
+          userId: dbUser.id,
+          status: newStatus,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          error.error ||
+            `Failed to ${newStatus === 1 ? "activate" : "deactivate"} pool`
+        );
+      }
+
+      const result = await response.json();
+      console.log("Pool status updated:", result);
+
+      // Show success message
+      toast.success(
+        `Pool ${newStatus === 1 ? "activated" : "deactivated"} successfully!`
+      );
+
+      // Refresh pool data
+      await refreshPool();
+    } catch (error) {
+      console.error("Error updating pool status:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update pool status"
+      );
+    } finally {
+      setIsActivating(false);
+    }
+  };
 
   const handleCommit = async () => {
     if (!dbUser || !pool) {
@@ -174,18 +174,12 @@ export default function PoolDetailsPage() {
       console.log("Database update result:", result);
 
       if (result) {
-        // Refresh pool data
-        const [newPool, newPatrons] = await Promise.all([
-          getPoolById(poolId),
-          getPatronsByPoolId(poolId),
+        // Refresh pool data, balance, and commitments
+        await Promise.all([
+          refreshPool(),
+          refreshBalance(),
+          refreshCommitments(),
         ]);
-
-        if (newPool) setPool(newPool);
-        if (newPatrons) setPatrons(newPatrons);
-
-        // Update balance after successful deposit
-        await refreshBalance();
-
         alert(`Successfully committed ${amount} ${pool.currency} to the pool!`);
       }
     } catch (error: any) {
@@ -199,46 +193,6 @@ export default function PoolDetailsPage() {
   const handleMaxClick = useCallback(() => {
     setCommitAmount(usdcBalance);
   }, [usdcBalance]);
-
-  // Update function to handle pool activation
-  const handleActivatePool = async () => {
-    if (!pool || !dbUser) return;
-
-    setIsActivating(true);
-    try {
-      const response = await fetch("/api/blockchain/activate-pool", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          poolId: pool.id,
-          userId: dbUser.id,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to activate pool");
-      }
-
-      const result = await response.json();
-      console.log("Pool activated:", result);
-
-      // Show success message
-      toast.success("Pool activated successfully!");
-
-      // Refresh the page to show updated status
-      router.refresh();
-    } catch (error) {
-      console.error("Error activating pool:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to activate pool"
-      );
-    } finally {
-      setIsActivating(false);
-    }
-  };
 
   // Render blockchain information section
   const renderBlockchainInfo = () => {
@@ -254,14 +208,18 @@ export default function PoolDetailsPage() {
               <span className="text-gray-400">Status:</span>
               <span
                 className={`font-medium ${
-                  pool.blockchain_status === "confirmed"
+                  pool.blockchain_status === "active"
                     ? "text-green-400"
                     : pool.blockchain_status === "pending"
                     ? "text-yellow-400"
+                    : pool.blockchain_status === "confirmed"
+                    ? "text-green-400"
                     : "text-red-400"
                 }`}
               >
-                {pool.blockchain_status || "Unknown"}
+                {pool.blockchain_status === "confirmed"
+                  ? "active"
+                  : pool.blockchain_status || "Unknown"}
               </span>
             </div>
 
@@ -365,7 +323,7 @@ export default function PoolDetailsPage() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-black text-white">
         <div className="text-center">
@@ -395,7 +353,7 @@ export default function PoolDetailsPage() {
   // Format percentage
   const percentComplete = Math.min(
     100,
-    Math.round((pool.raised_amount / pool.target_amount) * 100)
+    Math.round((totalCommitted / targetAmount) * 100) || 0
   );
 
   // Format amounts
@@ -448,22 +406,47 @@ export default function PoolDetailsPage() {
 
       <div className="flex-1 overflow-y-auto px-4 pb-24">
         {/* Funding Progress */}
-        <div className="mb-4">
-          <div className="flex justify-between text-sm mb-1">
-            <div className="text-gray-400">
-              {pool.funding_stage} • Ends in{" "}
-              {new Date(pool.ends_at).toLocaleDateString()}
-            </div>
-            <div>
-              {percentComplete}% • {formatAmount(pool.raised_amount)}/
-              {formatAmount(pool.target_amount)}
+        <div className="mb-6">
+          <div className="flex items-center text-sm mb-1">
+            <div className="text-purple-500 bg-purple-500/20 px-3 py-1 rounded-full">
+              {pool.status}
             </div>
           </div>
-          <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+          <h1 className="text-2xl font-bold mb-4">{pool.name}</h1>
+          <div className="text-[64px] font-bold mb-2">
+            ${formatAmount(totalCommitted)}
+          </div>
+          <div className="flex justify-between text-sm mb-1">
+            <div className="text-gray-400">
+              {pool.funding_stage} • {hasEnded ? "Ended" : "Ends in"}
+            </div>
+            <div>
+              {percentComplete}% • ${formatAmount(totalCommitted)}/ $
+              {formatAmount(targetAmount)}
+            </div>
+          </div>
+          <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-4">
             <div
-              className="h-full bg-purple-500 rounded-full"
+              className="h-full bg-purple-500 rounded-full transition-all duration-500 ease-in-out"
               style={{ width: `${percentComplete}%` }}
             ></div>
+          </div>
+
+          {/* Time Left - Moved up here */}
+          <div className="bg-[#1A1724] rounded-lg p-4">
+            <div className="flex justify-center gap-2">
+              <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
+                {String(hours).padStart(2, "0")}
+              </div>
+              <div className="text-2xl font-bold flex items-center">:</div>
+              <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
+                {String(minutes).padStart(2, "0")}
+              </div>
+              <div className="text-2xl font-bold flex items-center">:</div>
+              <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
+                {String(seconds).padStart(2, "0")}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -476,14 +459,18 @@ export default function PoolDetailsPage() {
                 <span className="text-gray-400">Status:</span>
                 <span
                   className={`font-medium ${
-                    pool.blockchain_status === "confirmed"
+                    pool.blockchain_status === "active"
                       ? "text-green-400"
                       : pool.blockchain_status === "pending"
                       ? "text-yellow-400"
+                      : pool.blockchain_status === "confirmed"
+                      ? "text-green-400"
                       : "text-red-400"
                   }`}
                 >
-                  {pool.blockchain_status || "Unknown"}
+                  {pool.blockchain_status === "confirmed"
+                    ? "active"
+                    : pool.blockchain_status || "Unknown"}
                 </span>
               </div>
 
@@ -546,23 +533,30 @@ export default function PoolDetailsPage() {
                 </a>
               </div>
 
-              {/* Add activation button for pool creator */}
-              {dbUser?.id === pool.creator_id &&
-                pool.blockchain_status === "confirmed" && (
-                  <div className="mt-4">
-                    <button
-                      onClick={handleActivatePool}
-                      disabled={isActivating}
-                      className={`w-full py-2 px-4 rounded-lg font-medium ${
-                        isActivating
-                          ? "bg-gray-600 cursor-not-allowed"
-                          : "bg-blue-600 hover:bg-blue-700"
-                      }`}
-                    >
-                      {isActivating ? "Activating..." : "Activate Pool"}
-                    </button>
-                  </div>
-                )}
+              {/* Add activation/deactivation toggle for pool creator */}
+              {dbUser?.id === pool.creator_id && (
+                <div className="mt-4">
+                  <button
+                    onClick={handleTogglePoolStatus}
+                    disabled={isActivating}
+                    className={`w-full py-2 px-4 rounded-lg font-medium ${
+                      isActivating
+                        ? "bg-gray-600 cursor-not-allowed"
+                        : pool.blockchain_status === "active" ||
+                          pool.blockchain_status === "confirmed"
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "bg-blue-600 hover:bg-blue-700"
+                    }`}
+                  >
+                    {isActivating
+                      ? "Updating..."
+                      : pool.blockchain_status === "active" ||
+                        pool.blockchain_status === "confirmed"
+                      ? "Deactivate Pool"
+                      : "Activate Pool"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -639,24 +633,6 @@ export default function PoolDetailsPage() {
                   <span>
                     {pool.token_amount.toLocaleString()} {pool.token_symbol}
                   </span>
-                </div>
-              </div>
-
-              {/* Time Left */}
-              <div className="bg-[#1A1724] rounded-lg p-4 mb-4">
-                <div className="text-gray-400 mb-2">Time left</div>
-                <div className="flex justify-center gap-2">
-                  <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
-                    {String(timeLeft.hours).padStart(2, "0")}
-                  </div>
-                  <div className="text-2xl font-bold flex items-center">:</div>
-                  <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
-                    {String(timeLeft.minutes).padStart(2, "0")}
-                  </div>
-                  <div className="text-2xl font-bold flex items-center">:</div>
-                  <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
-                    {String(timeLeft.seconds).padStart(2, "0")}
-                  </div>
                 </div>
               </div>
 

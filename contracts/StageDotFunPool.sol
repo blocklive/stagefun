@@ -25,6 +25,7 @@ contract StageDotFunPool is Ownable {
         PoolStatus status;
         bool exists;
         StageDotFunLiquidity lpToken;
+        uint256 endTime;
     }
 
     struct PoolInfo {
@@ -35,6 +36,7 @@ contract StageDotFunPool is Ownable {
         PoolStatus status;
         bool exists;
         address lpTokenAddress;
+        uint256 endTime;
     }
 
     mapping(bytes32 => Pool) public pools;
@@ -101,18 +103,24 @@ contract StageDotFunPool is Ownable {
         _;
     }
 
-    function createPool(string memory name, string memory symbol) external onlyOwner {
+    function createPool(
+        string memory name, 
+        string memory symbol,
+        uint256 endTime
+    ) external onlyOwner {
         bytes32 poolId = keccak256(abi.encodePacked(name));
         require(!pools[poolId].exists, "Pool already exists");
+        require(endTime > block.timestamp, "End time must be in future");
 
         string memory tokenName = string(abi.encodePacked(name, " LP Token"));
         StageDotFunLiquidity lpToken = new StageDotFunLiquidity(tokenName, symbol);
         
         Pool storage newPool = pools[poolId];
         newPool.name = name;
-        newPool.status = PoolStatus.INACTIVE;
+        newPool.status = PoolStatus.ACTIVE;
         newPool.exists = true;
         newPool.lpToken = lpToken;
+        newPool.endTime = endTime;
         poolIds.push(poolId);
 
         emit PoolCreated(poolId, name, address(lpToken));
@@ -199,7 +207,8 @@ contract StageDotFunPool is Ownable {
             lpHolderCount: pool.lpHolders.length,
             status: pool.status,
             exists: pool.exists,
-            lpTokenAddress: address(pool.lpToken)
+            lpTokenAddress: address(pool.lpToken),
+            endTime: pool.endTime
         });
     }
 
@@ -235,7 +244,8 @@ contract StageDotFunPool is Ownable {
                 lpHolderCount: pool.lpHolders.length,
                 status: pool.status,
                 exists: pool.exists,
-                lpTokenAddress: address(pool.lpToken)
+                lpTokenAddress: address(pool.lpToken),
+                endTime: pool.endTime
             });
         }
 

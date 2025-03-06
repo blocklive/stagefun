@@ -15,8 +15,8 @@ export const StageDotFunPoolABI = [
   "event MilestoneWithdrawn(bytes32 indexed poolId, uint256 indexed milestoneIndex, uint256 amount)",
 
   // View functions
-  "function pools(bytes32) view returns (string name, uint256 totalDeposits, uint256 revenueAccumulated, mapping(address => uint256) lpBalances, address[] lpHolders, mapping(address => bool) isLpHolder, uint8 status, bool exists, address lpToken)",
-  "function getPool(bytes32) view returns (tuple(string name, uint256 totalDeposits, uint256 revenueAccumulated, uint256 lpHolderCount, uint8 status, bool exists, address lpTokenAddress))",
+  "function pools(bytes32) view returns (string, uint256, uint256, mapping(address => uint256), address[], mapping(address => bool), uint8, bool, address, uint256)",
+  "function getPool(bytes32) view returns (tuple(string name, uint256 totalDeposits, uint256 revenueAccumulated, uint256 lpHolderCount, uint8 status, bool exists, address lpTokenAddress, uint256 endTime))",
   "function getPoolLpHolders(bytes32) view returns (address[])",
   "function getPoolBalance(bytes32, address) view returns (uint256)",
   "function depositToken() view returns (address)",
@@ -25,7 +25,7 @@ export const StageDotFunPoolABI = [
   "function authorizedWithdrawers(bytes32) view returns (address)",
 
   // State-changing functions
-  "function createPool(string name, string symbol) external",
+  "function createPool(string name, string symbol, uint256 endTime) external",
   "function deposit(bytes32 poolId, uint256 amount) external",
   "function updatePoolStatus(bytes32 poolId, uint8 newStatus) external",
   "function receiveRevenue(bytes32 poolId, uint256 amount) external",
@@ -97,6 +97,7 @@ export interface ContractPool {
   status: number;
   exists: boolean;
   lpTokenAddress: string;
+  endTime: bigint;
 }
 
 // Helper function to get contract instances

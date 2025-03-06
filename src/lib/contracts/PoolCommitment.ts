@@ -46,7 +46,7 @@ export const USDC_ABI = [
 export const CONTRACT_ADDRESSES = {
   // Default to test addresses, will be updated with environment variables
   poolCommitment:
-    process.env.NEXT_PUBLIC_POOL_COMMITMENT_ADDRESS ||
+    process.env.NEXT_PUBLIC_POOL_CONTRACT_ADDRESS ||
     "0x0000000000000000000000000000000000000000",
   usdc:
     process.env.NEXT_PUBLIC_USDC_ADDRESS ||
