@@ -16,10 +16,14 @@
     "db:push": "supabase db push",
     "blockchain:migrate": "bash scripts/apply-blockchain-migration.sh",
     "deploy:monad-testnet": "hardhat run scripts/deploy-monad.js --network monadTestnet",
-    "deploy:monad-local": "hardhat run scripts/deploy-monad.js --network localhost"
+    "deploy:monad-local": "hardhat run scripts/deploy-monad.js --network localhost",
+    "compile": "hardhat compile",
+    "deploy:factory": "hardhat run scripts/deploy-factory.ts --network baseSepolia",
+    "deploy:factory:monad": "hardhat run scripts/deploy-factory.ts --network monadTestnet"
   },
   "dependencies": {
     "@privy-io/react-auth": "^2.4.5",
+    "@radix-ui/react-progress": "^1.1.2",
     "@supabase/supabase-js": "^2.39.0",
     "next": "15.1.7",
     "next-pwa": "^5.6.0",
@@ -30,22 +34,22 @@
     "swr": "^2.3.2",
     "use-sync-external-store": "^1.4.0",
     "viem": "^2.23.5",
-    "zustand": "^5.0.3"
+    "zustand": "^5.0.3",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.19.4",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "dotenv": "^16.4.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
-    "@openzeppelin/contracts": "^5.2.0",
     "@types/node": "^20.17.23",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "dotenv": "^16.4.7",
     "eslint": "^9",
     "eslint-config-next": "15.1.7",
     "ethers": "^6.13.5",
-    "hardhat": "^2.22.19",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",

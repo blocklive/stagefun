@@ -1,41 +1,49 @@
 // Script to deploy the contract to a local Hardhat network
 const hre = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 async function main() {
-  // For local testing, we'll deploy a mock USDC token first
-  console.log("Deploying Mock USDC token...");
+  // Deploy USDC mock if needed
+  const usdcAddress = "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea"; // Monad testnet USDC
 
-  // Deploy a simple ERC20 token to represent USDC
-  const MockUSDC = await hre.ethers.getContractFactory("MockUSDC");
-  const mockUSDC = await MockUSDC.deploy("Mock USDC", "USDC", 6); // USDC has 6 decimals
-
-  await mockUSDC.waitForDeployment();
-  const usdcAddress = await mockUSDC.getAddress();
-  console.log(`Mock USDC deployed to: ${usdcAddress}`);
-
-  // Now deploy the PoolCommitment contract with the mock USDC address
-  console.log("Deploying PoolCommitment contract...");
-  const PoolCommitment = await hre.ethers.getContractFactory("PoolCommitment");
-  const poolCommitment = await PoolCommitment.deploy(usdcAddress);
-
-  await poolCommitment.waitForDeployment();
-  const poolAddress = await poolCommitment.getAddress();
-  console.log(`PoolCommitment deployed to: ${poolAddress}`);
-
-  // For testing, mint some USDC to the deployer
-  const [deployer] = await hre.ethers.getSigners();
-  const mintAmount = hre.ethers.parseUnits("10000", 6); // 10,000 USDC
-  await mockUSDC.mint(deployer.address, mintAmount);
-  console.log(
-    `Minted ${hre.ethers.formatUnits(mintAmount, 6)} USDC to ${
-      deployer.address
-    }`
+  // Deploy the pool contract
+  const StageDotFunPool = await hre.ethers.getContractFactory(
+    "StageDotFunPool"
   );
+  const pool = await StageDotFunPool.deploy(usdcAddress);
+  await pool.waitForDeployment();
+  const poolAddress = await pool.getAddress();
 
   console.log("Deployment complete!");
-  console.log("Contract addresses to add to your .env.local file:");
-  console.log(`NEXT_PUBLIC_POOL_CONTRACT_ADDRESS=${poolAddress}`);
-  console.log(`NEXT_PUBLIC_USDC_ADDRESS=${usdcAddress}`);
+  console.log("Pool deployed to:", poolAddress);
+
+  // Update the addresses.ts file
+  const addressesPath = path.join(
+    __dirname,
+    "../src/lib/contracts/addresses.ts"
+  );
+  const addressesContent = `/**
+ * Contract addresses for the Monad testnet
+ * Update these addresses when deploying new contracts
+ */
+export const CONTRACT_ADDRESSES = {
+  stageDotFunPool: "${poolAddress}",
+  usdc: "${usdcAddress}",
+} as const;
+
+/**
+ * Network configuration
+ */
+export const NETWORK = {
+  chainId: 10143, // Monad Testnet
+  rpcUrl: "https://testnet-rpc.monad.xyz",
+  explorerUrl: "https://testnet.monadexplorer.com",
+} as const;
+`;
+
+  fs.writeFileSync(addressesPath, addressesContent);
+  console.log("Updated addresses.ts with new contract addresses");
 }
 
 // We recommend this pattern to be able to use async/await everywhere

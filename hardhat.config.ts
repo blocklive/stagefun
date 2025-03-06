@@ -1,11 +1,10 @@
-require("@nomicfoundation/hardhat-toolbox-viem");
-require("@nomicfoundation/hardhat-ethers");
+require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config({ path: ".env.local" });
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.27",
+    version: "0.8.20",
     settings: {
       optimizer: {
         enabled: true,
@@ -14,19 +13,20 @@ module.exports = {
     },
   },
   networks: {
-    monadTestnet: {
-      url: process.env.MONAD_TESTNET_RPC_URL || "https://testnet-rpc.monad.xyz",
-      chainId: 10143,
+    baseSepolia: {
+      url: "https://sepolia.base.org",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
+    monadTestnet: {
+      url: process.env.MONAD_TESTNET_RPC_URL || "https://testnet-rpc.monad.xyz",
+      accounts: process.env.BLOCKCHAIN_PRIVATE_KEY
+        ? [process.env.BLOCKCHAIN_PRIVATE_KEY]
+        : [],
+      chainId: 10143,
+    },
   },
-  sourcify: {
-    enabled: true,
-    apiUrl: "https://sourcify-api-monad.blockvision.org",
-    browserUrl: "https://testnet.monadexplorer.com/",
-  },
-  // To avoid errors from Etherscan
-  etherscan: {
-    enabled: false,
+  paths: {
+    sources: "./contracts",
+    artifacts: "./artifacts",
   },
 };

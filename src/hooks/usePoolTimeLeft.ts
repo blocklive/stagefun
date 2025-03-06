@@ -1,68 +1,45 @@
 import useSWR from "swr";
 import { ethers } from "ethers";
-import {
-  getStageDotFunPoolContract,
-  getPoolId,
-} from "../lib/contracts/StageDotFunPool";
 
-export function usePoolTimeLeft(poolName: string | null) {
+export function usePoolTimeLeft(pool: any) {
   const {
-    data: timeData,
+    data: timeLeft,
     error,
-    mutate: refreshTime,
+    isLoading,
   } = useSWR(
-    poolName ? ["pool-time-left", poolName] : null,
-    async () => {
-      if (!poolName) return null;
+    pool ? ["poolEndTime", pool.ends_at] : null,
+    () => {
+      if (!pool?.ends_at) return null;
 
-      const provider = new ethers.JsonRpcProvider(
-        process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
-          ? "https://testnet-rpc.monad.xyz"
-          : "https://sepolia.base.org"
-      );
+      const now = Math.floor(Date.now() / 1000);
+      const endTime = Math.floor(new Date(pool.ends_at).getTime() / 1000);
+      const timeLeft = endTime - now;
+      const hasEnded = timeLeft <= 0;
 
-      // Get pool info from the blockchain
-      const poolInfo = await getStageDotFunPoolContract(provider).getPool(
-        getPoolId(poolName)
-      );
-
-      const endTime = Number(poolInfo.endTime) * 1000; // Convert to milliseconds
-      const now = Date.now();
-      const timeLeft = Math.max(0, endTime - now);
-
-      // Calculate days, hours, minutes, seconds
-      const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-      const hours = Math.floor(
-        (timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-      );
-      const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+      const days = Math.floor(timeLeft / (24 * 60 * 60));
+      const hours = Math.floor((timeLeft % (24 * 60 * 60)) / (60 * 60));
+      const minutes = Math.floor((timeLeft % (60 * 60)) / 60);
+      const seconds = Math.floor(timeLeft % 60);
 
       return {
-        days,
-        hours,
-        minutes,
-        seconds,
-        endTime,
-        hasEnded: timeLeft <= 0,
+        days: Math.max(0, days),
+        hours: Math.max(0, hours),
+        minutes: Math.max(0, minutes),
+        seconds: Math.max(0, seconds),
+        hasEnded,
       };
     },
     {
       refreshInterval: 1000, // Update every second
-      revalidateOnFocus: true,
-      dedupingInterval: 500,
     }
   );
 
   return {
-    days: timeData?.days || 0,
-    hours: timeData?.hours || 0,
-    minutes: timeData?.minutes || 0,
-    seconds: timeData?.seconds || 0,
-    endTime: timeData?.endTime || 0,
-    hasEnded: timeData?.hasEnded || false,
-    isLoading: !error && !timeData,
-    error,
-    refresh: refreshTime,
+    days: timeLeft?.days ?? 0,
+    hours: timeLeft?.hours ?? 0,
+    minutes: timeLeft?.minutes ?? 0,
+    seconds: timeLeft?.seconds ?? 0,
+    hasEnded: timeLeft?.hasEnded ?? false,
+    isLoading: !error && !timeLeft,
   };
 }

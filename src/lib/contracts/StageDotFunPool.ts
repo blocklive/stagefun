@@ -1,40 +1,78 @@
 import { ethers } from "ethers";
+import { POOL_ABI } from "../abi/pool-abi";
+import { USDC_ABI } from "../abi/usdc-abi";
+import { CONTRACT_ADDRESSES, getContractAddresses } from "./addresses";
+
+// ABI for the StageDotFunPoolFactory contract
+export const StageDotFunPoolFactoryABI = [
+  // Events
+  "event PoolCreated(address indexed poolAddress, string name, address lpTokenAddress, uint256 endTime)",
+  "event PoolStatusUpdated(address indexed poolAddress, uint8 status)",
+
+  // View functions
+  "function depositToken() view returns (address)",
+  "function deployedPools(uint256) view returns (address)",
+  "function getDeployedPools() view returns (address[])",
+  "function getPoolCount() view returns (uint256)",
+  "function getPoolByAddress(address poolAddress) view returns (address)",
+  "function getPoolByName(string name) view returns (address)",
+
+  // State-changing functions
+  "function createPool(string name, string symbol, uint256 endTime, uint256 targetAmount, uint256 minCommitment) external returns (address)",
+  "function updatePoolStatus(address poolAddress, uint8 status) external",
+  "function deposit(string name, uint256 amount) external",
+  "function withdraw(string name, uint256 amount) external",
+];
 
 // ABI for the StageDotFunPool contract
 export const StageDotFunPoolABI = [
   // Events
-  "event PoolCreated(bytes32 indexed poolId, string name, address lpTokenAddress)",
-  "event PoolStatusUpdated(bytes32 indexed poolId, uint8 status)",
-  "event Deposit(bytes32 indexed poolId, address indexed lp, uint256 amount)",
-  "event RevenueReceived(bytes32 indexed poolId, uint256 amount)",
-  "event RevenueDistributed(bytes32 indexed poolId, uint256 amount)",
-  "event WithdrawerAuthorized(bytes32 indexed poolId, address withdrawer)",
-  "event WithdrawerRevoked(bytes32 indexed poolId, address withdrawer)",
-  "event MilestoneCreated(bytes32 indexed poolId, uint256 indexed milestoneIndex, string description, uint256 amount, uint256 unlockTime)",
-  "event MilestoneApproved(bytes32 indexed poolId, uint256 indexed milestoneIndex)",
-  "event MilestoneWithdrawn(bytes32 indexed poolId, uint256 indexed milestoneIndex, uint256 amount)",
+  "event Deposit(address indexed lp, uint256 amount)",
+  "event Withdraw(address indexed lp, uint256 amount)",
+  "event RevenueReceived(uint256 amount)",
+  "event RevenueDistributed(uint256 amount)",
+  "event MilestoneCreated(uint256 indexed milestoneIndex, string description, uint256 amount, uint256 unlockTime)",
+  "event MilestoneApproved(uint256 indexed milestoneIndex)",
+  "event MilestoneWithdrawn(uint256 indexed milestoneIndex, uint256 amount)",
+  "event EmergencyModeEnabled()",
+  "event EmergencyWithdrawalRequested(uint256 unlockTime)",
+  "event EmergencyWithdrawalExecuted(uint256 amount)",
+  "event WithdrawerAuthorized(address withdrawer)",
+  "event WithdrawerRevoked(address withdrawer)",
 
   // View functions
-  "function pools(bytes32) view returns (string, uint256, uint256, mapping(address => uint256), address[], mapping(address => bool), uint8, bool, address, uint256)",
-  "function getPool(bytes32) view returns (tuple(string name, uint256 totalDeposits, uint256 revenueAccumulated, uint256 lpHolderCount, uint8 status, bool exists, address lpTokenAddress, uint256 endTime))",
-  "function getPoolLpHolders(bytes32) view returns (address[])",
-  "function getPoolBalance(bytes32, address) view returns (uint256)",
   "function depositToken() view returns (address)",
-  "function getPoolId(string) pure returns (bytes32)",
-  "function poolIds(uint256) view returns (bytes32)",
-  "function authorizedWithdrawers(bytes32) view returns (address)",
+  "function lpToken() view returns (address)",
+  "function name() view returns (string)",
+  "function totalDeposits() view returns (uint256)",
+  "function revenueAccumulated() view returns (uint256)",
+  "function endTime() view returns (uint256)",
+  "function status() view returns (uint8)",
+  "function lpBalances(address) view returns (uint256)",
+  "function lpHolders(uint256) view returns (address)",
+  "function isLpHolder(address) view returns (bool)",
+  "function milestones(uint256) view returns (tuple(string description, uint256 amount, uint256 unlockTime, bool approved, bool released))",
+  "function emergencyMode() view returns (bool)",
+  "function emergencyWithdrawalRequestTime() view returns (uint256)",
+  "function authorizedWithdrawer() view returns (address)",
+  "function getLpHolders() view returns (address[])",
+  "function getMilestones() view returns (tuple(string description, uint256 amount, uint256 unlockTime, bool approved, bool released)[])",
+  "function getEmergencyStatus() view returns (bool isEmergency, uint256 withdrawalUnlockTime, bool canExecuteWithdrawal)",
 
   // State-changing functions
-  "function createPool(string name, string symbol, uint256 endTime) external",
-  "function deposit(bytes32 poolId, uint256 amount) external",
-  "function updatePoolStatus(bytes32 poolId, uint8 newStatus) external",
-  "function receiveRevenue(bytes32 poolId, uint256 amount) external",
-  "function distributeRevenue(bytes32 poolId) external",
-  "function setAuthorizedWithdrawer(bytes32 poolId, address withdrawer) external",
-  "function revokeAuthorizedWithdrawer(bytes32 poolId) external",
-  "function setMilestones(bytes32 poolId, string[] calldata descriptions, uint256[] calldata amounts, uint256[] calldata unlockTimes) external",
-  "function approveMilestone(bytes32 poolId, uint256 milestoneIndex) external",
-  "function withdrawMilestone(bytes32 poolId, uint256 milestoneIndex) external",
+  "function deposit(uint256 amount) external",
+  "function withdraw(uint256 amount) external",
+  "function receiveRevenue(uint256 amount) external",
+  "function distributeRevenue() external",
+  "function setMilestones(string[] calldata descriptions, uint256[] calldata amounts, uint256[] calldata unlockTimes) external",
+  "function approveMilestone(uint256 milestoneIndex) external",
+  "function withdrawMilestone(uint256 milestoneIndex) external",
+  "function setAuthorizedWithdrawer(address withdrawer) external",
+  "function revokeAuthorizedWithdrawer() external",
+  "function enableEmergencyMode() external",
+  "function requestEmergencyWithdrawal() external",
+  "function executeEmergencyWithdrawal() external",
+  "function updateStatus(uint8 newStatus) external",
 ];
 
 // ABI for the StageDotFunLiquidity token
@@ -77,16 +115,8 @@ export const ERC20_ABI = [
   "function transferFrom(address from, address to, uint256 value) returns (bool)",
 ];
 
-// Contract addresses (to be updated after deployment)
-export const CONTRACT_ADDRESSES = {
-  // Default to test addresses, will be updated with environment variables
-  stageDotFunPool:
-    process.env.NEXT_PUBLIC_POOL_CONTRACT_ADDRESS ||
-    "0x388723ea8269cDEeEaa02a99105C5EE4202Fb86E", // Monad testnet pool contract
-  usdc:
-    process.env.NEXT_PUBLIC_USDC_ADDRESS ||
-    "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea", // Monad testnet USDC
-};
+// Export contract addresses and helper functions for use in other files
+export { CONTRACT_ADDRESSES, getContractAddresses };
 
 // Pool type matching the contract
 export interface ContractPool {
@@ -100,15 +130,202 @@ export interface ContractPool {
   endTime: bigint;
 }
 
-// Helper function to get contract instances
-export function getStageDotFunPoolContract(
-  provider: ethers.Provider | ethers.Signer
+// Get the factory contract instance
+export function getStageDotFunPoolFactoryContract(
+  signerOrProvider: ethers.Signer | ethers.Provider
 ) {
   return new ethers.Contract(
-    CONTRACT_ADDRESSES.stageDotFunPool,
-    StageDotFunPoolABI,
-    provider
+    getContractAddresses().stageDotFunPoolFactory,
+    StageDotFunPoolFactoryABI,
+    signerOrProvider
   );
+}
+
+// Get a specific pool contract instance
+export function getPoolContract(
+  signerOrProvider: ethers.Signer | ethers.Provider,
+  poolAddress: string
+) {
+  return new ethers.Contract(poolAddress, StageDotFunPoolABI, signerOrProvider);
+}
+
+// Get all deployed pools
+export async function getDeployedPools(provider: ethers.Provider) {
+  const factory = getStageDotFunPoolFactoryContract(provider);
+  const poolAddresses = await factory.getDeployedPools();
+
+  // Get pool details for each address
+  const pools = await Promise.all(
+    poolAddresses.map(async (address: string) => {
+      const pool = getPoolContract(provider, address);
+      const [
+        name,
+        totalDeposits,
+        revenueAccumulated,
+        endTime,
+        status,
+        lpTokenAddress,
+      ] = await Promise.all([
+        pool.name(),
+        pool.totalDeposits(),
+        pool.revenueAccumulated(),
+        pool.endTime(),
+        pool.status(),
+        pool.lpToken(),
+      ]);
+
+      return {
+        address,
+        name,
+        totalDeposits,
+        revenueAccumulated,
+        endTime,
+        status,
+        lpTokenAddress,
+      };
+    })
+  );
+
+  return pools;
+}
+
+// Create a new pool
+export async function createPool(
+  signer: ethers.Signer,
+  name: string,
+  symbol: string,
+  endTime: bigint,
+  targetAmount: bigint,
+  minCommitment: bigint
+) {
+  const factory = getStageDotFunPoolFactoryContract(signer);
+
+  // Create pool and wait for transaction
+  const tx = await factory.createPool(
+    name,
+    symbol,
+    endTime,
+    targetAmount,
+    minCommitment
+  );
+  const receipt = await tx.wait();
+
+  // Get pool address from event
+  const event = receipt.logs.find(
+    (log: any) => log.eventName === "PoolCreated"
+  );
+  const poolAddress = event.args.poolAddress;
+  const lpTokenAddress = event.args.lpTokenAddress;
+
+  return {
+    poolAddress,
+    lpTokenAddress,
+    transactionHash: receipt.hash,
+  };
+}
+
+// Get pool details
+export async function getPoolDetails(
+  provider: ethers.Provider,
+  poolAddress: string
+) {
+  const pool = getPoolContract(provider, poolAddress);
+
+  const [
+    name,
+    totalDeposits,
+    revenueAccumulated,
+    endTime,
+    status,
+    lpTokenAddress,
+    lpHolders,
+    milestones,
+    emergencyStatus,
+  ] = await Promise.all([
+    pool.name(),
+    pool.totalDeposits(),
+    pool.revenueAccumulated(),
+    pool.endTime(),
+    pool.status(),
+    pool.lpToken(),
+    pool.getLpHolders(),
+    pool.getMilestones(),
+    pool.getEmergencyStatus(),
+  ]);
+
+  return {
+    address: poolAddress,
+    name,
+    totalDeposits,
+    revenueAccumulated,
+    endTime,
+    status,
+    lpTokenAddress,
+    lpHolders,
+    milestones,
+    emergencyStatus,
+  };
+}
+
+// Make a deposit to a pool through the factory
+export async function depositToPool(
+  signer: ethers.Signer,
+  poolName: string,
+  amount: bigint
+) {
+  const factory = getStageDotFunPoolFactoryContract(signer);
+  const tx = await factory.deposit(poolName, amount);
+  return tx.wait();
+}
+
+// Withdraw from a pool through the factory
+export async function withdrawFromPool(
+  signer: ethers.Signer,
+  poolName: string,
+  amount: bigint
+) {
+  const factory = getStageDotFunPoolFactoryContract(signer);
+  const tx = await factory.withdraw(poolName, amount);
+  return tx.wait();
+}
+
+// Update pool status through the factory
+export async function updatePoolStatus(
+  signer: ethers.Signer,
+  poolAddress: string,
+  status: number
+) {
+  const factory = getStageDotFunPoolFactoryContract(signer);
+  const tx = await factory.updatePoolStatus(poolAddress, status);
+  return tx.wait();
+}
+
+// Get pool by name
+export async function getPoolByName(
+  provider: ethers.Provider,
+  name: string
+): Promise<string | null> {
+  const factory = getStageDotFunPoolFactoryContract(provider);
+  try {
+    return await factory.getPoolByName(name);
+  } catch (error) {
+    console.error("Error getting pool by name:", error);
+    return null;
+  }
+}
+
+// Get pool by address
+export async function getPoolByAddress(
+  provider: ethers.Provider,
+  address: string
+): Promise<string | null> {
+  const factory = getStageDotFunPoolFactoryContract(provider);
+  try {
+    return await factory.getPoolByAddress(address);
+  } catch (error) {
+    console.error("Error getting pool by address:", error);
+    return null;
+  }
 }
 
 export function getStageDotFunLiquidityContract(
@@ -118,11 +335,14 @@ export function getStageDotFunLiquidityContract(
   return new ethers.Contract(address, StageDotFunLiquidityABI, provider);
 }
 
-export function getUSDCContract(provider: ethers.Provider | ethers.Signer) {
+// Get the USDC contract instance
+export function getUSDCContract(
+  signerOrProvider: ethers.Signer | ethers.Provider
+) {
   return new ethers.Contract(
-    CONTRACT_ADDRESSES.usdc,
-    ERC20_ABI, // Use ERC20_ABI instead of StageDotFunLiquidityABI
-    provider
+    getContractAddresses().usdc,
+    USDC_ABI,
+    signerOrProvider
   );
 }
 

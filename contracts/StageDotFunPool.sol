@@ -7,47 +7,24 @@ import "./StageDotFunLiquidity.sol";
 
 contract StageDotFunPool is Ownable {
     IERC20 public depositToken;
-
+    StageDotFunLiquidity public lpToken;
+    
+    string public name;
+    uint256 public totalDeposits;
+    uint256 public revenueAccumulated;
+    uint256 public endTime;
+    uint256 public targetAmount;
+    uint256 public minCommitment;
+    
     enum PoolStatus {
-        INACTIVE, // Not yet started
-        ACTIVE, // Accepting deposits and revenue
-        PAUSED, // Temporarily paused
-        CLOSED // No longer accepting deposits
+        INACTIVE,
+        ACTIVE,
+        PAUSED,
+        CLOSED
     }
-
-    struct Pool {
-        string name;
-        uint256 totalDeposits;
-        uint256 revenueAccumulated;
-        mapping(address => uint256) lpBalances;
-        address[] lpHolders;
-        mapping(address => bool) isLpHolder;
-        PoolStatus status;
-        bool exists;
-        StageDotFunLiquidity lpToken;
-        uint256 endTime;
-    }
-
-    struct PoolInfo {
-        string name;
-        uint256 totalDeposits;
-        uint256 revenueAccumulated;
-        uint256 lpHolderCount;
-        PoolStatus status;
-        bool exists;
-        address lpTokenAddress;
-        uint256 endTime;
-    }
-
-    mapping(bytes32 => Pool) public pools;
-    bytes32[] public poolIds;
-
-    event PoolCreated(bytes32 indexed poolId, string name, address lpTokenAddress);
-    event PoolStatusUpdated(bytes32 indexed poolId, PoolStatus status);
-    event Deposit(bytes32 indexed poolId, address indexed lp, uint256 amount);
-    event RevenueReceived(bytes32 indexed poolId, uint256 amount);
-    event RevenueDistributed(bytes32 indexed poolId, uint256 amount);
-
+    
+    PoolStatus public status;
+    
     struct Milestone {
         string description;
         uint256 amount;
@@ -55,238 +32,130 @@ contract StageDotFunPool is Ownable {
         bool approved;
         bool released;
     }
-
-    mapping(bytes32 => address) public authorizedWithdrawers;
-    mapping(bytes32 => Milestone[]) public poolMilestones;
-
-    event WithdrawerAuthorized(bytes32 indexed poolId, address withdrawer);
-    event WithdrawerRevoked(bytes32 indexed poolId, address withdrawer);
-    event MilestoneCreated(
-        bytes32 indexed poolId,
-        uint256 indexed milestoneIndex,
-        string description,
-        uint256 amount,
-        uint256 unlockTime
-    );
-    event MilestoneApproved(bytes32 indexed poolId, uint256 indexed milestoneIndex);
-    event MilestoneWithdrawn(
-        bytes32 indexed poolId,
-        uint256 indexed milestoneIndex,
-        uint256 amount
-    );
-
-    event MilestoneAdded(
-        bytes32 indexed poolId,
-        uint256 indexed milestoneIndex,
-        string description,
-        uint256 amount,
-        uint256 unlockTime
-    );
-    event MilestoneRemoved(bytes32 indexed poolId, uint256 indexed milestoneIndex);
-
-    modifier onlyAuthorizedWithdrawer(bytes32 poolId) {
-        require(msg.sender == authorizedWithdrawers[poolId], "Not authorized withdrawer");
-        _;
-    }
-
-    constructor(address _depositToken) Ownable(msg.sender) {
-        depositToken = IERC20(_depositToken);
-    }
-
-    modifier poolExists(bytes32 poolId) {
-        require(pools[poolId].exists, "Pool does not exist");
-        _;
-    }
-
-    modifier poolIsActive(bytes32 poolId) {
-        require(pools[poolId].status == PoolStatus.ACTIVE, "Pool is not active");
-        _;
-    }
-
-    function createPool(
-        string memory name, 
+    
+    // LP Token holders
+    mapping(address => uint256) public lpBalances;
+    address[] public lpHolders;
+    mapping(address => bool) public isLpHolder;
+    
+    // Milestones
+    Milestone[] public milestones;
+    
+    // Emergency controls
+    bool public emergencyMode;
+    uint256 public constant EMERGENCY_WITHDRAWAL_DELAY = 3 days;
+    uint256 public emergencyWithdrawalRequestTime;
+    address public authorizedWithdrawer;
+    
+    // Events
+    event Deposit(address indexed lp, uint256 amount);
+    event RevenueReceived(uint256 amount);
+    event RevenueDistributed(uint256 amount);
+    event MilestoneCreated(uint256 indexed milestoneIndex, string description, uint256 amount, uint256 unlockTime);
+    event MilestoneApproved(uint256 indexed milestoneIndex);
+    event MilestoneWithdrawn(uint256 indexed milestoneIndex, uint256 amount);
+    event EmergencyModeEnabled();
+    event EmergencyWithdrawalRequested(uint256 unlockTime);
+    event EmergencyWithdrawalExecuted(uint256 amount);
+    event WithdrawerAuthorized(address withdrawer);
+    event WithdrawerRevoked(address withdrawer);
+    
+    constructor(
+        string memory _name,
         string memory symbol,
-        uint256 endTime
-    ) external onlyOwner {
-        bytes32 poolId = keccak256(abi.encodePacked(name));
-        require(!pools[poolId].exists, "Pool already exists");
-        require(endTime > block.timestamp, "End time must be in future");
-
-        string memory tokenName = string(abi.encodePacked(name, " LP Token"));
-        StageDotFunLiquidity lpToken = new StageDotFunLiquidity(tokenName, symbol);
+        uint256 _endTime,
+        address _depositToken,
+        address _owner,
+        uint256 _targetAmount,
+        uint256 _minCommitment
+    ) Ownable(_owner) {
+        name = _name;
+        endTime = _endTime;
+        depositToken = IERC20(_depositToken);
+        status = PoolStatus.ACTIVE;
+        targetAmount = _targetAmount;
+        minCommitment = _minCommitment;
         
-        Pool storage newPool = pools[poolId];
-        newPool.name = name;
-        newPool.status = PoolStatus.ACTIVE;
-        newPool.exists = true;
-        newPool.lpToken = lpToken;
-        newPool.endTime = endTime;
-        poolIds.push(poolId);
-
-        emit PoolCreated(poolId, name, address(lpToken));
+        string memory tokenName = string(abi.encodePacked(_name, " LP Token"));
+        lpToken = new StageDotFunLiquidity(tokenName, symbol);
     }
-
-    function updatePoolStatus(
-        bytes32 poolId,
-        PoolStatus newStatus
-    ) external onlyOwner poolExists(poolId) {
-        Pool storage pool = pools[poolId];
-        require(pool.status != newStatus, "Pool already in this status");
-
-        // Additional checks based on status transition
-        if (newStatus == PoolStatus.CLOSED) {
-            require(pool.revenueAccumulated == 0, "Distribute revenue before closing");
-        }
-
-        pool.status = newStatus;
-        emit PoolStatusUpdated(poolId, newStatus);
+    
+    modifier poolIsActive() {
+        require(status == PoolStatus.ACTIVE, "Pool is not active");
+        _;
     }
-
-    function deposit(
-        bytes32 poolId,
-        uint256 amount
-    ) external poolExists(poolId) poolIsActive(poolId) {
-        Pool storage pool = pools[poolId];
+    
+    modifier onlyAuthorizedWithdrawer() {
+        require(msg.sender == authorizedWithdrawer, "Not authorized withdrawer");
+        _;
+    }
+    
+    function deposit(uint256 amount) external poolIsActive {
+        require(amount >= minCommitment, "Amount below minimum commitment");
+        require(totalDeposits + amount <= targetAmount, "Would exceed target amount");
         require(depositToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
-
-        pool.lpToken.mint(msg.sender, amount);
-        pool.totalDeposits += amount;
-        pool.lpBalances[msg.sender] += amount;
-
-        if (!pool.isLpHolder[msg.sender]) {
-            pool.lpHolders.push(msg.sender);
-            pool.isLpHolder[msg.sender] = true;
+        
+        lpToken.mint(msg.sender, amount);
+        totalDeposits += amount;
+        lpBalances[msg.sender] += amount;
+        
+        if (!isLpHolder[msg.sender]) {
+            lpHolders.push(msg.sender);
+            isLpHolder[msg.sender] = true;
         }
-
-        emit Deposit(poolId, msg.sender, amount);
+        
+        emit Deposit(msg.sender, amount);
     }
-
-    function receiveRevenue(
-        bytes32 poolId,
-        uint256 amount
-    ) external poolExists(poolId) poolIsActive(poolId) {
-        Pool storage pool = pools[poolId];
+    
+    function receiveRevenue(uint256 amount) external poolIsActive {
         require(
             depositToken.transferFrom(msg.sender, address(this), amount),
             "Revenue transfer failed"
         );
-        pool.revenueAccumulated += amount;
-
-        emit RevenueReceived(poolId, amount);
+        revenueAccumulated += amount;
+        
+        emit RevenueReceived(amount);
     }
-
-    function distributeRevenue(bytes32 poolId) external onlyOwner poolExists(poolId) {
-        Pool storage pool = pools[poolId];
-        require(pool.revenueAccumulated > 0, "No revenue to distribute");
-        require(pool.status != PoolStatus.INACTIVE, "Pool not yet started");
-
-        uint256 totalPoolTokens = pool.totalDeposits;
+    
+    function distributeRevenue() external onlyOwner {
+        require(revenueAccumulated > 0, "No revenue to distribute");
+        require(status != PoolStatus.INACTIVE, "Pool not yet started");
+        
+        uint256 totalPoolTokens = totalDeposits;
         require(totalPoolTokens > 0, "No LP tokens in pool");
-
-        for (uint i = 0; i < pool.lpHolders.length; i++) {
-            address holder = pool.lpHolders[i];
-            uint256 lpBalance = pool.lpBalances[holder];
+        
+        for (uint i = 0; i < lpHolders.length; i++) {
+            address holder = lpHolders[i];
+            uint256 lpBalance = lpBalances[holder];
             if (lpBalance > 0) {
-                uint256 share = (lpBalance * pool.revenueAccumulated) / totalPoolTokens;
+                uint256 share = (lpBalance * revenueAccumulated) / totalPoolTokens;
                 require(depositToken.transfer(holder, share), "Distribution failed");
             }
         }
-
-        emit RevenueDistributed(poolId, pool.revenueAccumulated);
-        pool.revenueAccumulated = 0;
+        
+        emit RevenueDistributed(revenueAccumulated);
+        revenueAccumulated = 0;
     }
-
-    function getPool(bytes32 poolId) external view returns (PoolInfo memory) {
-        require(pools[poolId].exists, "Pool does not exist");
-        Pool storage pool = pools[poolId];
-
-        return PoolInfo({
-            name: pool.name,
-            totalDeposits: pool.totalDeposits,
-            revenueAccumulated: pool.revenueAccumulated,
-            lpHolderCount: pool.lpHolders.length,
-            status: pool.status,
-            exists: pool.exists,
-            lpTokenAddress: address(pool.lpToken),
-            endTime: pool.endTime
-        });
-    }
-
-    function getPoolId(string memory name) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(name));
-    }
-
-    function getPoolLpHolders(bytes32 poolId) external view returns (address[] memory) {
-        require(pools[poolId].exists, "Pool does not exist");
-        return pools[poolId].lpHolders;
-    }
-
-    function getAllPools() external view returns (bytes32[] memory) {
-        return poolIds;
-    }
-
-    function getPoolBalance(bytes32 poolId, address lp) external view returns (uint256) {
-        require(pools[poolId].exists, "Pool does not exist");
-        return pools[poolId].lpBalances[lp];
-    }
-
-    function getPools() external view returns (PoolInfo[] memory) {
-        PoolInfo[] memory allPools = new PoolInfo[](poolIds.length);
-
-        for (uint i = 0; i < poolIds.length; i++) {
-            bytes32 poolId = poolIds[i];
-            Pool storage pool = pools[poolId];
-
-            allPools[i] = PoolInfo({
-                name: pool.name,
-                totalDeposits: pool.totalDeposits,
-                revenueAccumulated: pool.revenueAccumulated,
-                lpHolderCount: pool.lpHolders.length,
-                status: pool.status,
-                exists: pool.exists,
-                lpTokenAddress: address(pool.lpToken),
-                endTime: pool.endTime
-            });
-        }
-
-        return allPools;
-    }
-
-    function setAuthorizedWithdrawer(
-        bytes32 poolId,
-        address withdrawer
-    ) external onlyOwner poolExists(poolId) {
-        require(withdrawer != address(0), "Invalid withdrawer address");
-        authorizedWithdrawers[poolId] = withdrawer;
-        emit WithdrawerAuthorized(poolId, withdrawer);
-    }
-
-    function revokeAuthorizedWithdrawer(bytes32 poolId) external onlyOwner poolExists(poolId) {
-        address oldWithdrawer = authorizedWithdrawers[poolId];
-        delete authorizedWithdrawers[poolId];
-        emit WithdrawerRevoked(poolId, oldWithdrawer);
-    }
-
+    
     function setMilestones(
-        bytes32 poolId,
         string[] calldata descriptions,
         uint256[] calldata amounts,
         uint256[] calldata unlockTimes
-    ) external onlyOwner poolExists(poolId) {
+    ) external onlyOwner {
         require(
             descriptions.length == amounts.length && amounts.length == unlockTimes.length,
             "Array lengths mismatch"
         );
-
+        
         uint256 totalAmount = 0;
         for (uint i = 0; i < amounts.length; i++) {
             totalAmount += amounts[i];
         }
-        require(totalAmount <= pools[poolId].totalDeposits, "Milestone amounts exceed deposits");
-
+        require(totalAmount <= totalDeposits, "Milestone amounts exceed deposits");
+        
         for (uint i = 0; i < descriptions.length; i++) {
             require(unlockTimes[i] > block.timestamp, "Unlock time must be in future");
-            poolMilestones[poolId].push(
+            milestones.push(
                 Milestone({
                     description: descriptions[i],
                     amount: amounts[i],
@@ -296,207 +165,117 @@ contract StageDotFunPool is Ownable {
                 })
             );
             emit MilestoneCreated(
-                poolId,
-                poolMilestones[poolId].length - 1,
+                milestones.length - 1,
                 descriptions[i],
                 amounts[i],
                 unlockTimes[i]
             );
         }
     }
-
-    function approveMilestone(
-        bytes32 poolId,
-        uint256 milestoneIndex
-    ) external onlyOwner poolExists(poolId) {
-        require(milestoneIndex < poolMilestones[poolId].length, "Invalid milestone index");
-        Milestone storage milestone = poolMilestones[poolId][milestoneIndex];
-
+    
+    function approveMilestone(uint256 milestoneIndex) external onlyOwner {
+        require(milestoneIndex < milestones.length, "Invalid milestone index");
+        Milestone storage milestone = milestones[milestoneIndex];
+        
         require(!milestone.approved, "Already approved");
         require(block.timestamp >= milestone.unlockTime, "Too early");
-
+        
         milestone.approved = true;
-        emit MilestoneApproved(poolId, milestoneIndex);
+        emit MilestoneApproved(milestoneIndex);
     }
-
-    function withdrawMilestone(
-        bytes32 poolId,
-        uint256 milestoneIndex
-    ) external poolExists(poolId) onlyAuthorizedWithdrawer(poolId) {
-        require(milestoneIndex < poolMilestones[poolId].length, "Invalid milestone index");
-        Milestone storage milestone = poolMilestones[poolId][milestoneIndex];
-
+    
+    function withdrawMilestone(uint256 milestoneIndex) external onlyAuthorizedWithdrawer {
+        require(milestoneIndex < milestones.length, "Invalid milestone index");
+        Milestone storage milestone = milestones[milestoneIndex];
+        
         require(milestone.approved, "Not approved");
         require(!milestone.released, "Already released");
-
+        
         milestone.released = true;
         require(depositToken.transfer(msg.sender, milestone.amount), "Transfer failed");
-
-        emit MilestoneWithdrawn(poolId, milestoneIndex, milestone.amount);
+        
+        emit MilestoneWithdrawn(milestoneIndex, milestone.amount);
     }
-
-    function getMilestones(bytes32 poolId) external view returns (Milestone[] memory) {
-        return poolMilestones[poolId];
+    
+    function setAuthorizedWithdrawer(address _withdrawer) external onlyOwner {
+        require(_withdrawer != address(0), "Invalid withdrawer address");
+        authorizedWithdrawer = _withdrawer;
+        emit WithdrawerAuthorized(_withdrawer);
     }
-
-    function getAuthorizedWithdrawer(bytes32 poolId) external view returns (address) {
-        return authorizedWithdrawers[poolId];
+    
+    function revokeAuthorizedWithdrawer() external onlyOwner {
+        address oldWithdrawer = authorizedWithdrawer;
+        delete authorizedWithdrawer;
+        emit WithdrawerRevoked(oldWithdrawer);
     }
-
-    // New state variables
-    mapping(bytes32 => bool) public emergencyMode;
-    uint256 public constant EMERGENCY_WITHDRAWAL_DELAY = 3 days;
-    mapping(bytes32 => uint256) public emergencyWithdrawalRequests;
-
-    // New events
-    event EmergencyModeEnabled(bytes32 indexed poolId);
-    event EmergencyWithdrawalRequested(bytes32 indexed poolId, uint256 unlockTime);
-    event EmergencyWithdrawalExecuted(bytes32 indexed poolId, uint256 amount);
-    event MilestoneModified(
-        bytes32 indexed poolId,
-        uint256 indexed milestoneIndex,
-        string newDescription,
-        uint256 newAmount,
-        uint256 newUnlockTime
-    );
-
-    // Emergency functions
-    function enableEmergencyMode(bytes32 poolId) external onlyOwner poolExists(poolId) {
-        require(!emergencyMode[poolId], "Emergency mode already enabled");
-        emergencyMode[poolId] = true;
-        emit EmergencyModeEnabled(poolId);
+    
+    function enableEmergencyMode() external onlyOwner {
+        require(!emergencyMode, "Emergency mode already enabled");
+        emergencyMode = true;
+        emit EmergencyModeEnabled();
     }
-
-    function requestEmergencyWithdrawal(bytes32 poolId) external onlyOwner poolExists(poolId) {
-        require(emergencyMode[poolId], "Emergency mode not enabled");
-        require(emergencyWithdrawalRequests[poolId] == 0, "Emergency withdrawal already requested");
-
-        emergencyWithdrawalRequests[poolId] = block.timestamp + EMERGENCY_WITHDRAWAL_DELAY;
-        emit EmergencyWithdrawalRequested(poolId, emergencyWithdrawalRequests[poolId]);
+    
+    function requestEmergencyWithdrawal() external onlyOwner {
+        require(emergencyMode, "Emergency mode not enabled");
+        require(emergencyWithdrawalRequestTime == 0, "Emergency withdrawal already requested");
+        
+        emergencyWithdrawalRequestTime = block.timestamp + EMERGENCY_WITHDRAWAL_DELAY;
+        emit EmergencyWithdrawalRequested(emergencyWithdrawalRequestTime);
     }
-
-    function executeEmergencyWithdrawal(bytes32 poolId) external onlyOwner poolExists(poolId) {
-        require(emergencyMode[poolId], "Emergency mode not enabled");
+    
+    function executeEmergencyWithdrawal() external onlyOwner {
+        require(emergencyMode, "Emergency mode not enabled");
         require(
-            emergencyWithdrawalRequests[poolId] > 0 &&
-                block.timestamp >= emergencyWithdrawalRequests[poolId],
+            emergencyWithdrawalRequestTime > 0 &&
+                block.timestamp >= emergencyWithdrawalRequestTime,
             "Emergency withdrawal not ready"
         );
-
-        Pool storage pool = pools[poolId];
-        uint256 remainingBalance = pool.totalDeposits;
-
+        
+        uint256 remainingBalance = totalDeposits;
+        
         // Reset all milestones
-        delete poolMilestones[poolId];
-
+        delete milestones;
+        
         // Transfer remaining funds back to owner
         if (remainingBalance > 0) {
             require(depositToken.transfer(owner(), remainingBalance), "Emergency transfer failed");
-            emit EmergencyWithdrawalExecuted(poolId, remainingBalance);
+            emit EmergencyWithdrawalExecuted(remainingBalance);
         }
-
+        
         // Reset emergency state
-        delete emergencyWithdrawalRequests[poolId];
-        delete emergencyMode[poolId];
+        delete emergencyWithdrawalRequestTime;
+        delete emergencyMode;
     }
-
-    // Milestone modification functions
-    function modifyMilestone(
-        bytes32 poolId,
-        uint256 milestoneIndex,
-        string calldata newDescription,
-        uint256 newAmount,
-        uint256 newUnlockTime
-    ) external onlyOwner poolExists(poolId) {
-        require(milestoneIndex < poolMilestones[poolId].length, "Invalid milestone index");
-        Milestone storage milestone = poolMilestones[poolId][milestoneIndex];
-
-        require(!milestone.approved, "Cannot modify approved milestone");
-        require(!milestone.released, "Cannot modify released milestone");
-        require(newUnlockTime > block.timestamp, "New unlock time must be in future");
-
-        // Calculate new total amount
-        uint256 totalAmount = 0;
-        for (uint i = 0; i < poolMilestones[poolId].length; i++) {
-            if (i == milestoneIndex) {
-                totalAmount += newAmount;
-            } else {
-                totalAmount += poolMilestones[poolId][i].amount;
-            }
+    
+    function updateStatus(PoolStatus newStatus) external onlyOwner {
+        require(status != newStatus, "Pool already in this status");
+        
+        if (newStatus == PoolStatus.CLOSED) {
+            require(revenueAccumulated == 0, "Distribute revenue before closing");
         }
-        require(
-            totalAmount <= pools[poolId].totalDeposits,
-            "New milestone amounts exceed deposits"
-        );
-
-        // Update milestone
-        milestone.description = newDescription;
-        milestone.amount = newAmount;
-        milestone.unlockTime = newUnlockTime;
-
-        emit MilestoneModified(poolId, milestoneIndex, newDescription, newAmount, newUnlockTime);
+        
+        status = newStatus;
     }
-
-    function addMilestone(
-        bytes32 poolId,
-        string calldata description,
-        uint256 amount,
-        uint256 unlockTime
-    ) external onlyOwner poolExists(poolId) {
-        require(unlockTime > block.timestamp, "Unlock time must be in future");
-
-        // Calculate total amount including new milestone
-        uint256 totalAmount = amount;
-        for (uint i = 0; i < poolMilestones[poolId].length; i++) {
-            totalAmount += poolMilestones[poolId][i].amount;
-        }
-        require(totalAmount <= pools[poolId].totalDeposits, "Milestone amounts exceed deposits");
-
-        uint256 newIndex = poolMilestones[poolId].length;
-        poolMilestones[poolId].push(
-            Milestone({
-                description: description,
-                amount: amount,
-                unlockTime: unlockTime,
-                approved: false,
-                released: false
-            })
-        );
-
-        emit MilestoneAdded(poolId, newIndex, description, amount, unlockTime);
+    
+    // View functions
+    function getLpHolders() external view returns (address[] memory) {
+        return lpHolders;
     }
-
-    function removeMilestone(
-        bytes32 poolId,
-        uint256 milestoneIndex
-    ) external onlyOwner poolExists(poolId) {
-        require(milestoneIndex < poolMilestones[poolId].length, "Invalid milestone index");
-        Milestone storage milestone = poolMilestones[poolId][milestoneIndex];
-
-        require(!milestone.approved, "Cannot remove approved milestone");
-        require(!milestone.released, "Cannot remove released milestone");
-
-        // Remove milestone by shifting array
-        for (uint i = milestoneIndex; i < poolMilestones[poolId].length - 1; i++) {
-            poolMilestones[poolId][i] = poolMilestones[poolId][i + 1];
-        }
-        poolMilestones[poolId].pop();
-
-        emit MilestoneRemoved(poolId, milestoneIndex);
+    
+    function getMilestones() external view returns (Milestone[] memory) {
+        return milestones;
     }
-
-    // Additional view functions
-    function getEmergencyStatus(
-        bytes32 poolId
-    )
+    
+    function getEmergencyStatus()
         external
         view
-        returns (bool isEmergencyMode, uint256 withdrawalUnlockTime, bool canExecuteWithdrawal)
+        returns (bool isEmergency, uint256 withdrawalUnlockTime, bool canExecuteWithdrawal)
     {
-        isEmergencyMode = emergencyMode[poolId];
-        withdrawalUnlockTime = emergencyWithdrawalRequests[poolId];
+        isEmergency = emergencyMode;
+        withdrawalUnlockTime = emergencyWithdrawalRequestTime;
         canExecuteWithdrawal =
-            emergencyMode[poolId] &&
+            emergencyMode &&
             withdrawalUnlockTime > 0 &&
             block.timestamp >= withdrawalUnlockTime;
-    }} 
+    }
+} 

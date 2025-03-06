@@ -1,13 +1,11 @@
 import { ethers } from "ethers";
 import {
-  getStageDotFunPoolContract,
+  getStageDotFunPoolFactoryContract,
+  getPoolContract as getPoolContractInstance,
   getUSDCContract,
-  parseToken,
   formatToken,
-  ContractPool,
+  parseToken,
   getPoolId,
-  CONTRACT_ADDRESSES,
-  getStageDotFunLiquidityContract,
 } from "../contracts/StageDotFunPool";
 import { supabase } from "../supabase";
 import { POOL_ABI } from "../abi/pool-abi";
@@ -18,128 +16,44 @@ import { POOL_ABI } from "../abi/pool-abi";
  * @param name The name of the pool
  * @param symbol The symbol of the pool
  * @param endTime The end time of the pool
+ * @param targetAmount The target amount of the pool
+ * @param minCommitment The minimum commitment of the pool
  * @returns The transaction receipt and pool ID
  */
 export async function createPoolOnChain(
   signer: ethers.Signer,
   name: string,
   symbol: string,
-  endTime: number
-): Promise<{ receipt: ethers.TransactionReceipt; poolId: string }> {
-  const contract = getStageDotFunPoolContract(signer);
-  const poolId = getPoolId(name);
-
-  const tx = await contract.createPool(name, symbol, endTime);
+  endTime: bigint,
+  targetAmount: bigint,
+  minCommitment: bigint
+): Promise<{
+  receipt: ethers.TransactionReceipt;
+  poolId: string;
+  lpTokenAddress: string;
+}> {
+  const factory = getStageDotFunPoolFactoryContract(signer);
+  const tx = await factory.createPool(
+    name,
+    symbol,
+    endTime,
+    targetAmount,
+    minCommitment
+  );
   const receipt = await tx.wait();
 
-  // Get the LP token address from the PoolCreated event
-  const poolCreatedEvent = receipt.logs.find(
+  // Get pool address from event
+  const event = receipt.logs.find(
     (log: any) => log.eventName === "PoolCreated"
   );
-  if (!poolCreatedEvent) {
-    throw new Error("PoolCreated event not found");
-  }
+  const poolAddress = event.args.poolAddress;
+  const lpTokenAddress = event.args.lpTokenAddress;
 
   return {
     receipt,
-    poolId,
+    poolId: poolAddress,
+    lpTokenAddress,
   };
-}
-
-/**
- * Deposits USDC to a pool
- * @param signer The signer to use for the transaction
- * @param poolId The ID of the pool to deposit to
- * @param amount The amount to deposit in USDC
- * @returns The transaction receipt
- */
-export async function depositToPoolOnChain(
-  signer: ethers.Signer,
-  poolId: string,
-  amount: number
-): Promise<{
-  approvalTx: ethers.TransactionReceipt | null;
-  depositTx: ethers.TransactionReceipt;
-}> {
-  try {
-    const signerAddress = await signer.getAddress();
-    console.log("Using signer address:", signerAddress);
-
-    // Get the pool name from the database
-    const { data: pool } = await supabase
-      .from("pools")
-      .select("name")
-      .eq("id", poolId)
-      .single();
-
-    if (!pool) {
-      throw new Error("Pool not found");
-    }
-
-    // Create contracts with explicit provider configuration
-    const poolContract = getStageDotFunPoolContract(signer);
-    const usdcContract = getUSDCContract(signer);
-    const amountBigInt = parseToken(amount.toString());
-
-    // Generate the correct pool ID from the pool name
-    const bytes32PoolId = getPoolId(pool.name);
-    console.log("Using pool name:", pool.name);
-    console.log("Generated poolId:", bytes32PoolId);
-
-    // Check allowance
-    console.log("Checking USDC allowance");
-    const currentAllowance = await usdcContract.allowance(
-      signerAddress,
-      CONTRACT_ADDRESSES.stageDotFunPool
-    );
-    console.log("Current allowance:", currentAllowance.toString());
-
-    let approvalReceipt: ethers.TransactionReceipt | null = null;
-
-    // Handle approval if needed
-    if (currentAllowance < amountBigInt) {
-      console.log("Approving USDC transfer");
-      const approveTx = await usdcContract.approve(
-        CONTRACT_ADDRESSES.stageDotFunPool,
-        amountBigInt,
-        {
-          gasLimit: 100000,
-        }
-      );
-      approvalReceipt = await approveTx.wait();
-      console.log("Approval confirmed in block:", approvalReceipt?.blockNumber);
-    }
-
-    // Execute deposit
-    console.log("Executing pool deposit with params:", {
-      bytes32PoolId,
-      amountBigInt: amountBigInt.toString(),
-      poolContract: poolContract.target,
-    });
-
-    // Get the pool status first
-    const poolInfo = await poolContract.getPool(bytes32PoolId);
-    console.log("Pool status:", poolInfo.status);
-
-    const depositTx = await poolContract.deposit(bytes32PoolId, amountBigInt, {
-      gasLimit: 300000, // Increased gas limit
-    });
-    console.log("Deposit transaction sent:", depositTx.hash);
-
-    const depositReceipt = await depositTx.wait();
-    console.log("Deposit confirmed in block:", depositReceipt.blockNumber);
-
-    return {
-      approvalTx: approvalReceipt,
-      depositTx: depositReceipt,
-    };
-  } catch (error) {
-    console.error("Error in depositToPoolOnChain:", error);
-    if (error instanceof Error) {
-      throw new Error(`Transaction failed: ${error.message}`);
-    }
-    throw new Error("Transaction failed with unknown error");
-  }
 }
 
 /**
@@ -151,25 +65,48 @@ export async function depositToPoolOnChain(
 export async function getPoolFromChain(
   provider: ethers.Provider,
   poolId: string
-): Promise<ContractPool | null> {
-  const contract = getStageDotFunPoolContract(provider);
+): Promise<{
+  name: string;
+  totalDeposits: string;
+  revenueAccumulated: string;
+  endTime: string;
+  status: string;
+  lpTokenAddress: string;
+  exists: boolean;
+}> {
+  const factory = getStageDotFunPoolFactoryContract(provider);
+  const poolAddress = await factory.getPoolByName(poolId);
 
-  try {
-    const pool = await contract.getPool(poolId);
-    return {
-      name: pool.name,
-      totalDeposits: pool.totalDeposits,
-      revenueAccumulated: pool.revenueAccumulated,
-      lpHolderCount: pool.lpHolderCount,
-      status: pool.status,
-      exists: pool.exists,
-      lpTokenAddress: pool.lpTokenAddress,
-      endTime: pool.endTime,
-    };
-  } catch (error) {
-    console.error("Error getting pool from chain:", error);
-    return null;
+  if (!poolAddress) {
+    throw new Error("Pool not found");
   }
+
+  const pool = getPoolContractInstance(provider, poolAddress);
+  const [
+    name,
+    totalDeposits,
+    revenueAccumulated,
+    endTime,
+    status,
+    lpTokenAddress,
+  ] = await Promise.all([
+    pool.name(),
+    pool.totalDeposits(),
+    pool.revenueAccumulated(),
+    pool.endTime(),
+    pool.status(),
+    pool.lpToken(),
+  ]);
+
+  return {
+    name,
+    totalDeposits,
+    revenueAccumulated,
+    endTime,
+    status,
+    lpTokenAddress,
+    exists: true,
+  };
 }
 
 /**
@@ -182,14 +119,15 @@ export async function getPoolLpHoldersFromChain(
   provider: ethers.Provider,
   poolId: string
 ): Promise<string[]> {
-  const contract = getStageDotFunPoolContract(provider);
+  const factory = getStageDotFunPoolFactoryContract(provider);
+  const poolAddress = await factory.getPoolByName(poolId);
 
-  try {
-    return await contract.getPoolLpHolders(poolId);
-  } catch (error) {
-    console.error("Error getting pool LP holders from chain:", error);
-    return [];
+  if (!poolAddress) {
+    throw new Error("Pool not found");
   }
+
+  const pool = getPoolContractInstance(provider, poolAddress);
+  return await pool.getLpHolders();
 }
 
 /**
@@ -204,15 +142,16 @@ export async function getUserPoolBalanceFromChain(
   userAddress: string,
   poolId: string
 ): Promise<string> {
-  const contract = getStageDotFunPoolContract(provider);
+  const factory = getStageDotFunPoolFactoryContract(provider);
+  const poolAddress = await factory.getPoolByName(poolId);
 
-  try {
-    const amount = await contract.getPoolBalance(poolId, userAddress);
-    return formatToken(amount);
-  } catch (error) {
-    console.error("Error getting user pool balance from chain:", error);
-    return "0";
+  if (!poolAddress) {
+    throw new Error("Pool not found");
   }
+
+  const pool = getPoolContract(provider, poolAddress);
+  const balance = await pool.lpBalances(userAddress);
+  return formatToken(balance);
 }
 
 /**
@@ -225,34 +164,39 @@ export async function getUSDCBalance(
   provider: ethers.Provider,
   userAddress: string
 ): Promise<string> {
-  const contract = getUSDCContract(provider);
-
-  try {
-    const balance = await contract.balanceOf(userAddress);
-    return formatToken(balance);
-  } catch (error) {
-    console.error("Error getting USDC balance:", error);
-    return "0";
-  }
+  const usdcContract = getUSDCContract(provider);
+  const balance = await usdcContract.balanceOf(userAddress);
+  return formatToken(balance);
 }
 
 /**
  * Gets the symbol of an LP token
  * @param provider The provider to use for the query
- * @param lpTokenAddress The address of the LP token contract
+ * @param poolAddress The address of the pool
  * @returns The token symbol
  */
 export async function getLPTokenSymbol(
   provider: ethers.Provider,
-  lpTokenAddress: string
+  poolAddress: string
 ): Promise<string> {
-  const contract = getStageDotFunLiquidityContract(provider, lpTokenAddress);
-
   try {
-    return await contract.symbol();
+    const pool = getPoolContract(provider, poolAddress);
+    const lpTokenAddress = await pool.lpToken();
+
+    if (!lpTokenAddress || lpTokenAddress === ethers.ZeroAddress) {
+      return "Not deployed";
+    }
+
+    const lpToken = new ethers.Contract(
+      lpTokenAddress,
+      ["function symbol() view returns (string)"],
+      provider
+    );
+
+    return await lpToken.symbol();
   } catch (error) {
-    console.error("Error getting LP token symbol:", error);
-    return "";
+    console.error("Error fetching LP token symbol:", error);
+    return "Not deployed";
   }
 }
 
@@ -266,38 +210,36 @@ export async function activatePoolOnChain(
   signer: ethers.Signer,
   poolId: string
 ): Promise<ethers.TransactionReceipt> {
-  const contract = getStageDotFunPoolContract(signer);
+  const factory = getStageDotFunPoolFactoryContract(signer);
+  const poolAddress = await factory.getPoolByName(poolId);
 
-  try {
-    // Get the pool name from the database
-    const { data: pool } = await supabase
-      .from("pools")
-      .select("name")
-      .eq("id", poolId)
-      .single();
-
-    if (!pool) {
-      throw new Error("Pool not found");
-    }
-
-    // Generate the correct pool ID from the pool name
-    const bytes32PoolId = getPoolId(pool.name);
-    console.log("Activating pool:", pool.name);
-    console.log("Pool ID:", bytes32PoolId);
-
-    // Call updatePoolStatus with PoolStatus.ACTIVE (1)
-    const tx = await contract.updatePoolStatus(bytes32PoolId, 1);
-    const receipt = await tx.wait();
-    console.log("Pool activated in block:", receipt.blockNumber);
-
-    return receipt;
-  } catch (error) {
-    console.error("Error activating pool:", error);
-    if (error instanceof Error) {
-      throw new Error(`Failed to activate pool: ${error.message}`);
-    }
-    throw new Error("Failed to activate pool with unknown error");
+  if (!poolAddress) {
+    throw new Error("Pool not found");
   }
+
+  const tx = await factory.updatePoolStatus(poolAddress, 1); // 1 = active
+  return tx.wait();
+}
+
+/**
+ * Deactivates a pool in the smart contract
+ * @param signer The signer to use for the transaction
+ * @param poolId The ID of the pool to deactivate
+ * @returns The transaction receipt
+ */
+export async function deactivatePoolOnChain(
+  signer: ethers.Signer,
+  poolId: string
+): Promise<ethers.TransactionReceipt> {
+  const factory = getStageDotFunPoolFactoryContract(signer);
+  const poolAddress = await factory.getPoolByName(poolId);
+
+  if (!poolAddress) {
+    throw new Error("Pool not found");
+  }
+
+  const tx = await factory.updatePoolStatus(poolAddress, 0); // 0 = inactive
+  return tx.wait();
 }
 
 export function getPoolContract(provider: ethers.Provider, address: string) {

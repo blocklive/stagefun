@@ -40,6 +40,7 @@ export type Pool = {
   image_url?: string;
   creator_id: string;
   creator_name?: string;
+  creator_avatar_url?: string;
   min_commitment?: number;
   ticker?: string;
   // Blockchain fields

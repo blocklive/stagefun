@@ -9,6 +9,8 @@ import { useSupabase } from "../../contexts/SupabaseContext";
 import { getAllPools } from "../../lib/services/pool-service";
 import { getPoolsByPatron } from "../../lib/services/patron-service";
 import { Pool } from "../../lib/supabase";
+import CircularProgress from "../components/CircularProgress";
+import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
 
 export default function PoolsPage() {
   const { logout } = usePrivy();
@@ -16,9 +18,8 @@ export default function PoolsPage() {
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState("open");
-  const [pools, setPools] = useState<Pool[]>([]);
   const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { pools, isLoading: loading, error } = usePoolsWithDeposits();
 
   // Set the correct viewport height
   useEffect(() => {
@@ -31,29 +32,16 @@ export default function PoolsPage() {
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
-  // Fetch pools data
+  // Fetch joined pools when user changes
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-
-        // Fetch all pools
-        const allPools = await getAllPools();
-        setPools(allPools);
-
-        // If user is logged in, fetch joined pools
-        if (dbUser) {
-          const userPoolIds = await getPoolsByPatron(dbUser.id);
-          setJoinedPoolIds(userPoolIds);
-        }
-      } catch (error) {
-        console.error("Error fetching pools:", error);
-      } finally {
-        setLoading(false);
+    const fetchJoinedPools = async () => {
+      if (dbUser) {
+        const userPoolIds = await getPoolsByPatron(dbUser.id);
+        setJoinedPoolIds(userPoolIds);
       }
     };
 
-    fetchData();
+    fetchJoinedPools();
   }, [dbUser]);
 
   // Filter pools based on active tab
@@ -127,29 +115,64 @@ export default function PoolsPage() {
 
       {/* List of Items */}
       <div
-        className="flex-1 overflow-y-auto mt-4"
+        className="flex-1 overflow-y-auto mt-4 px-4"
         style={{ paddingBottom: "70px" }}
       >
         {loading ? (
           <div className="p-8 text-center text-gray-400">Loading pools...</div>
         ) : (
-          <ul>
+          <ul className="space-y-4">
             {filteredPools.map((pool) => (
               <li
                 key={pool.id}
-                className="p-4 border-b border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-900"
+                className="p-4 bg-[#1C1B1F] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
                 onClick={() => router.push(`/pools/${pool.id}`)}
               >
-                <div>
-                  <div className="font-medium">{pool.name}</div>
-                  <div className="text-sm text-gray-400">
-                    {pool.creator_name || "Anonymous"}
+                <div className="flex items-center gap-3">
+                  {/* Pool Image */}
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2A2640]">
+                    {pool.image_url && (
+                      <img
+                        src={pool.image_url}
+                        alt={pool.name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
                   </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">{getPercentComplete(pool)}%</div>
-                  <div className="text-sm text-gray-400">
-                    ${formatAmount(pool.target_amount)}
+
+                  {/* Pool Info */}
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">{pool.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
+                        {pool.creator_avatar_url && (
+                          <img
+                            src={pool.creator_avatar_url}
+                            alt={pool.creator_name}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-400">
+                        {pool.creator_name || "Anonymous"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Progress and Amount */}
+                  <div className="text-right flex items-center gap-4">
+                    <div>
+                      <div className="font-medium">
+                        ${formatAmount(pool.raised_amount)}
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        of ${formatAmount(pool.target_amount)}
+                      </div>
+                    </div>
+                    <CircularProgress
+                      progress={getPercentComplete(pool)}
+                      size={48}
+                    />
                   </div>
                 </div>
               </li>

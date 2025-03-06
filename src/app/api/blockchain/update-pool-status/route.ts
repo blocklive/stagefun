@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { ethers } from "ethers";
 import { createClient } from "@supabase/supabase-js";
 import {
-  getStageDotFunPoolContract,
+  getStageDotFunPoolFactoryContract,
+  getPoolContract,
   getPoolId,
 } from "@/lib/contracts/StageDotFunPool";
 
@@ -70,17 +71,15 @@ export async function POST(req: NextRequest) {
     const wallet = new ethers.Wallet(privateKey, provider);
     console.log(`Using wallet address: ${wallet.address}`);
 
-    // Get the contract
-    const contract = getStageDotFunPoolContract(wallet);
+    // Get the pool contract directly
+    const poolContract = getPoolContract(wallet, pool.contract_address);
 
-    // Get the pool name from the database
-    const bytes32PoolId = getPoolId(pool.name);
     console.log(
-      `Updating pool status for ${pool.name} (${bytes32PoolId}) to ${status}`
+      `Updating pool status for ${pool.name} (${pool.contract_address}) to ${status}`
     );
 
-    // Update the pool status on the blockchain
-    const tx = await contract.updatePoolStatus(bytes32PoolId, status);
+    // Update the pool status by calling the pool contract directly
+    const tx = await poolContract.updateStatus(status === "active" ? 1 : 0);
     console.log("Transaction sent:", tx.hash);
 
     // Update the pool in the database with pending blockchain information
@@ -117,7 +116,7 @@ export async function POST(req: NextRequest) {
       .update({
         blockchain_tx_hash: receipt.hash,
         blockchain_block_number: receipt.blockNumber,
-        blockchain_status: status === 1 ? "active" : "inactive",
+        blockchain_status: status === "active" ? "active" : "inactive",
         blockchain_explorer_url: `${explorerUrl}/tx/${receipt.hash}`,
       })
       .eq("id", poolId);
@@ -133,7 +132,7 @@ export async function POST(req: NextRequest) {
       blockNumber: receipt.blockNumber,
       network: blockchainNetwork,
       explorerUrl: `${explorerUrl}/tx/${receipt.hash}`,
-      status: status === 1 ? "active" : "inactive",
+      status: status === "active" ? "active" : "inactive",
     });
   } catch (error: any) {
     console.error("Error updating pool status:", error);

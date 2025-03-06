@@ -76,8 +76,8 @@ export default function CreatePoolPage() {
         name: poolName,
         ticker: ticker,
         description: description,
-        target_amount: parseFloat(fundingGoal) || 0,
-        min_commitment: parseFloat(minCommitment) || 0,
+        target_amount: parseFloat(fundingGoal), // Store in USDC units
+        min_commitment: parseFloat(minCommitment), // Store in USDC units
         currency: currency,
         token_amount: 100000, // Default token amount
         token_symbol: ticker || "$PARTY", // Use the ticker if provided
@@ -119,9 +119,10 @@ export default function CreatePoolPage() {
           body: JSON.stringify({
             poolId: data.id,
             name: poolData.name,
-            userId: dbUser.id,
-            ticker: poolData.ticker || poolData.token_symbol || "LP",
-            ends_at: poolData.ends_at,
+            symbol: poolData.token_symbol,
+            endTime: Math.floor(new Date(poolData.ends_at).getTime() / 1000), // Convert to Unix timestamp
+            targetAmount: poolData.target_amount * 1_000_000, // Convert to base units for blockchain
+            minCommitment: poolData.min_commitment * 1_000_000, // Convert to base units for blockchain
           }),
         });
 

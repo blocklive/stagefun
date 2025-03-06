@@ -6,7 +6,7 @@
       "contentHash": "41e792d5a5ca5bbab1db91eee1171aed",
       "sourceName": "contracts/PoolCommitment.sol",
       "solcConfig": {
-        "version": "0.8.27",
+        "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
@@ -46,7 +46,7 @@
       "contentHash": "8f19f64d2adadf448840908bbaf431c8",
       "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
       "solcConfig": {
-        "version": "0.8.27",
+        "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
@@ -82,7 +82,7 @@
       "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
       "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
       "solcConfig": {
-        "version": "0.8.27",
+        "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
@@ -120,7 +120,7 @@
       "contentHash": "190613e556d509d9e9a0ea43dc5d891d",
       "sourceName": "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
       "solcConfig": {
-        "version": "0.8.27",
+        "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
@@ -156,7 +156,7 @@
       "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
       "sourceName": "@openzeppelin/contracts/utils/Context.sol",
       "solcConfig": {
-        "version": "0.8.27",
+        "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
@@ -192,7 +192,7 @@
       "contentHash": "2682ddd986f2bfe6f550d5f4d0efd84a",
       "sourceName": "contracts/MockUSDC.sol",
       "solcConfig": {
-        "version": "0.8.27",
+        "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
@@ -231,7 +231,7 @@
       "contentHash": "227a6eb2225701c12d9c959b758b6333",
       "sourceName": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
       "solcConfig": {
-        "version": "0.8.27",
+        "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
@@ -272,7 +272,7 @@
       "contentHash": "267d92fe4de67b1bdb3302c08f387dbf",
       "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
       "solcConfig": {
-        "version": "0.8.27",
+        "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
@@ -310,7 +310,7 @@
       "contentHash": "794db3115001aa372c79326fcfd44b1f",
       "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
       "solcConfig": {
-        "version": "0.8.27",
+        "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
@@ -344,11 +344,11 @@
       ]
     },
     "/Users/brentlong/working/ch3ckin/stagefun/contracts/StageDotFunPool.sol": {
-      "lastModificationDate": 1741220493145,
-      "contentHash": "3f0feb84458d9cb55c636e58cba1e4c0",
+      "lastModificationDate": 1741293620220,
+      "contentHash": "1e6f1c20bd600a826efc3d17cd1904e6",
       "sourceName": "contracts/StageDotFunPool.sol",
       "solcConfig": {
-        "version": "0.8.27",
+        "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
@@ -388,7 +388,7 @@
       "contentHash": "4c5679a627e5f5788da2bb3e36edc237",
       "sourceName": "contracts/StageDotFunLiquidity.sol",
       "solcConfig": {
-        "version": "0.8.27",
+        "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
@@ -420,6 +420,45 @@
       ],
       "artifacts": [
         "StageDotFunLiquidity"
+      ]
+    },
+    "/Users/brentlong/working/ch3ckin/stagefun/contracts/StageDotFunPoolFactory.sol": {
+      "lastModificationDate": 1741293585477,
+      "contentHash": "8cd1e8ae4190bc3dfface993bd93c134",
+      "sourceName": "contracts/StageDotFunPoolFactory.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "./StageDotFunPool.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "StageDotFunPoolFactory"
       ]
     }
   }

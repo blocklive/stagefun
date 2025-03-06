@@ -18,7 +18,7 @@ import {
   getUSDCContract,
   formatToken,
   getPoolId,
-  CONTRACT_ADDRESSES,
+  getContractAddresses,
   StageDotFunPoolABI,
 } from "../lib/contracts/StageDotFunPool";
 import { supabase } from "../lib/supabase";
@@ -35,6 +35,7 @@ interface ContractInteractionHookResult {
   walletAddress: string | null;
   walletsReady: boolean;
   privyReady: boolean;
+  getProvider: () => Promise<ethers.Provider>;
 }
 
 export function useContractInteraction(): ContractInteractionHookResult {
@@ -150,24 +151,21 @@ export function useContractInteraction(): ContractInteractionHookResult {
         const amountBigInt = ethers.parseUnits(amount.toString(), usdcDecimals);
         const amountFormatted = ethers.formatUnits(amountBigInt, usdcDecimals);
 
-        // Get the pool name from the database
+        // Get the pool contract address from the database
         const { data: pool } = await supabase
           .from("pools")
-          .select("name")
+          .select("contract_address")
           .eq("id", poolId)
           .single();
 
-        if (!pool) {
-          throw new Error("Pool not found");
+        if (!pool || !pool.contract_address) {
+          throw new Error("Pool contract address not found");
         }
-
-        // Generate the correct pool ID from the pool name
-        const bytes32PoolId = getPoolId(pool.name);
 
         // Check allowance
         const currentAllowance = await usdcContract.allowance(
           signerAddress,
-          CONTRACT_ADDRESSES.stageDotFunPool
+          pool.contract_address
         );
 
         // Handle approval if needed
@@ -178,17 +176,18 @@ export function useContractInteraction(): ContractInteractionHookResult {
           ]);
 
           const approvalData = usdcInterface.encodeFunctionData("approve", [
-            CONTRACT_ADDRESSES.stageDotFunPool,
+            pool.contract_address,
             amountBigInt,
           ]);
 
           // Prepare the approval transaction request
           const approvalRequest = {
-            to: CONTRACT_ADDRESSES.usdc,
+            to: getContractAddresses().usdc,
             data: approvalData,
             value: "0",
             from: signerAddress,
             chainId: 10143, // Monad Testnet
+            gas: "500000", // Add sufficient gas for approval
           };
 
           // Set UI options for the approval transaction
@@ -214,17 +213,17 @@ export function useContractInteraction(): ContractInteractionHookResult {
         // Create contract interface for pool deposit
         const poolInterface = new ethers.Interface(StageDotFunPoolABI);
         const depositData = poolInterface.encodeFunctionData("deposit", [
-          bytes32PoolId,
           amountBigInt,
         ]);
 
         // Prepare the deposit transaction request
         const depositRequest = {
-          to: CONTRACT_ADDRESSES.stageDotFunPool,
+          to: pool.contract_address,
           data: depositData,
           value: "0",
           from: signerAddress,
           chainId: 10143, // Monad Testnet
+          gas: "1000000", // Add sufficient gas for deposit
         };
 
         // Set UI options for the deposit transaction
@@ -347,7 +346,8 @@ export function useContractInteraction(): ContractInteractionHookResult {
     getUserPoolBalance,
     getBalance,
     walletAddress: user?.wallet?.address || null,
-    walletsReady: privyReady && walletsReady && !!user?.wallet,
+    walletsReady,
     privyReady,
+    getProvider,
   };
 }

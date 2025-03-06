@@ -23,7 +23,6 @@ import {
 import { getUserById } from "../../../lib/services/user-service";
 import {
   getUSDCBalance,
-  getLPTokenSymbol,
   activatePoolOnChain,
 } from "../../../lib/services/contract-service";
 import { Pool, User } from "../../../lib/supabase";
@@ -32,6 +31,7 @@ import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
 import { usePoolDetails } from "../../../hooks/usePoolDetails";
 import { usePoolCommitments } from "../../../hooks/usePoolCommitments";
 import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
+import { usePool } from "../../../hooks/usePool";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -43,13 +43,14 @@ export default function PoolDetailsPage() {
 
   const {
     pool,
-    creator,
-    patrons,
-    lpTokenSymbol,
-    lpTokenError,
+    targetAmount,
+    raisedAmount,
+    percentage,
     isLoading,
     refresh: refreshPool,
-  } = usePoolDetails(poolId);
+  } = usePool(poolId);
+
+  const { creator, patrons, isLoading: isPoolLoading } = usePoolDetails(poolId);
 
   const {
     depositToPool: commitToBlockchain,
@@ -61,11 +62,10 @@ export default function PoolDetailsPage() {
   const { balance: usdcBalance, refresh: refreshBalance } = useUSDCBalance();
 
   const {
-    totalCommitted,
-    targetAmount,
-    isLoading: isCommitmentsLoading,
-    refresh: refreshCommitments,
-  } = usePoolCommitments(pool?.name || null);
+    commitments,
+    loading: isCommitmentsLoading,
+    error: commitmentsError,
+  } = usePoolCommitments(pool?.contract_address || null);
 
   const {
     days,
@@ -74,7 +74,22 @@ export default function PoolDetailsPage() {
     seconds,
     hasEnded,
     isLoading: isTimeLoading,
-  } = usePoolTimeLeft(pool?.name || null);
+  } = usePoolTimeLeft(pool);
+
+  // Calculate total committed and target amount from commitments
+  const totalCommitted =
+    commitments?.reduce(
+      (sum, commitment) => sum + Number(commitment.amount),
+      0
+    ) || 0;
+
+  // Viewport height effect
+  useEffect(() => {
+    const updateHeight = () => setViewportHeight(`${window.innerHeight}px`);
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
 
   // Basic states
   const [viewportHeight, setViewportHeight] = useState("100vh");
@@ -86,15 +101,12 @@ export default function PoolDetailsPage() {
   const [isActivating, setIsActivating] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
 
-  // Viewport height effect
-  useEffect(() => {
-    const updateHeight = () => setViewportHeight(`${window.innerHeight}px`);
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
+  // Handle max click
+  const handleMaxClick = useCallback(() => {
+    setCommitAmount(usdcBalance);
+  }, [usdcBalance]);
 
-  // Update function to handle pool status toggle
+  // Handle toggle pool status
   const handleTogglePoolStatus = async () => {
     if (!pool || !dbUser) return;
 
@@ -103,8 +115,8 @@ export default function PoolDetailsPage() {
       const newStatus =
         pool.blockchain_status === "active" ||
         pool.blockchain_status === "confirmed"
-          ? 0
-          : 1;
+          ? "inactive"
+          : "active";
       const response = await fetch("/api/blockchain/update-pool-status", {
         method: "POST",
         headers: {
@@ -121,7 +133,9 @@ export default function PoolDetailsPage() {
         const error = await response.json();
         throw new Error(
           error.error ||
-            `Failed to ${newStatus === 1 ? "activate" : "deactivate"} pool`
+            `Failed to ${
+              newStatus === "active" ? "activate" : "deactivate"
+            } pool`
         );
       }
 
@@ -130,7 +144,9 @@ export default function PoolDetailsPage() {
 
       // Show success message
       toast.success(
-        `Pool ${newStatus === 1 ? "activated" : "deactivated"} successfully!`
+        `Pool ${
+          newStatus === "active" ? "activated" : "deactivated"
+        } successfully!`
       );
 
       // Refresh pool data
@@ -175,12 +191,8 @@ export default function PoolDetailsPage() {
       console.log("Database update result:", result);
 
       if (result) {
-        // Refresh pool data, balance, and commitments
-        await Promise.all([
-          refreshPool(),
-          refreshBalance(),
-          refreshCommitments(),
-        ]);
+        // Refresh pool data and balance
+        await Promise.all([refreshPool(), refreshBalance()]);
         alert(`Successfully committed ${amount} ${pool.currency} to the pool!`);
       }
     } catch (error: any) {
@@ -191,44 +203,280 @@ export default function PoolDetailsPage() {
     }
   };
 
-  const handleMaxClick = useCallback(() => {
-    setCommitAmount(usdcBalance);
-  }, [usdcBalance]);
+  // Render pool header section
+  const renderPoolHeader = () => {
+    if (!pool) return null;
+
+    const {
+      name,
+      description,
+      image_url,
+      creator_name,
+      creator_avatar_url,
+      status,
+      funding_stage,
+    } = pool;
+
+    return (
+      <div className="relative">
+        {image_url && (
+          <div className="relative h-48 w-full">
+            <Image
+              src={image_url}
+              alt={name}
+              fill
+              className="object-cover rounded-t-lg"
+            />
+          </div>
+        )}
+        <div className="p-4">
+          <h1 className="text-2xl font-bold mb-2">{name}</h1>
+          <p className="text-gray-400 mb-4">{description}</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              {creator_avatar_url && (
+                <Image
+                  src={creator_avatar_url}
+                  alt={creator_name || "Creator"}
+                  width={32}
+                  height={32}
+                  className="rounded-full mr-2"
+                />
+              )}
+              <span className="text-gray-400">
+                Created by {creator_name || "Anonymous"}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span
+                className={`px-2 py-1 rounded-full text-sm ${
+                  status === "active"
+                    ? "bg-green-500/20 text-green-400"
+                    : status === "pending"
+                    ? "bg-yellow-500/20 text-yellow-400"
+                    : "bg-red-500/20 text-red-400"
+                }`}
+              >
+                {status}
+              </span>
+              <span className="px-2 py-1 rounded-full text-sm bg-blue-500/20 text-blue-400">
+                {funding_stage}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render pool details section
+  const renderPoolDetails = () => {
+    if (!pool) return null;
+
+    const {
+      blockchain_status,
+      funding_stage,
+      target_amount,
+      raised_amount,
+      token_amount,
+      token_symbol,
+      ends_at,
+      location,
+      venue,
+      currency,
+    } = pool;
+
+    return (
+      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+        <h3 className="text-lg font-semibold mb-2">Pool Details</h3>
+
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-gray-400">Status:</span>
+          <span
+            className={`font-medium ${
+              blockchain_status === "active" ||
+              blockchain_status === "confirmed"
+                ? "text-green-400"
+                : blockchain_status === "pending"
+                ? "text-yellow-400"
+                : "text-red-400"
+            }`}
+          >
+            {blockchain_status === "active" || blockchain_status === "confirmed"
+              ? "Active"
+              : blockchain_status === "pending"
+              ? "Pending"
+              : "Inactive"}
+          </span>
+        </div>
+
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-gray-400">Funding Stage:</span>
+          <span className="font-medium capitalize">{funding_stage}</span>
+        </div>
+
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-gray-400">Target Amount:</span>
+          <span className="font-medium">
+            {target_amount.toLocaleString()} {currency}
+          </span>
+        </div>
+
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-gray-400">Raised Amount:</span>
+          <span className="font-medium">
+            {raised_amount.toLocaleString()} {currency}
+          </span>
+        </div>
+
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-gray-400">Token Amount:</span>
+          <span className="font-medium">
+            {token_amount} {token_symbol}
+          </span>
+        </div>
+
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-gray-400">Ends At:</span>
+          <span className="font-medium">
+            {new Date(ends_at).toLocaleDateString()}
+          </span>
+        </div>
+
+        {location && (
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-400">Location:</span>
+            <span className="font-medium">{location}</span>
+          </div>
+        )}
+
+        {venue && (
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-400">Venue:</span>
+            <span className="font-medium">{venue}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render pool progress section
+  const renderPoolProgress = () => {
+    if (!pool) return null;
+
+    const { target_amount, raised_amount, currency } = pool;
+    const progress = (raised_amount / target_amount) * 100;
+
+    return (
+      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+        <h3 className="text-lg font-semibold mb-2">Funding Progress</h3>
+        <div className="relative pt-1">
+          <div className="flex mb-2 items-center justify-between">
+            <div>
+              <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
+                Progress
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-xs font-semibold inline-block text-blue-600">
+                {progress.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+          <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
+            <div
+              style={{ width: `${progress}%` }}
+              className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"
+            ></div>
+          </div>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400">Raised:</span>
+          <span className="font-medium">
+            {raised_amount} {currency}
+          </span>
+        </div>
+        <div className="flex justify-between items-center mt-2">
+          <span className="text-gray-400">Target:</span>
+          <span className="font-medium">
+            {target_amount} {currency}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  // Render pool time section
+  const renderPoolTime = () => {
+    if (!pool || isTimeLoading) return null;
+
+    return (
+      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+        <h3 className="text-lg font-semibold mb-4">Time left</h3>
+        <div className="grid grid-cols-4 gap-4">
+          <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+            <div className="text-3xl font-bold">{days}</div>
+            <div className="text-sm text-gray-400">Days</div>
+          </div>
+          <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+            <div className="text-3xl font-bold">{hours}</div>
+            <div className="text-sm text-gray-400">Hours</div>
+          </div>
+          <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+            <div className="text-3xl font-bold">{minutes}</div>
+            <div className="text-sm text-gray-400">Minutes</div>
+          </div>
+          <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+            <div className="text-3xl font-bold">{seconds}</div>
+            <div className="text-sm text-gray-400">Seconds</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Render blockchain information section
   const renderBlockchainInfo = () => {
     if (!pool) return null;
 
+    const {
+      blockchain_tx_hash,
+      blockchain_status,
+      blockchain_network,
+      blockchain_explorer_url,
+      contract_address,
+    } = pool;
+
     return (
       <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
         <h3 className="text-lg font-semibold mb-2">Blockchain Information</h3>
 
-        {pool.blockchain_tx_hash ? (
+        {blockchain_tx_hash && (
           <div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-gray-400">Status:</span>
               <span
                 className={`font-medium ${
-                  pool.blockchain_status === "active"
+                  blockchain_status === "active" ||
+                  blockchain_status === "confirmed"
                     ? "text-green-400"
-                    : pool.blockchain_status === "pending"
+                    : blockchain_status === "pending"
                     ? "text-yellow-400"
-                    : pool.blockchain_status === "confirmed"
-                    ? "text-green-400"
                     : "text-red-400"
                 }`}
               >
-                {pool.blockchain_status === "confirmed"
-                  ? "active"
-                  : pool.blockchain_status || "Unknown"}
+                {blockchain_status === "confirmed" ||
+                blockchain_status === "active"
+                  ? "Active"
+                  : blockchain_status || "Inactive"}
               </span>
             </div>
 
-            {pool.blockchain_network && (
+            {blockchain_network && (
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-400">Network:</span>
                 <span className="font-medium capitalize">
-                  {pool.blockchain_network}
+                  {blockchain_network}
                 </span>
               </div>
             )}
@@ -237,64 +485,37 @@ export default function PoolDetailsPage() {
               <span className="text-gray-400">Transaction:</span>
               <a
                 href={
-                  pool.blockchain_explorer_url
-                    ? pool.blockchain_explorer_url
-                    : pool.blockchain_network === "monad"
-                    ? `https://testnet.monadexplorer.com/tx/${pool.blockchain_tx_hash}`
-                    : `https://sepolia.etherscan.io/tx/${pool.blockchain_tx_hash}`
+                  blockchain_explorer_url
+                    ? blockchain_explorer_url
+                    : blockchain_network === "monad"
+                    ? `https://testnet.monadexplorer.com/tx/${blockchain_tx_hash}`
+                    : `https://sepolia.basescan.org/tx/${blockchain_tx_hash}`
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 underline text-sm truncate max-w-[200px]"
+                className="text-blue-400 hover:text-blue-300"
               >
-                {pool.blockchain_tx_hash.substring(0, 10)}...
-                {pool.blockchain_tx_hash.substring(
-                  pool.blockchain_tx_hash.length - 8
-                )}
+                View on Explorer
               </a>
             </div>
 
-            {pool.blockchain_block_number && (
+            {contract_address && (
               <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-400">Block:</span>
-                <span className="font-medium">
-                  {pool.blockchain_block_number}
-                </span>
-              </div>
-            )}
-
-            {pool.contract_address && (
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-400">
-                  LP Token{" "}
-                  {lpTokenSymbol && !lpTokenError && `(${lpTokenSymbol})`}
-                  {lpTokenError && (
-                    <span className="text-xs text-gray-500 ml-1">
-                      (loading...)
-                    </span>
-                  )}
-                </span>
+                <span className="text-gray-400">Contract Address</span>
                 <a
                   href={
-                    pool.blockchain_network === "monad"
-                      ? `https://testnet.monadexplorer.com/address/${pool.contract_address}`
-                      : `https://sepolia.etherscan.io/address/${pool.contract_address}`
+                    blockchain_network === "monad"
+                      ? `https://testnet.monadexplorer.com/address/${contract_address}`
+                      : `https://sepolia.basescan.org/address/${contract_address}`
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-400 underline text-sm truncate max-w-[200px]"
+                  className="text-blue-400 hover:text-blue-300"
                 >
-                  {pool.contract_address.substring(0, 10)}...
-                  {pool.contract_address.substring(
-                    pool.contract_address.length - 8
-                  )}
+                  View Contract
                 </a>
               </div>
             )}
-          </div>
-        ) : (
-          <div className="text-gray-400">
-            No blockchain information available
           </div>
         )}
       </div>
@@ -324,532 +545,495 @@ export default function PoolDetailsPage() {
     }
   };
 
-  if (isLoading) {
+  // Render pool actions section
+  const renderPoolActions = () => {
+    if (!pool || !dbUser) return null;
+
+    const { status, creator_id, min_commitment, currency } = pool;
+    const isCreator = dbUser.id === creator_id;
+
     return (
-      <div className="flex items-center justify-center h-screen bg-black text-white">
-        <div className="text-center">
-          <div className="w-16 h-16 border-t-4 border-purple-500 border-solid rounded-full animate-spin mx-auto mb-4"></div>
-          <p>Loading pool details...</p>
-        </div>
+      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+        <h3 className="text-lg font-semibold mb-2">Actions</h3>
+
+        {isCreator && (
+          <button
+            onClick={handleTogglePoolStatus}
+            disabled={isActivating}
+            className={`w-full py-2 px-4 rounded-lg font-medium ${
+              isActivating
+                ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                : pool.blockchain_status === "active" ||
+                  pool.blockchain_status === "confirmed" ||
+                  pool.status === "active"
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+          >
+            {isActivating
+              ? "Updating..."
+              : pool.blockchain_status === "active" ||
+                pool.blockchain_status === "confirmed" ||
+                pool.status === "active"
+              ? "Deactivate Pool"
+              : "Activate Pool"}
+          </button>
+        )}
+
+        {!isCreator && status === "active" && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Your Balance:</span>
+              <span className="font-medium">
+                {usdcBalance} {currency}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="number"
+                value={commitAmount}
+                onChange={(e) => setCommitAmount(e.target.value)}
+                min={min_commitment || 1}
+                step="1"
+                className="flex-1 py-2 px-4 rounded-lg bg-[#1A1625] text-white border border-gray-700 focus:outline-none focus:border-blue-500"
+                placeholder={`Min: ${min_commitment || 1}`}
+              />
+              <button
+                onClick={handleMaxClick}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Max
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
-  }
+  };
 
-  if (!pool) {
+  // Render pool patrons section
+  const renderPoolPatrons = () => {
+    if (!pool || !patrons) return null;
+
+    const { currency } = pool;
+
     return (
-      <div className="flex items-center justify-center h-screen bg-black text-white">
-        <div className="text-center">
-          <p className="text-xl mb-4">Pool not found</p>
+      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Patrons</h3>
           <button
-            onClick={() => router.push("/pools")}
-            className="bg-purple-500 px-6 py-3 rounded-full font-medium"
+            onClick={() => setShowPatrons(!showPatrons)}
+            className="text-gray-400 hover:text-white"
           >
-            Back to Pools
+            {showPatrons ? <FaChevronUp /> : <FaChevronRight />}
           </button>
         </div>
+
+        {showPatrons && (
+          <div className="space-y-4">
+            {patrons.map((patron) => (
+              <div
+                key={patron.id}
+                className="flex items-center justify-between p-2 rounded-lg bg-[#1A1625]"
+              >
+                <div className="flex items-center">
+                  {patron.user?.avatar_url && (
+                    <Image
+                      src={patron.user.avatar_url}
+                      alt={patron.user.name || "Patron"}
+                      width={32}
+                      height={32}
+                      className="rounded-full mr-2"
+                    />
+                  )}
+                  <span className="text-gray-400">
+                    {patron.user?.name || "Anonymous"}
+                  </span>
+                </div>
+                <span className="font-medium">
+                  {patron.amount} {currency}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
-  }
+  };
 
-  // Format percentage
-  const percentComplete = Math.min(
-    100,
-    Math.round((totalCommitted / targetAmount) * 100) || 0
-  );
-
-  // Format amounts
-  const formatAmount = (amount: number) => {
-    if (amount >= 1000000) {
-      return `${(amount / 1000000).toFixed(1)}M`;
-    } else if (amount >= 1000) {
-      return `${(amount / 1000).toFixed(1)}K`;
+  // Render main content
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      );
     }
-    return amount.toString();
+
+    if (!pool) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-2">Pool Not Found</h1>
+            <p className="text-gray-400">
+              The pool you're looking for doesn't exist.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="container mx-auto px-4">
+        {/* Pool Status and Title */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 text-gray-400 mb-2">
+            <div
+              className={`w-2 h-2 rounded-full ${
+                pool.blockchain_status === "active" ||
+                pool.blockchain_status === "confirmed"
+                  ? "bg-green-500"
+                  : pool.blockchain_status === "pending"
+                  ? "bg-yellow-500"
+                  : "bg-red-500"
+              }`}
+            ></div>
+            <span>
+              {pool.blockchain_status === "active" ||
+              pool.blockchain_status === "confirmed"
+                ? "Active"
+                : pool.blockchain_status === "pending"
+                ? "Pending"
+                : "Inactive"}
+            </span>
+          </div>
+          <h1 className="text-3xl font-bold">{pool.name}</h1>
+        </div>
+
+        {/* Raising and Time Info */}
+        <div className="mb-4">
+          <div className="text-gray-400 mb-2">
+            Raising • Ends in {days} days
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="text-5xl font-bold">
+              ${targetAmount.toLocaleString()}
+            </div>
+            <div className="text-xl text-gray-400">
+              {percentage.toFixed(1)}% • ${raisedAmount.toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="relative h-1 bg-gray-800 mb-8">
+          <div
+            className="absolute left-0 top-0 h-full bg-purple-500"
+            style={{
+              width: `${Math.min(percentage, 100)}%`,
+            }}
+          ></div>
+        </div>
+
+        {/* Time Left Block */}
+        <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+          <h3 className="text-lg font-semibold mb-4">Time left</h3>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+              <div className="text-3xl font-bold">{days}</div>
+              <div className="text-sm text-gray-400">Days</div>
+            </div>
+            <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+              <div className="text-3xl font-bold">{hours}</div>
+              <div className="text-sm text-gray-400">Hours</div>
+            </div>
+            <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+              <div className="text-3xl font-bold">{minutes}</div>
+              <div className="text-sm text-gray-400">Minutes</div>
+            </div>
+            <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+              <div className="text-3xl font-bold">{seconds}</div>
+              <div className="text-sm text-gray-400">Seconds</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Token Section */}
+        <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+          <h3 className="text-lg font-semibold mb-4">Token</h3>
+          <div className="flex items-center gap-3 bg-[#1A1625] p-4 rounded-lg">
+            <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
+              <span className="text-2xl">🎭</span>
+            </div>
+            <div className="text-2xl font-bold">${pool.token_symbol}</div>
+          </div>
+        </div>
+
+        {/* Pool Details */}
+        {renderPoolDetails()}
+
+        {/* Pool Actions */}
+        <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+          <div className="space-y-4">
+            {dbUser && dbUser.id === pool.creator_id && (
+              <button
+                onClick={handleTogglePoolStatus}
+                disabled={isActivating}
+                className={`w-full py-3 px-4 rounded-lg font-medium text-lg mb-4 ${
+                  isActivating
+                    ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                    : pool.blockchain_status === "active" ||
+                      pool.blockchain_status === "confirmed" ||
+                      pool.status === "active"
+                    ? "bg-red-600 text-white hover:bg-red-700"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                }`}
+              >
+                {isActivating
+                  ? "Updating..."
+                  : pool.blockchain_status === "active" ||
+                    pool.blockchain_status === "confirmed" ||
+                    pool.status === "active"
+                  ? "Deactivate Pool"
+                  : "Activate Pool"}
+              </button>
+            )}
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Your Balance:</span>
+              <span className="font-medium">
+                {usdcBalance} {pool.currency}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="number"
+                value={commitAmount}
+                onChange={(e) => setCommitAmount(e.target.value)}
+                min={pool.min_commitment || 1}
+                step="1"
+                className="flex-1 py-2 px-4 rounded-lg bg-[#1A1625] text-white border border-gray-700 focus:outline-none focus:border-blue-500"
+                placeholder={`Min: ${pool.min_commitment || 1}`}
+              />
+              <button
+                onClick={handleMaxClick}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Max
+              </button>
+            </div>
+            <button
+              onClick={handleCommit}
+              disabled={isApproving}
+              className={`w-full py-3 px-4 rounded-lg font-medium text-lg ${
+                isApproving
+                  ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                  : "bg-[#4F46E5] text-white hover:bg-[#4338CA]"
+              }`}
+            >
+              {isApproving ? "Processing..." : "Commit"}
+            </button>
+          </div>
+        </div>
+
+        {/* Patrons */}
+        {renderPoolPatrons()}
+      </div>
+    );
   };
 
   return (
-    <div
-      className="flex flex-col bg-black text-white relative"
-      style={{ height: viewportHeight }}
-    >
-      {/* Header with back button */}
-      <header className="flex items-center p-4">
-        <button
-          onClick={() => router.back()}
-          className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center mr-4"
-        >
-          <FaArrowLeft className="text-white" />
-        </button>
-
-        {/* Pool info */}
-        <div className="flex-1 flex items-center">
-          <div className="w-12 h-12 rounded-lg bg-purple-600 mr-3 flex items-center justify-center">
-            {pool.image_url ? (
-              <Image
-                src={pool.image_url}
-                alt={pool.name}
-                width={48}
-                height={48}
-                className="rounded-lg"
-              />
-            ) : (
-              <span className="text-xl font-bold">
-                {pool.name.charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
-          <div>
-            <div className="text-purple-500 text-sm">{pool.status}</div>
-            <h1 className="text-2xl font-bold">{pool.name}</h1>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto px-4 pb-24">
-        {/* Funding Progress */}
-        <div className="mb-6">
-          <div className="flex items-center text-sm mb-1">
-            <div className="text-purple-500 bg-purple-500/20 px-3 py-1 rounded-full">
-              {pool.status}
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold mb-4">{pool.name}</h1>
-          <div className="text-[64px] font-bold mb-2">
-            ${formatAmount(totalCommitted)}
-          </div>
-          <div className="flex justify-between text-sm mb-1">
-            <div className="text-gray-400">
-              {pool.funding_stage} •{" "}
-              {hasEnded ? "Ended" : `Ends in ${days}d ${hours}h ${minutes}m`}
-            </div>
-            <div>
-              {percentComplete}% • ${formatAmount(totalCommitted)}/ $
-              {formatAmount(targetAmount)}
-            </div>
-          </div>
-          <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-4">
-            <div
-              className="h-full bg-purple-500 rounded-full transition-all duration-500 ease-in-out"
-              style={{ width: `${percentComplete}%` }}
-            ></div>
-          </div>
-
-          {/* Time Left - Updated with days and labels */}
-          <div className="bg-[#1A1724] rounded-lg p-4">
-            <div className="flex justify-center gap-2">
-              <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
-                {String(days).padStart(2, "0")}
-              </div>
-              <div className="text-2xl font-bold flex items-center">:</div>
-              <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
-                {String(hours).padStart(2, "0")}
-              </div>
-              <div className="text-2xl font-bold flex items-center">:</div>
-              <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
-                {String(minutes).padStart(2, "0")}
-              </div>
-              <div className="text-2xl font-bold flex items-center">:</div>
-              <div className="bg-[#2A2640] w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold">
-                {String(seconds).padStart(2, "0")}
-              </div>
-            </div>
-            <div className="flex justify-center gap-2 mt-2 text-sm text-gray-400">
-              <div className="w-16 text-center">DAYS</div>
-              <div className="w-4"></div>
-              <div className="w-16 text-center">HRS</div>
-              <div className="w-4"></div>
-              <div className="w-16 text-center">MIN</div>
-              <div className="w-4"></div>
-              <div className="w-16 text-center">SEC</div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#0F0D1B] text-white flex flex-col">
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Back Button */}
+        <div className="container mx-auto px-4 py-4">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center text-gray-400 hover:text-white"
+          >
+            <FaArrowLeft className="mr-2" />
+            Back
+          </button>
         </div>
 
-        {/* Blockchain Information */}
-        {pool.blockchain_tx_hash && (
-          <div className="mb-6 p-4 bg-[#1A1724] rounded-lg">
-            <h3 className="text-xl font-bold mb-2">Contract Details</h3>
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-400">Status:</span>
-                <span
-                  className={`font-medium ${
-                    pool.blockchain_status === "active"
-                      ? "text-green-400"
+        {isLoading ? (
+          <div className="flex items-center justify-center min-h-[50vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        ) : !pool ? (
+          <div className="flex items-center justify-center min-h-[50vh]">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold mb-2">Pool Not Found</h1>
+              <p className="text-gray-400">
+                The pool you're looking for doesn't exist.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="container mx-auto px-4">
+            {/* Pool Status and Title */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2 text-gray-400 mb-2">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    pool.blockchain_status === "active" ||
+                    pool.blockchain_status === "confirmed"
+                      ? "bg-green-500"
                       : pool.blockchain_status === "pending"
-                      ? "text-yellow-400"
-                      : pool.blockchain_status === "confirmed"
-                      ? "text-green-400"
-                      : "text-red-400"
+                      ? "bg-yellow-500"
+                      : "bg-red-500"
                   }`}
-                >
-                  {pool.blockchain_status === "confirmed"
-                    ? "active"
-                    : pool.blockchain_status || "Unknown"}
+                ></div>
+                <span>
+                  {pool.blockchain_status === "active" ||
+                  pool.blockchain_status === "confirmed"
+                    ? "Active"
+                    : pool.blockchain_status === "pending"
+                    ? "Pending"
+                    : "Inactive"}
                 </span>
               </div>
+              <h1 className="text-3xl font-bold">{pool.name}</h1>
+            </div>
 
-              {pool.blockchain_network && (
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-400">Network:</span>
-                  <span className="font-medium capitalize">
-                    {pool.blockchain_network}
-                  </span>
-                </div>
-              )}
-
-              {pool.contract_address && (
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-400">
-                    LP Token{" "}
-                    {lpTokenSymbol && !lpTokenError && `(${lpTokenSymbol})`}
-                    {lpTokenError && (
-                      <span className="text-xs text-gray-500 ml-1">
-                        (loading...)
-                      </span>
-                    )}
-                  </span>
-                  <a
-                    href={
-                      pool.blockchain_network === "monad"
-                        ? `https://testnet.monadexplorer.com/address/${pool.contract_address}`
-                        : `https://sepolia.etherscan.io/address/${pool.contract_address}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-400 underline text-sm truncate max-w-[200px]"
-                  >
-                    {pool.contract_address.substring(0, 10)}...
-                    {pool.contract_address.substring(
-                      pool.contract_address.length - 8
-                    )}
-                  </a>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Transaction:</span>
-                <a
-                  href={
-                    pool.blockchain_explorer_url
-                      ? pool.blockchain_explorer_url
-                      : pool.blockchain_network === "monad"
-                      ? `https://testnet.monadexplorer.com/tx/${pool.blockchain_tx_hash}`
-                      : `https://sepolia.etherscan.io/tx/${pool.blockchain_tx_hash}`
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-400 underline text-sm truncate max-w-[200px]"
-                >
-                  {pool.blockchain_tx_hash.substring(0, 10)}...
-                  {pool.blockchain_tx_hash.substring(
-                    pool.blockchain_tx_hash.length - 8
-                  )}
-                </a>
+            {/* Raising and Time Info */}
+            <div className="mb-4">
+              <div className="text-gray-400 mb-2">
+                Raising • Ends in {days} days
               </div>
+              <div className="flex items-center justify-between">
+                <div className="text-5xl font-bold">
+                  ${targetAmount.toLocaleString()}
+                </div>
+                <div className="text-xl text-gray-400">
+                  {percentage.toFixed(1)}% • ${raisedAmount.toLocaleString()}
+                </div>
+              </div>
+            </div>
 
-              {/* Add activation/deactivation toggle for pool creator */}
-              {dbUser?.id === pool.creator_id && (
-                <div className="mt-4">
+            {/* Progress Bar */}
+            <div className="relative h-1 bg-gray-800 mb-8">
+              <div
+                className="absolute left-0 top-0 h-full bg-purple-500"
+                style={{
+                  width: `${Math.min(percentage, 100)}%`,
+                }}
+              ></div>
+            </div>
+
+            {/* Time Left Block */}
+            <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+              <h3 className="text-lg font-semibold mb-4">Time left</h3>
+              <div className="grid grid-cols-4 gap-4">
+                <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+                  <div className="text-3xl font-bold">{days}</div>
+                  <div className="text-sm text-gray-400">Days</div>
+                </div>
+                <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+                  <div className="text-3xl font-bold">{hours}</div>
+                  <div className="text-sm text-gray-400">Hours</div>
+                </div>
+                <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+                  <div className="text-3xl font-bold">{minutes}</div>
+                  <div className="text-sm text-gray-400">Minutes</div>
+                </div>
+                <div className="bg-[#1A1625] p-4 rounded-lg text-center">
+                  <div className="text-3xl font-bold">{seconds}</div>
+                  <div className="text-sm text-gray-400">Seconds</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Token Section */}
+            <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+              <h3 className="text-lg font-semibold mb-4">Token</h3>
+              <div className="flex items-center gap-3 bg-[#1A1625] p-4 rounded-lg">
+                <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">🎭</span>
+                </div>
+                <div className="text-2xl font-bold">${pool.token_symbol}</div>
+              </div>
+            </div>
+
+            {/* Pool Details */}
+            {renderPoolDetails()}
+
+            {/* Pool Actions */}
+            <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+              <div className="space-y-4">
+                {dbUser && dbUser.id === pool.creator_id && (
                   <button
                     onClick={handleTogglePoolStatus}
                     disabled={isActivating}
-                    className={`w-full py-2 px-4 rounded-lg font-medium ${
+                    className={`w-full py-3 px-4 rounded-lg font-medium text-lg mb-4 ${
                       isActivating
-                        ? "bg-gray-600 cursor-not-allowed"
+                        ? "bg-gray-600 text-gray-400 cursor-not-allowed"
                         : pool.blockchain_status === "active" ||
-                          pool.blockchain_status === "confirmed"
-                        ? "bg-red-600 hover:bg-red-700"
-                        : "bg-blue-600 hover:bg-blue-700"
+                          pool.blockchain_status === "confirmed" ||
+                          pool.status === "active"
+                        ? "bg-red-600 text-white hover:bg-red-700"
+                        : "bg-green-600 text-white hover:bg-green-700"
                     }`}
                   >
                     {isActivating
                       ? "Updating..."
                       : pool.blockchain_status === "active" ||
-                        pool.blockchain_status === "confirmed"
+                        pool.blockchain_status === "confirmed" ||
+                        pool.status === "active"
                       ? "Deactivate Pool"
                       : "Activate Pool"}
                   </button>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Your Balance:</span>
+                  <span className="font-medium">
+                    {usdcBalance} {pool.currency}
+                  </span>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="flex mb-6 border-b border-gray-700">
-          <button
-            className={`flex-1 py-3 text-center ${
-              activeTab === "commit"
-                ? "text-white border-b-2 border-purple-500"
-                : "text-gray-400"
-            }`}
-            onClick={() => setActiveTab("commit")}
-          >
-            Commit
-          </button>
-          <button
-            className={`flex-1 py-3 text-center ${
-              activeTab === "withdraw"
-                ? "text-white border-b-2 border-purple-500"
-                : "text-gray-400"
-            }`}
-            onClick={() => setActiveTab("withdraw")}
-          >
-            Withdraw
-          </button>
-        </div>
-
-        {/* Commit Form */}
-        {activeTab === "commit" && (
-          <div>
-            {/* Amount Input */}
-            <div className="mb-6">
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">$</span>
-                  </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="number"
+                    value={commitAmount}
+                    onChange={(e) => setCommitAmount(e.target.value)}
+                    min={pool.min_commitment || 1}
+                    step="1"
+                    className="flex-1 py-2 px-4 rounded-lg bg-[#1A1625] text-white border border-gray-700 focus:outline-none focus:border-blue-500"
+                    placeholder={`Min: ${pool.min_commitment || 1}`}
+                  />
+                  <button
+                    onClick={handleMaxClick}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    Max
+                  </button>
                 </div>
-                <input
-                  type="text"
-                  value={commitAmount}
-                  onChange={(e) => setCommitAmount(e.target.value)}
-                  className="w-full p-4 pl-16 bg-[#1A1724] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">
-                  {pool.currency}
-                </div>
-              </div>
-              <div className="flex justify-between text-sm mt-2">
-                <span className="text-gray-400">
-                  Available: {usdcBalance} {pool.currency}
-                </span>
-                <button className="text-purple-500" onClick={handleMaxClick}>
-                  Max
+                <button
+                  onClick={handleCommit}
+                  disabled={isApproving}
+                  className={`w-full py-3 px-4 rounded-lg font-medium text-lg ${
+                    isApproving
+                      ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                      : "bg-[#4F46E5] text-white hover:bg-[#4338CA]"
+                  }`}
+                >
+                  {isApproving ? "Processing..." : "Commit"}
                 </button>
               </div>
             </div>
 
-            {/* You Receive Section */}
-            <div className="mb-6">
-              <h3 className="text-xl font-bold mb-2">You receive</h3>
-              <div className="bg-[#1A1724] rounded-lg p-4 mb-4">
-                <div className="flex items-center mb-2">
-                  <div className="w-6 h-6 bg-purple-600 rounded-full mr-2 flex items-center justify-center">
-                    <FaCheck className="text-white text-xs" />
-                  </div>
-                  <span>1 x Patron Pass</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-6 h-6 bg-purple-600 rounded-full mr-2 flex items-center justify-center">
-                    <span className="text-white text-xs">$</span>
-                  </div>
-                  <span>
-                    {pool.token_amount.toLocaleString()} {pool.token_symbol}
-                  </span>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="mb-4">
-                <h3 className="text-xl font-bold mb-2">You receive</h3>
-                <p className="text-gray-400">{pool.description}</p>
-              </div>
-
-              {/* Location */}
-              {pool.location && (
-                <div
-                  className="bg-[#1A1724] rounded-lg p-4 mb-4 flex items-center justify-between cursor-pointer"
-                  onClick={() => {
-                    // Open map or location details
-                  }}
-                >
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center mr-3">
-                      <FaMapMarkerAlt className="text-gray-400" />
-                    </div>
-                    <div>
-                      <div className="font-medium">{pool.location}</div>
-                      {pool.venue && (
-                        <div className="text-sm text-gray-400">
-                          {pool.venue}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <FaChevronRight className="text-gray-400" />
-                </div>
-              )}
-
-              {/* Organizer */}
-              {creator && (
-                <div className="mb-4">
-                  <h3 className="text-xl font-bold mb-2">Organizer</h3>
-                  <div
-                    className="bg-[#1A1724] rounded-lg p-4 flex items-center justify-between cursor-pointer"
-                    onClick={() => {
-                      // View organizer profile
-                    }}
-                  >
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 rounded-full overflow-hidden bg-purple-600 mr-3">
-                        {creator.avatar_url ? (
-                          <Image
-                            src={creator.avatar_url}
-                            alt={creator.name || ""}
-                            width={48}
-                            height={48}
-                            className="object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <span className="text-xl font-bold">
-                              {creator.name?.charAt(0).toUpperCase() || "A"}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-medium">{creator.name}</div>
-                        <div className="text-sm text-gray-400">
-                          {creator.twitter_username || "@anonymous"}
-                        </div>
-                      </div>
-                    </div>
-                    <FaChevronRight className="text-gray-400" />
-                  </div>
-                </div>
-              )}
-
-              {/* Patrons */}
-              <div className="mb-4">
-                <div
-                  className="flex items-center justify-between mb-2 cursor-pointer"
-                  onClick={() => setShowPatrons(!showPatrons)}
-                >
-                  <h3 className="text-xl font-bold">
-                    Patrons {patrons.length}
-                  </h3>
-                  {showPatrons ? (
-                    <FaChevronUp className="text-gray-400" />
-                  ) : (
-                    <FaChevronRight className="text-gray-400" />
-                  )}
-                </div>
-
-                {showPatrons && (
-                  <div className="space-y-2">
-                    {patrons.map((patron, index) => (
-                      <div
-                        key={index}
-                        className="bg-[#1A1724] rounded-lg p-4 flex items-center justify-between"
-                      >
-                        <div className="flex items-center">
-                          <div className="w-12 h-12 rounded-full overflow-hidden bg-purple-600 mr-3">
-                            {patron.user?.avatar_url ? (
-                              <Image
-                                src={patron.user.avatar_url}
-                                alt={patron.user.name || ""}
-                                width={48}
-                                height={48}
-                                className="object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <span className="text-xl font-bold">
-                                  {patron.user?.name?.charAt(0).toUpperCase() ||
-                                    "A"}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="ml-3">
-                            <div className="font-semibold">
-                              {patron.user?.name || "Anonymous"}
-                            </div>
-                            <div className="text-sm text-gray-400">
-                              {patron.user?.twitter_username || "@anonymous"}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-2">
-                            <span className="text-white text-xs">$</span>
-                          </div>
-                          <span>{patron.amount}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Withdraw Form - Just a placeholder for now */}
-        {activeTab === "withdraw" && (
-          <div className="bg-[#1A1724] rounded-lg p-6 text-center">
-            <p className="text-gray-400 mb-4">
-              You haven&apos;t committed any funds to this pool yet.
-            </p>
-            <button
-              className="bg-purple-500 px-6 py-3 rounded-full font-medium"
-              onClick={() => setActiveTab("commit")}
-            >
-              Make a commitment
-            </button>
-          </div>
-        )}
-
-        {/* About Tab */}
-        {activeTab === "about" && (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold mb-4">About</h2>
-            <p className="text-gray-300 mb-6">
-              {pool?.description || "No description available."}
-            </p>
-
-            {/* Add the blockchain information section */}
-            {renderBlockchainInfo()}
-
-            {/* Rest of the about tab content */}
-            {/* ... */}
+            {/* Patrons */}
+            {renderPoolPatrons()}
           </div>
         )}
       </div>
 
-      {/* Commit Button - Fixed at bottom */}
-      {activeTab === "commit" && (
-        <div className="absolute bottom-0 left-0 right-0 px-4 py-4 bg-black">
-          <button
-            onClick={handleCommit}
-            disabled={isApproving || isBlockchainLoading}
-            className={`w-full py-4 ${
-              isApproving || isBlockchainLoading
-                ? "bg-purple-700 cursor-not-allowed"
-                : "bg-purple-500 hover:bg-purple-600"
-            } rounded-full text-white font-medium text-lg flex items-center justify-center`}
-          >
-            {isApproving || isBlockchainLoading ? (
-              <>
-                <div className="w-5 h-5 border-t-2 border-white rounded-full animate-spin mr-3"></div>
-                {isApproving ? "Approving USDC..." : "Confirming..."}
-              </>
-            ) : (
-              "Commit"
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* Navigation Bar - Hidden when showing the commit button */}
-      {activeTab !== "commit" && (
-        <div className="absolute bottom-0 left-0 right-0">
-          <BottomNavbar activeTab="party" />
-        </div>
-      )}
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0F0D1B] border-t border-gray-800">
+        <BottomNavbar activeTab="party" />
+      </div>
+      {/* Add padding at the bottom of the main content to prevent overlap */}
+      <div className="pb-20"></div>
     </div>
   );
 }

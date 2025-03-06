@@ -1,54 +1,63 @@
-import useSWR from "swr";
+import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import {
-  getStageDotFunPoolContract,
-  getPoolId,
+  getPoolContract,
+  getStageDotFunPoolFactoryContract,
 } from "../lib/contracts/StageDotFunPool";
-import { supabase } from "../lib/supabase";
+import { useContractInteraction } from "./useContractInteraction";
 
-export function usePoolCommitments(poolName: string | null) {
-  const {
-    data: commitmentData,
-    error,
-    mutate: refreshCommitments,
-  } = useSWR(
-    poolName ? ["pool-commitments", poolName] : null,
-    async () => {
-      if (!poolName) return null;
+export interface PoolCommitment {
+  user: string;
+  amount: bigint;
+  verified: boolean;
+}
 
-      const provider = new ethers.JsonRpcProvider(
-        process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
-          ? "https://testnet-rpc.monad.xyz"
-          : "https://sepolia.base.org"
-      );
+export function usePoolCommitments(poolAddress: string | null) {
+  const { getProvider } = useContractInteraction();
+  const [commitments, setCommitments] = useState<PoolCommitment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-      // Get pool info from both blockchain and database
-      const [poolInfo, { data: dbPool }] = await Promise.all([
-        getStageDotFunPoolContract(provider).getPool(getPoolId(poolName)),
-        supabase
-          .from("pools")
-          .select("target_amount")
-          .eq("name", poolName)
-          .single(),
-      ]);
+  useEffect(() => {
+    async function fetchCommitments() {
+      if (!poolAddress) {
+        setLoading(false);
+        return;
+      }
 
-      return {
-        totalCommitted: Number(ethers.formatUnits(poolInfo.totalDeposits, 6)), // USDC has 6 decimals
-        targetAmount: dbPool?.target_amount || 0,
-      };
-    },
-    {
-      refreshInterval: 5000, // Refresh every 5 seconds
-      revalidateOnFocus: true,
-      dedupingInterval: 2000,
+      try {
+        const provider = await getProvider();
+        const pool = getPoolContract(provider, poolAddress);
+        const lpHolders = await pool.getLpHolders();
+
+        // Get balances for each holder
+        const commitmentsData = await Promise.all(
+          lpHolders.map(async (holder: string) => {
+            const balance = await pool.lpBalances(holder);
+            return {
+              user: holder,
+              amount: balance,
+              verified: true, // In the new system, all holders are verified
+            };
+          })
+        );
+
+        setCommitments(commitmentsData);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err : new Error("Failed to fetch commitments")
+        );
+      } finally {
+        setLoading(false);
+      }
     }
-  );
+
+    fetchCommitments();
+  }, [poolAddress, getProvider]);
 
   return {
-    totalCommitted: commitmentData?.totalCommitted || 0,
-    targetAmount: commitmentData?.targetAmount || 0,
-    isLoading: !error && !commitmentData,
+    commitments,
+    loading,
     error,
-    refresh: refreshCommitments,
   };
 }

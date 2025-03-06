@@ -28,6 +28,15 @@ The project is already configured to work with Monad. The configuration is in:
 - `hardhat.config.js` - Network configuration for Monad
 - `.env.local` - Environment variables for Monad RPC URLs and private keys
 
+## Contract Addresses
+
+Contract addresses are managed in `src/lib/contracts/addresses.ts`. When you deploy new contracts, this file will be automatically updated with the new addresses.
+
+The current contract addresses on Monad Testnet are:
+
+- Pool Contract: `0x12193C042aAbF5109c50E78d2328541554C791ac`
+- USDC Contract: `0xf817257fed379853cDe0fa4F97AB987181B1E5Ea`
+
 ## Deployment Steps
 
 ### 1. Local Development
@@ -56,15 +65,6 @@ This will:
 2. Deploy the PoolCommitment contract
 3. Mint some test USDC tokens
 4. Output the contract addresses to add to your `.env.local` file
-
-### 3. Update Environment Variables
-
-After deployment, update your `.env.local` file with the contract addresses:
-
-```
-NEXT_PUBLIC_POOL_CONTRACT_ADDRESS=<deployed-address>
-NEXT_PUBLIC_USDC_ADDRESS=<deployed-address>
-```
 
 ## Verifying Contracts
 
