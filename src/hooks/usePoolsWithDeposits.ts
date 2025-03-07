@@ -103,7 +103,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
       return {
         ...pool,
         raised_amount: chainInfo?.totalDeposits || 0,
-        blockchain_status: chainInfo?.status || 0,
+        blockchain_status: chainInfo?.status === 1 ? "active" : "inactive",
       };
     }) || [];
 

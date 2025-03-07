@@ -1,3 +1,4 @@
+// @ts-nocheck
 const hre = require("hardhat");
 const fs = require("fs");
 const path = require("path");
@@ -68,10 +69,13 @@ export function getContractAddresses() {
   console.log("Contract deployment confirmed");
 
   // Verify the contract on Sourcify if not on a local network
-  if (hre.network.name !== "hardhat" && hre.network.name !== "localhost") {
+  if (
+    hre.ethers.network.name !== "hardhat" &&
+    hre.ethers.network.name !== "localhost"
+  ) {
     console.log("Verifying contract on Sourcify...");
     try {
-      await hre.run("sourcify:verify", {
+      await hre.ethers.run("sourcify:verify", {
         address: factoryAddress,
         constructorArguments: [usdcAddress],
       });

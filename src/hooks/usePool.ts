@@ -119,7 +119,6 @@ async function fetchPool(poolId: string) {
     status: chainData.status === 1 ? "active" : "inactive",
     end_time: Number(chainData.endTime) || 0,
     patrons,
-    deposits: details?.deposits || [],
     milestones: details?.milestones || [],
     emergency_mode: details?.emergencyMode || false,
     emergency_withdrawal_request_time:

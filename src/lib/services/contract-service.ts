@@ -73,8 +73,21 @@ export async function getPoolFromChain(
   totalDeposits: string;
   revenueAccumulated: string;
   endTime: string;
+  targetAmount: string;
+  minCommitment: string;
   status: string;
   lpTokenAddress: string;
+  lpHolders: string[];
+  milestones: {
+    description: string;
+    amount: string;
+    unlockTime: string;
+    approved: boolean;
+    released: boolean;
+  }[];
+  emergencyMode: boolean;
+  emergencyWithdrawalRequestTime: string;
+  authorizedWithdrawer: string;
   exists: boolean;
 }> {
   try {
@@ -86,8 +99,15 @@ export async function getPoolFromChain(
         totalDeposits: "0",
         revenueAccumulated: "0",
         endTime: "0",
+        targetAmount: "0",
+        minCommitment: "0",
         status: "0",
         lpTokenAddress: ethers.ZeroAddress,
+        lpHolders: [],
+        milestones: [],
+        emergencyMode: false,
+        emergencyWithdrawalRequestTime: "0",
+        authorizedWithdrawer: ethers.ZeroAddress,
         exists: false,
       };
     }
@@ -97,12 +117,34 @@ export async function getPoolFromChain(
     console.log("Pool details:", details);
 
     return {
-      name: details._name,
-      totalDeposits: details._totalDeposits.toString(),
-      revenueAccumulated: details._revenueAccumulated.toString(),
-      endTime: details._endTime.toString(),
-      status: details._status.toString(),
-      lpTokenAddress: details._lpTokenAddress,
+      name: details.name,
+      totalDeposits: details.totalDeposits.toString(),
+      revenueAccumulated: details.revenueAccumulated.toString(),
+      endTime: details.endTime.toString(),
+      targetAmount: details.targetAmount.toString(),
+      minCommitment: details.minCommitment.toString(),
+      status: details.status.toString(),
+      lpTokenAddress: details.lpTokenAddress,
+      lpHolders: details.lpHolders,
+      milestones: details.milestones.map(
+        (milestone: {
+          description: string;
+          amount: bigint;
+          unlockTime: bigint;
+          approved: boolean;
+          released: boolean;
+        }) => ({
+          description: milestone.description,
+          amount: milestone.amount.toString(),
+          unlockTime: milestone.unlockTime.toString(),
+          approved: milestone.approved,
+          released: milestone.released,
+        })
+      ),
+      emergencyMode: details.emergencyMode,
+      emergencyWithdrawalRequestTime:
+        details.emergencyWithdrawalRequestTime.toString(),
+      authorizedWithdrawer: details.authorizedWithdrawer,
       exists: true,
     };
   } catch (error) {
@@ -155,11 +197,9 @@ export async function getUserPoolBalanceFromChain(
       return "0";
     }
 
-    const details = await getPoolDetails(provider, poolAddress);
-    const deposit = details.deposits.find(
-      (d) => d.address.toLowerCase() === userAddress.toLowerCase()
-    );
-    return formatToken(deposit?.amount || BigInt(0));
+    const pool = getPoolContract(provider, poolAddress);
+    const balance = await pool.getLpBalance(userAddress);
+    return formatToken(balance);
   } catch (error) {
     console.error("Error getting user pool balance from chain:", error);
     return "0";

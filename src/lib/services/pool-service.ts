@@ -128,7 +128,6 @@ export async function getPoolById(id: string): Promise<Pool | null> {
   if (!dbPool) return null;
 
   let chainData: ContractPool = {
-    address: "",
     name: "",
     totalDeposits: BigInt(0),
     revenueAccumulated: BigInt(0),
@@ -136,13 +135,12 @@ export async function getPoolById(id: string): Promise<Pool | null> {
     targetAmount: BigInt(0),
     minCommitment: BigInt(0),
     status: 0,
-    lpTokenAddress: "",
+    lpTokenAddress: ethers.ZeroAddress,
     lpHolders: [],
-    deposits: [],
     milestones: [],
     emergencyMode: false,
     emergencyWithdrawalRequestTime: BigInt(0),
-    authorizedWithdrawer: "",
+    authorizedWithdrawer: ethers.ZeroAddress,
   };
 
   // Only try to get blockchain data if we have a contract address
@@ -187,7 +185,6 @@ export async function getPoolById(id: string): Promise<Pool | null> {
     end_time: Number(chainData.endTime) || 0,
     lp_token_address: chainData.lpTokenAddress || null,
     lp_holders: chainData.lpHolders || [],
-    deposits: chainData.deposits || [],
     milestones: chainData.milestones || [],
     emergency_mode: chainData.emergencyMode || false,
     emergency_withdrawal_request_time:

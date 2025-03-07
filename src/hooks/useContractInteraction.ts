@@ -6,7 +6,6 @@ import type {
 } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import {
-  depositToPoolOnChain,
   createPoolOnChain,
   getPoolFromChain,
   getPoolLpHoldersFromChain,
@@ -98,11 +97,18 @@ export function useContractInteraction(): ContractInteractionHookResult {
       const signer = await getSigner();
       // Set end time to 2 days from now by default
       const endTime = Math.floor(Date.now() / 1000) + 2 * 24 * 60 * 60;
+      // Default target amount to 1000 USDC (1000 * 10^6)
+      const targetAmount = BigInt(1000_000_000);
+      // Default min commitment to 0 USDC
+      const minCommitment = BigInt(0);
+
       const { receipt, poolId } = await createPoolOnChain(
         signer,
         name,
         ticker,
-        endTime
+        BigInt(endTime),
+        targetAmount,
+        minCommitment
       );
       return { receipt, poolId };
     } catch (err: any) {
@@ -334,7 +340,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
           );
           console.log("Approval confirmed:", approvalReceipt);
 
-          if (!approvalReceipt.status) {
+          if (!approvalReceipt?.status) {
             throw new Error("USDC approval failed");
           }
         }
@@ -511,8 +517,8 @@ export function useContractInteraction(): ContractInteractionHookResult {
         return null;
       }
 
-      const pool = getPoolContract(provider, poolAddress);
-      const details = await pool.getPoolDetails();
+      const poolContract = getPoolContract(provider, poolAddress);
+      const details = await poolContract.getPoolDetails();
 
       // Add detailed logging for pool status
       console.log("Pool status from chain:", {
@@ -522,22 +528,38 @@ export function useContractInteraction(): ContractInteractionHookResult {
         poolDetails: details,
       });
 
-      return {
-        _name: details._name,
-        _totalDeposits: details._totalDeposits,
-        _revenueAccumulated: details._revenueAccumulated,
-        _endTime: details._endTime,
-        _targetAmount: details._targetAmount,
-        _minCommitment: details._minCommitment,
-        _status: details._status,
-        _lpTokenAddress: details._lpTokenAddress,
-        _lpHolders: details._lpHolders,
-        _milestones: details._milestones,
-        _emergencyMode: details._emergencyMode,
-        _emergencyWithdrawalRequestTime:
-          details._emergencyWithdrawalRequestTime,
-        _authorizedWithdrawer: details._authorizedWithdrawer,
+      const pool: ContractPool = {
+        name: details._name,
+        totalDeposits: BigInt(details._totalDeposits),
+        revenueAccumulated: BigInt(details._revenueAccumulated),
+        endTime: BigInt(details._endTime),
+        targetAmount: BigInt(details._targetAmount),
+        minCommitment: BigInt(details._minCommitment),
+        status: Number(details._status),
+        lpTokenAddress: details._lpTokenAddress,
+        lpHolders: details._lpHolders,
+        milestones: details._milestones.map(
+          (m: {
+            description: string;
+            amount: bigint;
+            unlockTime: bigint;
+            approved: boolean;
+            released: boolean;
+          }) => ({
+            description: m.description,
+            amount: BigInt(m.amount),
+            unlockTime: BigInt(m.unlockTime),
+            approved: m.approved,
+            released: m.released,
+          })
+        ),
+        emergencyMode: details._emergencyMode,
+        emergencyWithdrawalRequestTime: BigInt(
+          details._emergencyWithdrawalRequestTime
+        ),
+        authorizedWithdrawer: details._authorizedWithdrawer,
       };
+      return pool;
     } catch (err: any) {
       setError(err.message || "Error getting pool from chain");
       return null;
