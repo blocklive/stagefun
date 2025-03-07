@@ -13,6 +13,7 @@ import {
   FaItalic,
   FaListUl,
   FaMapMarkerAlt,
+  FaTimes,
 } from "react-icons/fa";
 import Image from "next/image";
 import { useSupabase } from "../../../contexts/SupabaseContext";
@@ -40,6 +41,9 @@ export default function CreatePoolPage() {
   const [endDate, setEndDate] = useState<Date>(
     new Date(new Date().setDate(new Date().getDate() + 2))
   );
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -58,6 +62,166 @@ export default function CreatePoolPage() {
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check if user is authenticated
+      if (!dbUser || !supabase) {
+        alert(
+          "Please wait for authentication to complete before uploading images"
+        );
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        alert("Please select an image file");
+        return;
+      }
+
+      // Validate file size (50MB limit)
+      if (file.size > 50 * 1024 * 1024) {
+        alert("Image size should be less than 50MB");
+        return;
+      }
+
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    if (!supabase) {
+      console.error("Supabase client not available");
+      alert("Authentication error. Please try again or refresh the page.");
+      return null;
+    }
+
+    try {
+      setIsUploadingImage(true);
+      console.log("Starting image upload...");
+
+      // Create a unique file name
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Math.random()
+        .toString(36)
+        .substring(2)}_${Date.now()}.${fileExt}`;
+      // Use just the filename without the pool-images/ prefix since the bucket name is already pool-images
+      const filePath = fileName;
+
+      console.log(`Uploading to path: ${filePath}`);
+
+      // Try to upload with the authenticated client first
+      let data;
+      let error;
+
+      try {
+        const result = await supabase.storage
+          .from("pool-images")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        data = result.data;
+        error = result.error;
+      } catch (uploadError) {
+        console.error("Initial upload attempt failed:", uploadError);
+        error = uploadError;
+      }
+
+      // If there's an RLS error, try a different approach
+      if (
+        error &&
+        typeof error === "object" &&
+        "message" in error &&
+        typeof error.message === "string" &&
+        (error.message.includes("security policy") ||
+          error.message.includes("permission denied"))
+      ) {
+        console.log(
+          "RLS policy error detected, trying alternative approach..."
+        );
+
+        // Create a FormData object
+        const formData = new FormData();
+        formData.append("file", file);
+
+        // Use fetch API to upload directly to Supabase Storage REST API
+        try {
+          // Get authentication token from user session
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          const token = session?.access_token;
+
+          if (!token) {
+            throw new Error("No authentication token available");
+          }
+
+          const uploadResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/pool-images/${filePath}`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              body: formData,
+            }
+          );
+
+          if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json();
+            throw new Error(`Upload failed: ${JSON.stringify(errorData)}`);
+          }
+
+          console.log("Upload successful via REST API");
+          error = null;
+        } catch (restError) {
+          console.error("REST API upload failed:", restError);
+          error = restError;
+        }
+      }
+
+      if (error) {
+        console.error("Supabase storage upload error:", error);
+        throw error;
+      }
+
+      console.log("Upload successful:", data);
+
+      // Get the public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("pool-images").getPublicUrl(filePath);
+
+      console.log("Generated public URL:", publicUrl);
+      return publicUrl;
+    } catch (error: any) {
+      console.error("Error uploading image:", error);
+
+      // More detailed error message
+      let errorMessage = "Failed to upload image. Please try again.";
+      if (error?.message) {
+        errorMessage += ` Error: ${error.message}`;
+      }
+
+      alert(errorMessage);
+      return null;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>
   ) => {
@@ -70,6 +234,22 @@ export default function CreatePoolPage() {
 
     try {
       setIsSubmitting(true);
+
+      // Upload image if selected
+      let imageUrl = null;
+      if (selectedImage) {
+        console.log("Uploading selected image...");
+        imageUrl = await uploadImage(selectedImage);
+
+        // Stop pool creation if image upload failed
+        if (!imageUrl) {
+          console.error("Image upload failed, stopping pool creation");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      console.log("Proceeding with pool creation, image URL:", imageUrl);
 
       // Create pool data directly from state variables
       const poolData = {
@@ -88,6 +268,7 @@ export default function CreatePoolPage() {
         ends_at: endDate.toISOString(),
         creator_id: dbUser.id,
         raised_amount: 0,
+        image_url: imageUrl,
       };
 
       console.log("Submitting pool data:", poolData);
@@ -183,14 +364,42 @@ export default function CreatePoolPage() {
       >
         {/* Pool Image */}
         <div className="mt-8">
-          <div className="relative w-full aspect-square bg-purple-500 rounded-lg overflow-hidden flex items-center justify-center">
-            <div className="text-4xl font-bold text-center text-[#1E1B2E] p-8">
-              YOU ARE INVITED
-            </div>
-            <button className="absolute bottom-4 right-4 w-12 h-12 bg-[#2A2640] rounded-full flex items-center justify-center">
-              <FaPencilAlt className="text-white" />
-            </button>
+          <div className="relative w-full aspect-square bg-purple-500 rounded-lg overflow-hidden">
+            {imagePreview ? (
+              <>
+                <Image
+                  src={imagePreview}
+                  alt="Pool preview"
+                  fill
+                  className="object-cover"
+                />
+                <button
+                  onClick={handleRemoveImage}
+                  className="absolute top-4 right-4 w-10 h-10 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600"
+                >
+                  <FaTimes className="text-white" />
+                </button>
+              </>
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-4xl font-bold text-center text-[#1E1B2E] p-8">
+                  YOU ARE INVITED
+                </div>
+                <label className="absolute bottom-4 right-4 w-12 h-12 bg-[#2A2640] rounded-full flex items-center justify-center cursor-pointer hover:bg-[#3A3650]">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                  <FaPencilAlt className="text-white" />
+                </label>
+              </div>
+            )}
           </div>
+          {isUploadingImage && (
+            <div className="mt-2 text-sm text-gray-400">Uploading image...</div>
+          )}
         </div>
 
         {/* Form */}

@@ -203,246 +203,6 @@ export default function PoolDetailsPage() {
     }
   };
 
-  // Render pool header section
-  const renderPoolHeader = () => {
-    if (!pool) return null;
-
-    const {
-      name,
-      description,
-      image_url,
-      creator_name,
-      creator_avatar_url,
-      status,
-      funding_stage,
-    } = pool;
-
-    return (
-      <div className="relative">
-        {image_url && (
-          <div className="relative h-48 w-full">
-            <Image
-              src={image_url}
-              alt={name}
-              fill
-              className="object-cover rounded-t-lg"
-            />
-          </div>
-        )}
-        <div className="p-4">
-          <h1 className="text-2xl font-bold mb-2">{name}</h1>
-          <p className="text-gray-400 mb-4">{description}</p>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              {creator_avatar_url && (
-                <Image
-                  src={creator_avatar_url}
-                  alt={creator_name || "Creator"}
-                  width={32}
-                  height={32}
-                  className="rounded-full mr-2"
-                />
-              )}
-              <span className="text-gray-400">
-                Created by {creator_name || "Anonymous"}
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span
-                className={`px-2 py-1 rounded-full text-sm ${
-                  status === "active"
-                    ? "bg-green-500/20 text-green-400"
-                    : status === "pending"
-                    ? "bg-yellow-500/20 text-yellow-400"
-                    : "bg-red-500/20 text-red-400"
-                }`}
-              >
-                {status}
-              </span>
-              <span className="px-2 py-1 rounded-full text-sm bg-blue-500/20 text-blue-400">
-                {funding_stage}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Render pool details section
-  const renderPoolDetails = () => {
-    if (!pool) return null;
-
-    const {
-      blockchain_status,
-      funding_stage,
-      target_amount,
-      raised_amount,
-      token_amount,
-      token_symbol,
-      ends_at,
-      location,
-      venue,
-      currency,
-      min_commitment,
-    } = pool;
-
-    return (
-      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
-        <h3 className="text-lg font-semibold mb-2">Pool Details</h3>
-
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-400">Status:</span>
-          <span
-            className={`font-medium ${
-              blockchain_status === "active" ||
-              blockchain_status === "confirmed"
-                ? "text-green-400"
-                : blockchain_status === "pending"
-                ? "text-yellow-400"
-                : "text-red-400"
-            }`}
-          >
-            {blockchain_status === "active" || blockchain_status === "confirmed"
-              ? "Active"
-              : blockchain_status === "pending"
-              ? "Pending"
-              : "Inactive"}
-          </span>
-        </div>
-
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-400">Funding Stage:</span>
-          <span className="font-medium capitalize">{funding_stage}</span>
-        </div>
-
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-400">Target Amount:</span>
-          <span className="font-medium">
-            {target_amount.toLocaleString()} {currency}
-          </span>
-        </div>
-
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-400">Minimum Commitment:</span>
-          <span className="font-medium">
-            {min_commitment?.toLocaleString() || "0"} {currency}
-          </span>
-        </div>
-
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-400">Raised Amount:</span>
-          <span className="font-medium">
-            {raised_amount.toLocaleString()} {currency}
-          </span>
-        </div>
-
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-400">Token Amount:</span>
-          <span className="font-medium">
-            {token_amount} {token_symbol}
-          </span>
-        </div>
-
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-gray-400">Ends At:</span>
-          <span className="font-medium">
-            {new Date(ends_at).toLocaleDateString()}
-          </span>
-        </div>
-
-        {location && (
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-gray-400">Location:</span>
-            <span className="font-medium">{location}</span>
-          </div>
-        )}
-
-        {venue && (
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-gray-400">Venue:</span>
-            <span className="font-medium">{venue}</span>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // Render pool progress section
-  const renderPoolProgress = () => {
-    if (!pool) return null;
-
-    const { target_amount, raised_amount, currency } = pool;
-    const progress = (raised_amount / target_amount) * 100;
-
-    return (
-      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
-        <h3 className="text-lg font-semibold mb-2">Funding Progress</h3>
-        <div className="relative pt-1">
-          <div className="flex mb-2 items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
-                Progress
-              </span>
-            </div>
-            <div className="text-right">
-              <span className="text-xs font-semibold inline-block text-blue-600">
-                {progress.toFixed(1)}%
-              </span>
-            </div>
-          </div>
-          <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
-            <div
-              style={{ width: `${progress}%` }}
-              className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"
-            ></div>
-          </div>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400">Raised:</span>
-          <span className="font-medium">
-            {raised_amount} {currency}
-          </span>
-        </div>
-        <div className="flex justify-between items-center mt-2">
-          <span className="text-gray-400">Target:</span>
-          <span className="font-medium">
-            {target_amount} {currency}
-          </span>
-        </div>
-      </div>
-    );
-  };
-
-  // Render pool time section
-  const renderPoolTime = () => {
-    if (!pool || isTimeLoading) return null;
-
-    return (
-      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
-        <h3 className="text-lg font-semibold mb-4">Time left</h3>
-        <div className="grid grid-cols-4 gap-4">
-          <div className="bg-[#1A1625] p-4 rounded-lg text-center">
-            <div className="text-3xl font-bold">{days}</div>
-            <div className="text-sm text-gray-400">Days</div>
-          </div>
-          <div className="bg-[#1A1625] p-4 rounded-lg text-center">
-            <div className="text-3xl font-bold">{hours}</div>
-            <div className="text-sm text-gray-400">Hours</div>
-          </div>
-          <div className="bg-[#1A1625] p-4 rounded-lg text-center">
-            <div className="text-3xl font-bold">{minutes}</div>
-            <div className="text-sm text-gray-400">Minutes</div>
-          </div>
-          <div className="bg-[#1A1625] p-4 rounded-lg text-center">
-            <div className="text-3xl font-bold">{seconds}</div>
-            <div className="text-sm text-gray-400">Seconds</div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // Render blockchain information section
   const renderBlockchainInfo = () => {
     if (!pool) return null;
@@ -694,29 +454,42 @@ export default function PoolDetailsPage() {
 
     return (
       <div className="container mx-auto px-4">
-        {/* Pool Status and Title */}
+        {/* Pool Status, Image and Title */}
         <div className="mb-6">
-          <div className="flex items-center gap-2 text-gray-400 mb-2">
-            <div
-              className={`w-2 h-2 rounded-full ${
-                pool.blockchain_status === "active" ||
-                pool.blockchain_status === "confirmed"
-                  ? "bg-green-500"
-                  : pool.blockchain_status === "pending"
-                  ? "bg-yellow-500"
-                  : "bg-red-500"
-              }`}
-            ></div>
-            <span>
-              {pool.blockchain_status === "active" ||
-              pool.blockchain_status === "confirmed"
-                ? "Active"
-                : pool.blockchain_status === "pending"
-                ? "Pending"
-                : "Inactive"}
-            </span>
+          <div className="flex items-center gap-4">
+            {/* Pool Image */}
+            <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-700 flex-shrink-0">
+              {pool.image_url ? (
+                <Image
+                  src={pool.image_url}
+                  alt={pool.name}
+                  fill
+                  className="object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-purple-500 text-white">
+                  <span className="text-xl font-bold">
+                    {pool.name.charAt(0)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Pool Title and Status */}
+            <div className="flex-1">
+              <div className="flex flex-col">
+                <div className="text-purple-400 text-sm font-medium mb-1">
+                  {pool.blockchain_status === "active" ||
+                  pool.blockchain_status === "confirmed"
+                    ? "Accepting patrons"
+                    : pool.blockchain_status === "pending"
+                    ? "Pending"
+                    : pool.status || "Inactive"}
+                </div>
+                <h1 className="text-3xl font-bold">{pool.name}</h1>
+              </div>
+            </div>
           </div>
-          <h1 className="text-3xl font-bold">{pool.name}</h1>
         </div>
 
         {/* Raising and Time Info */}
@@ -779,7 +552,84 @@ export default function PoolDetailsPage() {
         </div>
 
         {/* Pool Details */}
-        {renderPoolDetails()}
+        <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+          <h3 className="text-lg font-semibold mb-2">Pool Details</h3>
+
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-400">Status:</span>
+            <span
+              className={`font-medium ${
+                pool.blockchain_status === "active" ||
+                pool.blockchain_status === "confirmed"
+                  ? "text-green-400"
+                  : pool.blockchain_status === "pending"
+                  ? "text-yellow-400"
+                  : "text-red-400"
+              }`}
+            >
+              {pool.blockchain_status === "active" ||
+              pool.blockchain_status === "confirmed"
+                ? "Active"
+                : pool.blockchain_status === "pending"
+                ? "Pending"
+                : "Inactive"}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-400">Funding Stage:</span>
+            <span className="font-medium capitalize">{pool.funding_stage}</span>
+          </div>
+
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-400">Target Amount:</span>
+            <span className="font-medium">
+              {pool.target_amount.toLocaleString()} {pool.currency}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-400">Minimum Commitment:</span>
+            <span className="font-medium">
+              {pool.min_commitment?.toLocaleString() || "0"} {pool.currency}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-400">Raised Amount:</span>
+            <span className="font-medium">
+              {pool.raised_amount.toLocaleString()} {pool.currency}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-400">Token Amount:</span>
+            <span className="font-medium">
+              {pool.token_amount} {pool.token_symbol}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-400">Ends At:</span>
+            <span className="font-medium">
+              {new Date(pool.ends_at).toLocaleDateString()}
+            </span>
+          </div>
+
+          {pool.location && (
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-400">Location:</span>
+              <span className="font-medium">{pool.location}</span>
+            </div>
+          )}
+
+          {pool.venue && (
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-400">Venue:</span>
+              <span className="font-medium">{pool.venue}</span>
+            </div>
+          )}
+        </div>
 
         {/* Pool Actions */}
         <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
@@ -880,29 +730,42 @@ export default function PoolDetailsPage() {
           </div>
         ) : (
           <div className="container mx-auto px-4">
-            {/* Pool Status and Title */}
+            {/* Pool Status, Image and Title */}
             <div className="mb-6">
-              <div className="flex items-center gap-2 text-gray-400 mb-2">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    pool.blockchain_status === "active" ||
-                    pool.blockchain_status === "confirmed"
-                      ? "bg-green-500"
-                      : pool.blockchain_status === "pending"
-                      ? "bg-yellow-500"
-                      : "bg-red-500"
-                  }`}
-                ></div>
-                <span>
-                  {pool.blockchain_status === "active" ||
-                  pool.blockchain_status === "confirmed"
-                    ? "Active"
-                    : pool.blockchain_status === "pending"
-                    ? "Pending"
-                    : "Inactive"}
-                </span>
+              <div className="flex items-center gap-4">
+                {/* Pool Image */}
+                <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-700 flex-shrink-0">
+                  {pool.image_url ? (
+                    <Image
+                      src={pool.image_url}
+                      alt={pool.name}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-purple-500 text-white">
+                      <span className="text-xl font-bold">
+                        {pool.name.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pool Title and Status */}
+                <div className="flex-1">
+                  <div className="flex flex-col">
+                    <div className="text-purple-400 text-sm font-medium mb-1">
+                      {pool.blockchain_status === "active" ||
+                      pool.blockchain_status === "confirmed"
+                        ? "Accepting patrons"
+                        : pool.blockchain_status === "pending"
+                        ? "Pending"
+                        : pool.status || "Inactive"}
+                    </div>
+                    <h1 className="text-3xl font-bold">{pool.name}</h1>
+                  </div>
+                </div>
               </div>
-              <h1 className="text-3xl font-bold">{pool.name}</h1>
             </div>
 
             {/* Raising and Time Info */}
@@ -965,7 +828,86 @@ export default function PoolDetailsPage() {
             </div>
 
             {/* Pool Details */}
-            {renderPoolDetails()}
+            <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+              <h3 className="text-lg font-semibold mb-2">Pool Details</h3>
+
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400">Status:</span>
+                <span
+                  className={`font-medium ${
+                    pool.blockchain_status === "active" ||
+                    pool.blockchain_status === "confirmed"
+                      ? "text-green-400"
+                      : pool.blockchain_status === "pending"
+                      ? "text-yellow-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {pool.blockchain_status === "active" ||
+                  pool.blockchain_status === "confirmed"
+                    ? "Active"
+                    : pool.blockchain_status === "pending"
+                    ? "Pending"
+                    : "Inactive"}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400">Funding Stage:</span>
+                <span className="font-medium capitalize">
+                  {pool.funding_stage}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400">Target Amount:</span>
+                <span className="font-medium">
+                  {pool.target_amount.toLocaleString()} {pool.currency}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400">Minimum Commitment:</span>
+                <span className="font-medium">
+                  {pool.min_commitment?.toLocaleString() || "0"} {pool.currency}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400">Raised Amount:</span>
+                <span className="font-medium">
+                  {pool.raised_amount.toLocaleString()} {pool.currency}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400">Token Amount:</span>
+                <span className="font-medium">
+                  {pool.token_amount} {pool.token_symbol}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400">Ends At:</span>
+                <span className="font-medium">
+                  {new Date(pool.ends_at).toLocaleDateString()}
+                </span>
+              </div>
+
+              {pool.location && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-400">Location:</span>
+                  <span className="font-medium">{pool.location}</span>
+                </div>
+              )}
+
+              {pool.venue && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-400">Venue:</span>
+                  <span className="font-medium">{pool.venue}</span>
+                </div>
+              )}
+            </div>
 
             {/* Pool Actions */}
             <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">

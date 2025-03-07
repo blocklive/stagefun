@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy, useFundWallet } from "@privy-io/react-auth";
 import {
@@ -10,23 +10,31 @@ import {
   FaSignOutAlt,
   FaWallet,
   FaCopy,
+  FaTimes,
 } from "react-icons/fa";
 import Image from "next/image";
 import { useSupabase } from "../../contexts/SupabaseContext";
 import { getUserPools } from "../../lib/services/pool-service";
-import { Pool } from "../../lib/supabase";
+import { Pool, User } from "../../lib/supabase";
+import { createOrUpdateUser } from "../../lib/services/user-service";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user: privyUser, authenticated, ready, logout } = usePrivy();
   const { fundWallet } = useFundWallet();
-  const { dbUser, isLoadingUser } = useSupabase();
+  const { dbUser, isLoadingUser, refreshUser } = useSupabase();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState("hosted");
   const [userPools, setUserPools] = useState<Pool[]>([]);
   const [isLoadingPools, setIsLoadingPools] = useState(true);
   const [copied, setCopied] = useState(false);
   const walletAddress = privyUser?.wallet?.address;
+
+  // Avatar upload state
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -74,6 +82,250 @@ export default function ProfilePage() {
   const user = dbUser;
   const displayName = user?.name || "Anonymous";
 
+  // Handle image selection
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        alert("Please select an image file");
+        return;
+      }
+
+      // Validate file size (50MB limit)
+      if (file.size > 50 * 1024 * 1024) {
+        alert("Image size should be less than 50MB");
+        return;
+      }
+
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      // Upload the image immediately
+      uploadImage(file);
+    }
+  };
+
+  // Handle image removal
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
+
+  // Upload image to Supabase
+  const uploadImage = async (file: File) => {
+    if (!dbUser || !privyUser) {
+      alert("You must be logged in to upload an avatar");
+      return;
+    }
+
+    try {
+      setIsUploadingImage(true);
+      console.log("Starting avatar upload...");
+
+      // Create a unique file name
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${dbUser.id}_${Date.now()}.${fileExt}`;
+      // Use just the filename without any prefix
+      const filePath = fileName;
+
+      console.log(`Uploading to path: ${filePath}`);
+
+      // Get Supabase client from window object
+      const supabase = (window as any).supabase;
+
+      if (!supabase) {
+        throw new Error("Supabase client not available");
+      }
+
+      // Try direct fetch upload first
+      try {
+        console.log("Trying direct fetch upload...");
+
+        // Create a FormData object
+        const formData = new FormData();
+        formData.append("file", file);
+
+        // Get the anon key from the environment
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        if (!anonKey) {
+          throw new Error("Supabase anon key not available");
+        }
+
+        // Use fetch API to upload directly to Supabase Storage REST API
+        // Note: The correct URL format is /storage/v1/object/user-images (without 'public/')
+        const uploadResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/user-images/${filePath}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${anonKey}`,
+            },
+            body: formData,
+          }
+        );
+
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error("Direct fetch upload failed:", errorText);
+          throw new Error(`Upload failed: ${errorText}`);
+        }
+
+        console.log("Upload successful via direct fetch");
+
+        // Get the public URL - use the correct format
+        const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/user-images/${filePath}`;
+
+        console.log("Generated public URL:", publicUrl);
+
+        // Update user avatar directly in the UI first
+        setImagePreview(publicUrl);
+
+        // Update the user record directly using Supabase client
+        console.log("Updating user record directly with Supabase client");
+        const { data: updateData, error: updateError } = await supabase
+          .from("users")
+          .update({ avatar_url: publicUrl })
+          .eq("id", dbUser.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error("Direct update failed:", updateError);
+
+          // Try the API route as a fallback
+          try {
+            console.log("Trying API route as fallback...");
+            const updateResponse = await fetch("/api/update-user-avatar", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                userId: dbUser.id,
+                avatarUrl: publicUrl,
+              }),
+            });
+
+            if (!updateResponse.ok) {
+              const responseText = await updateResponse.text();
+              console.error("API route update failed:", responseText);
+              throw new Error(`API update failed: ${responseText}`);
+            }
+
+            console.log("User updated via API route");
+          } catch (apiError) {
+            console.error("API route update failed:", apiError);
+            // Continue anyway since the image was uploaded
+          }
+        } else {
+          console.log("User updated successfully:", updateData);
+        }
+
+        // Refresh user data in context
+        await refreshUser();
+
+        // Show success message
+        alert("Avatar updated successfully!");
+        return;
+      } catch (fetchError) {
+        console.error("Direct fetch upload failed:", fetchError);
+        // Continue to try other methods
+      }
+
+      // Try to upload with the authenticated client
+      try {
+        console.log("Trying Supabase client upload...");
+        const { data, error } = await supabase.storage
+          .from("user-images")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: true, // Overwrite if exists
+          });
+
+        if (error) {
+          console.error("Supabase client upload error:", error);
+          throw error;
+        }
+
+        console.log("Upload successful via Supabase client:", data);
+
+        // Get the public URL
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("user-images").getPublicUrl(filePath);
+
+        console.log("Generated public URL:", publicUrl);
+
+        // Update user avatar directly in the UI
+        setImagePreview(publicUrl);
+
+        // Update the user record directly using Supabase client
+        console.log("Updating user record directly with Supabase client");
+        const { data: updateData, error: updateError } = await supabase
+          .from("users")
+          .update({ avatar_url: publicUrl })
+          .eq("id", dbUser.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error("Direct update failed:", updateError);
+
+          // Try the API route as a fallback
+          try {
+            console.log("Trying API route as fallback...");
+            const updateResponse = await fetch("/api/update-user-avatar", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                userId: dbUser.id,
+                avatarUrl: publicUrl,
+              }),
+            });
+
+            if (!updateResponse.ok) {
+              const responseText = await updateResponse.text();
+              console.error("API route update failed:", responseText);
+              throw new Error(`API update failed: ${responseText}`);
+            }
+
+            console.log("User updated via API route");
+          } catch (apiError) {
+            console.error("API route update failed:", apiError);
+            // Continue anyway since the image was uploaded
+          }
+        } else {
+          console.log("User updated successfully:", updateData);
+        }
+
+        // Refresh user data in context
+        await refreshUser();
+
+        // Show success message
+        alert("Avatar updated successfully!");
+      } catch (supabaseError) {
+        console.error("Supabase client upload error:", supabaseError);
+        alert("Failed to upload avatar. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      alert("Failed to upload avatar. Please try again.");
+    } finally {
+      setIsUploadingImage(false);
+      // Don't reset the image preview so the user can see the uploaded image
+      // setSelectedImage(null);
+      // setImagePreview(null);
+    }
+  };
+
   return (
     <div
       className="flex flex-col bg-[#121212] text-white"
@@ -101,21 +353,49 @@ export default function ProfilePage() {
         {/* Profile Picture */}
         <div className="relative mb-4">
           <div className="w-28 h-28 rounded-full bg-purple-600 overflow-hidden">
-            {user?.avatar_url ? (
+            {imagePreview ? (
+              <Image
+                src={imagePreview}
+                alt="Profile Preview"
+                width={112}
+                height={112}
+                className="object-cover w-full h-full"
+                unoptimized={true}
+              />
+            ) : user?.avatar_url ? (
               <Image
                 src={user.avatar_url}
                 alt="Profile"
                 width={112}
                 height={112}
                 className="object-cover w-full h-full"
+                unoptimized={true}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-3xl font-bold">
                 {displayName.charAt(0)}
               </div>
             )}
+
+            {isUploadingImage && (
+              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+              </div>
+            )}
           </div>
-          <button className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center">
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+            ref={fileInputRef}
+          />
+
+          <button
+            className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center"
+            onClick={() => fileInputRef.current?.click()}
+          >
             <FaEdit className="text-purple-600" />
           </button>
         </div>

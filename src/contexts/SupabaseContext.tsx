@@ -14,6 +14,11 @@ import {
   getUserByWalletAddress,
 } from "../lib/services/user-service";
 
+// Make supabase available globally for direct access
+if (typeof window !== "undefined") {
+  (window as any).supabase = supabase;
+}
+
 // Define the context type
 interface SupabaseContextType {
   dbUser: User | null;
