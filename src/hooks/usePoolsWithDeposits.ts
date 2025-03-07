@@ -6,6 +6,7 @@ import {
   getStageDotFunPoolFactoryContract,
   getPoolContract,
   getPoolDetails,
+  fromUSDCBaseUnits,
 } from "../lib/contracts/StageDotFunPool";
 import { getAllPools } from "../lib/services/pool-service";
 
@@ -67,24 +68,50 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
         pools.map(async (pool) => {
           if (!pool.contract_address) return null;
 
-          const poolAddress = await factory.getPoolByAddress(
-            pool.contract_address
-          );
-          if (!poolAddress) return null;
+          try {
+            // First check if the contract exists at this address
+            const code = await provider.getCode(pool.contract_address);
+            if (code === "0x") {
+              console.warn(
+                `No contract found at address: ${pool.contract_address}`
+              );
+              return {
+                address: pool.contract_address,
+                totalDeposits: 0,
+                status: 0,
+                error: "Contract not found",
+              };
+            }
 
-          const details = await getPoolDetails(provider, pool.contract_address);
+            // Try to get pool details
+            const details = await getPoolDetails(
+              provider,
+              pool.contract_address
+            );
 
-          return {
-            address: pool.contract_address,
-            totalDeposits: Number(details.totalDeposits),
-            status: details.status,
-          };
+            return {
+              address: pool.contract_address,
+              totalDeposits: fromUSDCBaseUnits(details.totalDeposits), // Convert using utility function
+              status: details.status,
+            };
+          } catch (error) {
+            console.error(
+              `Error fetching data for pool ${pool.id} at ${pool.contract_address}:`,
+              error
+            );
+            // Return fallback data instead of null
+            return {
+              address: pool.contract_address,
+              totalDeposits: 0,
+              status: 0,
+              error: error instanceof Error ? error.message : "Unknown error",
+            };
+          }
         })
       );
 
-      return poolData.filter(
-        (data): data is NonNullable<typeof data> => data !== null
-      );
+      // Filter out null values but keep error entries
+      return poolData.filter((data) => data !== null);
     },
     {
       refreshInterval: 10000, // Refresh every 10 seconds

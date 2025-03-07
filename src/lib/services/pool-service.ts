@@ -4,6 +4,7 @@ import {
   getPoolDetails,
   createPool as createPoolOnChain,
   ContractPool,
+  fromUSDCBaseUnits,
 } from "../contracts/StageDotFunPool";
 import { ethers } from "ethers";
 
@@ -76,9 +77,8 @@ export async function getAllPools(): Promise<Pool[]> {
             pool.contract_address
           );
           chainDataMap.set(pool.contract_address.toLowerCase(), {
-            totalDeposits: Number(chainData.totalDeposits) / 1_000_000, // Convert to USDC
-            revenueAccumulated:
-              Number(chainData.revenueAccumulated) / 1_000_000,
+            totalDeposits: fromUSDCBaseUnits(chainData.totalDeposits), // Convert using utility function
+            revenueAccumulated: fromUSDCBaseUnits(chainData.revenueAccumulated), // Convert using utility function
             status: chainData.status === 1 ? "active" : "inactive",
             endTime: Number(chainData.endTime),
             lpTokenAddress: chainData.lpTokenAddress,
@@ -168,10 +168,10 @@ export async function getPoolById(id: string): Promise<Pool | null> {
   }
 
   // Convert BigInt values to numbers and handle division by 1_000_000 for USDC amounts
-  const totalDeposits = Number(chainData.totalDeposits) / 1_000_000;
-  const revenueAccumulated = Number(chainData.revenueAccumulated) / 1_000_000;
-  const targetAmount = Number(chainData.targetAmount) / 1_000_000;
-  const minCommitment = Number(chainData.minCommitment) / 1_000_000;
+  const totalDeposits = fromUSDCBaseUnits(chainData.totalDeposits); // Convert using utility function
+  const revenueAccumulated = fromUSDCBaseUnits(chainData.revenueAccumulated); // Convert using utility function
+  const targetAmount = fromUSDCBaseUnits(chainData.targetAmount); // Convert using utility function
+  const minCommitment = fromUSDCBaseUnits(chainData.minCommitment); // Convert using utility function
 
   return {
     ...dbPool,

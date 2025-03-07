@@ -38,9 +38,9 @@ export const StageDotFunPoolABI = [
   "event WithdrawerRevoked(address withdrawer)",
 
   // View functions
-  "function getPoolDetails() view returns (string _name, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _minCommitment, uint8 _status, address _lpTokenAddress, address[] _lpHolders, tuple(string description, uint256 amount, uint256 unlockTime, bool approved, bool released)[] _milestones, bool _emergencyMode, uint256 _emergencyWithdrawalRequestTime, address _authorizedWithdrawer)",
+  "function getPoolDetails() view returns (string _name, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _minCommitment, uint8 _status, address _lpTokenAddress, address[] memory _lpHolders, tuple(string description, uint256 amount, uint256 unlockTime, bool approved, bool released)[] memory _milestones, bool _emergencyMode, uint256 _emergencyWithdrawalRequestTime, address _authorizedWithdrawer)",
   "function getLpBalance(address holder) view returns (uint256)",
-  "function getLpBalances(address[] holders) view returns (uint256[] balances)",
+  "function getLpBalances(address[] calldata holders) view returns (uint256[] memory balances)",
   "function depositToken() view returns (address)",
   "function lpToken() view returns (address)",
   "function deposit(uint256 amount) returns ()",
@@ -220,39 +220,55 @@ export async function getPoolDetails(
   const pool = getPoolContract(provider, poolAddress);
 
   try {
-    const [
-      name,
-      totalDeposits,
-      revenueAccumulated,
-      endTime,
-      targetAmount,
-      minCommitment,
-      status,
-      lpTokenAddress,
-      lpHolders,
-      milestones,
-      emergencyMode,
-      emergencyWithdrawalRequestTime,
-      authorizedWithdrawer,
-    ] = await pool.getPoolDetails();
+    console.log(`Fetching pool details for contract at ${poolAddress}`);
+
+    // First check if the contract exists at this address
+    const code = await provider.getCode(poolAddress);
+    if (code === "0x") {
+      console.error(`No contract found at address: ${poolAddress}`);
+      throw new Error("Contract not found at specified address");
+    }
+
+    // Try to get the pool details
+    const details = await pool.getPoolDetails();
+
+    console.log(`Successfully fetched pool details for ${poolAddress}`, {
+      name: details[0],
+      totalDeposits: details[1].toString(),
+      status: details[6],
+    });
 
     return {
-      name,
-      totalDeposits,
-      revenueAccumulated,
-      endTime,
-      targetAmount,
-      minCommitment,
-      status,
-      lpTokenAddress,
-      lpHolders,
-      milestones,
-      emergencyMode,
-      emergencyWithdrawalRequestTime,
-      authorizedWithdrawer,
+      name: details[0],
+      totalDeposits: details[1],
+      revenueAccumulated: details[2],
+      endTime: details[3],
+      targetAmount: details[4],
+      minCommitment: details[5],
+      status: details[6],
+      lpTokenAddress: details[7],
+      lpHolders: details[8],
+      milestones: details[9],
+      emergencyMode: details[10],
+      emergencyWithdrawalRequestTime: details[11],
+      authorizedWithdrawer: details[12],
     };
   } catch (error) {
-    console.error("Error getting pool details:", error);
+    console.error(`Error getting pool details for ${poolAddress}:`, error);
+
+    // Add more detailed error information
+    if (error instanceof Error) {
+      if (error.message.includes("call revert exception")) {
+        console.error(
+          "Contract call reverted. This could mean the contract doesn't have the expected interface."
+        );
+      } else if (error.message.includes("network error")) {
+        console.error(
+          "Network error occurred. This could mean the RPC endpoint is down or unreachable."
+        );
+      }
+    }
+
     throw error;
   }
 }
@@ -314,14 +330,31 @@ export function getUSDCContract(
   );
 }
 
-// Helper function to format token amounts (6 decimals for USDC)
-export function formatToken(amount: bigint): string {
-  return ethers.formatUnits(amount, 6);
+// USDC has 6 decimal places
+export const USDC_DECIMALS = 6;
+export const USDC_DECIMAL_FACTOR = 10 ** USDC_DECIMALS;
+
+// Convert from USDC base units to display units
+export function fromUSDCBaseUnits(amount: bigint): number {
+  return Number(amount) / USDC_DECIMAL_FACTOR;
 }
 
-// Helper function to parse token amounts (6 decimals for USDC)
+// Convert from display units to USDC base units
+export function toUSDCBaseUnits(amount: number): bigint {
+  return BigInt(Math.round(amount * USDC_DECIMAL_FACTOR));
+}
+
+// Format token amount for display
+export function formatToken(amount: bigint): string {
+  return (Number(amount) / USDC_DECIMAL_FACTOR).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+// Parse token amount from string
 export function parseToken(amount: string): bigint {
-  return ethers.parseUnits(amount, 6);
+  return BigInt(Math.round(parseFloat(amount) * USDC_DECIMAL_FACTOR));
 }
 
 // Helper function to get pool ID from name

@@ -120,6 +120,16 @@ export default function PoolsPage() {
       >
         {loading ? (
           <div className="p-8 text-center text-gray-400">Loading pools...</div>
+        ) : error ? (
+          <div className="p-8 text-center text-red-400">
+            <p>Error loading pools. Please try again later.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-purple-500 rounded-lg hover:bg-purple-600 transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
         ) : (
           <ul className="space-y-4">
             {filteredPools.map((pool) => (
