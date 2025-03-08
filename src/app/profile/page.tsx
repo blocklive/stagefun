@@ -17,6 +17,7 @@ import { useSupabase } from "../../contexts/SupabaseContext";
 import { getUserPools } from "../../lib/services/pool-service";
 import { Pool, User } from "../../lib/supabase";
 import { createOrUpdateUser } from "../../lib/services/user-service";
+import BottomNavbar from "../components/BottomNavbar";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -328,7 +329,7 @@ export default function ProfilePage() {
 
   return (
     <div
-      className="flex flex-col bg-[#121212] text-white"
+      className="flex flex-col bg-[#0F0D1B] text-white"
       style={{ minHeight: viewportHeight }}
     >
       {/* Profile Header with Avatar and Name */}
@@ -557,6 +558,9 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Add BottomNavbar at the end of the component */}
+      <BottomNavbar activeTab="portfolio" />
     </div>
   );
 }
