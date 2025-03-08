@@ -65,6 +65,7 @@ export default function PoolDetailsPage() {
     commitments,
     loading: isCommitmentsLoading,
     error: commitmentsError,
+    refresh: refreshCommitments,
   } = usePoolCommitments(pool?.contract_address || null);
 
   const {
@@ -162,43 +163,33 @@ export default function PoolDetailsPage() {
   };
 
   const handleCommit = async () => {
-    if (!dbUser || !pool) {
-      alert("Please ensure you are logged in");
-      return;
-    }
-
-    if (!privyUser?.wallet?.address) {
-      alert("Please connect your wallet first");
-      return;
-    }
-
-    const amount = parseFloat(commitAmount);
-    if (isNaN(amount) || amount <= 0) {
-      alert("Please enter a valid amount");
-      return;
-    }
-
-    setIsApproving(true);
+    if (!pool || !dbUser) return;
 
     try {
-      // Proceed with the blockchain transaction
-      console.log("Proceeding with commit transaction");
-      const receipt = await commitToBlockchain(poolId, amount);
-      console.log("Transaction receipt:", receipt);
+      setIsApproving(true);
+      const amount = parseFloat(commitAmount);
 
-      // If blockchain transaction successful, update the database
-      const result = await commitToPool(dbUser.id, poolId, amount);
-      console.log("Database update result:", result);
-
-      if (result) {
-        // Refresh pool data and balance
-        await Promise.all([refreshPool(), refreshBalance()]);
-        alert(`Successfully committed ${amount} ${pool.currency} to the pool!`);
+      if (isNaN(amount) || amount <= 0) {
+        toast.error("Please enter a valid amount");
+        return;
       }
-    } catch (error: any) {
-      console.error("Error during commit:", error);
-      alert(`Transaction failed: ${error.message || "Unknown error"}`);
-    } finally {
+
+      // Convert to USDC base units (6 decimals)
+      const amountInBaseUnits = Math.floor(amount * 1_000_000).toString();
+
+      await commitToBlockchain(pool.contract_address, amount);
+
+      // Refresh data
+      refreshPool();
+      refreshBalance();
+      refreshCommitments();
+
+      toast.success("Successfully committed to pool!");
+      setCommitAmount("");
+      setIsApproving(false);
+    } catch (error) {
+      console.error("Error committing to pool:", error);
+      toast.error("Failed to commit to pool. Please try again.");
       setIsApproving(false);
     }
   };
@@ -243,10 +234,10 @@ export default function PoolDetailsPage() {
     if (commitmentsError) {
       return (
         <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
-          <h3 className="text-lg font-semibold mb-4">Your Commitment</h3>
+          <h3 className="text-lg font-semibold mb-4">Your Total Commitment</h3>
           <div className="p-3 rounded-lg bg-[#1A1625] text-center">
             <p className="text-red-400">
-              Unable to fetch your LP token balance. Please try again later.
+              Unable to fetch your token balance. Please try again later.
             </p>
           </div>
         </div>
@@ -257,7 +248,7 @@ export default function PoolDetailsPage() {
     if (isCommitmentsLoading) {
       return (
         <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
-          <h3 className="text-lg font-semibold mb-4">Your Commitment</h3>
+          <h3 className="text-lg font-semibold mb-4">Your Total Commitment</h3>
           <div className="p-3 rounded-lg bg-[#1A1625] flex justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500"></div>
           </div>
@@ -270,13 +261,9 @@ export default function PoolDetailsPage() {
     // If user hasn't committed to this pool, don't show the section
     if (!userPatron) return null;
 
-    // Generate LP token symbol - typically it's the pool name + "LP"
-    const lpTokenSymbol =
-      pool.token_symbol || `${pool.name.substring(0, 3).toUpperCase()}-LP`;
-
     return (
       <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
-        <h3 className="text-lg font-semibold mb-4">Your Commitment</h3>
+        <h3 className="text-lg font-semibold mb-4">Your Total Commitment</h3>
         <div className="p-4 rounded-lg bg-[#1A1625]">
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Amount:</span>
@@ -284,12 +271,9 @@ export default function PoolDetailsPage() {
               <span className="text-xl font-bold mr-2">
                 {userPatron.amount}
               </span>
-              <div className="flex flex-col items-end">
-                <span className="text-sm font-medium text-purple-400">
-                  {pool.currency}
-                </span>
-                <span className="text-xs text-gray-500">{lpTokenSymbol}</span>
-              </div>
+              <span className="text-sm font-medium text-purple-400">
+                {pool.currency}
+              </span>
             </div>
           </div>
         </div>
