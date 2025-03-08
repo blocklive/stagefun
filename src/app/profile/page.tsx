@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { usePrivy, useFundWallet } from "@privy-io/react-auth";
 import {
   FaArrowLeft,
@@ -18,11 +18,15 @@ import Image from "next/image";
 import { useSupabase } from "../../contexts/SupabaseContext";
 import { getUserPools } from "../../lib/services/pool-service";
 import { Pool, User } from "../../lib/supabase";
-import { createOrUpdateUser } from "../../lib/services/user-service";
+import {
+  createOrUpdateUser,
+  getUserById,
+} from "../../lib/services/user-service";
 import BottomNavbar from "../components/BottomNavbar";
 
 export default function ProfilePage() {
   const router = useRouter();
+  const params = useParams();
   const {
     user: privyUser,
     authenticated,
@@ -44,6 +48,25 @@ export default function ProfilePage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get the user ID from the URL if present
+  const profileUserId = params?.id as string;
+
+  // Determine if the user is viewing their own profile
+  const isOwnProfile =
+    !profileUserId || (dbUser && profileUserId === dbUser.id);
+
+  // Add some debugging
+  useEffect(() => {
+    console.log("Profile page params:", params);
+    console.log("Profile user ID:", profileUserId);
+    console.log("Is own profile:", isOwnProfile);
+    console.log("Current user ID:", dbUser?.id);
+  }, [params, profileUserId, isOwnProfile, dbUser]);
+
+  // Get the user to display (either the current user or the profile being viewed)
+  const [profileUser, setProfileUser] = useState<User | null>(null);
+  const [isLoadingProfileUser, setIsLoadingProfileUser] = useState(false);
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -75,6 +98,49 @@ export default function ProfilePage() {
     fetchUserPools();
   }, [dbUser]);
 
+  // Fetch profile user data if viewing someone else's profile
+  useEffect(() => {
+    async function fetchProfileUser() {
+      if (!profileUserId) {
+        console.log("No profile user ID, using current user");
+        setProfileUser(dbUser);
+        return;
+      }
+
+      if (dbUser && profileUserId === dbUser.id) {
+        console.log("Profile ID matches current user, using current user");
+        setProfileUser(dbUser);
+        return;
+      }
+
+      console.log("Fetching profile for user ID:", profileUserId);
+      setIsLoadingProfileUser(true);
+      try {
+        const user = await getUserById(profileUserId);
+        console.log("Fetched profile user:", user);
+
+        if (!user) {
+          console.error("User not found with ID:", profileUserId);
+          // Redirect to 404 or home page if user not found
+          router.push("/");
+          return;
+        }
+
+        setProfileUser(user);
+      } catch (error) {
+        console.error("Error fetching profile user:", error);
+        // Redirect to 404 or home page on error
+        router.push("/");
+      } finally {
+        setIsLoadingProfileUser(false);
+      }
+    }
+
+    if (ready && dbUser) {
+      fetchProfileUser();
+    }
+  }, [profileUserId, dbUser, ready, router]);
+
   if (!ready || isLoadingUser) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#121212]">
@@ -88,7 +154,8 @@ export default function ProfilePage() {
     return null;
   }
 
-  const user = dbUser;
+  // Use the appropriate user data for display
+  const user = profileUser || dbUser;
   const displayName = user?.name || "Anonymous";
 
   // Handle image selection
@@ -357,14 +424,16 @@ export default function ProfilePage() {
           <FaArrowLeft className="text-white" />
         </button>
 
-        {/* Logout Button in Top Right */}
-        <button
-          onClick={() => logout()}
-          className="absolute top-6 right-6 w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
-          aria-label="Logout"
-        >
-          <FaSignOutAlt className="text-white" />
-        </button>
+        {/* Only show Logout Button if viewing own profile */}
+        {isOwnProfile && (
+          <button
+            onClick={() => logout()}
+            className="absolute top-6 right-6 w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
+            aria-label="Logout"
+          >
+            <FaSignOutAlt className="text-white" />
+          </button>
+        )}
 
         {/* Profile Picture */}
         <div className="relative mb-4">
@@ -400,20 +469,24 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageSelect}
-            className="hidden"
-            ref={fileInputRef}
-          />
-
-          <button
-            className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <FaEdit className="text-purple-600" />
-          </button>
+          {/* Only show edit button if viewing own profile */}
+          {isOwnProfile && (
+            <>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+                ref={fileInputRef}
+              />
+              <button
+                className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <FaEdit className="text-purple-600" />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Username */}
@@ -427,95 +500,98 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Wallet Action Buttons */}
-        <div className="mt-4 flex items-center space-x-8">
-          {/* Receive Funds Button */}
-          <button
-            onClick={() => {
-              if (walletAddress) {
-                fundWallet(walletAddress, {
-                  chain: {
-                    id: 10143,
-                  },
-                  asset: "USDC",
-                  uiConfig: {
-                    receiveFundsTitle: "Receive USDC on Monad",
-                    receiveFundsSubtitle:
-                      "Scan this QR code or copy your wallet address to receive USDC on Monad Testnet.",
-                  },
-                });
-              }
-            }}
-            className="flex flex-col items-center"
-            aria-label="Receive Funds"
-          >
-            <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M12 17L12 7"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M7 12L12 17L17 12"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M5 20H19"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-            <span className="text-xs text-gray-400">Receive</span>
-          </button>
-
-          {/* Export Keys Button */}
-          <button
-            onClick={handleExportWallet}
-            className="flex flex-col items-center"
-            aria-label="Export Keys"
-          >
-            <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
-              <FaKey className="text-xl" />
-            </div>
-            <span className="text-xs text-gray-400">Export</span>
-          </button>
-        </div>
-
-        {/* Wallet Address Section */}
-        {walletAddress && (
-          <div className="mt-4 flex flex-col items-center">
-            <div className="text-sm text-gray-400 mb-2">
-              Your Wallet Address
-            </div>
-            <div className="flex items-center bg-[#2A2640] rounded-lg px-4 py-2">
-              <code className="text-sm font-mono">
-                {`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
-              </code>
+        {/* Only show Wallet Action Buttons if viewing own profile */}
+        {isOwnProfile && walletAddress && (
+          <>
+            {/* Wallet Action Buttons */}
+            <div className="mt-4 flex items-center space-x-8 justify-center">
+              {/* Receive Funds Button */}
               <button
-                onClick={async () => {
-                  await navigator.clipboard.writeText(walletAddress);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
+                onClick={() => {
+                  if (walletAddress) {
+                    fundWallet(walletAddress, {
+                      chain: {
+                        id: 10143,
+                      },
+                      asset: "USDC",
+                      uiConfig: {
+                        receiveFundsTitle: "Receive USDC on Monad",
+                        receiveFundsSubtitle:
+                          "Scan this QR code or copy your wallet address to receive USDC on Monad Testnet.",
+                      },
+                    });
+                  }
                 }}
-                className="ml-2 text-gray-400 hover:text-white"
+                className="flex flex-col items-center"
+                aria-label="Receive Funds"
               >
-                {copied ? <FaCheck /> : <FaCopy />}
+                <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M12 17L12 7"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M7 12L12 17L17 12"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M5 20H19"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+                <span className="text-xs text-gray-400">Receive</span>
+              </button>
+
+              {/* Export Keys Button */}
+              <button
+                onClick={handleExportWallet}
+                className="flex flex-col items-center"
+                aria-label="Export Keys"
+              >
+                <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
+                  <FaKey className="text-xl" />
+                </div>
+                <span className="text-xs text-gray-400">Export</span>
               </button>
             </div>
-          </div>
+
+            {/* Wallet Address Section */}
+            <div className="mt-4 flex flex-col items-center">
+              <div className="text-sm text-gray-400 mb-2">
+                Your Wallet Address
+              </div>
+              <div className="flex items-center bg-[#2A2640] rounded-lg px-4 py-2">
+                <code className="text-sm font-mono">
+                  {`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
+                </code>
+                <button
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(walletAddress);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="ml-2 text-gray-400 hover:text-white"
+                >
+                  {copied ? <FaCheck /> : <FaCopy />}
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 

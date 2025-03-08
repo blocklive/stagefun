@@ -203,6 +203,100 @@ export default function PoolDetailsPage() {
     }
   };
 
+  // Find the user's commitment to this pool
+  const getUserCommitment = () => {
+    if (!dbUser || !commitments) return null;
+
+    // Only check for on-chain commitments - this is the source of truth
+    const walletAddress = privyUser?.wallet?.address;
+    if (!walletAddress) return null;
+
+    try {
+      // Find the user's commitment in the on-chain data
+      const userCommitment = commitments.find(
+        (commitment) =>
+          commitment.user.toLowerCase() === walletAddress.toLowerCase()
+      );
+
+      if (!userCommitment) return null;
+
+      // Return the on-chain commitment data
+      return {
+        user_id: dbUser.id,
+        pool_id: poolId,
+        amount: Number(userCommitment.amount) / 1_000_000, // Convert from USDC base units (6 decimals)
+        created_at: new Date().toISOString(),
+        user: dbUser,
+        onChain: true,
+      };
+    } catch (error) {
+      console.error("Error getting user commitment:", error);
+      return null;
+    }
+  };
+
+  // Render user's commitment section
+  const renderUserCommitment = () => {
+    if (!pool || !dbUser) return null;
+
+    // Check if there was an error fetching commitments
+    if (commitmentsError) {
+      return (
+        <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+          <h3 className="text-lg font-semibold mb-4">Your Commitment</h3>
+          <div className="p-3 rounded-lg bg-[#1A1625] text-center">
+            <p className="text-red-400">
+              Unable to fetch your LP token balance. Please try again later.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Show loading state while commitments are being fetched
+    if (isCommitmentsLoading) {
+      return (
+        <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+          <h3 className="text-lg font-semibold mb-4">Your Commitment</h3>
+          <div className="p-3 rounded-lg bg-[#1A1625] flex justify-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500"></div>
+          </div>
+        </div>
+      );
+    }
+
+    const userPatron = getUserCommitment();
+
+    // If user hasn't committed to this pool, don't show the section
+    if (!userPatron) return null;
+
+    // Generate LP token symbol - typically it's the pool name + "LP"
+    const lpTokenSymbol =
+      pool.token_symbol || `${pool.name.substring(0, 3).toUpperCase()}-LP`;
+
+    return (
+      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+        <h3 className="text-lg font-semibold mb-4">Your Commitment</h3>
+        <div className="p-4 rounded-lg bg-[#1A1625]">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400">Amount:</span>
+            <div className="flex items-center">
+              <span className="text-xl font-bold mr-2">
+                {userPatron.amount}
+              </span>
+              <div className="flex flex-col items-end">
+                <span className="text-sm font-medium text-purple-400">
+                  {pool.currency}
+                </span>
+                <span className="text-xs text-gray-500">{lpTokenSymbol}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Render blockchain information section
   const renderBlockchainInfo = () => {
     if (!pool) return null;
@@ -564,6 +658,9 @@ export default function PoolDetailsPage() {
           ></div>
         </div>
 
+        {/* User's Commitment */}
+        {renderUserCommitment()}
+
         {/* Time Left Block */}
         <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
           <h3 className="text-lg font-semibold mb-4">Time left</h3>
@@ -842,6 +939,9 @@ export default function PoolDetailsPage() {
                 }}
               ></div>
             </div>
+
+            {/* User's Commitment */}
+            {renderUserCommitment()}
 
             {/* Time Left Block */}
             <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">

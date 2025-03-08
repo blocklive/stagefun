@@ -220,8 +220,6 @@ export async function getPoolDetails(
   const pool = getPoolContract(provider, poolAddress);
 
   try {
-    console.log(`Fetching pool details for contract at ${poolAddress}`);
-
     // First check if the contract exists at this address
     const code = await provider.getCode(poolAddress);
     if (code === "0x") {
@@ -231,12 +229,6 @@ export async function getPoolDetails(
 
     // Try to get the pool details
     const details = await pool.getPoolDetails();
-
-    console.log(`Successfully fetched pool details for ${poolAddress}`, {
-      name: details[0],
-      totalDeposits: details[1].toString(),
-      status: details[6],
-    });
 
     return {
       name: details[0],
