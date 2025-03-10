@@ -6,6 +6,8 @@ export const POOL_ABI = [
   "function name() view returns (string)",
   "function decimals() view returns (uint8)",
   "function balanceOf(address account) view returns (uint256)",
+  "function getLpBalances(address[] calldata holders) view returns (uint256[] memory balances)",
+  "function lpToken() view returns (address)",
 
   // Write functions
   "function commit(uint256 amount) returns (bool)",

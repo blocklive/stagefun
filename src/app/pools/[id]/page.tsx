@@ -20,11 +20,10 @@ import PoolHeader from "./components/PoolHeader";
 import OpenPoolView from "./components/OpenPoolView";
 import TradingPoolView from "./components/TradingPoolView";
 import TokenSection from "./components/TokenSection";
-import PoolDetails from "./components/PoolDetails";
 import PoolActions from "./components/PoolActions";
 import OrganizerSection from "./components/OrganizerSection";
-import PatronsSection from "./components/PatronsSection";
 import UserCommitment from "./components/UserCommitment";
+import PatronsTab from "./components/PatronsTab";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -101,6 +100,11 @@ export default function PoolDetailsPage() {
   const [contentTab, setContentTab] = useState<
     "overview" | "tokenHolders" | "patrons"
   >("overview");
+
+  // Debug contentTab changes
+  useEffect(() => {
+    console.log("contentTab changed to:", contentTab);
+  }, [contentTab]);
 
   // Add state for activation and approving
   const [isActivating, setIsActivating] = useState(false);
@@ -342,19 +346,64 @@ export default function PoolDetailsPage() {
     const isTrading = hasEnded;
 
     return (
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-4 pb-8">
         {/* Pool Header */}
         <PoolHeader pool={pool} isTrading={isTrading} />
 
         {/* Conditional rendering based on pool state */}
         {isTrading ? (
-          <TradingPoolView
-            pool={pool}
-            renderUserCommitment={renderUserCommitment}
-            activeTab={contentTab}
-            onTabChange={setContentTab}
-            raisedAmount={raisedAmount}
-          />
+          <>
+            <TradingPoolView
+              pool={pool}
+              renderUserCommitment={renderUserCommitment}
+              activeTab={contentTab}
+              onTabChange={setContentTab}
+              raisedAmount={raisedAmount}
+            />
+
+            {/* Tab Content */}
+            {contentTab === "overview" && (
+              <div className="mt-6">
+                {/* Token Section */}
+                <TokenSection pool={pool} />
+
+                {/* Organizer */}
+                <OrganizerSection
+                  creator={creator}
+                  dbUser={dbUser}
+                  onNavigate={(userId) => router.push(`/profile/${userId}`)}
+                />
+
+                {/* Extra space at the bottom */}
+                <div className="h-8"></div>
+              </div>
+            )}
+
+            {contentTab !== "overview" && (
+              <div className="mt-6">
+                {contentTab === "tokenHolders" && (
+                  <div className="bg-[#1A1727] p-4 rounded-lg mb-6">
+                    <h3 className="text-xl font-semibold mb-4">
+                      Token Holders
+                    </h3>
+                    <p className="text-gray-400">
+                      This feature is coming soon. Stay tuned!
+                    </p>
+                  </div>
+                )}
+
+                {contentTab === "patrons" && (
+                  <div className="bg-[#1A1727] p-4 rounded-lg mb-6 w-full">
+                    <h3 className="text-xl font-semibold mb-4">Patrons</h3>
+                    <PatronsTab poolAddress={pool?.contract_address || null} />
+
+                    {/* Extra space at the bottom */}
+                    <div className="h-8"></div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <>
             <OpenPoolView
@@ -371,37 +420,61 @@ export default function PoolDetailsPage() {
               onTabChange={setContentTab}
             />
 
-            {/* Pool Actions - Only show for Open Pools */}
-            <PoolActions
-              pool={pool}
-              dbUser={dbUser}
-              usdcBalance={usdcBalance}
-              commitAmount={commitAmount}
-              isActivating={isActivating}
-              isApproving={isApproving}
-              handleTogglePoolStatus={handleTogglePoolStatus}
-              handleMaxClick={handleMaxClick}
-              handleCommit={handleCommit}
-              setCommitAmount={setCommitAmount}
-            />
+            {/* Tab Content */}
+            {contentTab === "overview" && (
+              <div className="mt-6">
+                {/* Pool Actions - Only show for Open Pools */}
+                <PoolActions
+                  pool={pool}
+                  dbUser={dbUser}
+                  usdcBalance={usdcBalance}
+                  commitAmount={commitAmount}
+                  isActivating={isActivating}
+                  isApproving={isApproving}
+                  handleTogglePoolStatus={handleTogglePoolStatus}
+                  handleMaxClick={handleMaxClick}
+                  handleCommit={handleCommit}
+                  setCommitAmount={setCommitAmount}
+                />
+
+                {/* Token Section */}
+                <TokenSection pool={pool} />
+
+                {/* Organizer */}
+                <OrganizerSection
+                  creator={creator}
+                  dbUser={dbUser}
+                  onNavigate={(userId) => router.push(`/profile/${userId}`)}
+                />
+
+                {/* Extra space at the bottom */}
+                <div className="h-8"></div>
+              </div>
+            )}
+
+            {contentTab !== "overview" && (
+              <div className="mt-6">
+                {contentTab === "tokenHolders" && (
+                  <div className="bg-[#1A1727] p-4 rounded-lg mb-6">
+                    <h3 className="text-xl font-semibold mb-4">
+                      Token Holders
+                    </h3>
+                    <p className="text-gray-400">
+                      This feature is coming soon. Stay tuned!
+                    </p>
+                  </div>
+                )}
+
+                {contentTab === "patrons" && (
+                  <div className="bg-[#1A1727] p-4 rounded-lg mb-6 w-full">
+                    <h3 className="text-xl font-semibold mb-4">Patrons</h3>
+                    <PatronsTab poolAddress={pool?.contract_address || null} />
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
-
-        {/* Token Section */}
-        <TokenSection pool={pool} />
-
-        {/* Pool Details */}
-        <PoolDetails pool={pool} isTrading={isTrading} />
-
-        {/* Organizer */}
-        <OrganizerSection
-          creator={creator}
-          dbUser={dbUser}
-          onNavigate={(userId) => router.push(`/profile/${userId}`)}
-        />
-
-        {/* Patrons */}
-        <PatronsSection pool={pool} patrons={patrons || []} />
       </div>
     );
   };
@@ -429,7 +502,7 @@ export default function PoolDetailsPage() {
         <BottomNavbar activeTab="party" />
       </div>
       {/* Add padding at the bottom of the main content to prevent overlap */}
-      <div className="pb-20"></div>
+      <div className="pb-32"></div>
     </div>
   );
 }

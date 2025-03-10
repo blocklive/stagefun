@@ -26,21 +26,26 @@ export default function TradingPoolView({
       {/* Tabs and Social Icons */}
       <TabsAndSocial activeTab={activeTab} onTabChange={onTabChange} />
 
-      {/* Total Raised Section */}
-      <div className="mb-6">
-        <h2 className="text-gray-400 mb-2">Total Raised</h2>
-        <div className="text-5xl font-bold mb-2">
-          {formatCurrency(raisedAmount)}
-        </div>
-        <div className="flex items-center">
-          <span className="text-xl text-gray-400">
-            Funded {new Date(pool.ends_at).toLocaleDateString()}
-          </span>
-        </div>
-      </div>
+      {/* Only show the main content when the overview tab is selected */}
+      {activeTab === "overview" && (
+        <>
+          {/* Total Raised Section */}
+          <div className="mb-6">
+            <h2 className="text-gray-400 mb-2">Total Raised</h2>
+            <div className="text-5xl font-bold mb-2">
+              {formatCurrency(raisedAmount)}
+            </div>
+            <div className="flex items-center">
+              <span className="text-xl text-gray-400">
+                Funded {new Date(pool.ends_at).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
 
-      {/* User's Commitment */}
-      {renderUserCommitment()}
+          {/* User's Commitment */}
+          {renderUserCommitment()}
+        </>
+      )}
     </>
   );
 }

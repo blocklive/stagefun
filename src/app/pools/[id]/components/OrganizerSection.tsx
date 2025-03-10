@@ -19,7 +19,7 @@ export default function OrganizerSection({
 
   return (
     <div
-      className="mt-6 p-4 bg-[#2A2640] rounded-lg cursor-pointer hover:bg-[#352f54] transition-colors"
+      className="mt-6 mb-8 p-4 bg-[#2A2640] rounded-lg cursor-pointer hover:bg-[#352f54] transition-colors"
       onClick={() => onNavigate(creator.id)}
     >
       <h3 className="text-lg font-semibold mb-4">Organizer</h3>
