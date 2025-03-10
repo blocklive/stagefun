@@ -20,6 +20,7 @@ import { useSupabase } from "../../../contexts/SupabaseContext";
 import { createPool } from "../../../lib/services/pool-service";
 import { useAuthenticatedSupabase } from "@/hooks/useAuthenticatedSupabase";
 import { Pool } from "@/lib/supabase";
+import { v4 as uuidv4 } from "uuid";
 
 export default function CreatePoolPage() {
   const { user: privyUser } = usePrivy();
@@ -44,6 +45,7 @@ export default function CreatePoolPage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uniqueId, setUniqueId] = useState<string>(uuidv4());
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -253,6 +255,7 @@ export default function CreatePoolPage() {
 
       // Create pool data directly from state variables
       const poolData = {
+        id: uniqueId, // Use the UUID as the primary key
         name: poolName,
         ticker: ticker,
         description: description,
@@ -300,6 +303,7 @@ export default function CreatePoolPage() {
           body: JSON.stringify({
             poolId: data.id,
             name: poolData.name,
+            uniqueId: uniqueId, // Pass the uniqueId to the blockchain
             symbol: poolData.token_symbol,
             endTime: Math.floor(new Date(poolData.ends_at).getTime() / 1000), // Convert to Unix timestamp
             targetAmount: poolData.target_amount * 1_000_000, // Convert to base units for blockchain

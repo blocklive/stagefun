@@ -6,7 +6,7 @@ import { CONTRACT_ADDRESSES, getContractAddresses } from "./addresses";
 // ABI for the StageDotFunPoolFactory contract
 export const StageDotFunPoolFactoryABI = [
   // Events
-  "event PoolCreated(address indexed poolAddress, string name, address lpTokenAddress, uint256 endTime)",
+  "event PoolCreated(address indexed poolAddress, string name, string uniqueId, address creator, address lpTokenAddress, uint256 endTime)",
   "event PoolStatusUpdated(address indexed poolAddress, uint8 status)",
 
   // View functions
@@ -15,9 +15,10 @@ export const StageDotFunPoolFactoryABI = [
   "function getDeployedPools() view returns (address[])",
   "function getPoolCount() view returns (uint256)",
   "function getPoolByAddress(address poolAddress) view returns (address)",
+  "function getDeployedPoolsDetails(uint256 startIndex, uint256 endIndex) view returns (address[] poolAddresses, string[] names, string[] uniqueIds, address[] creators, uint256[] totalDeposits, uint256[] revenueAccumulated, uint256[] endTimes, uint256[] targetAmounts, uint8[] statuses)",
 
   // State-changing functions
-  "function createPool(string name, string symbol, uint256 endTime, uint256 targetAmount, uint256 minCommitment) external returns (address)",
+  "function createPool(string name, string uniqueId, string symbol, uint256 endTime, uint256 targetAmount, uint256 minCommitment) external returns (address)",
   "function updatePoolStatus(address poolAddress, uint8 status) external",
 ];
 
@@ -38,16 +39,20 @@ export const StageDotFunPoolABI = [
   "event WithdrawerRevoked(address withdrawer)",
 
   // View functions
-  "function getPoolDetails() view returns (string _name, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _minCommitment, uint8 _status, address _lpTokenAddress, address[] memory _lpHolders, tuple(string description, uint256 amount, uint256 unlockTime, bool approved, bool released)[] memory _milestones, bool _emergencyMode, uint256 _emergencyWithdrawalRequestTime, address _authorizedWithdrawer)",
+  "function getPoolDetails() view returns (string _name, string _uniqueId, address _creator, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _minCommitment, uint8 _status, address _lpTokenAddress, address[] memory _lpHolders, tuple(string description, uint256 amount, uint256 unlockTime, bool approved, bool released)[] memory _milestones, bool _emergencyMode, uint256 _emergencyWithdrawalRequestTime, address _authorizedWithdrawer)",
   "function getLpBalance(address holder) view returns (uint256)",
-  "function getLpBalances(address[] calldata holders) view returns (uint256[] memory balances)",
+  "function getLpBalances(uint256 startIndex, uint256 endIndex) view returns (address[] memory holders, uint256[] memory balances)",
   "function depositToken() view returns (address)",
   "function lpToken() view returns (address)",
   "function deposit(uint256 amount) returns ()",
   "function name() view returns (string)",
+  "function uniqueId() view returns (string)",
+  "function creator() view returns (address)",
   "function totalDeposits() view returns (uint256)",
   "function revenueAccumulated() view returns (uint256)",
   "function endTime() view returns (uint256)",
+  "function targetAmount() view returns (uint256)",
+  "function minCommitment() view returns (uint256)",
   "function status() view returns (uint8)",
   "function lpBalances(address) view returns (uint256)",
   "function lpHolders(uint256) view returns (address)",
@@ -119,6 +124,8 @@ export { CONTRACT_ADDRESSES, getContractAddresses };
 // Pool type matching the contract
 export interface ContractPool {
   name: string;
+  uniqueId: string;
+  creator: string;
   totalDeposits: bigint;
   revenueAccumulated: bigint;
   endTime: bigint;
@@ -158,12 +165,69 @@ export function getPoolContract(
   return new ethers.Contract(poolAddress, StageDotFunPoolABI, signerOrProvider);
 }
 
-// Get all deployed pools
+// Define a type for the pool list item
+export interface PoolListItem {
+  address: string;
+  name: string;
+  uniqueId: string;
+  creator: string;
+  totalDeposits: bigint;
+  revenueAccumulated: bigint;
+  endTime: bigint;
+  targetAmount: bigint;
+  status: number;
+}
+
+// Get all deployed pools with pagination support
+export async function getDeployedPoolsDetails(
+  provider: ethers.Provider,
+  startIndex?: number,
+  endIndex?: number
+): Promise<PoolListItem[]> {
+  const factory = getStageDotFunPoolFactoryContract(provider);
+
+  // If no indices provided, pass 0,0 to get all pools
+  const start = startIndex ?? 0;
+  const end = endIndex ?? 0;
+
+  const [
+    poolAddresses,
+    names,
+    uniqueIds,
+    creators,
+    totalDeposits,
+    revenueAccumulated,
+    endTimes,
+    targetAmounts,
+    statuses,
+  ] = await factory.getDeployedPoolsDetails(start, end);
+
+  // Map the results to our PoolListItem interface
+  const poolList: PoolListItem[] = [];
+
+  for (let i = 0; i < poolAddresses.length; i++) {
+    poolList.push({
+      address: poolAddresses[i],
+      name: names[i],
+      uniqueId: uniqueIds[i],
+      creator: creators[i],
+      totalDeposits: totalDeposits[i],
+      revenueAccumulated: revenueAccumulated[i],
+      endTime: endTimes[i],
+      targetAmount: targetAmounts[i],
+      status: statuses[i],
+    });
+  }
+
+  return poolList;
+}
+
+// Get all deployed pools (original function for backward compatibility)
 export async function getDeployedPools(provider: ethers.Provider) {
   const factory = getStageDotFunPoolFactoryContract(provider);
   const poolAddresses = await factory.getDeployedPools();
 
-  // Get pool details for each address using our new function
+  // Get pool details for each address
   const pools = await Promise.all(
     poolAddresses.map(async (address: string) => {
       return await getPoolDetails(provider, address);
@@ -177,6 +241,7 @@ export async function getDeployedPools(provider: ethers.Provider) {
 export async function createPool(
   signer: ethers.Signer,
   name: string,
+  uniqueId: string,
   symbol: string,
   endTime: bigint,
   targetAmount: bigint,
@@ -184,28 +249,47 @@ export async function createPool(
 ) {
   const factory = getStageDotFunPoolFactoryContract(signer);
 
-  // Create pool and wait for transaction
-  const tx = await factory.createPool(
-    name,
-    symbol,
-    endTime,
-    targetAmount,
-    minCommitment
-  );
-  const receipt = await tx.wait();
+  try {
+    const tx = await factory.createPool(
+      name,
+      uniqueId,
+      symbol,
+      endTime,
+      targetAmount,
+      minCommitment
+    );
+    const receipt = await tx.wait();
 
-  // Get pool address from event
-  const event = receipt.logs.find(
-    (log: any) => log.eventName === "PoolCreated"
-  );
-  const poolAddress = event.args.poolAddress;
-  const lpTokenAddress = event.args.lpTokenAddress;
+    // Find the PoolCreated event in the receipt
+    const event = receipt.logs
+      .map((log: any) => {
+        try {
+          return factory.interface.parseLog({
+            topics: log.topics as string[],
+            data: log.data,
+          });
+        } catch (e) {
+          return null;
+        }
+      })
+      .find((event: any) => event && event.name === "PoolCreated");
 
-  return {
-    poolAddress,
-    lpTokenAddress,
-    transactionHash: receipt.hash,
-  };
+    if (event) {
+      return {
+        poolAddress: event.args.poolAddress,
+        name: event.args.name,
+        uniqueId: event.args.uniqueId,
+        creator: event.args.creator,
+        lpTokenAddress: event.args.lpTokenAddress,
+        endTime: event.args.endTime,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error creating pool:", error);
+    throw error;
+  }
 }
 
 // Get pool details
@@ -232,18 +316,20 @@ export async function getPoolDetails(
 
     return {
       name: details[0],
-      totalDeposits: details[1],
-      revenueAccumulated: details[2],
-      endTime: details[3],
-      targetAmount: details[4],
-      minCommitment: details[5],
-      status: details[6],
-      lpTokenAddress: details[7],
-      lpHolders: details[8],
-      milestones: details[9],
-      emergencyMode: details[10],
-      emergencyWithdrawalRequestTime: details[11],
-      authorizedWithdrawer: details[12],
+      uniqueId: details[1],
+      creator: details[2],
+      totalDeposits: details[3],
+      revenueAccumulated: details[4],
+      endTime: details[5],
+      targetAmount: details[6],
+      minCommitment: details[7],
+      status: details[8],
+      lpTokenAddress: details[9],
+      lpHolders: details[10],
+      milestones: details[11],
+      emergencyMode: details[12],
+      emergencyWithdrawalRequestTime: details[13],
+      authorizedWithdrawer: details[14],
     };
   } catch (error) {
     console.error(`Error getting pool details for ${poolAddress}:`, error);
@@ -352,4 +438,38 @@ export function parseToken(amount: string): bigint {
 // Helper function to get pool ID from name
 export function getPoolId(name: string): string {
   return ethers.keccak256(ethers.toUtf8Bytes(name));
+}
+
+// Define a type for the LP holder item
+export interface LpHolderItem {
+  address: string;
+  balance: bigint;
+}
+
+// Get LP holders with pagination support
+export async function getLpHoldersWithBalances(
+  provider: ethers.Provider,
+  poolAddress: string,
+  startIndex?: number,
+  endIndex?: number
+): Promise<LpHolderItem[]> {
+  const poolContract = getPoolContract(provider, poolAddress);
+
+  // If no indices provided, pass 0,0 to get all holders
+  const start = startIndex ?? 0;
+  const end = endIndex ?? 0;
+
+  const [holders, balances] = await poolContract.getLpBalances(start, end);
+
+  // Map the results to our LpHolderItem interface
+  const lpHolders: LpHolderItem[] = [];
+
+  for (let i = 0; i < holders.length; i++) {
+    lpHolders.push({
+      address: holders[i],
+      balance: balances[i],
+    });
+  }
+
+  return lpHolders;
 }

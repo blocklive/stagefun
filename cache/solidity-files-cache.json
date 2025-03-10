@@ -353,8 +353,8 @@
       ]
     },
     "/Users/brentlong/working/ch3ckin/stagefun/contracts/StageDotFunPool.sol": {
-      "lastModificationDate": 1741298818443,
-      "contentHash": "470e3bddbae83fc311453e0add1057d3",
+      "lastModificationDate": 1741650276841,
+      "contentHash": "e24c3f932a09b0887c88d3d28c983380",
       "sourceName": "contracts/StageDotFunPool.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -434,8 +434,8 @@
       ]
     },
     "/Users/brentlong/working/ch3ckin/stagefun/contracts/StageDotFunPoolFactory.sol": {
-      "lastModificationDate": 1741293673830,
-      "contentHash": "8cd1e8ae4190bc3dfface993bd93c134",
+      "lastModificationDate": 1741650276841,
+      "contentHash": "aafc7a083bd3fe883eb02b27d459677d",
       "sourceName": "contracts/StageDotFunPoolFactory.sol",
       "solcConfig": {
         "version": "0.8.20",

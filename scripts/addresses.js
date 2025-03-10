@@ -4,7 +4,7 @@ const CONTRACT_ADDRESSES = {
   usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
 
   // Monad Testnet
-  stageDotFunPoolFactory: "0x918A0aA3b103b39D9Bc2c643Fd706E8b36757BC9",
+  stageDotFunPoolFactory: "0x591697DfC15bbAFb1930E4Ae5c187e55c153d623",
   usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
 };
 

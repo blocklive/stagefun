@@ -1,117 +1,135 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR from "swr";
-import { Pool } from "../lib/supabase";
 import { ethers } from "ethers";
 import {
-  getStageDotFunPoolFactoryContract,
-  getPoolContract,
-  getPoolDetails,
+  getDeployedPoolsDetails,
+  PoolListItem,
   fromUSDCBaseUnits,
 } from "../lib/contracts/StageDotFunPool";
-import { getAllPools } from "../lib/services/pool-service";
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const POOLS_PER_PAGE = 10; // Number of pools to fetch per page
 
 export function usePoolsWithDeposits(page: number = 1, status?: string) {
+  const [currentPage, setCurrentPage] = useState(page);
   const [hasMore, setHasMore] = useState(true);
 
-  // Fetch pools from database with pagination
+  // Fetch all pool data directly from the blockchain in a single call
   const {
-    data: pools,
-    error: dbError,
-    isLoading: isDbLoading,
+    data: poolsData,
+    error,
+    isLoading,
     mutate: refreshPools,
   } = useSWR(
-    ["pools", page, status],
+    ["onchain-pools", currentPage, status],
     async () => {
-      const allPools = await getAllPools();
-      if (!allPools) return [];
-
-      const filteredPools = status
-        ? allPools.filter((pool) => pool.status === status)
-        : allPools;
-
-      const startIndex = (page - 1) * POOLS_PER_PAGE;
-      const endIndex = startIndex + POOLS_PER_PAGE;
-      const paginatedPools = filteredPools.slice(startIndex, endIndex);
-
-      setHasMore(endIndex < filteredPools.length);
-      return paginatedPools;
-    },
-    {
-      refreshInterval: 30000, // Refresh every 30 seconds
-      revalidateOnFocus: true,
-    }
-  );
-
-  // Fetch on-chain data for each pool
-  const {
-    data: chainData,
-    error: chainError,
-    isLoading: isChainLoading,
-    mutate: refreshChainData,
-  } = useSWR(
-    pools?.length ? ["chainData", pools.map((p) => p.contract_address)] : null,
-    async () => {
-      if (!pools?.length) return [];
-
       const provider = new ethers.JsonRpcProvider(
         process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
           ? "https://testnet-rpc.monad.xyz"
           : "https://sepolia.base.org"
       );
 
-      const factory = getStageDotFunPoolFactoryContract(provider);
+      try {
+        // Get all pool details in a single call
+        const poolListItems = await getDeployedPoolsDetails(provider);
 
-      // Get pool addresses and details
-      const poolData = await Promise.all(
-        pools.map(async (pool) => {
-          if (!pool.contract_address) return null;
+        // Extract all unique IDs to fetch matching data from Supabase
+        const uniqueIds = poolListItems.map((item) => item.uniqueId);
 
-          try {
-            // First check if the contract exists at this address
-            const code = await provider.getCode(pool.contract_address);
-            if (code === "0x") {
-              console.warn(
-                `No contract found at address: ${pool.contract_address}`
-              );
-              return {
-                address: pool.contract_address,
-                totalDeposits: 0,
-                status: 0,
-                error: "Contract not found",
-              };
-            }
+        // Fetch matching pool data from Supabase in a single call
+        const { data: supabasePools, error: supabaseError } = await supabase
+          .from("pools")
+          .select(
+            `
+            id,
+            image_url,
+            creator_id,
+            creator:creator_id (
+              name,
+              avatar_url
+            ),
+            description
+          `
+          )
+          .in("id", uniqueIds);
 
-            // Try to get pool details
-            const details = await getPoolDetails(
-              provider,
-              pool.contract_address
-            );
+        if (supabaseError) {
+          console.error(
+            "Error fetching pool data from Supabase:",
+            supabaseError
+          );
+        }
 
-            return {
-              address: pool.contract_address,
-              totalDeposits: fromUSDCBaseUnits(details.totalDeposits), // Convert using utility function
-              status: details.status,
-            };
-          } catch (error) {
-            console.error(
-              `Error fetching data for pool ${pool.id} at ${pool.contract_address}:`,
-              error
-            );
-            // Return fallback data instead of null
-            return {
-              address: pool.contract_address,
-              totalDeposits: 0,
-              status: 0,
-              error: error instanceof Error ? error.message : "Unknown error",
-            };
-          }
-        })
-      );
+        // Create a map of Supabase data by ID for easy lookup
+        const supabasePoolsMap = new Map();
+        if (supabasePools) {
+          supabasePools.forEach((pool) => {
+            supabasePoolsMap.set(pool.id, pool);
+          });
+        }
 
-      // Filter out null values but keep error entries
-      return poolData.filter((data) => data !== null);
+        // Transform the data to match the expected format in the UI
+        const transformedPools = poolListItems.map((item) => {
+          // Look up matching Supabase data
+          const supabaseData = supabasePoolsMap.get(item.uniqueId);
+
+          return {
+            id: item.uniqueId, // Use uniqueId as the primary identifier
+            contract_address: item.address,
+            name: item.name,
+            creator_address: item.creator,
+            raised_amount: fromUSDCBaseUnits(item.totalDeposits),
+            target_amount: fromUSDCBaseUnits(item.targetAmount),
+            revenue_accumulated: fromUSDCBaseUnits(item.revenueAccumulated),
+            ends_at: new Date(Number(item.endTime) * 1000).toISOString(), // Convert to ISO string
+            status: item.status === 1 ? "active" : "inactive",
+            // Use Supabase data if available, otherwise use defaults
+            creator_name: supabaseData?.creator?.name || "On-chain Pool",
+            creator_avatar_url: supabaseData?.creator?.avatar_url || null,
+            created_at: new Date().toISOString(), // Default to current time
+            image_url: supabaseData?.image_url || null,
+            description: supabaseData?.description || "",
+            creator_id: supabaseData?.creator_id || "",
+            blockchain_status: item.status === 1 ? "active" : "inactive",
+          };
+        });
+
+        // Filter by status if needed
+        const filteredPools = status
+          ? transformedPools.filter((pool) => pool.status === status)
+          : transformedPools;
+
+        // Sort by most recent (we don't have created_at from blockchain, so we'll use address as a proxy)
+        const sortedPools = [...filteredPools].sort((a, b) =>
+          a.contract_address.toLowerCase() > b.contract_address.toLowerCase()
+            ? -1
+            : 1
+        );
+
+        // Handle pagination
+        const startIndex = (currentPage - 1) * POOLS_PER_PAGE;
+        const endIndex = startIndex + POOLS_PER_PAGE;
+        const paginatedPools = sortedPools.slice(startIndex, endIndex);
+
+        setHasMore(endIndex < sortedPools.length);
+
+        return {
+          pools: paginatedPools,
+          allPoolsCount: sortedPools.length,
+        };
+      } catch (error) {
+        console.error("Error fetching pool details from blockchain:", error);
+        return {
+          pools: [],
+          allPoolsCount: 0,
+        };
+      }
     },
     {
       refreshInterval: 10000, // Refresh every 10 seconds
@@ -119,36 +137,19 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
     }
   );
 
-  // Combine database and chain data
-  const combinedPools =
-    pools?.map((pool) => {
-      const chainInfo = chainData?.find(
-        (data) =>
-          data.address.toLowerCase() === pool.contract_address?.toLowerCase()
-      );
-
-      return {
-        ...pool,
-        raised_amount: chainInfo?.totalDeposits || 0,
-        blockchain_status: chainInfo?.status === 1 ? "active" : "inactive",
-      };
-    }) || [];
-
   // Function to load more pools
   const loadMore = () => {
     if (!hasMore) return;
-    refreshPools();
+    setCurrentPage((prev) => prev + 1);
   };
 
   return {
-    pools: combinedPools,
-    isLoading: isDbLoading || isChainLoading,
-    error: dbError || chainError,
+    pools: poolsData?.pools || [],
+    isLoading,
+    error,
     hasMore,
     loadMore,
-    refresh: () => {
-      refreshPools();
-      refreshChainData();
-    },
+    refresh: refreshPools,
+    totalCount: poolsData?.allPoolsCount || 0,
   };
 }

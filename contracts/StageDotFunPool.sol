@@ -10,6 +10,8 @@ contract StageDotFunPool is Ownable {
     StageDotFunLiquidity public lpToken;
     
     string public name;
+    string public uniqueId; // Unique identifier for the pool
+    address public creator; // Creator address
     uint256 public totalDeposits;
     uint256 public revenueAccumulated;
     uint256 public endTime;
@@ -63,6 +65,8 @@ contract StageDotFunPool is Ownable {
     // View functions to get all pool details in a single call
     function getPoolDetails() external view returns (
         string memory _name,
+        string memory _uniqueId,
+        address _creator,
         uint256 _totalDeposits,
         uint256 _revenueAccumulated,
         uint256 _endTime,
@@ -78,6 +82,8 @@ contract StageDotFunPool is Ownable {
     ) {
         return (
             name,
+            uniqueId,
+            creator,
             totalDeposits,
             revenueAccumulated,
             endTime,
@@ -95,14 +101,18 @@ contract StageDotFunPool is Ownable {
     
     constructor(
         string memory _name,
+        string memory _uniqueId,
         string memory symbol,
         uint256 _endTime,
         address _depositToken,
         address _owner,
+        address _creator,
         uint256 _targetAmount,
         uint256 _minCommitment
     ) Ownable(_owner) {
         name = _name;
+        uniqueId = _uniqueId;
+        creator = _creator;
         endTime = _endTime;
         depositToken = IERC20(_depositToken);
         status = PoolStatus.ACTIVE;
@@ -316,11 +326,48 @@ contract StageDotFunPool is Ownable {
         return lpBalances[holder];
     }
 
-    function getLpBalances(address[] calldata holders) external view returns (uint256[] memory balances) {
-        balances = new uint256[](holders.length);
-        for (uint i = 0; i < holders.length; i++) {
-            balances[i] = lpBalances[holders[i]];
+    // Get LP balances with pagination support
+    // If both startIndex and endIndex are 0, returns all LP holders
+    function getLpBalances(
+        uint256 startIndex,
+        uint256 endIndex
+    ) external view returns (
+        address[] memory holders,
+        uint256[] memory balances
+    ) {
+        uint256 holderCount = lpHolders.length;
+        
+        // If both indices are 0, return all holders
+        if (startIndex == 0 && endIndex == 0) {
+            endIndex = holderCount > 0 ? holderCount - 1 : 0;
+        } else {
+            // Validate indices
+            require(startIndex < holderCount, "Start index out of bounds");
+            require(startIndex <= endIndex, "Start index must be <= end index");
+            
+            // Cap endIndex to the array length
+            if (endIndex >= holderCount) {
+                endIndex = holderCount - 1;
+            }
         }
-        return balances;
+        
+        // If no holders or invalid range, return empty arrays
+        if (holderCount == 0 || startIndex >= holderCount) {
+            return (new address[](0), new uint256[](0));
+        }
+        
+        uint256 batchSize = endIndex - startIndex + 1;
+        
+        holders = new address[](batchSize);
+        balances = new uint256[](batchSize);
+        
+        for (uint256 i = 0; i < batchSize; i++) {
+            uint256 holderIndex = startIndex + i;
+            address holder = lpHolders[holderIndex];
+            holders[i] = holder;
+            balances[i] = lpBalances[holder];
+        }
+        
+        return (holders, balances);
     }
 } 

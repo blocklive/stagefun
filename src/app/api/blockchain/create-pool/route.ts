@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     const requiredParams = [
       "poolId",
       "name",
+      "uniqueId",
       "symbol",
       "endTime",
       "targetAmount",
@@ -41,7 +42,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { poolId, name, symbol, endTime, targetAmount, minCommitment } = body;
+    const {
+      poolId,
+      name,
+      uniqueId,
+      symbol,
+      endTime,
+      targetAmount,
+      minCommitment,
+    } = body;
 
     // Additional validation
     if (typeof name !== "string" || name.trim().length === 0) {
@@ -49,6 +58,16 @@ export async function POST(req: NextRequest) {
         {
           error: "Invalid name parameter",
           details: "Name must be a non-empty string",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (typeof uniqueId !== "string" || uniqueId.trim().length === 0) {
+      return NextResponse.json(
+        {
+          error: "Invalid uniqueId parameter",
+          details: "Unique ID must be a non-empty string",
         },
         { status: 400 }
       );
@@ -171,10 +190,11 @@ export async function POST(req: NextRequest) {
 
     // Create the pool on the blockchain
     console.log(
-      `Creating pool: ${name} (${symbol}) with end time ${endTime}, target amount ${targetAmount}, min commitment ${minCommitment}`
+      `Creating pool: ${name} (${symbol}) with uniqueId ${uniqueId}, end time ${endTime}, target amount ${targetAmount}, min commitment ${minCommitment}`
     );
     const tx = await factory.createPool(
       name,
+      uniqueId,
       symbol,
       BigInt(endTime),
       BigInt(targetAmount), // Already in base units from frontend
@@ -205,9 +225,17 @@ export async function POST(req: NextRequest) {
 
     const poolAddress = event.args.poolAddress;
     const lpTokenAddress = event.args.lpTokenAddress;
+    const eventUniqueId = event.args.uniqueId;
 
     if (!poolAddress || !lpTokenAddress) {
       throw new Error("Missing pool or LP token address from event");
+    }
+
+    // Verify that the uniqueId in the event matches the one we sent
+    if (eventUniqueId !== uniqueId) {
+      console.warn(
+        `UniqueId mismatch: sent ${uniqueId}, received ${eventUniqueId}`
+      );
     }
 
     // Determine the explorer URL based on the blockchain network
@@ -251,58 +279,17 @@ export async function POST(req: NextRequest) {
       success: true,
       transactionHash: receipt.hash,
       blockNumber: receipt.blockNumber,
-      network: blockchainNetwork,
+      poolAddress: poolAddress,
+      lpTokenAddress: lpTokenAddress,
+      uniqueId: eventUniqueId,
       explorerUrl: `${explorerUrl}/tx/${receipt.hash}`,
-      poolAddress,
-      lpTokenAddress,
     });
   } catch (error: any) {
-    console.error("Error creating pool:", error);
-
-    // Provide more specific error messages based on the error type
-    if (error.code === "NETWORK_ERROR" || error.message?.includes("network")) {
-      return NextResponse.json(
-        {
-          error: "Blockchain network error",
-          details: error.message,
-          code: error.code,
-        },
-        { status: 503 }
-      );
-    } else if (error.code === "INSUFFICIENT_FUNDS") {
-      return NextResponse.json(
-        {
-          error: "Insufficient funds for transaction",
-          details: error.message,
-          code: error.code,
-        },
-        { status: 500 }
-      );
-    } else if (error.code === "UNPREDICTABLE_GAS_LIMIT") {
-      return NextResponse.json(
-        {
-          error: "Contract error",
-          details: error.message,
-          code: error.code,
-        },
-        { status: 500 }
-      );
-    } else if (error.message?.includes("timeout")) {
-      return NextResponse.json(
-        {
-          error: "Blockchain request timed out",
-          details: error.message,
-          code: "TIMEOUT",
-        },
-        { status: 504 }
-      );
-    }
-
+    console.error("Error creating pool on blockchain:", error);
     return NextResponse.json(
       {
-        error: "Failed to create pool",
-        details: error.message || String(error),
-        code: error.code || "UNKNOWN_ERROR",
+        error: "Failed to create pool on blockchain",
+        details: error.message || "Unknown error",
       },
       { status: 500 }
     );
