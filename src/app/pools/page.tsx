@@ -85,7 +85,7 @@ export default function PoolsPage() {
     }) || [];
 
   // Sort pools
-  let sortedPools = [...filteredPools];
+  const sortedPools = [...filteredPools];
 
   if (sortBy === "recent") {
     sortedPools.sort((a, b) => {
@@ -307,9 +307,11 @@ export default function PoolsPage() {
                       {/* Pool Image */}
                       <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2A2640]">
                         {pool.image_url && (
-                          <img
+                          <Image
                             src={pool.image_url}
                             alt={pool.name}
+                            width={48}
+                            height={48}
                             className="w-full h-full object-cover"
                           />
                         )}
@@ -326,9 +328,11 @@ export default function PoolsPage() {
                         <div className="flex items-center gap-2 mt-1">
                           <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
                             {pool.creator_avatar_url && (
-                              <img
-                                src={pool.creator_avatar_url}
-                                alt={pool.creator_name}
+                              <Image
+                                src={pool.creator_avatar_url || ""}
+                                alt={pool.creator_name || ""}
+                                width={24}
+                                height={24}
                                 className="w-full h-full object-cover"
                               />
                             )}
@@ -368,9 +372,11 @@ export default function PoolsPage() {
                       {/* Pool Image */}
                       <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2A2640]">
                         {pool.image_url && (
-                          <img
+                          <Image
                             src={pool.image_url}
                             alt={pool.name}
+                            width={48}
+                            height={48}
                             className="w-full h-full object-cover"
                           />
                         )}
@@ -384,9 +390,11 @@ export default function PoolsPage() {
                         <div className="flex items-center gap-2 mt-1">
                           <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
                             {pool.creator_avatar_url && (
-                              <img
-                                src={pool.creator_avatar_url}
-                                alt={pool.creator_name}
+                              <Image
+                                src={pool.creator_avatar_url || ""}
+                                alt={pool.creator_name || ""}
+                                width={24}
+                                height={24}
                                 className="w-full h-full object-cover"
                               />
                             )}

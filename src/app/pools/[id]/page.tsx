@@ -353,6 +353,7 @@ export default function PoolDetailsPage() {
             renderUserCommitment={renderUserCommitment}
             activeTab={contentTab}
             onTabChange={setContentTab}
+            raisedAmount={raisedAmount}
           />
         ) : (
           <>
