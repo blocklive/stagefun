@@ -22,6 +22,10 @@
     "deploy:factory:monad": "hardhat run scripts/deploy-factory.ts --network monadTestnet"
   },
   "dependencies": {
+    "@biconomy/account": "^4.5.7",
+    "@biconomy/bundler": "^3.1.4",
+    "@biconomy/common": "^3.1.4",
+    "@biconomy/paymaster": "^3.1.4",
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "@openzeppelin/contracts": "^5.0.0",
     "@privy-io/react-auth": "^2.4.5",

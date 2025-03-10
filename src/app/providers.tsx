@@ -3,6 +3,7 @@
 import { PrivyProvider } from "@privy-io/react-auth";
 import { SupabaseProvider } from "../contexts/SupabaseContext";
 import { ContractInteractionProvider } from "../contexts/ContractInteractionContext";
+import { BiconomyProvider } from "../contexts/BiconomyContext";
 
 // Define the chain configuration once to ensure consistency
 const MONAD_TESTNET = {
@@ -60,7 +61,9 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
       }}
     >
       <SupabaseProvider>
-        <ContractInteractionProvider>{children}</ContractInteractionProvider>
+        <BiconomyProvider>
+          <ContractInteractionProvider>{children}</ContractInteractionProvider>
+        </BiconomyProvider>
       </SupabaseProvider>
     </PrivyProvider>
   );

@@ -32,6 +32,7 @@ import { usePoolDetails } from "../../../hooks/usePoolDetails";
 import { usePoolCommitments } from "../../../hooks/usePoolCommitments";
 import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
 import { usePool } from "../../../hooks/usePool";
+import { useBiconomyContractInteraction } from "../../../hooks/useBiconomyContractInteraction";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -76,6 +77,14 @@ export default function PoolDetailsPage() {
     hasEnded,
     isLoading: isTimeLoading,
   } = usePoolTimeLeft(pool);
+
+  // Add Biconomy contract interaction
+  const {
+    depositToPool: commitToBiconomy,
+    isLoading: isBiconomyLoading,
+    error: biconomyError,
+    walletAddress: biconomyWalletAddress,
+  } = useBiconomyContractInteraction();
 
   // Calculate total committed and target amount from commitments
   const totalCommitted =
@@ -174,10 +183,22 @@ export default function PoolDetailsPage() {
         return;
       }
 
+      console.log("Pool details in handleCommit:", {
+        id: pool.id,
+        name: pool.name,
+        contractAddress: pool.contract_address,
+      });
+
       // Convert to USDC base units (6 decimals)
       const amountInBaseUnits = Math.floor(amount * 1_000_000).toString();
 
-      await commitToBlockchain(pool.contract_address, amount);
+      // We need to pass pool.id here, not pool.contract_address
+      console.log("Calling commitToBlockchain with:", {
+        firstArg: pool.id, // Changed to use pool.id
+        amount,
+      });
+
+      await commitToBlockchain(pool.id, amount); // Using pool.id as expected by useContractInteraction.depositToPool
 
       // Refresh data
       refreshPool();
@@ -189,6 +210,56 @@ export default function PoolDetailsPage() {
       setIsApproving(false);
     } catch (error) {
       console.error("Error committing to pool:", error);
+      toast.error("Failed to commit to pool. Please try again.");
+      setIsApproving(false);
+    }
+  };
+
+  // Add a new function to handle commits via Biconomy
+  const handleBiconomyCommit = async () => {
+    if (!pool || !dbUser) return;
+
+    try {
+      setIsApproving(true);
+      const amount = parseFloat(commitAmount);
+
+      if (isNaN(amount) || amount <= 0) {
+        toast.error("Please enter a valid amount");
+        return;
+      }
+
+      // Make sure we have a contract address
+      if (!pool.contract_address) {
+        toast.error("Pool contract address not found");
+        return;
+      }
+
+      console.log("Pool details in handleBiconomyCommit:", {
+        id: pool.id,
+        name: pool.name,
+        contractAddress: pool.contract_address,
+        status: pool.status,
+      });
+
+      console.log("Calling commitToBiconomy with:", {
+        firstArg: pool.contract_address,
+        amount,
+      });
+
+      // Use Biconomy to commit to the pool (gasless transaction)
+      // Pass the contract address directly to ensure we're using the right identifier
+      await commitToBiconomy(pool.contract_address, amount);
+
+      // Refresh data
+      refreshPool();
+      refreshBalance();
+      refreshCommitments();
+
+      toast.success("Successfully committed to pool with Biconomy (gasless)!");
+      setCommitAmount("");
+      setIsApproving(false);
+    } catch (error) {
+      console.error("Error committing to pool with Biconomy:", error);
       toast.error("Failed to commit to pool. Please try again.");
       setIsApproving(false);
     }
@@ -262,21 +333,145 @@ export default function PoolDetailsPage() {
     if (!userPatron) return null;
 
     return (
-      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
-        <h3 className="text-lg font-semibold mb-4">Your Total Commitment</h3>
-        <div className="p-4 rounded-lg bg-[#1A1625]">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">Amount:</span>
-            <div className="flex items-center">
-              <span className="text-xl font-bold mr-2">
-                {userPatron.amount}
-              </span>
-              <span className="text-sm font-medium text-purple-400">
-                {pool.currency}
-              </span>
+      <div className="bg-gray-800 rounded-lg p-4 mb-6">
+        <h3 className="text-xl font-semibold mb-4">Your Commitment</h3>
+        {userPatron ? (
+          <div className="p-4 rounded-lg bg-[#1A1625]">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Amount:</span>
+              <div className="flex items-center">
+                <span className="text-xl font-bold mr-2">
+                  {userPatron.amount}
+                </span>
+                <span className="text-sm font-medium text-purple-400">
+                  {pool.currency}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div>
+            <p className="text-gray-400 mb-4">
+              You haven&apos;t committed to this pool yet. Enter an amount to
+              commit:
+            </p>
+            <div className="flex flex-col space-y-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  value={commitAmount}
+                  onChange={(e) => setCommitAmount(e.target.value)}
+                  placeholder="Amount in USDC"
+                  className="bg-gray-700 text-white px-4 py-2 rounded-lg flex-grow"
+                  disabled={isApproving}
+                />
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleCommit}
+                    disabled={
+                      isApproving ||
+                      !commitAmount ||
+                      parseFloat(commitAmount) <= 0 ||
+                      !walletsReady
+                    }
+                    className={`px-4 py-2 rounded-lg ${
+                      isApproving
+                        ? "bg-gray-600 cursor-not-allowed"
+                        : "bg-indigo-600 hover:bg-indigo-700"
+                    } transition-colors duration-200`}
+                    title="Standard commit (requires gas)"
+                  >
+                    {isApproving ? (
+                      <div className="flex items-center space-x-2">
+                        <svg
+                          className="animate-spin h-5 w-5 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        <span>Processing...</span>
+                      </div>
+                    ) : (
+                      "Commit"
+                    )}
+                  </button>
+
+                  <button
+                    onClick={handleBiconomyCommit}
+                    disabled={
+                      isApproving ||
+                      !commitAmount ||
+                      parseFloat(commitAmount) <= 0 ||
+                      !biconomyWalletAddress
+                    }
+                    className={`px-4 py-2 rounded-lg ${
+                      isApproving
+                        ? "bg-gray-600 cursor-not-allowed"
+                        : "bg-purple-600 hover:bg-purple-700"
+                    } transition-colors duration-200`}
+                    title="Gasless commit (no confirmation dialogs)"
+                  >
+                    {isApproving ? (
+                      <div className="flex items-center space-x-2">
+                        <svg
+                          className="animate-spin h-5 w-5 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        <span>Processing...</span>
+                      </div>
+                    ) : (
+                      "Commit Gasless"
+                    )}
+                  </button>
+                </div>
+              </div>
+              <p className="text-sm text-gray-400">
+                Available: {usdcBalance ? `${usdcBalance} USDC` : "Loading..."}
+              </p>
+              {!walletsReady && (
+                <p className="text-sm text-yellow-500">
+                  Wallet not ready. Please wait...
+                </p>
+              )}
+              {biconomyWalletAddress && (
+                <p className="text-sm text-green-500">
+                  Biconomy Smart Account: {biconomyWalletAddress.slice(0, 6)}...
+                  {biconomyWalletAddress.slice(-4)}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   };

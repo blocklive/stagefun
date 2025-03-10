@@ -34,37 +34,23 @@ export function usePoolCommitments(poolAddress: string | null) {
       try {
         console.log("Getting provider...");
         const provider = await getProvider();
-        console.log("Provider obtained:", provider);
 
-        console.log("Getting pool contract for address:", poolAddress);
         const pool = getPoolContract(provider, poolAddress!);
-        console.log("Pool contract obtained:", pool);
 
         // Get the LP token address from the pool
-        console.log("Getting LP token address...");
         const lpTokenAddress = await pool.lpToken();
-        console.log("LP token address:", lpTokenAddress);
 
         // Get the LP token contract
-        console.log("Getting LP token contract...");
         const lpToken = getStageDotFunLiquidityContract(
           provider,
           lpTokenAddress
         );
-        console.log("LP token contract obtained:", lpToken);
 
         // We'll still return an array of commitments for compatibility
         const commitmentsData: PoolCommitment[] = [];
 
-        console.log("Checking balance for wallet:", walletAddress);
         try {
           const balance = await lpToken.balanceOf(walletAddress);
-          console.log(
-            "LP token balance for wallet:",
-            walletAddress,
-            "is",
-            balance.toString()
-          );
 
           if (balance > BigInt(0)) {
             commitmentsData.push({
@@ -81,7 +67,6 @@ export function usePoolCommitments(poolAddress: string | null) {
           );
         }
 
-        console.log("All commitments data:", commitmentsData);
         return commitmentsData;
       } catch (err) {
         console.error("Error fetching commitments:", err);
