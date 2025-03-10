@@ -108,6 +108,36 @@ export async function getAllPools(): Promise<Pool[]> {
   });
 }
 
+export async function getAllPoolsWithoutBlockchain(): Promise<Pool[]> {
+  // Get pools from database only, without blockchain data
+  const { data: dbPools, error: dbError } = await supabase
+    .from("pools")
+    .select(
+      `
+      *,
+      creator:creator_id (
+        name,
+        avatar_url
+      )
+    `
+    )
+    .order("created_at", { ascending: false });
+
+  if (dbError) throw dbError;
+
+  // Return pools with basic formatting but no blockchain data
+  return dbPools.map((dbPool) => {
+    return {
+      ...dbPool,
+      creator_name: dbPool.creator?.name || "Anonymous",
+      creator_avatar_url: dbPool.creator?.avatar_url || null,
+      // Use database values for these fields instead of blockchain data
+      raised_amount: dbPool.raised_amount || 0,
+      status: dbPool.status || "inactive",
+    };
+  });
+}
+
 export async function getPoolById(id: string): Promise<Pool | null> {
   // Get pool from database
   const { data: dbPool, error: dbError } = await supabase

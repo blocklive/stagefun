@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Pool } from "../../../../lib/supabase";
 import TabsAndSocial from "./TabsAndSocial";
 
-type TabType = "overview" | "tokenHolders" | "patrons";
+type TabType = "overview" | "patrons";
 
 interface OpenPoolViewProps {
   pool: Pool;

@@ -97,9 +97,9 @@ export default function PoolDetailsPage() {
   const [activeTab, setActiveTab] = useState("commit");
   const [commitAmount, setCommitAmount] = useState("1");
   const [showPatrons, setShowPatrons] = useState(true);
-  const [contentTab, setContentTab] = useState<
-    "overview" | "tokenHolders" | "patrons"
-  >("overview");
+  const [contentTab, setContentTab] = useState<"overview" | "patrons">(
+    "overview"
+  );
 
   // Debug contentTab changes
   useEffect(() => {
@@ -357,7 +357,7 @@ export default function PoolDetailsPage() {
               pool={pool}
               renderUserCommitment={renderUserCommitment}
               activeTab={contentTab}
-              onTabChange={setContentTab}
+              onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
               raisedAmount={raisedAmount}
             />
 
@@ -381,17 +381,6 @@ export default function PoolDetailsPage() {
 
             {contentTab !== "overview" && (
               <div className="mt-6">
-                {contentTab === "tokenHolders" && (
-                  <div className="bg-[#1A1727] p-4 rounded-lg mb-6">
-                    <h3 className="text-xl font-semibold mb-4">
-                      Token Holders
-                    </h3>
-                    <p className="text-gray-400">
-                      This feature is coming soon. Stay tuned!
-                    </p>
-                  </div>
-                )}
-
                 {contentTab === "patrons" && (
                   <div className="bg-[#1A1727] p-4 rounded-lg mb-6 w-full">
                     <h3 className="text-xl font-semibold mb-4">Patrons</h3>
@@ -417,7 +406,7 @@ export default function PoolDetailsPage() {
               percentage={percentage}
               renderUserCommitment={renderUserCommitment}
               activeTab={contentTab}
-              onTabChange={setContentTab}
+              onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
             />
 
             {/* Tab Content */}
@@ -454,17 +443,6 @@ export default function PoolDetailsPage() {
 
             {contentTab !== "overview" && (
               <div className="mt-6">
-                {contentTab === "tokenHolders" && (
-                  <div className="bg-[#1A1727] p-4 rounded-lg mb-6">
-                    <h3 className="text-xl font-semibold mb-4">
-                      Token Holders
-                    </h3>
-                    <p className="text-gray-400">
-                      This feature is coming soon. Stay tuned!
-                    </p>
-                  </div>
-                )}
-
                 {contentTab === "patrons" && (
                   <div className="bg-[#1A1727] p-4 rounded-lg mb-6 w-full">
                     <h3 className="text-xl font-semibold mb-4">Patrons</h3>

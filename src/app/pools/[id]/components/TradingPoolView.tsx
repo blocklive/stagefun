@@ -4,7 +4,7 @@ import { Pool } from "../../../../lib/supabase";
 import TabsAndSocial from "./TabsAndSocial";
 import { formatCurrency } from "../../../../lib/utils";
 
-type TabType = "overview" | "tokenHolders" | "patrons";
+type TabType = "overview" | "patrons";
 
 interface TradingPoolViewProps {
   pool: Pool;

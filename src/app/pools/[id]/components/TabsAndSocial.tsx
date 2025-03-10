@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type TabType = "overview" | "tokenHolders" | "patrons";
+type TabType = "overview" | "patrons";
 
 interface TabsAndSocialProps {
   activeTab?: TabType;
@@ -34,16 +34,6 @@ export default function TabsAndSocial({
               onClick={() => handleTabClick("overview")}
             >
               Overview
-            </button>
-            <button
-              className={`px-6 py-3 rounded-full ${
-                activeTab === "tokenHolders"
-                  ? "bg-white text-black font-medium"
-                  : "bg-transparent text-white border border-gray-700"
-              }`}
-              onClick={() => handleTabClick("tokenHolders")}
-            >
-              Token Holders
             </button>
             <button
               className={`px-6 py-3 rounded-full ${
