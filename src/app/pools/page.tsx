@@ -11,13 +11,16 @@ import { getPoolsByPatron } from "../../lib/services/patron-service";
 import { Pool } from "../../lib/supabase";
 import CircularProgress from "../components/CircularProgress";
 import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
+import Image from "next/image";
+
+type TabType = "open" | "my" | "trading";
 
 export default function PoolsPage() {
   const { logout } = usePrivy();
   const { dbUser } = useSupabase();
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
-  const [activeTab, setActiveTab] = useState("open");
+  const [activeTab, setActiveTab] = useState<TabType>("open");
   const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -65,27 +68,38 @@ export default function PoolsPage() {
   }, [dbUser]);
 
   // Filter pools based on active tab
-  let filteredPools =
-    activeTab === "open"
-      ? pools
-      : pools.filter((pool) => joinedPoolIds.includes(pool.id));
+  const filteredPools =
+    pools?.filter((pool) => {
+      const endDate = new Date(pool.ends_at);
+      const now = new Date();
+      const isEnded = endDate < now;
+
+      if (activeTab === "trading") {
+        return isEnded;
+      } else if (activeTab === "my") {
+        return !isEnded && pool.creator_id === dbUser?.id;
+      } else {
+        // open
+        return !isEnded;
+      }
+    }) || [];
 
   // Sort pools
+  let sortedPools = [...filteredPools];
+
   if (sortBy === "recent") {
-    filteredPools = [...filteredPools].sort((a, b) => {
+    sortedPools.sort((a, b) => {
       return (
         new Date(b.created_at || "").getTime() -
         new Date(a.created_at || "").getTime()
       );
     });
   } else if (sortBy === "amount") {
-    filteredPools = [...filteredPools].sort(
-      (a, b) => b.raised_amount - a.raised_amount
-    );
+    sortedPools.sort((a, b) => b.raised_amount - a.raised_amount);
   } else if (sortBy === "alphabetical") {
-    filteredPools = [...filteredPools].sort((a, b) =>
-      a.name.localeCompare(b.name)
-    );
+    sortedPools.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (sortBy === "volume") {
+    sortedPools.sort((a, b) => b.raised_amount - a.raised_amount);
   }
 
   // Calculate percentage complete for each pool
@@ -130,6 +144,8 @@ export default function PoolsPage() {
         return "Amount";
       case "alphabetical":
         return "A-Z";
+      case "volume":
+        return "Volume";
       default:
         return "Recent";
     }
@@ -156,7 +172,7 @@ export default function PoolsPage() {
         className="text-center text-5xl font-bold mt-2 mb-6"
         style={{ fontFamily: "'Impact', sans-serif" }}
       >
-        PARTY ROUNDS
+        POOLS
       </h1>
 
       {/* Tabs */}
@@ -181,6 +197,16 @@ export default function PoolsPage() {
         >
           My rounds
         </button>
+        <button
+          className={`px-6 py-3 rounded-full text-lg ${
+            activeTab === "trading"
+              ? "bg-white text-black font-medium"
+              : "bg-transparent text-white border border-gray-700"
+          }`}
+          onClick={() => setActiveTab("trading")}
+        >
+          Trading
+        </button>
       </div>
 
       {/* Filters */}
@@ -197,30 +223,53 @@ export default function PoolsPage() {
           {showSortDropdown && (
             <div className="absolute right-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
               <ul>
-                <li
-                  className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                    sortBy === "recent" ? "text-purple-400" : ""
-                  }`}
-                  onClick={() => handleSortSelect("recent")}
-                >
-                  Recent
-                </li>
-                <li
-                  className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                    sortBy === "amount" ? "text-purple-400" : ""
-                  }`}
-                  onClick={() => handleSortSelect("amount")}
-                >
-                  Amount
-                </li>
-                <li
-                  className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                    sortBy === "alphabetical" ? "text-purple-400" : ""
-                  }`}
-                  onClick={() => handleSortSelect("alphabetical")}
-                >
-                  A-Z
-                </li>
+                {activeTab !== "trading" ? (
+                  <>
+                    <li
+                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
+                        sortBy === "recent" ? "text-purple-400" : ""
+                      }`}
+                      onClick={() => handleSortSelect("recent")}
+                    >
+                      Recent
+                    </li>
+                    <li
+                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
+                        sortBy === "amount" ? "text-purple-400" : ""
+                      }`}
+                      onClick={() => handleSortSelect("amount")}
+                    >
+                      Amount
+                    </li>
+                    <li
+                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
+                        sortBy === "alphabetical" ? "text-purple-400" : ""
+                      }`}
+                      onClick={() => handleSortSelect("alphabetical")}
+                    >
+                      A-Z
+                    </li>
+                  </>
+                ) : (
+                  <>
+                    <li
+                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
+                        sortBy === "volume" ? "text-purple-400" : ""
+                      }`}
+                      onClick={() => handleSortSelect("volume")}
+                    >
+                      Volume
+                    </li>
+                    <li
+                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
+                        sortBy === "alphabetical" ? "text-purple-400" : ""
+                      }`}
+                      onClick={() => handleSortSelect("alphabetical")}
+                    >
+                      A-Z
+                    </li>
+                  </>
+                )}
               </ul>
             </div>
           )}
@@ -246,77 +295,132 @@ export default function PoolsPage() {
           </div>
         ) : (
           <ul className="space-y-4">
-            {filteredPools.map((pool) => (
-              <li
-                key={pool.id}
-                className="p-4 bg-[#1C1B1F] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
-                onClick={() => router.push(`/pools/${pool.id}`)}
-              >
-                <div className="flex items-center gap-3">
-                  {/* Pool Image */}
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2A2640]">
-                    {pool.image_url && (
-                      <img
-                        src={pool.image_url}
-                        alt={pool.name}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                  </div>
-
-                  {/* Pool Info */}
-                  <div className="flex-1">
-                    <div className="flex items-center">
-                      <h3 className="font-semibold text-lg">{pool.name}</h3>
-                      <div className="ml-2">{getPoolStatusIndicator(pool)}</div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
-                        {pool.creator_avatar_url && (
+            {activeTab !== "trading"
+              ? // Open Rounds and My Rounds UI
+                sortedPools.map((pool) => (
+                  <li
+                    key={pool.id}
+                    className="p-4 bg-[#1C1B1F] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
+                    onClick={() => router.push(`/pools/${pool.id}`)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Pool Image */}
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2A2640]">
+                        {pool.image_url && (
                           <img
-                            src={pool.creator_avatar_url}
-                            alt={pool.creator_name}
+                            src={pool.image_url}
+                            alt={pool.name}
                             className="w-full h-full object-cover"
                           />
                         )}
                       </div>
-                      <span className="text-sm text-gray-400">
-                        {pool.creator_name || "Anonymous"}
-                      </span>
-                    </div>
-                  </div>
 
-                  {/* Progress and Amount */}
-                  <div className="text-right flex items-center gap-4">
-                    <div>
-                      <div className="font-medium">
-                        ${formatAmount(pool.raised_amount)}
+                      {/* Pool Info */}
+                      <div className="flex-1">
+                        <div className="flex items-center">
+                          <h3 className="font-semibold text-lg">{pool.name}</h3>
+                          <div className="ml-2">
+                            {getPoolStatusIndicator(pool)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
+                            {pool.creator_avatar_url && (
+                              <img
+                                src={pool.creator_avatar_url}
+                                alt={pool.creator_name}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </div>
+                          <span className="text-sm text-gray-400">
+                            {pool.creator_name || "Anonymous"}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-400">
-                        of ${formatAmount(pool.target_amount)}
+
+                      {/* Progress and Amount */}
+                      <div className="text-right flex items-center gap-4">
+                        <div>
+                          <div className="font-medium">
+                            ${formatAmount(pool.raised_amount)}
+                          </div>
+                          <div className="text-sm text-gray-400">
+                            of ${formatAmount(pool.target_amount)}
+                          </div>
+                        </div>
+                        <CircularProgress
+                          progress={getPercentComplete(pool)}
+                          size={48}
+                        />
                       </div>
                     </div>
-                    <CircularProgress
-                      progress={getPercentComplete(pool)}
-                      size={48}
-                    />
-                  </div>
-                </div>
-              </li>
-            ))}
+                  </li>
+                ))
+              : // Trading Pools UI - based on the image
+                sortedPools.map((pool) => (
+                  <li
+                    key={pool.id}
+                    className="p-4 bg-[#1C1B1F] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
+                    onClick={() => router.push(`/pools/${pool.id}`)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Pool Image */}
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2A2640]">
+                        {pool.image_url && (
+                          <img
+                            src={pool.image_url}
+                            alt={pool.name}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
 
-            {filteredPools.length === 0 && (
+                      {/* Pool Info */}
+                      <div className="flex-1">
+                        <div className="flex items-center">
+                          <h3 className="font-semibold text-lg">{pool.name}</h3>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
+                            {pool.creator_avatar_url && (
+                              <img
+                                src={pool.creator_avatar_url}
+                                alt={pool.creator_name}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </div>
+                          <span className="text-sm text-gray-400">
+                            {pool.creator_name || "Anonymous"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Volume Display */}
+                      <div className="text-right">
+                        <p className="text-sm text-gray-400">Vol</p>
+                        <p className="text-lg font-bold">
+                          ${formatAmount(pool.raised_amount)}
+                        </p>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+
+            {sortedPools.length === 0 && (
               <div className="p-8 text-center text-gray-400">
                 {activeTab === "open"
                   ? "No open rounds available."
-                  : "You haven't joined any rounds yet."}
+                  : activeTab === "my"
+                  ? "You haven't created any rounds yet."
+                  : "No trading pools available."}
               </div>
             )}
           </ul>
         )}
       </div>
 
-      {/* Shared Bottom Navigation Bar */}
       <BottomNavbar activeTab="party" />
     </div>
   );
