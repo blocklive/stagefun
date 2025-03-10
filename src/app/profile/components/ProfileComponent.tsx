@@ -594,28 +594,6 @@ export default function ProfileComponent() {
                 <span className="text-xs text-gray-400">Export</span>
               </button>
             </div>
-
-            {/* Wallet Address Section */}
-            <div className="mt-4 flex flex-col items-center">
-              <div className="text-sm text-gray-400 mb-2">
-                Your Wallet Address
-              </div>
-              <div className="flex items-center bg-[#2A2640] rounded-lg px-4 py-2">
-                <code className="text-sm font-mono">
-                  {`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
-                </code>
-                <button
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(walletAddress);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  className="ml-2 text-gray-400 hover:text-white"
-                >
-                  {copied ? <FaCheck /> : <FaCopy />}
-                </button>
-              </div>
-            </div>
           </>
         )}
       </div>
@@ -628,7 +606,7 @@ export default function ProfileComponent() {
       </div>
 
       {/* Pool List */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4 pb-32">
         {isUserPoolsLoading ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500"></div>

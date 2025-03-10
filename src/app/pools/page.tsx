@@ -279,7 +279,7 @@ export default function PoolsPage() {
       {/* List of Items */}
       <div
         className="flex-1 overflow-y-auto mt-4 px-4"
-        style={{ paddingBottom: "70px" }}
+        style={{ paddingBottom: "128px" }}
       >
         {loading ? (
           <div className="p-8 text-center text-gray-400">Loading pools...</div>
