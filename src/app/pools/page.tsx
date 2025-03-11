@@ -3,7 +3,7 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { FaPlus, FaChevronDown } from "react-icons/fa";
+import { FaPlus, FaChevronDown, FaDollarSign } from "react-icons/fa";
 import BottomNavbar from "../components/BottomNavbar";
 import { useSupabase } from "../../contexts/SupabaseContext";
 import { getAllPools } from "../../lib/services/pool-service";
@@ -12,6 +12,7 @@ import { Pool } from "../../lib/supabase";
 import CircularProgress from "../components/CircularProgress";
 import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
 import Image from "next/image";
+import GetUSDCModal from "../components/GetUSDCModal";
 
 type TabType = "open" | "my" | "trading";
 
@@ -46,6 +47,7 @@ export default function PoolsPage() {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const { pools, isLoading: loading, error } = usePoolsWithDeposits();
+  const [showUSDCModal, setShowUSDCModal] = useState(false);
 
   // Set the correct viewport height
   useEffect(() => {
@@ -182,16 +184,30 @@ export default function PoolsPage() {
       className="flex flex-col bg-black text-white relative"
       style={{ height: viewportHeight }}
     >
-      {/* Header with Create Button */}
+      {/* Header with Create Button and Get USDC Button */}
       <header className="flex justify-between items-center p-4">
         <div></div> {/* Empty div for spacing */}
-        <button
-          onClick={() => router.push("/pools/create")}
-          className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
-        >
-          <FaPlus className="text-white" />
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowUSDCModal(true)}
+            className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
+          >
+            <FaDollarSign className="text-white" />
+          </button>
+          <button
+            onClick={() => router.push("/pools/create")}
+            className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
+          >
+            <FaPlus className="text-white" />
+          </button>
+        </div>
       </header>
+
+      {/* Get USDC Modal */}
+      <GetUSDCModal
+        isOpen={showUSDCModal}
+        onClose={() => setShowUSDCModal(false)}
+      />
 
       {/* PARTY ROUNDS Title */}
       <h1
