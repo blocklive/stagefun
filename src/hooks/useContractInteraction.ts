@@ -105,6 +105,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
       const { receipt, poolId } = await createPoolOnChain(
         signer,
         name,
+        `pool-${Date.now()}`, // Generate a unique ID based on timestamp
         ticker,
         BigInt(endTime),
         targetAmount,
@@ -530,6 +531,8 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
       const pool: ContractPool = {
         name: details._name,
+        uniqueId: details._uniqueId || "",
+        creator: details._creator || ethers.ZeroAddress,
         totalDeposits: BigInt(details._totalDeposits),
         revenueAccumulated: BigInt(details._revenueAccumulated),
         endTime: BigInt(details._endTime),

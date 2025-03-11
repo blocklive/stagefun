@@ -17,6 +17,7 @@ import { StageDotFunPoolABI } from "../contracts/StageDotFunPool";
  * Creates a pool in the smart contract
  * @param signer The signer to use for the transaction
  * @param name The name of the pool
+ * @param uniqueId The unique ID of the pool
  * @param symbol The symbol of the pool
  * @param endTime The end time of the pool
  * @param targetAmount The target amount of the pool
@@ -26,6 +27,7 @@ import { StageDotFunPoolABI } from "../contracts/StageDotFunPool";
 export async function createPoolOnChain(
   signer: ethers.Signer,
   name: string,
+  uniqueId: string,
   symbol: string,
   endTime: bigint,
   targetAmount: bigint,
@@ -38,6 +40,7 @@ export async function createPoolOnChain(
   const factory = getStageDotFunPoolFactoryContract(signer);
   const tx = await factory.createPool(
     name,
+    uniqueId,
     symbol,
     endTime,
     targetAmount,

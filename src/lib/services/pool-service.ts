@@ -2,10 +2,10 @@ import { supabase } from "../supabase";
 import {
   getDeployedPools,
   getPoolDetails,
-  createPool as createPoolOnChain,
   ContractPool,
   fromUSDCBaseUnits,
 } from "../contracts/StageDotFunPool";
+import { createPoolOnChain } from "./contract-service";
 import { ethers } from "ethers";
 
 export interface Pool {
@@ -159,6 +159,8 @@ export async function getPoolById(id: string): Promise<Pool | null> {
 
   let chainData: ContractPool = {
     name: "",
+    uniqueId: "",
+    creator: ethers.ZeroAddress,
     totalDeposits: BigInt(0),
     revenueAccumulated: BigInt(0),
     endTime: BigInt(0),
@@ -252,9 +254,10 @@ export async function createPool(
   );
   const signer = await provider.getSigner();
 
-  const { poolAddress, lpTokenAddress } = await createPoolOnChain(
+  const { poolId: poolAddress, lpTokenAddress } = await createPoolOnChain(
     signer,
     poolData.name,
+    dbPool.id, // Using the pool's database ID as the uniqueId
     "LP", // You might want to make this configurable
     BigInt(new Date(poolData.ends_at).getTime() / 1000),
     BigInt(poolData.target_amount),

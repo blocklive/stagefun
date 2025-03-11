@@ -15,6 +15,26 @@ import Image from "next/image";
 
 type TabType = "open" | "my" | "trading";
 
+// Define a type for the pools returned by usePoolsWithDeposits
+type OnChainPool = {
+  id: string;
+  contract_address: string;
+  name: string;
+  creator_address: string;
+  raised_amount: number;
+  target_amount: number;
+  revenue_accumulated: number;
+  ends_at: string;
+  status: string;
+  creator_name: string;
+  creator_avatar_url: string | null;
+  created_at: string;
+  image_url: string | null;
+  description: string;
+  creator_id: string;
+  blockchain_status: string;
+};
+
 export default function PoolsPage() {
   const { logout } = usePrivy();
   const { dbUser } = useSupabase();
@@ -69,7 +89,7 @@ export default function PoolsPage() {
 
   // Filter pools based on active tab
   const filteredPools =
-    pools?.filter((pool) => {
+    pools?.filter((pool: OnChainPool) => {
       const endDate = new Date(pool.ends_at);
       const now = new Date();
       const isEnded = endDate < now;
@@ -88,22 +108,28 @@ export default function PoolsPage() {
   const sortedPools = [...filteredPools];
 
   if (sortBy === "recent") {
-    sortedPools.sort((a, b) => {
+    sortedPools.sort((a: OnChainPool, b: OnChainPool) => {
       return (
         new Date(b.created_at || "").getTime() -
         new Date(a.created_at || "").getTime()
       );
     });
   } else if (sortBy === "amount") {
-    sortedPools.sort((a, b) => b.raised_amount - a.raised_amount);
+    sortedPools.sort(
+      (a: OnChainPool, b: OnChainPool) => b.raised_amount - a.raised_amount
+    );
   } else if (sortBy === "alphabetical") {
-    sortedPools.sort((a, b) => a.name.localeCompare(b.name));
+    sortedPools.sort((a: OnChainPool, b: OnChainPool) =>
+      a.name.localeCompare(b.name)
+    );
   } else if (sortBy === "volume") {
-    sortedPools.sort((a, b) => b.raised_amount - a.raised_amount);
+    sortedPools.sort(
+      (a: OnChainPool, b: OnChainPool) => b.raised_amount - a.raised_amount
+    );
   }
 
   // Calculate percentage complete for each pool
-  const getPercentComplete = (pool: Pool) => {
+  const getPercentComplete = (pool: OnChainPool) => {
     if (!pool.target_amount) return 0;
     return Math.min(
       100,
@@ -122,7 +148,7 @@ export default function PoolsPage() {
   };
 
   // Get pool status indicator
-  const getPoolStatusIndicator = (pool: Pool) => {
+  const getPoolStatusIndicator = (pool: OnChainPool) => {
     if (pool.status === "closed") {
       return <span className="text-gray-400">• Closed</span>;
     }
@@ -297,7 +323,7 @@ export default function PoolsPage() {
           <ul className="space-y-4">
             {activeTab !== "trading"
               ? // Open Rounds and My Rounds UI
-                sortedPools.map((pool) => (
+                sortedPools.map((pool: OnChainPool) => (
                   <li
                     key={pool.id}
                     className="p-4 bg-[#1C1B1F] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
@@ -362,7 +388,7 @@ export default function PoolsPage() {
                   </li>
                 ))
               : // Trading Pools UI - based on the image
-                sortedPools.map((pool) => (
+                sortedPools.map((pool: OnChainPool) => (
                   <li
                     key={pool.id}
                     className="p-4 bg-[#1C1B1F] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"

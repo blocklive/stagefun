@@ -137,6 +137,16 @@ export default function ProfileComponent() {
     }
   }, [userId, refreshUserPools]);
 
+  // Add a useEffect for handling redirects when not authenticated
+  useEffect(() => {
+    if (ready && !authenticated && !dbUser) {
+      const timer = setTimeout(() => {
+        router.push("/");
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [router, ready, authenticated, dbUser]);
+
   if (!ready || isLoadingUser) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#121212]">
@@ -146,14 +156,6 @@ export default function ProfileComponent() {
   }
 
   if (!authenticated || !dbUser) {
-    // Redirect to login page after a short delay
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        router.push("/");
-      }, 1000);
-      return () => clearTimeout(timer);
-    }, [router]);
-
     return (
       <div className="flex items-center justify-center h-screen bg-[#121212] flex-col">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mb-4"></div>
