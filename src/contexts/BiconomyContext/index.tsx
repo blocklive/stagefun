@@ -78,6 +78,14 @@ export const BiconomyProvider: React.FC<{ children: React.ReactNode }> = ({
         paymasterUrl: PAYMASTER_URL,
         chainId: CHAIN_ID,
       });
+      console.log(
+        "Available wallets:",
+        wallets.map((w) => ({
+          address: w.address,
+          type: w.walletClientType,
+          chainId: w.chainId,
+        }))
+      );
 
       setIsLoading(true);
       setError(null);
@@ -89,7 +97,13 @@ export const BiconomyProvider: React.FC<{ children: React.ReactNode }> = ({
         );
 
         if (!embeddedWallet) {
-          throw new Error("No embedded wallet found");
+          console.error(
+            "No embedded wallet found. Available wallets:",
+            wallets.map((w) => w.walletClientType)
+          );
+          throw new Error(
+            "No embedded wallet found. Please try logging out and logging in again."
+          );
         }
 
         console.log("Found embedded wallet:", embeddedWallet.address);

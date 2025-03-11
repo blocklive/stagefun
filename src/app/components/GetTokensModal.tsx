@@ -1,19 +1,22 @@
 import { useState } from "react";
 import { useContractInteraction } from "../../hooks/useContractInteraction";
 
-interface GetUSDCModalProps {
+interface GetTokensModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function GetUSDCModal({ isOpen, onClose }: GetUSDCModalProps) {
+export default function GetTokensModal({
+  isOpen,
+  onClose,
+}: GetTokensModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [waitTime, setWaitTime] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const { walletAddress } = useContractInteraction();
 
-  const handleGetUSDC = async () => {
+  const handleGetTokens = async () => {
     if (!walletAddress) {
       setError("Wallet not connected");
       return;
@@ -25,7 +28,7 @@ export default function GetUSDCModal({ isOpen, onClose }: GetUSDCModalProps) {
     setSuccess(false);
 
     try {
-      const response = await fetch("/api/get-testnet-usdc", {
+      const response = await fetch("/api/get-testnet-tokens", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -41,7 +44,7 @@ export default function GetUSDCModal({ isOpen, onClose }: GetUSDCModalProps) {
           setWaitTime(data.waitTime);
           throw new Error(data.error || "Rate limit exceeded");
         }
-        throw new Error(data.error || "Failed to get USDC");
+        throw new Error(data.error || "Failed to get tokens");
       }
 
       setSuccess(true);
@@ -112,12 +115,16 @@ export default function GetUSDCModal({ isOpen, onClose }: GetUSDCModalProps) {
 
         {success && (
           <div className="bg-green-900 bg-opacity-30 border border-green-700 text-green-200 p-3 rounded-lg mb-4">
-            Successfully received 0.1 USDC!
+            <p>Successfully received:</p>
+            <ul className="list-disc list-inside mt-1">
+              <li>0.1 USDC</li>
+              <li>0.1 MON (native currency)</li>
+            </ul>
           </div>
         )}
 
         <button
-          onClick={handleGetUSDC}
+          onClick={handleGetTokens}
           disabled={isLoading || !!waitTime}
           className={`w-full py-3 ${
             isLoading || waitTime
@@ -149,7 +156,7 @@ export default function GetUSDCModal({ isOpen, onClose }: GetUSDCModalProps) {
           ) : waitTime ? (
             "Rate Limited"
           ) : (
-            "Get USDC"
+            "Get Tokens"
           )}
         </button>
       </div>

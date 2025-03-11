@@ -53,10 +53,29 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       setIsLoadingUser(true);
-      const walletAddress = privyUser.wallet?.address;
+
+      // Check for wallet address from embedded wallet first
+      let walletAddress = privyUser.wallet?.address;
+
+      // If no wallet address is found, try to get it from the wallets
+      if (!walletAddress && (privyUser as any).linkedAccounts) {
+        const embeddedWallet = (privyUser as any).linkedAccounts.find(
+          (account: any) =>
+            account.type === "wallet" && account.walletClientType === "privy"
+        );
+
+        if (embeddedWallet) {
+          walletAddress = embeddedWallet.address;
+          console.log(
+            "Found embedded wallet address from linkedAccounts:",
+            walletAddress
+          );
+        }
+      }
 
       if (!walletAddress) {
         console.log("No wallet address available for user:", privyUser);
+        console.log("User details:", JSON.stringify(privyUser, null, 2));
         setIsLoadingUser(false);
         return;
       }

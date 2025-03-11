@@ -12,7 +12,7 @@ import { Pool } from "../../lib/supabase";
 import CircularProgress from "../components/CircularProgress";
 import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
 import Image from "next/image";
-import GetUSDCModal from "../components/GetUSDCModal";
+import GetTokensModal from "../components/GetTokensModal";
 
 type TabType = "open" | "my" | "trading";
 
@@ -203,8 +203,8 @@ export default function PoolsPage() {
         </div>
       </header>
 
-      {/* Get USDC Modal */}
-      <GetUSDCModal
+      {/* Get Tokens Modal */}
+      <GetTokensModal
         isOpen={showUSDCModal}
         onClose={() => setShowUSDCModal(false)}
       />

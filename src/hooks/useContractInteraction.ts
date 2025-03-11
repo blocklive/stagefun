@@ -53,12 +53,27 @@ export function useContractInteraction(): ContractInteractionHookResult {
     }
 
     try {
+      console.log(
+        "Available wallets:",
+        wallets.map((w) => ({
+          address: w.address,
+          type: w.walletClientType,
+          chainId: w.chainId,
+        }))
+      );
+
       const embeddedWallet = wallets.find(
         (wallet) => wallet.walletClientType === "privy"
       );
 
       if (!embeddedWallet) {
-        throw new Error("No embedded wallet found");
+        console.error(
+          "No embedded wallet found. Available wallets:",
+          wallets.map((w) => w.walletClientType)
+        );
+        throw new Error(
+          "No embedded wallet found. Please try logging out and logging in again."
+        );
       }
 
       const provider = await embeddedWallet.getEthereumProvider();
@@ -143,13 +158,33 @@ export function useContractInteraction(): ContractInteractionHookResult {
         console.log("Got signer for address:", signerAddress);
 
         // Get the embedded wallet
+        console.log(
+          "Available wallets for deposit:",
+          wallets.map((w) => ({
+            address: w.address,
+            type: w.walletClientType,
+            chainId: w.chainId,
+          }))
+        );
+
         const embeddedWallet = wallets.find(
           (wallet) => wallet.walletClientType === "privy"
         );
 
         if (!embeddedWallet) {
-          throw new Error("No embedded wallet found");
+          console.error(
+            "No embedded wallet found for deposit. Available wallets:",
+            wallets.map((w) => w.walletClientType)
+          );
+          throw new Error(
+            "No embedded wallet found. Please try logging out and logging in again."
+          );
         }
+
+        console.log(
+          "Using embedded wallet for deposit:",
+          embeddedWallet.address
+        );
 
         // Get the provider and create contract instances
         const provider = await embeddedWallet.getEthereumProvider();
