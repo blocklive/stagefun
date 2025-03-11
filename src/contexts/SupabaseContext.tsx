@@ -92,6 +92,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         const newUser = {
           wallet_address: walletAddress,
           name:
+            (privyUser as any).twitter?.username ||
             (privyUser as any).name?.first ||
             (privyUser as any).email?.address?.split("@")[0] ||
             "Anonymous",
@@ -114,7 +115,11 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         const privyTwitter = (privyUser as any).twitter?.username;
         const privyAvatar = (privyUser as any).avatar;
 
-        if (privyName && privyName !== user.name) {
+        // Prioritize Twitter username for the name field
+        if (privyTwitter && privyTwitter !== user.name) {
+          updatedFields.name = privyTwitter;
+          needsUpdate = true;
+        } else if (privyName && privyName !== user.name && !privyTwitter) {
           updatedFields.name = privyName;
           needsUpdate = true;
         }
@@ -138,6 +143,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
           console.log("Updating user with new Privy data:", updatedFields);
           const updatedUser = await createOrUpdateUser({
             ...updatedFields,
+            id: user.id,
             wallet_address: walletAddress,
           });
           setDbUser(updatedUser);

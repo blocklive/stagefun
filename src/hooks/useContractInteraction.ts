@@ -33,6 +33,7 @@ interface ContractInteractionHookResult {
   getPoolLpHolders: (poolId: string) => Promise<string[]>;
   getUserPoolBalance: (userAddress: string, poolId: string) => Promise<string>;
   getBalance: (userAddress: string) => Promise<string>;
+  getNativeBalance: (userAddress: string) => Promise<string>;
   walletAddress: string | null;
   walletsReady: boolean;
   privyReady: boolean;
@@ -666,6 +667,30 @@ export function useContractInteraction(): ContractInteractionHookResult {
     }
   };
 
+  // Get user's native MON balance
+  const getNativeBalance = async (userAddress: string): Promise<string> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
+      if (!rpcUrl) {
+        throw new Error("RPC URL not configured");
+      }
+
+      // Create a direct RPC provider instead of using the embedded wallet
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const balance = await provider.getBalance(userAddress);
+      return ethers.formatEther(balance);
+    } catch (err: any) {
+      console.error("Error getting native MON balance:", err);
+      setError(err.message || "Error getting native MON balance");
+      return "0";
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     isLoading,
     error,
@@ -675,6 +700,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
     getPoolLpHolders,
     getUserPoolBalance,
     getBalance,
+    getNativeBalance,
     walletAddress: user?.wallet?.address || null,
     walletsReady,
     privyReady,

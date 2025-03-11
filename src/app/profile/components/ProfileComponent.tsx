@@ -24,6 +24,7 @@ import {
 } from "../../../lib/services/user-service";
 import BottomNavbar from "../../components/BottomNavbar";
 import { useUserCreatedPools } from "../../../hooks/useUserCreatedPools";
+import { useUserAssets } from "../../../hooks/useUserAssets";
 
 export default function ProfileComponent() {
   const router = useRouter();
@@ -75,6 +76,8 @@ export default function ProfileComponent() {
     error: userPoolsError,
     refresh: refreshUserPools,
   } = useUserCreatedPools(userId);
+
+  const { assets, totalBalance, isLoading: isLoadingAssets } = useUserAssets();
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -600,7 +603,78 @@ export default function ProfileComponent() {
         )}
       </div>
 
-      {/* Heading for Hosted Pools - Replace the tabs */}
+      {/* Balance and Assets Section */}
+      {isOwnProfile && (
+        <div className="px-4 py-6 bg-black">
+          <h2 className="text-xl text-gray-400 mb-2">Balance</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-5xl font-bold">${totalBalance}</h1>
+          </div>
+
+          <h2 className="text-2xl font-bold mt-8 mb-4">My assets</h2>
+
+          {isLoadingAssets ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500"></div>
+            </div>
+          ) : assets.length > 0 ? (
+            <div className="space-y-4">
+              {assets.map((asset, index) => (
+                <div
+                  key={index}
+                  className="bg-[#1C1B1F] rounded-xl p-4 flex items-center justify-between"
+                >
+                  <div className="flex items-center">
+                    <div
+                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        asset.type === "native"
+                          ? "bg-purple-600"
+                          : asset.type === "token"
+                          ? "bg-blue-500"
+                          : "bg-purple-500"
+                      }`}
+                    >
+                      {asset.type === "native" && (
+                        <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center">
+                          <div className="w-4 h-4 bg-purple-600 rounded-sm"></div>
+                        </div>
+                      )}
+                      {asset.type === "token" && (
+                        <div className="text-2xl font-bold text-white">$</div>
+                      )}
+                      {asset.type === "pool" && (
+                        <div className="text-xl font-bold text-white">⚒️</div>
+                      )}
+                    </div>
+                    <div className="ml-3">
+                      <div className="flex items-center">
+                        <h3 className="font-semibold">{asset.name}</h3>
+                        {asset.status && (
+                          <span className="ml-2 text-sm text-gray-400">
+                            • {asset.status}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-gray-400">
+                        {asset.balance} {asset.symbol}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold">${asset.value.toFixed(2)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-gray-400">
+              No assets found. Get some testnet tokens to get started!
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Heading for Hosted Pools */}
       <div className="px-4 py-4 border-b border-gray-800">
         <h2 className="text-xl font-bold">
           {isOwnProfile ? "My Hosted Pools" : `${displayName}'s Hosted Pools`}

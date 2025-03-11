@@ -16,6 +16,7 @@ interface ContractInteractionContextType {
   getPoolLpHolders: (poolId: string) => Promise<string[]>;
   getUserPoolBalance: (userAddress: string, poolId: string) => Promise<string>;
   getBalance: (userAddress: string) => Promise<string>;
+  getNativeBalance: (userAddress: string) => Promise<string>;
   walletAddress: string | null;
   walletsReady: boolean;
   privyReady: boolean;
@@ -42,6 +43,9 @@ export const ContractInteractionContext =
       throw new Error("ContractInteractionContext not initialized");
     },
     getBalance: async () => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
+    getNativeBalance: async () => {
       throw new Error("ContractInteractionContext not initialized");
     },
     walletAddress: null,
