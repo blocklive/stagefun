@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import {
   getPoolContract,
   getStageDotFunLiquidityContract,
+  getLpHoldersWithBalances,
 } from "../lib/contracts/StageDotFunPool";
 import { useContractInteraction } from "./useContractInteraction";
 import { usePrivy } from "@privy-io/react-auth";
@@ -40,83 +41,33 @@ export function usePoolPatrons(poolAddress: string | null) {
         // Get provider
         const provider = await getProvider();
 
-        // Get pool contract
-        const poolContract = getPoolContract(provider, poolAddress!);
-
-        // Get the LP token address
-        const lpTokenAddress = await poolContract.lpToken();
-        console.log("LP Token address:", lpTokenAddress);
-
-        // Get the LP token contract
-        const lpTokenContract = getStageDotFunLiquidityContract(
+        // Get LP holders with balances using our new paginated function
+        // Pass 0, 0 to get all LP holders in a single call
+        const lpHolders = await getLpHoldersWithBalances(
           provider,
-          lpTokenAddress
+          poolAddress!,
+          0,
+          0
         );
+        console.log("Got LP holders with balances:", lpHolders.length);
 
-        // For a real implementation, we would need to get all addresses that hold LP tokens
-        // Since we don't have a direct way to enumerate all token holders, we'll use a different approach
-
-        // For this example, we'll use a list of known addresses from the users table
-        // This is not comprehensive but will work for demonstration purposes
-        const { data: users, error: usersError } = await supabase
-          .from("users")
-          .select("id, username, name, avatar_url, wallet_address")
-          .not("wallet_address", "is", null);
-
-        if (usersError) {
-          console.error("Error fetching users:", usersError);
-          throw usersError;
-        }
-
-        console.log("Found users with wallet addresses:", users?.length || 0);
-
-        if (!users || users.length === 0) {
+        if (lpHolders.length === 0) {
           return [];
         }
 
-        // Extract wallet addresses
-        const walletAddresses = users
-          .filter((user) => user.wallet_address)
-          .map((user) => user.wallet_address as string);
-
-        if (walletAddresses.length === 0) {
-          return [];
-        }
-
-        // Get LP balances for these addresses
-        const balances = await poolContract.getLpBalances(walletAddresses);
-        console.log("Got balances:", balances.length);
+        // Extract addresses and balances
+        const addresses = lpHolders.map((holder) => holder.address);
+        const balances = lpHolders.map((holder) => holder.balance.toString());
 
         // Log the raw balances for debugging
-        console.log(
-          "Raw balances from blockchain:",
-          balances.map((b: any) => b.toString())
-        );
-        console.log("Wallet addresses:", walletAddresses);
+        console.log("Raw balances from blockchain:", balances);
+        console.log("Addresses from blockchain:", addresses);
 
-        // Create a more detailed log of addresses and their balances
-        const addressBalancePairs = walletAddresses.map((address, index) => {
-          const rawBalance = balances[index].toString();
-          let formattedBalance = "0";
-          try {
-            // USDC has 6 decimal places, not 18
-            formattedBalance = ethers.formatUnits(rawBalance, 6);
-          } catch (error) {
-            console.error(`Error formatting balance for ${address}:`, error);
-          }
-          return {
-            address,
-            rawBalance,
-            formattedBalance,
-          };
-        });
-        console.log("Address-balance pairs:", addressBalancePairs);
-
-        // Filter out zero balances and create patron objects
-        const patronsWithBalances = walletAddresses
+        // Filter out zero balances
+        const patronsWithBalances = addresses
           .map((address, index) => ({
             address,
-            balance: balances[index].toString(),
+            balance: balances[index],
           }))
           .filter((patron) => {
             try {
@@ -136,34 +87,114 @@ export function usePoolPatrons(poolAddress: string | null) {
           return [];
         }
 
-        // Create a map of wallet address to user
-        const walletToUserMap = new Map();
-        users.forEach((user) => {
-          if (user.wallet_address) {
-            walletToUserMap.set(user.wallet_address.toLowerCase(), user);
-          }
-        });
-
         // Get current user's wallet address
         const currentUserWalletAddress =
           privyUser?.wallet?.address?.toLowerCase();
 
+        // First, try to get user data for the current user if they're a patron
+        let currentUserData = null;
+        if (
+          currentUserWalletAddress &&
+          patronsWithBalances.some(
+            (p) => p.address.toLowerCase() === currentUserWalletAddress
+          )
+        ) {
+          const { data: userData } = await supabase
+            .from("users")
+            .select("id, username, name, avatar_url, wallet_address")
+            .eq("wallet_address", currentUserWalletAddress)
+            .single();
+
+          if (userData) {
+            currentUserData = userData;
+            console.log("Found current user data:", currentUserData);
+          }
+        }
+
+        // Then, get data for all patrons
+        // Use ilike for case-insensitive matching and or to check multiple addresses
+        const addressFilters = patronsWithBalances.map(
+          (p) => `wallet_address.ilike.${p.address.toLowerCase()}`
+        );
+
+        const { data: users, error: usersError } = await supabase
+          .from("users")
+          .select("id, username, name, avatar_url, wallet_address")
+          .or(addressFilters.join(","));
+
+        if (usersError) {
+          console.error("Error fetching users:", usersError);
+          throw usersError;
+        }
+
+        console.log(
+          "Found users with matching wallet addresses:",
+          users?.length || 0
+        );
+        console.log("User data from Supabase:", users);
+
+        // Create a map of wallet address to user
+        const walletToUserMap = new Map();
+        if (users && users.length > 0) {
+          users.forEach((user) => {
+            if (user.wallet_address) {
+              walletToUserMap.set(user.wallet_address.toLowerCase(), user);
+              console.log(
+                `Mapped ${user.wallet_address.toLowerCase()} to user:`,
+                user
+              );
+            }
+          });
+        }
+
+        // Add current user to the map if not already there
+        if (
+          currentUserData &&
+          currentUserData.wallet_address &&
+          !walletToUserMap.has(currentUserData.wallet_address.toLowerCase())
+        ) {
+          walletToUserMap.set(
+            currentUserData.wallet_address.toLowerCase(),
+            currentUserData
+          );
+        }
+
         // Combine the data
         const enrichedPatrons = patronsWithBalances.map((patron) => {
-          const user = walletToUserMap.get(patron.address.toLowerCase());
+          const normalizedAddress = patron.address.toLowerCase();
+          const user = walletToUserMap.get(normalizedAddress);
           const isCurrentUser =
-            currentUserWalletAddress === patron.address.toLowerCase() ||
+            currentUserWalletAddress === normalizedAddress ||
             (dbUser && user?.id === dbUser.id);
+
+          // For debugging
+          if (isCurrentUser) {
+            console.log("Current user is a patron:", {
+              address: normalizedAddress,
+              user,
+              dbUser,
+              privyUser,
+            });
+          }
+
+          // Create a default display name from the address if no user data
+          const defaultDisplayName = `${patron.address.substring(
+            0,
+            6
+          )}...${patron.address.substring(patron.address.length - 4)}`;
+          const defaultUsername = `${patron.address.substring(0, 6)}`;
 
           return {
             ...patron,
             userId: user?.id,
-            username: user?.username,
-            displayName: user?.name,
+            username: user?.username || defaultUsername,
+            displayName: user?.name || defaultDisplayName,
             avatarUrl: user?.avatar_url,
             isCurrentUser,
           };
         });
+
+        console.log("Enriched patrons:", enrichedPatrons);
 
         // Sort by balance (highest first)
         return enrichedPatrons.sort((a, b) => {
