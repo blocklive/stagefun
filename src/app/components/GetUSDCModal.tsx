@@ -9,6 +9,7 @@ interface GetUSDCModalProps {
 export default function GetUSDCModal({ isOpen, onClose }: GetUSDCModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [waitTime, setWaitTime] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const { walletAddress } = useContractInteraction();
 
@@ -20,6 +21,7 @@ export default function GetUSDCModal({ isOpen, onClose }: GetUSDCModalProps) {
 
     setIsLoading(true);
     setError(null);
+    setWaitTime(null);
     setSuccess(false);
 
     try {
@@ -34,6 +36,11 @@ export default function GetUSDCModal({ isOpen, onClose }: GetUSDCModalProps) {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 429 && data.waitTime) {
+          // Rate limit exceeded
+          setWaitTime(data.waitTime);
+          throw new Error(data.error || "Rate limit exceeded");
+        }
         throw new Error(data.error || "Failed to get USDC");
       }
 
@@ -91,11 +98,15 @@ export default function GetUSDCModal({ isOpen, onClose }: GetUSDCModalProps) {
             Testnet tokens are for development purposes only, they do not have
             real value.
           </p>
+          <p className="text-gray-500 text-sm text-center mt-2">
+            Limited to one request every 24 hours per wallet.
+          </p>
         </div>
 
         {error && (
           <div className="bg-red-900 bg-opacity-30 border border-red-700 text-red-200 p-3 rounded-lg mb-4">
             {error}
+            {waitTime && <p className="mt-1 text-sm">{waitTime}</p>}
           </div>
         )}
 
@@ -107,12 +118,16 @@ export default function GetUSDCModal({ isOpen, onClose }: GetUSDCModalProps) {
 
         <button
           onClick={handleGetUSDC}
-          disabled={isLoading}
-          className="w-full py-3 bg-white text-black font-medium rounded-lg flex items-center justify-center"
+          disabled={isLoading || !!waitTime}
+          className={`w-full py-3 ${
+            isLoading || waitTime
+              ? "bg-gray-700 text-gray-400"
+              : "bg-white text-black"
+          } font-medium rounded-lg flex items-center justify-center`}
         >
           {isLoading ? (
             <svg
-              className="animate-spin h-5 w-5 text-black"
+              className="animate-spin h-5 w-5 text-gray-400"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -131,6 +146,8 @@ export default function GetUSDCModal({ isOpen, onClose }: GetUSDCModalProps) {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
+          ) : waitTime ? (
+            "Rate Limited"
           ) : (
             "Get USDC"
           )}
