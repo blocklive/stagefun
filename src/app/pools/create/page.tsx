@@ -22,6 +22,18 @@ import { useAuthenticatedSupabase } from "@/hooks/useAuthenticatedSupabase";
 import { Pool } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
 
+// Helper function to format a date for datetime-local input
+function formatDateForInput(date: Date): string {
+  // Get the local ISO string (which includes the timezone offset)
+  const localISOString = new Date(
+    date.getTime() - date.getTimezoneOffset() * 60000
+  )
+    .toISOString()
+    .substring(0, 16);
+
+  return localISOString;
+}
+
 export default function CreatePoolPage() {
   const { user: privyUser } = usePrivy();
   const { dbUser } = useSupabase();
@@ -39,13 +51,26 @@ export default function CreatePoolPage() {
   const [currency, setCurrency] = useState("USDC");
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Default end date is 2 days from now
   const [endDate, setEndDate] = useState<Date>(
     new Date(new Date().setDate(new Date().getDate() + 2))
   );
+
+  // State to hold the formatted date string for the input
+  const [endDateInputValue, setEndDateInputValue] = useState<string>(
+    formatDateForInput(endDate)
+  );
+
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uniqueId, setUniqueId] = useState<string>(uuidv4());
+
+  // Update the input value whenever endDate changes
+  useEffect(() => {
+    setEndDateInputValue(formatDateForInput(endDate));
+  }, [endDate]);
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -253,6 +278,20 @@ export default function CreatePoolPage() {
 
       console.log("Proceeding with pool creation, image URL:", imageUrl);
 
+      // Validate end date is in the future
+      if (endDate <= new Date()) {
+        alert("End date must be in the future");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Log the end date for debugging
+      console.log("End date for pool:", {
+        endDate,
+        isoString: endDate.toISOString(),
+        timestamp: Math.floor(endDate.getTime() / 1000),
+      });
+
       // Create pool data directly from state variables
       const poolData = {
         id: uniqueId, // Use the UUID as the primary key
@@ -268,7 +307,7 @@ export default function CreatePoolPage() {
         venue: "Convergence Station",
         status: "Accepting patrons",
         funding_stage: "Raising",
-        ends_at: endDate.toISOString(),
+        ends_at: endDate.toISOString(), // Store as ISO string in Supabase
         creator_id: dbUser.id,
         raised_amount: 0,
         image_url: imageUrl,
@@ -295,6 +334,10 @@ export default function CreatePoolPage() {
       try {
         console.log("Creating pool on blockchain via backend API...");
 
+        // Convert end date to Unix timestamp (seconds since epoch)
+        const endTimeUnix = Math.floor(endDate.getTime() / 1000);
+        console.log("End time Unix timestamp:", endTimeUnix);
+
         const response = await fetch("/api/blockchain/create-pool", {
           method: "POST",
           headers: {
@@ -305,7 +348,7 @@ export default function CreatePoolPage() {
             name: poolData.name,
             uniqueId: uniqueId, // Pass the uniqueId to the blockchain
             symbol: poolData.token_symbol,
-            endTime: Math.floor(new Date(poolData.ends_at).getTime() / 1000), // Convert to Unix timestamp
+            endTime: endTimeUnix, // Use Unix timestamp for blockchain
             targetAmount: poolData.target_amount * 1_000_000, // Convert to base units for blockchain
             minCommitment: poolData.min_commitment * 1_000_000, // Convert to base units for blockchain
           }),
@@ -605,9 +648,23 @@ export default function CreatePoolPage() {
             <div className="flex gap-4">
               <input
                 type="datetime-local"
-                value={endDate.toISOString().slice(0, 16)}
-                min={new Date().toISOString().slice(0, 16)}
-                onChange={(e) => setEndDate(new Date(e.target.value))}
+                value={endDateInputValue}
+                min={formatDateForInput(new Date())}
+                onChange={(e) => {
+                  // When the input changes, update both the input value and the Date object
+                  setEndDateInputValue(e.target.value);
+
+                  // Parse the input value to a Date object
+                  // The input value is in local time, so we need to create a Date object that represents that local time
+                  if (e.target.value) {
+                    const selectedDate = new Date(e.target.value);
+                    console.log(
+                      "Selected date from input:",
+                      selectedDate.toISOString()
+                    );
+                    setEndDate(selectedDate);
+                  }
+                }}
                 className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
