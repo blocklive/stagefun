@@ -22,6 +22,7 @@ import { useAuthenticatedSupabase } from "@/hooks/useAuthenticatedSupabase";
 import { Pool } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
 import SocialLinksInput from "@/components/SocialLinksInput";
+import AppHeader from "../../components/AppHeader";
 
 // Helper function to format a date for datetime-local input
 function formatDateForInput(date: Date): string {
@@ -389,18 +390,12 @@ export default function CreatePoolPage() {
       className="flex flex-col bg-[#121212] text-white relative"
       style={{ height: viewportHeight }}
     >
-      {/* Header */}
-      <header className="flex justify-between items-center p-6">
-        <button
-          onClick={() => router.back()}
-          className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
-        >
-          <FaArrowLeft className="text-white" />
-        </button>
-
-        {/* Empty div to maintain flex spacing */}
-        <div></div>
-      </header>
+      {/* Use the new AppHeader component */}
+      <AppHeader
+        showBackButton={true}
+        showTitle={false}
+        backgroundColor="#121212"
+      />
 
       {/* Page Title */}
       <div className="px-6 mt-4">

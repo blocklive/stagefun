@@ -13,6 +13,7 @@ import CircularProgress from "../components/CircularProgress";
 import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
 import Image from "next/image";
 import GetTokensModal from "../components/GetTokensModal";
+import AppHeader from "../components/AppHeader";
 
 type TabType = "open" | "my" | "trading";
 
@@ -228,38 +229,20 @@ export default function PoolsPage() {
       className="flex flex-col bg-black text-white relative"
       style={{ height: viewportHeight }}
     >
-      {/* Header with Create Button and Get USDC Button */}
-      <header className="flex justify-between items-center p-4">
-        <div></div> {/* Empty div for spacing */}
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowUSDCModal(true)}
-            className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
-          >
-            <FaDollarSign className="text-white" />
-          </button>
-          <button
-            onClick={() => router.push("/pools/create")}
-            className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
-          >
-            <FaPlus className="text-white" />
-          </button>
-        </div>
-      </header>
+      {/* Use the new AppHeader component with title */}
+      <AppHeader
+        showCreateButton={true}
+        showGetTokensButton={true}
+        onGetTokensClick={() => setShowUSDCModal(true)}
+        backgroundColor="#000000"
+        showTitle={true}
+      />
 
       {/* Get Tokens Modal */}
       <GetTokensModal
         isOpen={showUSDCModal}
         onClose={() => setShowUSDCModal(false)}
       />
-
-      {/* PARTY ROUNDS Title */}
-      <h1
-        className="text-center text-5xl font-bold mt-2 mb-6"
-        style={{ fontFamily: "'Impact', sans-serif" }}
-      >
-        POOLS
-      </h1>
 
       {/* Tabs */}
       <div className="flex justify-center gap-2 px-4">

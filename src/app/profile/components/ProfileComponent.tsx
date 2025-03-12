@@ -26,6 +26,7 @@ import {
 import BottomNavbar from "../../components/BottomNavbar";
 import { useUserCreatedPools } from "../../../hooks/useUserCreatedPools";
 import { useUserAssets } from "../../../hooks/useUserAssets";
+import AppHeader from "../../components/AppHeader";
 
 export default function ProfileComponent() {
   const router = useRouter();
@@ -453,13 +454,14 @@ export default function ProfileComponent() {
     >
       {/* Profile Header with Avatar and Name */}
       <div className="relative pt-12 pb-8 flex flex-col items-center bg-gradient-to-b from-[#1A0B3E] to-[#4A2A9A]">
-        {/* Back Button */}
-        <button
-          onClick={() => router.back()}
-          className="absolute top-6 left-6 w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
-        >
-          <FaArrowLeft className="text-white" />
-        </button>
+        {/* Use AppHeader for back button */}
+        <div className="absolute top-0 left-0 right-0">
+          <AppHeader
+            showBackButton={true}
+            showTitle={false}
+            className="bg-transparent"
+          />
+        </div>
 
         {/* Only show Logout Button if viewing own profile */}
         {isOwnProfile && (

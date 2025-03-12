@@ -9,6 +9,7 @@ import { tickers } from "@/data/tickers";
 import { pools } from "@/data/pools";
 import AutoScroller from "@/app/components/AutoScroller";
 import PoolScroller from "@/app/components/PoolScroller";
+import AppHeader from "@/app/components/AppHeader";
 
 export default function LoginPage() {
   const { login, authenticated } = usePrivy();
@@ -46,12 +47,8 @@ export default function LoginPage() {
     >
       {/* Main content area with scrolling */}
       <div className="flex-1 overflow-y-auto">
-        {/* Header */}
-        <header className="flex justify-between items-center p-6">
-          <div className="w-12 h-12 bg-purple-500 rounded-lg rotate-45 flex items-center justify-center">
-            <div className="w-8 h-8 bg-[#1E1B2E] rounded-md -rotate-45"></div>
-          </div>
-        </header>
+        {/* Use the new AppHeader component */}
+        <AppHeader showTitle={false} backgroundColor="#1E1B2E" />
 
         {/* Auto-scrolling Navigation */}
         <div className="px-6 mt-6">

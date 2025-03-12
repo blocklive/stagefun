@@ -14,6 +14,7 @@ import { usePoolCommitments } from "../../../hooks/usePoolCommitments";
 import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
 import { usePool } from "../../../hooks/usePool";
 import { useBiconomyContractInteraction } from "../../../hooks/useBiconomyContractInteraction";
+import AppHeader from "../../components/AppHeader";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -25,6 +26,7 @@ import UserCommitment from "./components/UserCommitment";
 import PatronsTab from "./components/PatronsTab";
 import PoolFundsSection from "./components/PoolFundsSection";
 import CommitModal from "./components/CommitModal";
+import GetTokensModal from "../../components/GetTokensModal";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -119,6 +121,9 @@ export default function PoolDetailsPage() {
 
   // Add state to control button visibility
   const [showCommitButton, setShowCommitButton] = useState(false);
+
+  // Add state for getting tokens
+  const [showTokensModal, setShowTokensModal] = useState(false);
 
   // Handle max click
   const handleMaxClick = useCallback(() => {
@@ -510,17 +515,24 @@ export default function PoolDetailsPage() {
 
   return (
     <div className="min-h-screen bg-[#0F0D1B] text-white flex flex-col">
-      {/* Top Navigation Bar */}
-      <div className="sticky top-0 z-40 bg-[#0F0D1B] border-b border-gray-800">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center text-gray-400 hover:text-white"
-          >
-            <FaArrowLeft className="mr-2" />
-            Back
-          </button>
-        </div>
+      {/* Use the new AppHeader component without back button */}
+      <AppHeader
+        showBackButton={false}
+        showTitle={false}
+        backgroundColor="#0F0D1B"
+        showGetTokensButton={true}
+        showCreateButton={true}
+        onGetTokensClick={() => setShowTokensModal(true)}
+      />
+
+      {/* Back button below header */}
+      <div className="px-4 py-2">
+        <button
+          onClick={() => router.back()}
+          className="w-12 h-12 bg-[#2A2640] rounded-full flex items-center justify-center text-white"
+        >
+          <FaArrowLeft />
+        </button>
       </div>
 
       {/* Main Content */}
@@ -565,6 +577,12 @@ export default function PoolDetailsPage() {
         handleBiconomyCommit={handleBiconomyCommit}
         setCommitAmount={setCommitAmount}
         refreshBalance={refreshBalance}
+      />
+
+      {/* Get Tokens Modal */}
+      <GetTokensModal
+        isOpen={showTokensModal}
+        onClose={() => setShowTokensModal(false)}
       />
     </div>
   );
