@@ -76,6 +76,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
             id,
             image_url,
             creator_id,
+            created_at,
             creator:creator_id (
               name,
               avatar_url
@@ -118,7 +119,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
             // Use Supabase data if available, otherwise use defaults
             creator_name: supabaseData?.creator?.name || "On-chain Pool",
             creator_avatar_url: supabaseData?.creator?.avatar_url || null,
-            created_at: new Date().toISOString(), // Default to current time
+            created_at: supabaseData?.created_at || new Date().toISOString(), // Use Supabase created_at if available
             image_url: supabaseData?.image_url || null,
             description: supabaseData?.description || "",
             creator_id: supabaseData?.creator_id || "",

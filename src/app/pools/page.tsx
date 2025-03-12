@@ -119,10 +119,10 @@ export default function PoolsPage() {
 
   if (sortBy === "recent") {
     sortedPools.sort((a: OnChainPool, b: OnChainPool) => {
-      return (
-        new Date(b.created_at || "").getTime() -
-        new Date(a.created_at || "").getTime()
-      );
+      // Use the created_at field from Supabase for accurate sorting
+      const dateA = new Date(a.created_at || "").getTime();
+      const dateB = new Date(b.created_at || "").getTime();
+      return dateB - dateA; // Sort in descending order (newest first)
     });
   } else if (sortBy === "amount") {
     sortedPools.sort(
