@@ -27,6 +27,7 @@ import PatronsTab from "./components/PatronsTab";
 import PoolFundsSection from "./components/PoolFundsSection";
 import CommitModal from "./components/CommitModal";
 import GetTokensModal from "../../components/GetTokensModal";
+import PoolDescription from "./components/PoolDescription";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -363,21 +364,24 @@ export default function PoolDetailsPage() {
     const userCommitment = getUserCommitment();
 
     return (
-      <UserCommitment
-        pool={pool}
-        dbUser={dbUser}
-        userCommitment={userCommitment}
-        isCommitmentsLoading={isCommitmentsLoading}
-        commitmentsError={commitmentsError}
-        commitAmount={commitAmount}
-        isApproving={isApproving}
-        walletsReady={walletsReady}
-        biconomyWalletAddress={biconomyWalletAddress}
-        usdcBalance={usdcBalance}
-        setCommitAmount={setCommitAmount}
-        handleCommit={handleCommit}
-        handleBiconomyCommit={handleBiconomyCommit}
-      />
+      <>
+        <UserCommitment
+          pool={pool}
+          dbUser={dbUser}
+          userCommitment={userCommitment}
+          isCommitmentsLoading={isCommitmentsLoading}
+          commitmentsError={commitmentsError}
+          commitAmount={commitAmount}
+          isApproving={isApproving}
+          walletsReady={walletsReady}
+          biconomyWalletAddress={biconomyWalletAddress}
+          usdcBalance={usdcBalance}
+          setCommitAmount={setCommitAmount}
+          handleCommit={handleCommit}
+          handleBiconomyCommit={handleBiconomyCommit}
+        />
+        <PoolDescription pool={pool} />
+      </>
     );
   };
 

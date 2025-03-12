@@ -18,42 +18,44 @@ export default function OrganizerSection({
   if (!creator) return null;
 
   return (
-    <div
-      className="mt-6 mb-8 p-4 bg-[#2A2640] rounded-lg cursor-pointer hover:bg-[#352f54] transition-colors"
-      onClick={() => onNavigate(creator.id)}
-    >
-      <h3 className="text-lg font-semibold mb-4">Organizer</h3>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          {creator.avatar_url ? (
-            <div className="w-12 h-12 rounded-full overflow-hidden mr-3">
-              <Image
-                src={creator.avatar_url}
-                alt={creator.name || "Organizer"}
-                width={48}
-                height={48}
-                className="object-cover w-full h-full"
-              />
+    <div className="mt-6 p-4 bg-[#1A1625] rounded-lg">
+      <h3 className="text-xl font-semibold mb-4">Organizer</h3>
+      <div
+        className="p-4 rounded-lg bg-[#2A2640] cursor-pointer hover:bg-[#352f54] transition-colors"
+        onClick={() => onNavigate(creator.id)}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            {creator.avatar_url ? (
+              <div className="w-12 h-12 rounded-full overflow-hidden mr-3">
+                <Image
+                  src={creator.avatar_url}
+                  alt={creator.name || "Organizer"}
+                  width={48}
+                  height={48}
+                  className="object-cover w-full h-full"
+                />
+              </div>
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center mr-3">
+                <span className="text-white text-lg font-bold">
+                  {creator.name?.charAt(0) || "?"}
+                </span>
+              </div>
+            )}
+            <div>
+              <div className="font-semibold text-white">
+                {creator.name || "Anonymous"}
+                {dbUser?.id === creator.id && (
+                  <span className="ml-2 text-purple-400 text-sm">You</span>
+                )}
+              </div>
+              <div className="text-sm text-gray-400">Eth Denver</div>
             </div>
-          ) : (
-            <div className="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center mr-3">
-              <span className="text-white text-lg font-bold">
-                {creator.name?.charAt(0) || "?"}
-              </span>
-            </div>
-          )}
-          <div>
-            <div className="font-semibold text-white">
-              {creator.name || "Anonymous"}
-              {dbUser?.id === creator.id && (
-                <span className="ml-2 text-purple-400 text-sm">You</span>
-              )}
-            </div>
-            <div className="text-sm text-gray-400">Eth Denver</div>
           </div>
-        </div>
-        <div className="text-gray-400">
-          <FaChevronRight />
+          <div className="text-gray-400">
+            <FaChevronRight />
+          </div>
         </div>
       </div>
     </div>

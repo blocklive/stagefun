@@ -555,9 +555,9 @@ export default function PoolFundsSection({
 
   return (
     <>
-      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
-        <h3 className="text-lg font-semibold mb-4">Pool Funds</h3>
-        <div className="bg-[#1A1625] p-4 rounded-lg">
+      <div className="mt-6 p-4 bg-[#1A1625] rounded-lg">
+        <h3 className="text-xl font-semibold mb-4">Pool Funds</h3>
+        <div className="p-4 rounded-lg bg-[#2A2640]">
           <div className="flex justify-between items-center mb-3">
             <div className="text-gray-400">Total Deposits</div>
             <div className="text-xl font-bold">{totalDeposits}</div>
