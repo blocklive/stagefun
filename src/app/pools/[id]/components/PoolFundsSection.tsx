@@ -6,7 +6,10 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import { ethers } from "ethers";
 import { useSendTransaction, useWallets } from "@privy-io/react-auth";
-import { StageDotFunPoolABI } from "../../../../lib/contracts/StageDotFunPool";
+import {
+  StageDotFunPoolABI,
+  getUSDCContract,
+} from "../../../../lib/contracts/StageDotFunPool";
 import { FaArrowUp, FaPlus, FaChevronLeft, FaSync } from "react-icons/fa";
 import useSWR from "swr";
 
@@ -64,11 +67,14 @@ export default function PoolFundsSection({
   const [showDepositInput, setShowDepositInput] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawAddress, setWithdrawAddress] = useState("");
+  const [receiveAmount, setReceiveAmount] = useState("");
   const { sendTransaction } = useSendTransaction();
   const { wallets } = useWallets();
   const modalRef = useRef<HTMLDivElement>(null);
+  const receiveModalRef = useRef<HTMLDivElement>(null);
 
   // Fetch on-chain data using SWR
   const {
@@ -149,15 +155,21 @@ export default function PoolFundsSection({
       ) {
         setShowWithdrawModal(false);
       }
+      if (
+        receiveModalRef.current &&
+        !receiveModalRef.current.contains(event.target as Node)
+      ) {
+        setShowReceiveModal(false);
+      }
     }
 
-    if (showWithdrawModal) {
+    if (showWithdrawModal || showReceiveModal) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showWithdrawModal]);
+  }, [showWithdrawModal, showReceiveModal]);
 
   // Clear status message after 5 seconds
   useEffect(() => {
@@ -169,74 +181,196 @@ export default function PoolFundsSection({
     }
   }, [statusMessage]);
 
+  // Open receive revenue modal
+  const openReceiveModal = () => {
+    setReceiveAmount("");
+    setShowReceiveModal(true);
+  };
+
   // Handle receive revenue
   const handleReceiveRevenue = async () => {
-    if (showDepositInput) {
-      // If input is already shown, handle the deposit
-      if (!pool.contract_address) {
-        toast.error("Pool contract address not found");
+    if (!pool.contract_address) {
+      toast.error("Pool contract address not found");
+      return;
+    }
+
+    const amount = parseFloat(receiveAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    setIsReceiving(true);
+    try {
+      // Get the embedded wallet
+      const embeddedWallet = wallets.find(
+        (wallet) => wallet.walletClientType === "privy"
+      );
+
+      if (!embeddedWallet) {
+        toast.error(
+          "No embedded wallet found. Please try logging out and logging in again."
+        );
         return;
       }
 
-      const amount = parseFloat(depositAmount);
-      if (isNaN(amount) || amount <= 0) {
-        toast.error("Please enter a valid amount");
+      // Get the provider and create contract instances
+      const provider = await embeddedWallet.getEthereumProvider();
+      const ethersProvider = new ethers.BrowserProvider(provider);
+      const signer = await ethersProvider.getSigner();
+      const signerAddress = await signer.getAddress();
+
+      // Get USDC contract using the helper function
+      const usdcContract = getUSDCContract(ethersProvider);
+
+      // Get USDC details
+      const usdcDecimals = 6; // USDC always has 6 decimals
+      const usdcSymbol = await usdcContract.symbol();
+      const amountBigInt = ethers.parseUnits(receiveAmount, usdcDecimals);
+      const amountFormatted = ethers.formatUnits(amountBigInt, usdcDecimals);
+
+      // Check USDC balance
+      const usdcBalance = await usdcContract.balanceOf(signerAddress);
+      console.log("USDC Balance check:", {
+        balance: ethers.formatUnits(usdcBalance, usdcDecimals),
+        required: amountFormatted,
+        hasEnough: usdcBalance >= amountBigInt,
+      });
+
+      if (usdcBalance < amountBigInt) {
+        toast.error(
+          `Insufficient USDC balance. You have ${ethers.formatUnits(
+            usdcBalance,
+            usdcDecimals
+          )} USDC but trying to deposit ${amountFormatted} USDC`
+        );
         return;
       }
 
-      setIsReceiving(true);
-      try {
-        // Convert to USDC base units (6 decimals)
-        const amountInBaseUnits = ethers.parseUnits(depositAmount, 6);
+      // Check allowance
+      const currentAllowance = await usdcContract.allowance(
+        signerAddress,
+        pool.contract_address
+      );
 
-        // Create contract interface for pool
-        const poolInterface = new ethers.Interface(StageDotFunPoolABI);
-        const depositData = poolInterface.encodeFunctionData("receiveRevenue", [
-          amountInBaseUnits,
+      console.log("Current allowance:", {
+        allowance: currentAllowance.toString(),
+        required: amountBigInt.toString(),
+        needsApproval: currentAllowance < amountBigInt,
+      });
+
+      // Handle approval if needed
+      if (currentAllowance < amountBigInt) {
+        // Create contract interface for USDC
+        const usdcInterface = new ethers.Interface([
+          "function approve(address spender, uint256 value) returns (bool)",
         ]);
 
-        // Prepare the transaction request
-        const depositRequest = {
-          to: pool.contract_address,
-          data: depositData,
+        const approvalData = usdcInterface.encodeFunctionData("approve", [
+          pool.contract_address,
+          amountBigInt,
+        ]);
+
+        // Get the USDC contract address from the helper function
+        const usdcAddress = String(usdcContract.target);
+
+        // Prepare the approval transaction request
+        const approvalRequest = {
+          to: usdcAddress,
+          data: approvalData,
           value: "0",
         };
 
-        // Set UI options for the transaction
-        const uiOptions = {
-          description: `Depositing ${depositAmount} USDC as revenue to the pool`,
-          buttonText: "Deposit Revenue",
+        // Set UI options for the approval transaction
+        const approvalUiOptions = {
+          description: `Approving ${amountFormatted} ${usdcSymbol} for deposit`,
+          buttonText: "Approve USDC",
           transactionInfo: {
-            title: "Deposit Revenue",
-            action: "Deposit Revenue to Pool",
+            title: "USDC Approval",
+            action: "Approve USDC",
             contractInfo: {
-              name: "StageDotFun Pool",
+              name: "USDC Token",
             },
           },
         };
 
-        // Send the transaction
-        const txHash = await sendTransaction(depositRequest, {
-          uiOptions,
+        console.log("Sending approval transaction", approvalRequest);
+        const approvalTxHash = await sendTransaction(approvalRequest, {
+          uiOptions: approvalUiOptions,
         });
+        console.log("Approval transaction sent:", approvalTxHash);
 
-        toast.success("Revenue deposit initiated");
-        setStatusMessage("Revenue deposit successful!");
-        console.log("Transaction hash:", txHash);
-        setDepositAmount("");
-        setShowDepositInput(false);
+        // Wait for approval to be mined
+        toast.success(
+          "USDC approval initiated. Please wait for confirmation..."
+        );
+        const approvalReceipt = await ethersProvider.waitForTransaction(
+          approvalTxHash.hash
+        );
+        console.log("Approval confirmed:", approvalReceipt);
 
-        // Refresh on-chain data after transaction
-        setTimeout(() => refreshOnChainData(), 5000);
-      } catch (error) {
-        console.error("Error depositing revenue:", error);
-        toast.error("Failed to deposit revenue");
-      } finally {
-        setIsReceiving(false);
+        if (!approvalReceipt?.status) {
+          throw new Error("USDC approval failed");
+        }
+        toast.success("USDC approval confirmed!");
       }
-    } else {
-      // If input is not shown, show it
-      setShowDepositInput(true);
+
+      // Create contract interface for pool
+      const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+      const depositData = poolInterface.encodeFunctionData("receiveRevenue", [
+        amountBigInt,
+      ]);
+
+      // Prepare the transaction request
+      const depositRequest = {
+        to: pool.contract_address,
+        data: depositData,
+        value: "0",
+      };
+
+      // Set UI options for the transaction
+      const uiOptions = {
+        description: `Depositing ${receiveAmount} USDC as revenue to the pool`,
+        buttonText: "Deposit Revenue",
+        transactionInfo: {
+          title: "Deposit Revenue",
+          action: "Deposit Revenue to Pool",
+          contractInfo: {
+            name: "StageDotFun Pool",
+          },
+        },
+      };
+
+      // Send the transaction
+      console.log("Sending deposit transaction", depositRequest);
+      const txHash = await sendTransaction(depositRequest, {
+        uiOptions,
+      });
+
+      toast.success("Revenue deposit initiated");
+      console.log("Transaction hash:", txHash);
+
+      // Wait for transaction to be mined
+      const receipt = await ethersProvider.waitForTransaction(txHash.hash);
+      console.log("Transaction receipt:", receipt);
+
+      if (!receipt?.status) {
+        throw new Error("Transaction failed on chain");
+      }
+
+      setStatusMessage("Revenue deposit successful!");
+      setReceiveAmount("");
+      setShowReceiveModal(false);
+
+      // Refresh on-chain data after transaction
+      setTimeout(() => refreshOnChainData(), 5000);
+    } catch (error) {
+      console.error("Error depositing revenue:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to deposit revenue"
+      );
+    } finally {
+      setIsReceiving(false);
     }
   };
 
@@ -364,59 +498,6 @@ export default function PoolFundsSection({
 
           {isCreator && (
             <div className="mt-4">
-              {showDepositInput && (
-                <div className="mb-4">
-                  <div className="flex flex-col sm:flex-row gap-2 mb-2">
-                    <input
-                      type="number"
-                      value={depositAmount}
-                      onChange={(e) => setDepositAmount(e.target.value)}
-                      placeholder="Amount in USDC"
-                      className="flex-1 bg-[#2A2640] text-white p-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500"
-                    />
-                    <button
-                      className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
-                      onClick={handleReceiveRevenue}
-                      disabled={isReceiving || !depositAmount}
-                    >
-                      {isReceiving ? (
-                        <span className="flex items-center justify-center">
-                          <svg
-                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          Depositing...
-                        </span>
-                      ) : (
-                        "Confirm"
-                      )}
-                    </button>
-                  </div>
-                  <button
-                    className="text-gray-400 text-sm hover:text-white"
-                    onClick={() => setShowDepositInput(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-
               <div className="flex gap-2">
                 <button
                   className="flex-1 bg-gray-200 hover:bg-gray-300 text-black py-3 px-4 rounded-lg transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
@@ -452,42 +533,40 @@ export default function PoolFundsSection({
                     "Withdraw Funds"
                   )}
                 </button>
-                {!showDepositInput && (
-                  <button
-                    className="flex-1 bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-3 px-4 rounded-lg transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                    onClick={handleReceiveRevenue}
-                    disabled={isReceiving}
-                  >
-                    <FaPlus className="mr-2" />
-                    {isReceiving ? (
-                      <span className="flex items-center justify-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Processing...
-                      </span>
-                    ) : (
-                      "Receive Revenue"
-                    )}
-                  </button>
-                )}
+                <button
+                  className="flex-1 bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-3 px-4 rounded-lg transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                  onClick={openReceiveModal}
+                  disabled={isReceiving}
+                >
+                  <FaPlus className="mr-2" />
+                  {isReceiving ? (
+                    <span className="flex items-center justify-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : (
+                    "Receive Revenue"
+                  )}
+                </button>
               </div>
             </div>
           )}
@@ -614,6 +693,132 @@ export default function PoolFundsSection({
                   </span>
                 ) : (
                   "Withdraw"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receive Revenue Modal */}
+      {showReceiveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div
+            ref={receiveModalRef}
+            className="bg-[#121212] rounded-lg w-full max-w-md overflow-hidden"
+          >
+            {/* Modal Header */}
+            <div className="p-4 flex items-center">
+              <button
+                onClick={() => setShowReceiveModal(false)}
+                className="p-2 rounded-full bg-[#2A2A2A] mr-4"
+              >
+                <FaChevronLeft className="text-white" />
+              </button>
+              <h2 className="text-xl font-bold text-white text-center flex-grow">
+                Receive Revenue
+              </h2>
+              <div className="w-10"></div> {/* Spacer for centering */}
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              {/* Pool Icon and Amount */}
+              <div className="flex justify-center mb-6">
+                <div className="flex items-center">
+                  <div className="bg-green-500 rounded-full p-2 mr-2">
+                    <FaPlus className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="text-4xl font-bold text-white">
+                    {receiveAmount
+                      ? parseFloat(receiveAmount).toFixed(2)
+                      : "0.00"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Amount Input */}
+              <div className="mb-6">
+                <label className="block text-gray-400 text-sm mb-2">
+                  Enter USDC amount to deposit as revenue
+                </label>
+                <input
+                  type="number"
+                  value={receiveAmount}
+                  onChange={(e) => setReceiveAmount(e.target.value)}
+                  className="w-full bg-[#2A2A2A] text-white p-3 rounded-lg border border-gray-700 focus:outline-none focus:border-green-500"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+
+              {/* Quick Amount Buttons */}
+              <div className="flex gap-2 mb-6">
+                <button
+                  onClick={() => setReceiveAmount("10")}
+                  className="flex-1 bg-[#2A2A2A] text-white py-2 px-4 rounded-full"
+                >
+                  10 USDC
+                </button>
+                <button
+                  onClick={() => setReceiveAmount("50")}
+                  className="flex-1 bg-[#2A2A2A] text-white py-2 px-4 rounded-full"
+                >
+                  50 USDC
+                </button>
+                <button
+                  onClick={() => setReceiveAmount("100")}
+                  className="flex-1 bg-[#2A2A2A] text-white py-2 px-4 rounded-full"
+                >
+                  100 USDC
+                </button>
+              </div>
+
+              {/* Info Text */}
+              <div className="mb-6 text-gray-400 text-sm">
+                <p>
+                  This will deposit USDC from your wallet to the pool as
+                  revenue. Make sure you have sufficient USDC in your wallet.
+                </p>
+              </div>
+
+              {/* Deposit Button */}
+              <button
+                onClick={handleReceiveRevenue}
+                disabled={
+                  isReceiving ||
+                  !receiveAmount ||
+                  parseFloat(receiveAmount) <= 0
+                }
+                className="w-full bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-3 px-4 rounded-full font-semibold transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed"
+              >
+                {isReceiving ? (
+                  <span className="flex items-center justify-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : (
+                  "Deposit Revenue"
                 )}
               </button>
             </div>
