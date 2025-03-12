@@ -52,7 +52,11 @@ export default function PoolDetailsPage() {
     privyReady,
   } = useContractInteraction();
 
-  const { balance: usdcBalance, refresh: refreshBalance } = useUSDCBalance();
+  const {
+    balance: usdcBalance,
+    refresh: refreshBalance,
+    isUsingCache: isUsingCachedBalance,
+  } = useUSDCBalance();
 
   const {
     commitments,
@@ -372,9 +376,11 @@ export default function PoolDetailsPage() {
                   usdcBalance={usdcBalance}
                   commitAmount={commitAmount}
                   isApproving={isApproving}
+                  isUsingCache={isUsingCachedBalance}
                   handleMaxClick={handleMaxClick}
                   handleCommit={handleCommit}
                   setCommitAmount={setCommitAmount}
+                  refreshBalance={refreshBalance}
                 />
 
                 {/* Token Section */}

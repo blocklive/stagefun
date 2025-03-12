@@ -11,11 +11,17 @@ interface Asset {
   value: number;
   type: "token" | "pool" | "native";
   status?: string;
+  isUsingCache?: boolean;
 }
 
 export function useUserAssets() {
   const { dbUser } = useSupabase();
-  const { balance: usdcBalance, isLoading: isLoadingUsdc } = useUSDCBalance();
+  const {
+    balance: usdcBalance,
+    isLoading: isLoadingUsdc,
+    isUsingCache: isUsingCachedBalance,
+    refresh: refreshUsdcBalance,
+  } = useUSDCBalance();
   const { balance: monBalance, isLoading: isLoadingMon } = useNativeBalance();
   const { pools: userPools, isLoading: isLoadingPools } = useUserCreatedPools(
     dbUser?.id || ""
@@ -43,6 +49,7 @@ export function useUserAssets() {
         balance: usdcBalance,
         value: parseFloat(usdcBalance), // USDC is pegged to USD
         type: "token",
+        isUsingCache: isUsingCachedBalance,
       });
     }
 
@@ -50,7 +57,7 @@ export function useUserAssets() {
     // Will be implemented properly in the future
 
     return result;
-  }, [usdcBalance, monBalance]);
+  }, [usdcBalance, monBalance, isUsingCachedBalance]);
 
   const totalBalance = useMemo(() => {
     return assets.reduce((total, asset) => total + asset.value, 0).toFixed(2);
@@ -60,5 +67,7 @@ export function useUserAssets() {
     assets,
     totalBalance,
     isLoading: isLoadingUsdc || isLoadingMon || isLoadingPools,
+    isUsingCachedBalance,
+    refreshUsdcBalance,
   };
 }

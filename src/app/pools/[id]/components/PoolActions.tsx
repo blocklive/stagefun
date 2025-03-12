@@ -1,6 +1,7 @@
 "use client";
 
 import { Pool, User } from "../../../../lib/supabase";
+import { FaSync } from "react-icons/fa";
 
 interface PoolActionsProps {
   pool: Pool;
@@ -8,9 +9,11 @@ interface PoolActionsProps {
   usdcBalance: string;
   commitAmount: string;
   isApproving: boolean;
+  isUsingCache?: boolean;
   handleMaxClick: () => void;
   handleCommit: () => Promise<void>;
   setCommitAmount: (value: string) => void;
+  refreshBalance?: () => void;
 }
 
 export default function PoolActions({
@@ -19,18 +22,36 @@ export default function PoolActions({
   usdcBalance,
   commitAmount,
   isApproving,
+  isUsingCache = false,
   handleMaxClick,
   handleCommit,
   setCommitAmount,
+  refreshBalance,
 }: PoolActionsProps) {
   return (
     <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Your Balance:</span>
-          <span className="font-medium">
-            {usdcBalance} {pool.currency}
-          </span>
+          <div className="flex items-center">
+            <span className="font-medium">
+              {usdcBalance} {pool.currency}
+            </span>
+            {isUsingCache && (
+              <>
+                <span className="ml-2 text-xs text-amber-300">(cached)</span>
+                {refreshBalance && (
+                  <button
+                    onClick={refreshBalance}
+                    className="ml-2 text-amber-300 hover:text-amber-200"
+                    title="Refresh balance"
+                  >
+                    <FaSync className="h-3 w-3" />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
         <div className="flex items-center space-x-2">
           <input

@@ -13,6 +13,7 @@ import {
   FaTimes,
   FaKey,
   FaCheck,
+  FaSync,
 } from "react-icons/fa";
 import Image from "next/image";
 import { useSupabase } from "../../../contexts/SupabaseContext";
@@ -77,7 +78,13 @@ export default function ProfileComponent() {
     refresh: refreshUserPools,
   } = useUserCreatedPools(userId);
 
-  const { assets, totalBalance, isLoading: isLoadingAssets } = useUserAssets();
+  const {
+    assets,
+    totalBalance,
+    isLoading: isLoadingAssets,
+    isUsingCachedBalance,
+    refreshUsdcBalance,
+  } = useUserAssets();
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -609,6 +616,20 @@ export default function ProfileComponent() {
           <h2 className="text-xl text-gray-400 mb-2">Balance</h2>
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-5xl font-bold">${totalBalance}</h1>
+            {isUsingCachedBalance && (
+              <div className="flex items-center">
+                <span className="text-xs text-amber-300 mr-2">
+                  (using cached data)
+                </span>
+                <button
+                  onClick={refreshUsdcBalance}
+                  className="text-amber-300 hover:text-amber-200"
+                  title="Refresh balance"
+                >
+                  <FaSync className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
 
           <h2 className="text-2xl font-bold mt-8 mb-4">My assets</h2>
@@ -652,6 +673,11 @@ export default function ProfileComponent() {
                         {asset.status && (
                           <span className="ml-2 text-sm text-gray-400">
                             • {asset.status}
+                          </span>
+                        )}
+                        {asset.isUsingCache && (
+                          <span className="ml-2 text-xs text-amber-300">
+                            (cached)
                           </span>
                         )}
                       </div>
