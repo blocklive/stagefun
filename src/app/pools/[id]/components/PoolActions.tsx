@@ -7,9 +7,7 @@ interface PoolActionsProps {
   dbUser: User | null;
   usdcBalance: string;
   commitAmount: string;
-  isActivating: boolean;
   isApproving: boolean;
-  handleTogglePoolStatus: () => Promise<void>;
   handleMaxClick: () => void;
   handleCommit: () => Promise<void>;
   setCommitAmount: (value: string) => void;
@@ -20,9 +18,7 @@ export default function PoolActions({
   dbUser,
   usdcBalance,
   commitAmount,
-  isActivating,
   isApproving,
-  handleTogglePoolStatus,
   handleMaxClick,
   handleCommit,
   setCommitAmount,
@@ -30,29 +26,6 @@ export default function PoolActions({
   return (
     <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
       <div className="space-y-4">
-        {dbUser && dbUser.id === pool.creator_id && (
-          <button
-            onClick={handleTogglePoolStatus}
-            disabled={isActivating}
-            className={`w-full py-3 px-4 rounded-lg font-medium text-lg mb-4 ${
-              isActivating
-                ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                : pool.blockchain_status === "active" ||
-                  pool.blockchain_status === "confirmed" ||
-                  pool.status === "active"
-                ? "bg-red-600 text-white hover:bg-red-700"
-                : "bg-green-600 text-white hover:bg-green-700"
-            }`}
-          >
-            {isActivating
-              ? "Updating..."
-              : pool.blockchain_status === "active" ||
-                pool.blockchain_status === "confirmed" ||
-                pool.status === "active"
-              ? "Deactivate Pool"
-              : "Activate Pool"}
-          </button>
-        )}
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Your Balance:</span>
           <span className="font-medium">

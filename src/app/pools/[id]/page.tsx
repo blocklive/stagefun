@@ -107,69 +107,13 @@ export default function PoolDetailsPage() {
     console.log("contentTab changed to:", contentTab);
   }, [contentTab]);
 
-  // Add state for activation and approving
-  const [isActivating, setIsActivating] = useState(false);
+  // Add state for approving
   const [isApproving, setIsApproving] = useState(false);
 
   // Handle max click
   const handleMaxClick = useCallback(() => {
     setCommitAmount(usdcBalance);
   }, [usdcBalance]);
-
-  // Handle toggle pool status
-  const handleTogglePoolStatus = async () => {
-    if (!pool || !dbUser) return;
-
-    setIsActivating(true);
-    try {
-      const newStatus =
-        pool.blockchain_status === "active" ||
-        pool.blockchain_status === "confirmed"
-          ? "inactive"
-          : "active";
-      const response = await fetch("/api/blockchain/update-pool-status", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          poolId: pool.id,
-          userId: dbUser.id,
-          status: newStatus,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.error ||
-            `Failed to ${
-              newStatus === "active" ? "activate" : "deactivate"
-            } pool`
-        );
-      }
-
-      const result = await response.json();
-      console.log("Pool status updated:", result);
-
-      // Show success message
-      toast.success(
-        `Pool ${
-          newStatus === "active" ? "activated" : "deactivated"
-        } successfully!`
-      );
-
-      // Refresh pool data
-      await refreshPool();
-    } catch (error) {
-      console.error("Error updating pool status:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update pool status"
-      );
-    } finally {
-      setIsActivating(false);
-    }
-  };
 
   const handleCommit = async () => {
     if (!pool || !dbUser) return;
@@ -427,9 +371,7 @@ export default function PoolDetailsPage() {
                   dbUser={dbUser}
                   usdcBalance={usdcBalance}
                   commitAmount={commitAmount}
-                  isActivating={isActivating}
                   isApproving={isApproving}
-                  handleTogglePoolStatus={handleTogglePoolStatus}
                   handleMaxClick={handleMaxClick}
                   handleCommit={handleCommit}
                   setCommitAmount={setCommitAmount}
