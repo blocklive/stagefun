@@ -313,24 +313,29 @@ export default function PoolsPage() {
                   <>
                     <li
                       className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                        sortBy === "recent" ? "text-purple-400" : ""
+                        sortBy === "recent" ? "" : ""
                       }`}
+                      style={{ color: sortBy === "recent" ? "#836EF9" : "" }}
                       onClick={() => handleSortSelect("recent")}
                     >
                       Recent
                     </li>
                     <li
                       className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                        sortBy === "amount" ? "text-purple-400" : ""
+                        sortBy === "amount" ? "" : ""
                       }`}
+                      style={{ color: sortBy === "amount" ? "#836EF9" : "" }}
                       onClick={() => handleSortSelect("amount")}
                     >
                       Amount
                     </li>
                     <li
                       className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                        sortBy === "alphabetical" ? "text-purple-400" : ""
+                        sortBy === "alphabetical" ? "" : ""
                       }`}
+                      style={{
+                        color: sortBy === "alphabetical" ? "#836EF9" : "",
+                      }}
                       onClick={() => handleSortSelect("alphabetical")}
                     >
                       A-Z
@@ -340,16 +345,20 @@ export default function PoolsPage() {
                   <>
                     <li
                       className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                        sortBy === "volume" ? "text-purple-400" : ""
+                        sortBy === "volume" ? "" : ""
                       }`}
+                      style={{ color: sortBy === "volume" ? "#836EF9" : "" }}
                       onClick={() => handleSortSelect("volume")}
                     >
                       Volume
                     </li>
                     <li
                       className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                        sortBy === "alphabetical" ? "text-purple-400" : ""
+                        sortBy === "alphabetical" ? "" : ""
                       }`}
+                      style={{
+                        color: sortBy === "alphabetical" ? "#836EF9" : "",
+                      }}
                       onClick={() => handleSortSelect("alphabetical")}
                     >
                       A-Z
@@ -389,7 +398,8 @@ export default function PoolsPage() {
             <p>Error loading pools. Please try again later.</p>
             <button
               onClick={() => refresh()}
-              className="mt-4 px-4 py-2 bg-purple-500 rounded-lg hover:bg-purple-600 transition-colors"
+              className="mt-4 px-4 py-2 rounded-lg hover:bg-opacity-80 transition-colors"
+              style={{ backgroundColor: "#836EF9" }}
             >
               Refresh
             </button>

@@ -119,7 +119,10 @@ export default function PatronsTab({ poolAddress }: PatronsTabProps) {
               </div>
             </div>
             <div className="flex items-center">
-              <div className="w-6 h-6 mr-2 bg-purple-500 rounded-full flex items-center justify-center">
+              <div
+                className="w-6 h-6 mr-2 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "#836EF9" }}
+              >
                 <span className="text-xs text-white font-bold">LP</span>
               </div>
               <span className="text-lg font-medium">

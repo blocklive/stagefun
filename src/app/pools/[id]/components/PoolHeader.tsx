@@ -22,7 +22,10 @@ export default function PoolHeader({ pool, isTrading }: PoolHeaderProps) {
               className="object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-purple-500 text-white">
+            <div
+              className="w-full h-full flex items-center justify-center text-white"
+              style={{ backgroundColor: "#836EF9" }}
+            >
               <span className="text-xl font-bold">{pool.name.charAt(0)}</span>
             </div>
           )}
@@ -31,7 +34,10 @@ export default function PoolHeader({ pool, isTrading }: PoolHeaderProps) {
         {/* Pool Title and Status */}
         <div className="flex-1">
           <div className="flex flex-col">
-            <div className="text-purple-400 text-sm font-medium mb-1">
+            <div
+              className="text-sm font-medium mb-1"
+              style={{ color: "#836EF9" }}
+            >
               {isTrading
                 ? "• Actively trading"
                 : pool.blockchain_status === "active" ||

@@ -711,14 +711,18 @@ export default function ProfileComponent() {
       <div className="flex-1 p-4 pb-32">
         {isUserPoolsLoading ? (
           <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500"></div>
+            <div
+              className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2"
+              style={{ borderColor: "#836EF9" }}
+            ></div>
           </div>
         ) : userPoolsError ? (
           <div className="text-center py-8 text-red-400">
             <p>Error loading pools. Please try again.</p>
             <button
               onClick={() => refreshUserPools()}
-              className="mt-4 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors"
+              className="mt-4 hover:bg-opacity-80 px-4 py-2 rounded-lg transition-colors"
+              style={{ backgroundColor: "#836EF9" }}
             >
               Retry
             </button>
@@ -732,7 +736,10 @@ export default function ProfileComponent() {
                 onClick={() => router.push(`/pools/${pool.id}`)}
               >
                 <div className="flex items-center">
-                  <div className="w-12 h-12 bg-purple-600 rounded-full flex-shrink-0 flex items-center justify-center">
+                  <div
+                    className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center"
+                    style={{ backgroundColor: "#836EF9" }}
+                  >
                     {pool.image_url ? (
                       <Image
                         src={pool.image_url}

@@ -3,7 +3,7 @@
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
-import { FaArrowLeft } from "react-icons/fa";
+import { FaArrowLeft, FaPlus } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import BottomNavbar from "../../components/BottomNavbar";
 import { useSupabase } from "../../../contexts/SupabaseContext";
@@ -20,11 +20,11 @@ import PoolHeader from "./components/PoolHeader";
 import OpenPoolView from "./components/OpenPoolView";
 import TradingPoolView from "./components/TradingPoolView";
 import TokenSection from "./components/TokenSection";
-import PoolActions from "./components/PoolActions";
 import OrganizerSection from "./components/OrganizerSection";
 import UserCommitment from "./components/UserCommitment";
 import PatronsTab from "./components/PatronsTab";
 import PoolFundsSection from "./components/PoolFundsSection";
+import CommitModal from "./components/CommitModal";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -106,6 +106,9 @@ export default function PoolDetailsPage() {
     "overview"
   );
 
+  // Add state for commit modal
+  const [isCommitModalOpen, setIsCommitModalOpen] = useState(false);
+
   // Debug contentTab changes
   useEffect(() => {
     console.log("contentTab changed to:", contentTab);
@@ -113,6 +116,9 @@ export default function PoolDetailsPage() {
 
   // Add state for approving
   const [isApproving, setIsApproving] = useState(false);
+
+  // Add state to control button visibility
+  const [showCommitButton, setShowCommitButton] = useState(false);
 
   // Handle max click
   const handleMaxClick = useCallback(() => {
@@ -131,6 +137,9 @@ export default function PoolDetailsPage() {
         return;
       }
 
+      // Show initial toast
+      const loadingToast = toast.loading("Preparing your commitment...");
+
       console.log("Pool details in handleCommit:", {
         id: pool.id,
         name: pool.name,
@@ -146,16 +155,66 @@ export default function PoolDetailsPage() {
         amount,
       });
 
-      await commitToBlockchain(pool.id, amount); // Using pool.id as expected by useContractInteraction.depositToPool
+      try {
+        // Update toast for USDC approval
+        toast.loading("Requesting approval for USDC transfer...", {
+          id: loadingToast,
+        });
 
-      // Refresh data
-      refreshPool();
-      refreshBalance();
-      refreshCommitments();
+        // Since commitToBlockchain handles both approval and transaction,
+        // we'll add a toast for USDC approval before the actual transaction
 
-      toast.success("Successfully committed to pool!");
-      setCommitAmount("");
-      setIsApproving(false);
+        // Set up timeouts for toast updates
+        const approvalTimeout = setTimeout(() => {
+          toast.loading("✅ USDC approved! Initiating transaction...", {
+            id: loadingToast,
+          });
+        }, 3000); // Show after 3 seconds - this is just an estimate
+
+        const submissionTimeout = setTimeout(() => {
+          toast.loading("Transaction submitted to blockchain...", {
+            id: loadingToast,
+          });
+        }, 6000); // Show after 6 seconds - this is just an estimate
+
+        // This will handle both approval and transaction submission
+        await commitToBlockchain(pool.id, amount);
+
+        // Clear timeouts if transaction completes faster than expected
+        clearTimeout(approvalTimeout);
+        clearTimeout(submissionTimeout);
+
+        // After successful transaction submission
+        toast.loading(
+          "Transaction successful! Waiting for final confirmation...",
+          { id: loadingToast }
+        );
+
+        // Receipt received message
+        toast.loading("Receipt received! Finalizing your deposit...", {
+          id: loadingToast,
+        });
+
+        // Refresh data
+        refreshPool();
+        refreshBalance();
+        refreshCommitments();
+
+        // Success toast with emoji
+        toast.success(
+          `🎉 Successfully committed ${amount} USDC to ${pool.name}!`,
+          { id: loadingToast }
+        );
+        setCommitAmount("");
+        setIsApproving(false);
+        setIsCommitModalOpen(false); // Close the modal on success
+      } catch (txError) {
+        console.error("Transaction error:", txError);
+        toast.error(`Transaction failed: ${String(txError)}`, {
+          id: loadingToast,
+        });
+        setIsApproving(false);
+      }
     } catch (error) {
       console.error("Error committing to pool:", error);
       toast.error("Failed to commit to pool. Please try again.");
@@ -176,9 +235,12 @@ export default function PoolDetailsPage() {
         return;
       }
 
+      // Show initial toast
+      const loadingToast = toast.loading("Preparing your commitment...");
+
       // Make sure we have a contract address
       if (!pool.contract_address) {
-        toast.error("Pool contract address not found");
+        toast.error("Pool contract address not found", { id: loadingToast });
         return;
       }
 
@@ -194,18 +256,48 @@ export default function PoolDetailsPage() {
         amount,
       });
 
+      // Update toast for USDC approval
+      toast.loading("Requesting approval for USDC transfer...", {
+        id: loadingToast,
+      });
+
+      // Update toast for approval success
+      toast.loading("✅ USDC approved! Preparing gasless transaction...", {
+        id: loadingToast,
+      });
+
+      // Update toast for transaction in progress
+      toast.loading("Transaction submitted to blockchain...", {
+        id: loadingToast,
+      });
+
       // Use Biconomy to commit to the pool (gasless transaction)
-      // Pass the contract address directly to ensure we're using the right identifier
       await commitToBiconomy(pool.contract_address, amount);
+
+      // Update toast for waiting confirmation
+      toast.loading(
+        "Transaction successful! Waiting for final confirmation...",
+        { id: loadingToast }
+      );
+
+      // Update toast for receipt received
+      toast.loading("Receipt received! Finalizing your deposit...", {
+        id: loadingToast,
+      });
 
       // Refresh data
       refreshPool();
       refreshBalance();
       refreshCommitments();
 
-      toast.success("Successfully committed to pool with Biconomy (gasless)!");
+      // Success toast with emoji
+      toast.success(
+        `🎉 Successfully committed ${amount} USDC to ${pool.name}!`,
+        { id: loadingToast }
+      );
       setCommitAmount("");
       setIsApproving(false);
+      setIsCommitModalOpen(false); // Close the modal on success
     } catch (error) {
       console.error("Error committing to pool with Biconomy:", error);
       toast.error("Failed to commit to pool. Please try again.");
@@ -214,7 +306,7 @@ export default function PoolDetailsPage() {
   };
 
   // Find the user's commitment to this pool
-  const getUserCommitment = () => {
+  const getUserCommitment = useCallback(() => {
     if (!dbUser || !commitments) return null;
 
     // Only check for on-chain commitments - this is the source of truth
@@ -243,7 +335,23 @@ export default function PoolDetailsPage() {
       console.error("Error getting user commitment:", error);
       return null;
     }
-  };
+  }, [dbUser, commitments, privyUser, poolId]);
+
+  // Always show the button for open pools, regardless of whether user has committed
+  const shouldShowCommitButton = !!pool && !hasEnded;
+  const commitButtonText = "Commit";
+
+  // Effect to determine if commit button should be shown - simplified to avoid flickering
+  useEffect(() => {
+    if (shouldShowCommitButton !== showCommitButton) {
+      setShowCommitButton(shouldShowCommitButton);
+    }
+  }, [pool, hasEnded, showCommitButton]);
+
+  // Debug log for showCommitButton changes
+  useEffect(() => {
+    console.log("showCommitButton changed:", showCommitButton);
+  }, [showCommitButton]);
 
   // Render user's commitment section
   const renderUserCommitment = () => {
@@ -369,20 +477,6 @@ export default function PoolDetailsPage() {
             {/* Tab Content */}
             {contentTab === "overview" && (
               <div className="mt-6">
-                {/* Pool Actions - Only show for Open Pools */}
-                <PoolActions
-                  pool={pool}
-                  dbUser={dbUser}
-                  usdcBalance={usdcBalance}
-                  commitAmount={commitAmount}
-                  isApproving={isApproving}
-                  isUsingCache={isUsingCachedBalance}
-                  handleMaxClick={handleMaxClick}
-                  handleCommit={handleCommit}
-                  setCommitAmount={setCommitAmount}
-                  refreshBalance={refreshBalance}
-                />
-
                 {/* Token Section */}
                 <TokenSection pool={pool} />
 
@@ -416,10 +510,9 @@ export default function PoolDetailsPage() {
 
   return (
     <div className="min-h-screen bg-[#0F0D1B] text-white flex flex-col">
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Back Button - Always show now */}
-        <div className="container mx-auto px-4 py-4">
+      {/* Top Navigation Bar */}
+      <div className="sticky top-0 z-40 bg-[#0F0D1B] border-b border-gray-800">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <button
             onClick={() => router.back()}
             className="flex items-center text-gray-400 hover:text-white"
@@ -428,16 +521,51 @@ export default function PoolDetailsPage() {
             Back
           </button>
         </div>
-
-        {renderContent()}
       </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto">{renderContent()}</div>
+
+      {/* Commit Button - Fixed above bottom navbar */}
+      {showCommitButton && (
+        <div className="fixed bottom-20 left-0 right-0 z-50 px-4 py-3 bg-[#0F0D1B] border-t border-gray-800 shadow-lg">
+          <div className="container mx-auto">
+            <button
+              onClick={() => setIsCommitModalOpen(true)}
+              className="w-full bg-[#836EF9] hover:bg-[#7058E8] text-white py-4 px-4 rounded-lg font-medium text-lg flex items-center justify-center shadow-lg shadow-purple-900/50 transition-all duration-200 hover:shadow-xl hover:shadow-purple-900/60 hover:transform hover:scale-[1.02]"
+            >
+              {commitButtonText}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Navigation - Always show now */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0F0D1B] border-t border-gray-800">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0F0D1B] border-t border-gray-800">
         <BottomNavbar activeTab="party" />
       </div>
+
       {/* Add padding at the bottom of the main content to prevent overlap */}
-      <div className="pb-32"></div>
+      <div className="pb-56"></div>
+
+      {/* Commit Modal */}
+      <CommitModal
+        isOpen={isCommitModalOpen}
+        onClose={() => setIsCommitModalOpen(false)}
+        pool={pool}
+        dbUser={dbUser}
+        usdcBalance={usdcBalance}
+        commitAmount={commitAmount}
+        isApproving={isApproving}
+        isUsingCache={isUsingCachedBalance}
+        walletsReady={walletsReady}
+        biconomyWalletAddress={biconomyWalletAddress}
+        handleMaxClick={handleMaxClick}
+        handleCommit={handleCommit}
+        handleBiconomyCommit={handleBiconomyCommit}
+        setCommitAmount={setCommitAmount}
+        refreshBalance={refreshBalance}
+      />
     </div>
   );
 }
