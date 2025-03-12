@@ -21,6 +21,7 @@ import { createPool } from "../../../lib/services/pool-service";
 import { useAuthenticatedSupabase } from "@/hooks/useAuthenticatedSupabase";
 import { Pool } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
+import SocialLinksInput from "@/components/SocialLinksInput";
 
 // Helper function to format a date for datetime-local input
 function formatDateForInput(date: Date): string {
@@ -51,6 +52,7 @@ export default function CreatePoolPage() {
   const [currency, setCurrency] = useState("USDC");
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [socialLinks, setSocialLinks] = useState({});
 
   // Default end date is 2 days from now
   const [endDate, setEndDate] = useState<Date>(
@@ -311,6 +313,7 @@ export default function CreatePoolPage() {
         creator_id: dbUser.id,
         raised_amount: 0,
         image_url: imageUrl,
+        social_links: Object.keys(socialLinks).length > 0 ? socialLinks : null,
       };
 
       console.log("Submitting pool data:", poolData);
@@ -602,24 +605,24 @@ export default function CreatePoolPage() {
               />
 
               {/* Text formatting toolbar */}
-              <div className="flex items-center p-3 border-t border-gray-700">
-                <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-700">
-                  <FaImage className="text-white" />
+              <div className="flex items-center p-2 border-t border-gray-700">
+                <button className="p-2 text-gray-400 hover:text-white">
+                  <FaBold />
                 </button>
-                <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-700">
-                  <FaYoutube className="text-white" />
+                <button className="p-2 text-gray-400 hover:text-white">
+                  <FaItalic />
                 </button>
-                <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-700">
-                  <FaLink className="text-white" />
+                <button className="p-2 text-gray-400 hover:text-white">
+                  <FaListUl />
                 </button>
-                <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-700">
-                  <FaBold className="text-white" />
+                <button className="p-2 text-gray-400 hover:text-white">
+                  <FaLink />
                 </button>
-                <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-700">
-                  <FaItalic className="text-white" />
+                <button className="p-2 text-gray-400 hover:text-white">
+                  <FaYoutube />
                 </button>
-                <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-700">
-                  <FaListUl className="text-white" />
+                <button className="p-2 text-gray-400 hover:text-white">
+                  <FaImage />
                 </button>
               </div>
             </div>
@@ -629,7 +632,9 @@ export default function CreatePoolPage() {
           <div className="mb-6">
             <div className="relative">
               <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                <FaMapMarkerAlt className="text-gray-400" />
+                <div className="w-8 h-8 bg-[#2A2640] rounded-full flex items-center justify-center">
+                  <FaMapMarkerAlt className="text-white" />
+                </div>
               </div>
               <input
                 type="text"
@@ -637,9 +642,14 @@ export default function CreatePoolPage() {
                 name="location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full p-4 pl-12 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full p-4 pl-16 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
+          </div>
+
+          {/* Social Links */}
+          <div className="mb-6">
+            <SocialLinksInput value={socialLinks} onChange={setSocialLinks} />
           </div>
 
           {/* End Time Picker */}

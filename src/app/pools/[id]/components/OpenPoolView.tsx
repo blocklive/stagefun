@@ -35,8 +35,12 @@ export default function OpenPoolView({
 }: OpenPoolViewProps) {
   return (
     <>
-      {/* Tabs and Social Icons */}
-      <TabsAndSocial activeTab={activeTab} onTabChange={onTabChange} />
+      {/* Tabs and Social Links */}
+      <TabsAndSocial
+        activeTab={activeTab}
+        onTabChange={onTabChange}
+        pool={pool}
+      />
 
       {/* Only show the main content when the overview tab is selected */}
       {activeTab === "overview" && (

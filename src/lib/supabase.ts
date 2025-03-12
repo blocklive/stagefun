@@ -50,6 +50,13 @@ export type Pool = {
   blockchain_network?: string;
   blockchain_explorer_url?: string;
   contract_address?: string; // Address of the deployed StageDotFunLiquidity token
+  social_links?: {
+    website?: string;
+    twitter?: string;
+    discord?: string;
+    instagram?: string;
+    [key: string]: string | undefined;
+  };
 };
 
 export type Patron = {

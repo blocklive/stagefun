@@ -79,13 +79,13 @@ export async function POST(request: NextRequest) {
       // Continue anyway, this is just a secondary check
     }
 
-    // If there are too many requests from this IP (more than 3 in 24 hours)
-    // if (ipRequests && ipRequests.length >= 3) {
-    //   return NextResponse.json(
-    //     { error: "Too many requests from this IP address" },
-    //     { status: 429 }
-    //   );
-    // }
+    // If there are too many requests from this IP (more than 5 in 24 hours)
+    if (ipRequests && ipRequests.length >= 5) {
+      return NextResponse.json(
+        { error: "Too many requests from this IP address" },
+        { status: 429 }
+      );
+    }
 
     // Get the provider based on the network
     const provider = new ethers.JsonRpcProvider(
