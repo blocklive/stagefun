@@ -454,20 +454,30 @@ export default function ProfileComponent() {
     >
       {/* Profile Header with Avatar and Name */}
       <div className="relative pt-12 pb-8 flex flex-col items-center bg-gradient-to-b from-[#1A0B3E] to-[#4A2A9A]">
-        {/* Use AppHeader for back button */}
+        {/* Use AppHeader without back button */}
         <div className="absolute top-0 left-0 right-0">
           <AppHeader
-            showBackButton={true}
+            showBackButton={false}
             showTitle={false}
             className="bg-transparent"
           />
+        </div>
+
+        {/* Back button below header */}
+        <div className="absolute top-16 left-4">
+          <button
+            onClick={() => router.back()}
+            className="w-12 h-12 bg-[#2A2640] rounded-full flex items-center justify-center text-white"
+          >
+            <FaArrowLeft />
+          </button>
         </div>
 
         {/* Only show Logout Button if viewing own profile */}
         {isOwnProfile && (
           <button
             onClick={() => logout()}
-            className="absolute top-6 right-6 w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
+            className="absolute top-4 right-4 w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
             aria-label="Logout"
           >
             <FaSignOutAlt className="text-white" />

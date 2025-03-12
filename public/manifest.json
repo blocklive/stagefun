@@ -1,20 +1,35 @@
 {
-  "name": "My Progressive Web App",
-  "short_name": "My PWA",
-  "description": "A progressive web app built with Next.js",
+  "name": "stage.fun",
+  "short_name": "stage.fun",
+  "description": "stage.fun is a fun platform",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#15161a",
+  "theme_color": "#15161a",
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
+      "src": "/favicon/android-chrome-192x192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "/favicon/android-chrome-512x512.png",
       "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png"
     }
   ]

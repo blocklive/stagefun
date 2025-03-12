@@ -354,19 +354,6 @@ export default function PoolsPage() {
         </div>
       </div>
 
-      {/* Cache indicator */}
-      {isUsingCache && (
-        <div className="px-4 py-2 bg-amber-800 bg-opacity-30 text-amber-300 text-sm text-center">
-          Showing cached data.
-          <button
-            onClick={() => refresh()}
-            className="ml-2 underline hover:text-amber-200"
-          >
-            Refresh
-          </button>
-        </div>
-      )}
-
       {/* List of Items */}
       <div
         className="flex-1 overflow-y-auto mt-4 px-4"
