@@ -50,7 +50,7 @@ export const CONTRACT_ADDRESSES = {
  */
 export const NETWORK = {
   chainId: 10143, // Monad Testnet
-  rpcUrl: "https://testnet-rpc.monad.xyz",
+  rpcUrl: "https://falling-practical-rain.monad-testnet.quiknode.pro/a5d256e0fcaf1ff2574b5d13322cb315b0cec88f",
   explorerUrl: "https://testnet.monadexplorer.com",
 } as const;
 

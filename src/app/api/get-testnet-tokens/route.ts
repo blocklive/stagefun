@@ -89,9 +89,7 @@ export async function POST(request: NextRequest) {
 
     // Get the provider based on the network
     const provider = new ethers.JsonRpcProvider(
-      process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
-        ? "https://testnet-rpc.monad.xyz"
-        : "https://sepolia.base.org"
+      process.env.NEXT_PUBLIC_RPC_URL
     );
 
     // Get the private key from environment variables

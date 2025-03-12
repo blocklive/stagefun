@@ -18,7 +18,7 @@ export const CONTRACT_ADDRESSES = {
  */
 export const NETWORK = {
   chainId: 10143, // Monad Testnet
-  rpcUrl: "https://testnet-rpc.monad.xyz",
+  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL,
   explorerUrl: "https://testnet.monadexplorer.com",
 } as const;
 

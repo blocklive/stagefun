@@ -12,10 +12,14 @@ const MONAD_TESTNET = {
   network: "monad-testnet",
   rpcUrls: {
     default: {
-      http: ["https://testnet-rpc.monad.xyz"],
+      http: [
+        "https://falling-practical-rain.monad-testnet.quiknode.pro/a5d256e0fcaf1ff2574b5d13322cb315b0cec88f",
+      ],
     },
     public: {
-      http: ["https://testnet-rpc.monad.xyz"],
+      http: [
+        "https://falling-practical-rain.monad-testnet.quiknode.pro/a5d256e0fcaf1ff2574b5d13322cb315b0cec88f",
+      ],
     },
   },
   nativeCurrency: {

@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     // Set up provider and wallet for the backend
     let rpcUrl;
     if (blockchainNetwork === "monad") {
-      rpcUrl = "https://testnet-rpc.monad.xyz";
+      rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
     } else if (
       blockchainNetwork === "hardhat" ||
       blockchainNetwork === "localhost"

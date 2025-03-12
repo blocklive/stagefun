@@ -71,7 +71,7 @@ module.exports = {
       chainId: 1337,
     },
     monadTestnet: {
-      url: monadTestnetRpcUrl || "https://testnet-rpc.monad.xyz",
+      url: monadTestnetRpcUrl,
       chainId: 10143,
       accounts: privateKey ? [privateKey] : [],
       gas: 3000000,

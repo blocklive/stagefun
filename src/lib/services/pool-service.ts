@@ -57,11 +57,7 @@ export async function getAllPools(): Promise<Pool[]> {
   if (dbError) throw dbError;
 
   // Get pools from blockchain
-  const provider = new ethers.JsonRpcProvider(
-    process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
-      ? "https://testnet-rpc.monad.xyz"
-      : "https://sepolia.base.org"
-  );
+  const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL);
 
   // Create a map of contract addresses to chain data
   const chainDataMap = new Map();
@@ -179,9 +175,7 @@ export async function getPoolById(id: string): Promise<Pool | null> {
   if (dbPool.contract_address) {
     try {
       const provider = new ethers.JsonRpcProvider(
-        process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
-          ? "https://testnet-rpc.monad.xyz"
-          : "https://sepolia.base.org"
+        process.env.NEXT_PUBLIC_RPC_URL
       );
       chainData = await getPoolDetails(provider, dbPool.contract_address);
 
@@ -247,11 +241,7 @@ export async function createPool(
   if (dbError) throw dbError;
 
   // Create pool on blockchain
-  const provider = new ethers.JsonRpcProvider(
-    process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
-      ? "https://testnet-rpc.monad.xyz"
-      : "https://sepolia.base.org"
-  );
+  const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL);
   const signer = await provider.getSigner();
 
   const { poolId: poolAddress, lpTokenAddress } = await createPoolOnChain(

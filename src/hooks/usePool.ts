@@ -45,9 +45,7 @@ async function fetchPool(poolId: string) {
   if (dbPool.contract_address) {
     try {
       const provider = new ethers.JsonRpcProvider(
-        process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
-          ? "https://testnet-rpc.monad.xyz"
-          : "https://sepolia.base.org"
+        process.env.NEXT_PUBLIC_RPC_URL
       );
 
       // First verify the contract exists and is accessible

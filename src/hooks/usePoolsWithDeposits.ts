@@ -30,9 +30,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
     ["onchain-pools", currentPage, status],
     async () => {
       const provider = new ethers.JsonRpcProvider(
-        process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
-          ? "https://testnet-rpc.monad.xyz"
-          : "https://sepolia.base.org"
+        process.env.NEXT_PUBLIC_RPC_URL
       );
 
       try {

@@ -31,11 +31,7 @@ interface PoolFundsSectionProps {
 // SWR fetcher function for on-chain data
 const fetcher = async (url: string, contractAddress: string) => {
   // Get the provider based on the network
-  const provider = new ethers.JsonRpcProvider(
-    process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === "monad"
-      ? "https://testnet-rpc.monad.xyz"
-      : "https://sepolia.base.org"
-  );
+  const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL);
 
   // Get the pool contract
   const poolContract = new ethers.Contract(
