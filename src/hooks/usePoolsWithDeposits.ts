@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { ethers } from "ethers";
 import {
@@ -15,10 +15,37 @@ const supabase = createClient(
 );
 
 const POOLS_PER_PAGE = 10; // Number of pools to fetch per page
+const MAX_RETRIES = 3; // Maximum number of retries for failed requests
+const RETRY_DELAY = 2000; // Delay between retries in milliseconds
+
+// Type for the transformed pool data
+export type TransformedPool = {
+  id: string;
+  contract_address: string;
+  name: string;
+  creator_address: string;
+  raised_amount: number;
+  target_amount: number;
+  revenue_accumulated: number;
+  ends_at: string;
+  status: string;
+  creator_name: string;
+  creator_avatar_url: string | null;
+  created_at: string;
+  image_url: string | null;
+  description: string;
+  creator_id: string;
+  blockchain_status: string;
+};
 
 export function usePoolsWithDeposits(page: number = 1, status?: string) {
   const [currentPage, setCurrentPage] = useState(page);
   const [hasMore, setHasMore] = useState(true);
+
+  // Add state to store the last successfully fetched data
+  const [cachedPools, setCachedPools] = useState<TransformedPool[]>([]);
+  const [isRpcError, setIsRpcError] = useState(false);
+  const retryCountRef = useRef(0);
 
   // Fetch all pool data directly from the blockchain in a single call
   const {
@@ -34,6 +61,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
       );
 
       try {
+        setIsRpcError(false);
         // Get all pool details in a single call
         const poolListItems = await getDeployedPoolsDetails(provider);
 
@@ -117,21 +145,62 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
 
         setHasMore(endIndex < sortedPools.length);
 
+        // Store the successfully fetched data in our cache
+        setCachedPools(sortedPools);
+        retryCountRef.current = 0; // Reset retry count on successful fetch
+
         return {
           pools: paginatedPools,
           allPoolsCount: sortedPools.length,
         };
       } catch (error) {
         console.error("Error fetching pool details from blockchain:", error);
+
+        // Set RPC error state
+        setIsRpcError(true);
+
+        // Implement retry logic
+        if (retryCountRef.current < MAX_RETRIES) {
+          retryCountRef.current += 1;
+          console.log(
+            `Retrying fetch (${retryCountRef.current}/${MAX_RETRIES})...`
+          );
+
+          // Schedule a retry after delay
+          setTimeout(() => {
+            refreshPools();
+          }, RETRY_DELAY);
+        }
+
+        // If we have cached data, use it instead of returning an empty array
+        if (cachedPools.length > 0) {
+          console.log("Using cached pool data due to RPC error");
+
+          // Handle pagination for cached data
+          const startIndex = (currentPage - 1) * POOLS_PER_PAGE;
+          const endIndex = startIndex + POOLS_PER_PAGE;
+          const paginatedCachedPools = cachedPools.slice(startIndex, endIndex);
+
+          return {
+            pools: paginatedCachedPools,
+            allPoolsCount: cachedPools.length,
+            isUsingCache: true,
+          };
+        }
+
+        // If no cached data, return empty array
         return {
           pools: [],
           allPoolsCount: 0,
+          isUsingCache: false,
         };
       }
     },
     {
-      refreshInterval: 10000, // Refresh every 10 seconds
+      refreshInterval: 30000, // Refresh every 30 seconds (increased from 10s to reduce load)
       revalidateOnFocus: true,
+      dedupingInterval: 5000, // Dedupe requests within 5 seconds
+      errorRetryCount: 3, // SWR's built-in retry count
     }
   );
 
@@ -141,13 +210,21 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
     setCurrentPage((prev) => prev + 1);
   };
 
+  // Force refresh function that resets retry count
+  const forceRefresh = () => {
+    retryCountRef.current = 0;
+    refreshPools();
+  };
+
   return {
     pools: poolsData?.pools || [],
     isLoading,
     error,
+    isRpcError,
     hasMore,
     loadMore,
-    refresh: refreshPools,
+    refresh: forceRefresh,
     totalCount: poolsData?.allPoolsCount || 0,
+    isUsingCache: poolsData?.isUsingCache || false,
   };
 }
