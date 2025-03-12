@@ -120,12 +120,13 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if we need to distribute revenue first
-      let txHash;
+      let txHash = "";
       if (parseFloat(revenueAccumulated) > 0) {
         // Distribute revenue to LPs
         const distributeTx = await poolContract.distributeRevenue();
-        await distributeTx.wait();
-        console.log("Revenue distributed to LPs");
+        const distReceipt = await distributeTx.wait();
+        txHash = distReceipt.hash;
+        console.log("Revenue distributed to LPs", { txHash });
       }
 
       // Now handle the withdrawal

@@ -50,7 +50,7 @@ export function useUserAssets() {
     // Will be implemented properly in the future
 
     return result;
-  }, [usdcBalance, monBalance, userPools]);
+  }, [usdcBalance, monBalance]);
 
   const totalBalance = useMemo(() => {
     return assets.reduce((total, asset) => total + asset.value, 0).toFixed(2);

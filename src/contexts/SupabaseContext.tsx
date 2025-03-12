@@ -163,7 +163,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setIsLoadingUser(false);
     }
-  }, [authenticated, privyUser, getUserByWalletAddress, createOrUpdateUser]);
+  }, [authenticated, privyUser]);
 
   useEffect(() => {
     if (ready) {
