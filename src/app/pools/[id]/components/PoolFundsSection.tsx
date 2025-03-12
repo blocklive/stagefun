@@ -10,11 +10,21 @@ import {
   StageDotFunPoolABI,
   getUSDCContract,
 } from "../../../../lib/contracts/StageDotFunPool";
-import { FaArrowUp, FaPlus, FaChevronLeft, FaSync } from "react-icons/fa";
+import {
+  FaArrowUp,
+  FaPlus,
+  FaChevronLeft,
+  FaSync,
+  FaDollarSign,
+} from "react-icons/fa";
 import useSWR from "swr";
+import { usePoolPatrons } from "../../../../hooks/usePoolPatrons";
 
 interface PoolFundsSectionProps {
-  pool: Pool & { revenue_accumulated?: number };
+  pool: Pool & {
+    revenue_accumulated?: number;
+    patron_count?: number;
+  };
   isCreator: boolean;
 }
 
@@ -63,18 +73,22 @@ export default function PoolFundsSection({
 }: PoolFundsSectionProps) {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [isReceiving, setIsReceiving] = useState(false);
+  const [isDistributing, setIsDistributing] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
   const [showDepositInput, setShowDepositInput] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [showDistributeModal, setShowDistributeModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [receiveAmount, setReceiveAmount] = useState("");
+  const [distributeAmount, setDistributeAmount] = useState("");
   const { sendTransaction } = useSendTransaction();
   const { wallets } = useWallets();
   const modalRef = useRef<HTMLDivElement>(null);
   const receiveModalRef = useRef<HTMLDivElement>(null);
+  const distributeModalRef = useRef<HTMLDivElement>(null);
 
   // Fetch on-chain data using SWR
   const {
@@ -90,6 +104,14 @@ export default function PoolFundsSection({
       dedupingInterval: 5000,
     }
   );
+
+  // Get pool patrons using the usePoolPatrons hook
+  const { patrons, loading: loadingPatrons } = usePoolPatrons(
+    pool.contract_address || null
+  );
+
+  // Get the actual patron count
+  const patronCount = useMemo(() => patrons.length, [patrons]);
 
   // Raw values for calculations - use on-chain data if available
   const rawTotalFunds = useMemo(() => {
@@ -161,15 +183,21 @@ export default function PoolFundsSection({
       ) {
         setShowReceiveModal(false);
       }
+      if (
+        distributeModalRef.current &&
+        !distributeModalRef.current.contains(event.target as Node)
+      ) {
+        setShowDistributeModal(false);
+      }
     }
 
-    if (showWithdrawModal || showReceiveModal) {
+    if (showWithdrawModal || showReceiveModal || showDistributeModal) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showWithdrawModal, showReceiveModal]);
+  }, [showWithdrawModal, showReceiveModal, showDistributeModal]);
 
   // Clear status message after 5 seconds
   useEffect(() => {
@@ -453,6 +481,82 @@ export default function PoolFundsSection({
     }
   };
 
+  // Open distribute revenue modal
+  const openDistributeModal = () => {
+    // Set initial distribute amount to the total revenue accumulated
+    if (onChainData) {
+      const revenueAccumulated = parseFloat(
+        ethers.formatUnits(onChainData.revenueAccumulated, 6)
+      );
+      setDistributeAmount(revenueAccumulated.toFixed(2));
+    } else if (pool.revenue_accumulated) {
+      setDistributeAmount(pool.revenue_accumulated.toFixed(2));
+    } else {
+      setDistributeAmount("");
+    }
+    setShowDistributeModal(true);
+  };
+
+  // Handle distribute revenue
+  const handleDistributeRevenue = async () => {
+    if (!pool.contract_address) {
+      toast.error("Pool contract address not found");
+      return;
+    }
+
+    const amount = parseFloat(distributeAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    // Check if there's enough revenue to distribute
+    const availableRevenue = onChainData
+      ? parseFloat(ethers.formatUnits(onChainData.revenueAccumulated, 6))
+      : pool.revenue_accumulated || 0;
+
+    if (amount > availableRevenue) {
+      toast.error("Distribution amount cannot exceed available revenue");
+      return;
+    }
+
+    setIsDistributing(true);
+    try {
+      // Call the backend API to distribute revenue
+      const response = await fetch("/api/pools/distribute-revenue", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          poolAddress: pool.contract_address,
+          amount: amount,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to distribute revenue");
+      }
+
+      const result = await response.json();
+      toast.success("Revenue distribution initiated");
+      setStatusMessage("Distribution request submitted successfully!");
+      console.log("Distribution result:", result);
+      setShowDistributeModal(false);
+
+      // Refresh on-chain data after transaction
+      setTimeout(() => refreshOnChainData(), 5000);
+    } catch (error) {
+      console.error("Error distributing revenue:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to distribute revenue"
+      );
+    } finally {
+      setIsDistributing(false);
+    }
+  };
+
   return (
     <>
       <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
@@ -498,9 +602,9 @@ export default function PoolFundsSection({
 
           {isCreator && (
             <div className="mt-4">
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-black py-3 px-4 rounded-lg transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                  className="bg-gray-200 hover:bg-gray-300 text-black py-3 px-4 rounded-lg transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
                   onClick={openWithdrawModal}
                   disabled={isWithdrawing || rawTotalFunds <= 0}
                 >
@@ -534,7 +638,7 @@ export default function PoolFundsSection({
                   )}
                 </button>
                 <button
-                  className="flex-1 bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-3 px-4 rounded-lg transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                  className="bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-3 px-4 rounded-lg transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
                   onClick={openReceiveModal}
                   disabled={isReceiving}
                 >
@@ -565,6 +669,47 @@ export default function PoolFundsSection({
                     </span>
                   ) : (
                     "Receive Revenue"
+                  )}
+                </button>
+                <button
+                  className="bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg transition-colors disabled:bg-blue-300 disabled:text-gray-200 disabled:cursor-not-allowed flex items-center justify-center"
+                  onClick={openDistributeModal}
+                  disabled={
+                    isDistributing ||
+                    (onChainData
+                      ? parseFloat(
+                          ethers.formatUnits(onChainData.revenueAccumulated, 6)
+                        ) <= 0
+                      : (pool.revenue_accumulated || 0) <= 0)
+                  }
+                >
+                  <FaDollarSign className="mr-2" />
+                  {isDistributing && !showDistributeModal ? (
+                    <span className="flex items-center justify-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : (
+                    "Distribute Revenue"
                   )}
                 </button>
               </div>
@@ -819,6 +964,101 @@ export default function PoolFundsSection({
                   </span>
                 ) : (
                   "Deposit Revenue"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Distribute Revenue Modal */}
+      {showDistributeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div
+            ref={distributeModalRef}
+            className="bg-[#121212] rounded-lg w-full max-w-md overflow-hidden"
+          >
+            {/* Modal Header */}
+            <div className="p-4 flex items-center">
+              <button
+                onClick={() => setShowDistributeModal(false)}
+                className="p-2 rounded-full bg-[#2A2A2A] mr-4"
+              >
+                <FaChevronLeft className="text-white" />
+              </button>
+              <h2 className="text-xl font-bold text-white text-center flex-grow">
+                Confirm payback
+              </h2>
+              <div className="w-10"></div> {/* Spacer for centering */}
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              {/* Pool Icon and Amount */}
+              <div className="flex justify-center mb-6">
+                <div className="flex items-center">
+                  <div className="bg-blue-500 rounded-full p-2 mr-2">
+                    <FaDollarSign className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="text-4xl font-bold text-white">
+                    {distributeAmount
+                      ? parseFloat(distributeAmount).toFixed(2)
+                      : "0.00"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Distribution Info */}
+              <div className="space-y-4 mb-6">
+                <div className="flex justify-between items-center">
+                  <div className="text-gray-400">Distribution among</div>
+                  <div className="text-white font-semibold">
+                    {loadingPatrons
+                      ? "Loading..."
+                      : `${patronCount} ${
+                          patronCount === 1 ? "patron" : "patrons"
+                        }`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Distribute Button */}
+              <button
+                onClick={handleDistributeRevenue}
+                disabled={
+                  isDistributing ||
+                  !distributeAmount ||
+                  parseFloat(distributeAmount) <= 0 ||
+                  patronCount === 0
+                }
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 px-4 rounded-full font-semibold transition-colors disabled:bg-blue-300 disabled:text-gray-200 disabled:cursor-not-allowed"
+              >
+                {isDistributing ? (
+                  <span className="flex items-center justify-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : (
+                  "Payback"
                 )}
               </button>
             </div>
