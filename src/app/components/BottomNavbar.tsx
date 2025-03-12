@@ -12,7 +12,7 @@ export default function BottomNavbar({ activeTab }: BottomNavbarProps) {
   const router = useRouter();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 flex justify-around items-center py-5 px-4 bg-black border-t border-gray-800">
+    <nav className="fixed bottom-0 left-0 right-0 flex justify-around items-center py-5 px-4 bg-[#15161a] border-t border-gray-800">
       {/* Party Rounds */}
       <div
         className="flex flex-col items-center cursor-pointer"

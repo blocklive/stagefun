@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { FaPlus, FaDollarSign, FaArrowLeft } from "react-icons/fa";
 import React, { useState } from "react";
 import GetTokensModal from "./GetTokensModal";
+import Image from "next/image";
 
 interface AppHeaderProps {
   showBackButton?: boolean;
@@ -47,8 +48,14 @@ export default function AppHeader({
               <FaArrowLeft />
             </button>
           )}
-          <div className="w-10 h-10 bg-[#836EF9] rounded-lg rotate-45 flex items-center justify-center">
-            <div className="w-6 h-6 bg-black rounded-md -rotate-45"></div>
+          <div className="h-10">
+            <Image
+              src="/stagefunheader.png"
+              alt="StageFun Logo"
+              width={40}
+              height={40}
+              className="object-contain"
+            />
           </div>
         </div>
 

@@ -189,7 +189,7 @@ export default function PoolsPage() {
 
   // Render skeleton loading UI for pools
   const renderSkeletonItem = () => (
-    <li className="p-4 bg-[#1C1B1F] rounded-xl animate-pulse">
+    <li className="p-4 bg-[#FFFFFF0A] rounded-xl animate-pulse">
       <div className="flex items-center gap-3">
         {/* Pool Image Skeleton */}
         <div className="w-12 h-12 rounded-full bg-gray-700"></div>
@@ -226,7 +226,7 @@ export default function PoolsPage() {
 
   return (
     <div
-      className="flex flex-col bg-black text-white relative"
+      className="flex flex-col bg-[#15161a] text-white relative"
       style={{ height: viewportHeight }}
     >
       {/* Use the new AppHeader component with title */}
@@ -234,7 +234,7 @@ export default function PoolsPage() {
         showCreateButton={true}
         showGetTokensButton={true}
         onGetTokensClick={() => setShowUSDCModal(true)}
-        backgroundColor="#000000"
+        backgroundColor="#15161a"
         showTitle={true}
       />
 
@@ -394,7 +394,7 @@ export default function PoolsPage() {
                 sortedPools.map((pool: OnChainPool) => (
                   <li
                     key={pool.id}
-                    className="p-4 bg-[#1C1B1F] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
+                    className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
                     onClick={() => router.push(`/pools/${pool.id}`)}
                   >
                     <div className="flex items-center gap-3">
@@ -459,7 +459,7 @@ export default function PoolsPage() {
                 sortedPools.map((pool: OnChainPool) => (
                   <li
                     key={pool.id}
-                    className="p-4 bg-[#1C1B1F] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
+                    className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
                     onClick={() => router.push(`/pools/${pool.id}`)}
                   >
                     <div className="flex items-center gap-3">

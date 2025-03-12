@@ -387,302 +387,313 @@ export default function CreatePoolPage() {
 
   return (
     <div
-      className="flex flex-col bg-[#121212] text-white relative"
+      className="flex flex-col bg-[#15161a] text-white relative"
       style={{ height: viewportHeight }}
     >
-      {/* Use the new AppHeader component */}
-      <AppHeader
-        showBackButton={true}
-        showTitle={false}
-        backgroundColor="#121212"
-      />
+      <div className="flex-1 overflow-y-auto">
+        {/* Use the new AppHeader component */}
+        <AppHeader
+          showBackButton={false}
+          showTitle={false}
+          backgroundColor="#15161a"
+        />
 
-      {/* Page Title */}
-      <div className="px-6 mt-4">
-        <h1 className="text-5xl font-bold">CREATE PARTY ROUND</h1>
-      </div>
+        {/* Back button below header */}
+        <div className="px-4 py-2">
+          <button
+            onClick={() => router.back()}
+            className="w-12 h-12 bg-[#2A2640] rounded-full flex items-center justify-center text-white"
+          >
+            <FaArrowLeft />
+          </button>
+        </div>
 
-      {/* Main content with scrolling */}
-      <div
-        className="flex-1 overflow-y-auto px-6"
-        style={{ paddingBottom: "100px" }}
-      >
-        {/* Pool Image */}
-        <div className="mt-8">
-          <div className="relative w-full aspect-square bg-purple-500 rounded-lg overflow-hidden">
-            {imagePreview ? (
-              <>
-                <Image
-                  src={imagePreview}
-                  alt="Pool preview"
-                  fill
-                  className="object-cover"
-                />
-                <button
-                  onClick={handleRemoveImage}
-                  className="absolute top-4 right-4 w-10 h-10 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600"
-                >
-                  <FaTimes className="text-white" />
-                </button>
-              </>
-            ) : (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-4xl font-bold text-center text-[#1E1B2E] p-8">
-                  YOU ARE INVITED
-                </div>
-                <label className="absolute bottom-4 right-4 w-12 h-12 bg-[#2A2640] rounded-full flex items-center justify-center cursor-pointer hover:bg-[#3A3650]">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="hidden"
+        {/* Page Title */}
+        <div className="px-6 mt-4">
+          <h1 className="text-5xl font-bold">CREATE PARTY ROUND</h1>
+        </div>
+
+        {/* Main content */}
+        <div className="px-6" style={{ paddingBottom: "100px" }}>
+          {/* Pool Image */}
+          <div className="mt-8">
+            <div className="relative w-full aspect-square bg-purple-500 rounded-lg overflow-hidden">
+              {imagePreview ? (
+                <>
+                  <Image
+                    src={imagePreview}
+                    alt="Pool preview"
+                    fill
+                    className="object-cover"
                   />
-                  <FaPencilAlt className="text-white" />
-                </label>
+                  <button
+                    onClick={handleRemoveImage}
+                    className="absolute top-4 right-4 w-10 h-10 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600"
+                  >
+                    <FaTimes className="text-white" />
+                  </button>
+                </>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-4xl font-bold text-center text-[#1E1B2E] p-8">
+                    YOU ARE INVITED
+                  </div>
+                  <label className="absolute bottom-4 right-4 w-12 h-12 bg-[#2A2640] rounded-full flex items-center justify-center cursor-pointer hover:bg-[#3A3650]">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    <FaPencilAlt className="text-white" />
+                  </label>
+                </div>
+              )}
+            </div>
+            {isUploadingImage && (
+              <div className="mt-2 text-sm text-gray-400">
+                Uploading image...
               </div>
             )}
           </div>
-          {isUploadingImage && (
-            <div className="mt-2 text-sm text-gray-400">Uploading image...</div>
-          )}
-        </div>
 
-        {/* Form */}
-        <form id="createPoolForm" onSubmit={handleSubmit} className="mt-8">
-          {/* Pool Name Input */}
-          <div className="mb-6">
-            <input
-              type="text"
-              placeholder="Party Round Name"
-              name="name"
-              value={poolName}
-              onChange={(e) => setPoolName(e.target.value)}
-              className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
+          {/* Form */}
+          <form id="createPoolForm" onSubmit={handleSubmit} className="mt-8">
+            {/* Pool Name Input */}
+            <div className="mb-6">
+              <input
+                type="text"
+                placeholder="Party Round Name"
+                name="name"
+                value={poolName}
+                onChange={(e) => setPoolName(e.target.value)}
+                className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
 
-          {/* Sticker Input */}
-          <div className="mb-6">
-            <input
-              type="text"
-              placeholder="$TICKER"
-              name="ticker"
-              value={ticker}
-              onChange={(e) => setTicker(e.target.value)}
-              className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
+            {/* Sticker Input */}
+            <div className="mb-6">
+              <input
+                type="text"
+                placeholder="$TICKER"
+                name="ticker"
+                value={ticker}
+                onChange={(e) => setTicker(e.target.value)}
+                className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
 
-          {/* Funding Goal Section */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold mb-4">Funding goal</h2>
-            <div className="flex gap-4">
-              {/* Amount Input */}
-              <div className="flex-1 relative">
+            {/* Funding Goal Section */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold mb-4">Funding goal</h2>
+              <div className="flex gap-4">
+                {/* Amount Input */}
+                <div className="flex-1 relative">
+                  <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold">$</span>
+                    </div>
+                  </div>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    name="fundingGoal"
+                    value={fundingGoal}
+                    onChange={(e) => setFundingGoal(e.target.value)}
+                    className="w-full p-4 pl-16 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                {/* Currency Selector */}
+                <div className="relative">
+                  <button
+                    className="h-full px-4 bg-[#2A2640] rounded-lg flex items-center gap-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowCurrencyDropdown(!showCurrencyDropdown);
+                    }}
+                  >
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold">$</span>
+                    </div>
+                    <span>{currency}</span>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`transition-transform ${
+                        showCurrencyDropdown ? "rotate-180" : ""
+                      }`}
+                    >
+                      <path
+                        d="M6 9L12 15L18 9"
+                        stroke="white"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown */}
+                  {showCurrencyDropdown && (
+                    <div className="absolute top-full right-0 mt-2 w-full bg-[#2A2640] rounded-lg shadow-lg z-10">
+                      <button
+                        className="w-full p-3 text-left hover:bg-[#3A3650] transition-colors"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrency("USDC");
+                          setShowCurrencyDropdown(false);
+                        }}
+                      >
+                        USDC
+                      </button>
+                      <button
+                        className="w-full p-3 text-left hover:bg-[#3A3650] transition-colors"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrency("ETH");
+                          setShowCurrencyDropdown(false);
+                        }}
+                      >
+                        ETH
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Minimum Commitment */}
+            <div className="mb-6">
+              <div className="relative">
                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
                   <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                     <span className="text-white font-bold">$</span>
                   </div>
                 </div>
                 <input
-                  type="number"
-                  placeholder="0"
-                  name="fundingGoal"
-                  value={fundingGoal}
-                  onChange={(e) => setFundingGoal(e.target.value)}
+                  type="text"
+                  placeholder="Minimum commitment"
+                  name="minCommitment"
+                  value={minCommitment}
+                  onChange={(e) => setMinCommitment(e.target.value)}
                   className="w-full p-4 pl-16 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
-
-              {/* Currency Selector */}
-              <div className="relative">
-                <button
-                  className="h-full px-4 bg-[#2A2640] rounded-lg flex items-center gap-2"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowCurrencyDropdown(!showCurrencyDropdown);
-                  }}
-                >
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">$</span>
-                  </div>
-                  <span>{currency}</span>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className={`transition-transform ${
-                      showCurrencyDropdown ? "rotate-180" : ""
-                    }`}
-                  >
-                    <path
-                      d="M6 9L12 15L18 9"
-                      stroke="white"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-
-                {/* Dropdown */}
-                {showCurrencyDropdown && (
-                  <div className="absolute top-full right-0 mt-2 w-full bg-[#2A2640] rounded-lg shadow-lg z-10">
-                    <button
-                      className="w-full p-3 text-left hover:bg-[#3A3650] transition-colors"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setCurrency("USDC");
-                        setShowCurrencyDropdown(false);
-                      }}
-                    >
-                      USDC
-                    </button>
-                    <button
-                      className="w-full p-3 text-left hover:bg-[#3A3650] transition-colors"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setCurrency("ETH");
-                        setShowCurrencyDropdown(false);
-                      }}
-                    >
-                      ETH
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
-          </div>
 
-          {/* Minimum Commitment */}
-          <div className="mb-6">
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold">$</span>
-                </div>
-              </div>
+            {/* Patrons */}
+            <div className="mb-6">
               <input
                 type="text"
-                placeholder="Minimum commitment"
-                name="minCommitment"
-                value={minCommitment}
-                onChange={(e) => setMinCommitment(e.target.value)}
-                className="w-full p-4 pl-16 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
-          </div>
-
-          {/* Patrons */}
-          <div className="mb-6">
-            <input
-              type="text"
-              placeholder="Patrons"
-              name="patrons"
-              value={patrons}
-              onChange={(e) => setPatrons(e.target.value)}
-              className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          {/* Description */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold mb-4">Description</h2>
-            <div className="bg-[#2A2640] rounded-lg overflow-hidden">
-              <textarea
-                placeholder="Write your story..."
-                name="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none min-h-[200px] resize-none"
-              />
-
-              {/* Text formatting toolbar */}
-              <div className="flex items-center p-2 border-t border-gray-700">
-                <button className="p-2 text-gray-400 hover:text-white">
-                  <FaBold />
-                </button>
-                <button className="p-2 text-gray-400 hover:text-white">
-                  <FaItalic />
-                </button>
-                <button className="p-2 text-gray-400 hover:text-white">
-                  <FaListUl />
-                </button>
-                <button className="p-2 text-gray-400 hover:text-white">
-                  <FaLink />
-                </button>
-                <button className="p-2 text-gray-400 hover:text-white">
-                  <FaYoutube />
-                </button>
-                <button className="p-2 text-gray-400 hover:text-white">
-                  <FaImage />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Location */}
-          <div className="mb-6">
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                <div className="w-8 h-8 bg-[#2A2640] rounded-full flex items-center justify-center">
-                  <FaMapMarkerAlt className="text-white" />
-                </div>
-              </div>
-              <input
-                type="text"
-                placeholder="Location (Optional)"
-                name="location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full p-4 pl-16 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
-          </div>
-
-          {/* Social Links */}
-          <div className="mb-6">
-            <SocialLinksInput value={socialLinks} onChange={setSocialLinks} />
-          </div>
-
-          {/* End Time Picker */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold mb-4">End Time</h2>
-            <div className="flex gap-4">
-              <input
-                type="datetime-local"
-                value={endDateInputValue}
-                min={formatDateForInput(new Date())}
-                onChange={(e) => {
-                  // When the input changes, update both the input value and the Date object
-                  setEndDateInputValue(e.target.value);
-
-                  // Parse the input value to a Date object
-                  // The input value is in local time, so we need to create a Date object that represents that local time
-                  if (e.target.value) {
-                    const selectedDate = new Date(e.target.value);
-                    console.log(
-                      "Selected date from input:",
-                      selectedDate.toISOString()
-                    );
-                    setEndDate(selectedDate);
-                  }
-                }}
+                placeholder="Patrons"
+                name="patrons"
+                value={patrons}
+                onChange={(e) => setPatrons(e.target.value)}
                 className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
-            <p className="text-sm text-gray-400 mt-2">
-              Set when your party round will end. After this time, no new
-              commitments will be accepted.
-            </p>
-          </div>
-        </form>
+
+            {/* Description */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold mb-4">Description</h2>
+              <div className="bg-[#2A2640] rounded-lg overflow-hidden">
+                <textarea
+                  placeholder="Write your story..."
+                  name="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none min-h-[200px] resize-none"
+                />
+
+                {/* Text formatting toolbar */}
+                <div className="flex items-center p-2 border-t border-gray-700">
+                  <button className="p-2 text-gray-400 hover:text-white">
+                    <FaBold />
+                  </button>
+                  <button className="p-2 text-gray-400 hover:text-white">
+                    <FaItalic />
+                  </button>
+                  <button className="p-2 text-gray-400 hover:text-white">
+                    <FaListUl />
+                  </button>
+                  <button className="p-2 text-gray-400 hover:text-white">
+                    <FaLink />
+                  </button>
+                  <button className="p-2 text-gray-400 hover:text-white">
+                    <FaYoutube />
+                  </button>
+                  <button className="p-2 text-gray-400 hover:text-white">
+                    <FaImage />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Location */}
+            <div className="mb-6">
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                  <div className="w-8 h-8 bg-[#2A2640] rounded-full flex items-center justify-center">
+                    <FaMapMarkerAlt className="text-white" />
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Location (Optional)"
+                  name="location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full p-4 pl-16 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+
+            {/* Social Links */}
+            <div className="mb-6">
+              <SocialLinksInput value={socialLinks} onChange={setSocialLinks} />
+            </div>
+
+            {/* End Time Picker */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold mb-4">End Time</h2>
+              <div className="flex gap-4">
+                <input
+                  type="datetime-local"
+                  value={endDateInputValue}
+                  min={formatDateForInput(new Date())}
+                  onChange={(e) => {
+                    // When the input changes, update both the input value and the Date object
+                    setEndDateInputValue(e.target.value);
+
+                    // Parse the input value to a Date object
+                    // The input value is in local time, so we need to create a Date object that represents that local time
+                    if (e.target.value) {
+                      const selectedDate = new Date(e.target.value);
+                      console.log(
+                        "Selected date from input:",
+                        selectedDate.toISOString()
+                      );
+                      setEndDate(selectedDate);
+                    }
+                  }}
+                  className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <p className="text-sm text-gray-400 mt-2">
+                Set when your party round will end. After this time, no new
+                commitments will be accepted.
+              </p>
+            </div>
+          </form>
+        </div>
       </div>
 
       {/* Launch Button - Fixed at bottom */}
-      <div className="absolute bottom-0 left-0 right-0 px-6 py-6 bg-[#121212]">
+      <div className="absolute bottom-0 left-0 right-0 px-6 py-6 bg-[#15161a]">
         <button
           onClick={handleSubmit}
           className="w-full py-4 bg-purple-500 rounded-full text-white font-medium text-lg"
