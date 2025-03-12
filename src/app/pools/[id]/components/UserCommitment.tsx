@@ -1,6 +1,8 @@
 "use client";
 
 import { Pool, User } from "../../../../lib/supabase";
+import { useState, useEffect } from "react";
+import { formatCurrency } from "../../../../lib/utils";
 
 interface UserCommitmentProps {
   pool: Pool | null;
@@ -40,29 +42,57 @@ export default function UserCommitment({
   handleCommit,
   handleBiconomyCommit,
 }: UserCommitmentProps) {
+  // State to track if we should show the error (only after a delay)
+  const [showError, setShowError] = useState(false);
+
+  // Reset error state when loading state changes
+  useEffect(() => {
+    if (isCommitmentsLoading) {
+      setShowError(false);
+    }
+  }, [isCommitmentsLoading]);
+
+  // Only show error after a significant delay to avoid flashing
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+
+    if (commitmentsError && !isCommitmentsLoading) {
+      // Wait 8 seconds before showing the error to give time for retries
+      timer = setTimeout(() => {
+        setShowError(true);
+      }, 8000);
+    } else {
+      setShowError(false);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [commitmentsError, isCommitmentsLoading]);
+
   if (!pool || !dbUser) return null;
 
-  // Check if there was an error fetching commitments
-  if (commitmentsError) {
+  // Show loading state while commitments are being fetched
+  if (isCommitmentsLoading || (commitmentsError && !showError)) {
     return (
-      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+      <div className="mt-6 p-4 bg-[#1A1625] rounded-lg">
         <h3 className="text-lg font-semibold mb-4">Your Total Commitment</h3>
-        <div className="p-3 rounded-lg bg-[#1A1625] text-center">
-          <p className="text-red-400">
-            Unable to fetch your token balance. Please try again later.
-          </p>
+        <div className="p-3 rounded-lg bg-[#2A2640] flex justify-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500"></div>
         </div>
       </div>
     );
   }
 
-  // Show loading state while commitments are being fetched
-  if (isCommitmentsLoading) {
+  // Check if there was an error fetching commitments - only show after loading is complete AND delay has passed
+  if (commitmentsError && showError) {
     return (
-      <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+      <div className="mt-6 p-4 bg-[#1A1625] rounded-lg">
         <h3 className="text-lg font-semibold mb-4">Your Total Commitment</h3>
-        <div className="p-3 rounded-lg bg-[#1A1625] flex justify-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="p-3 rounded-lg bg-[#2A2640] text-center">
+          <p className="text-red-400">
+            Unable to fetch your token balance. Please try again later.
+          </p>
         </div>
       </div>
     );
@@ -72,10 +102,10 @@ export default function UserCommitment({
   if (!userCommitment) return null;
 
   return (
-    <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+    <div className="mt-6 p-4 bg-[#1A1625] rounded-lg">
       <h3 className="text-xl font-semibold mb-4">Your Commitment</h3>
       {userCommitment ? (
-        <div className="p-4 rounded-lg bg-[#1A1625]">
+        <div className="p-4 rounded-lg bg-[#2A2640]">
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Amount:</span>
             <div className="flex items-center">
@@ -195,7 +225,10 @@ export default function UserCommitment({
               </div>
             </div>
             <p className="text-sm text-gray-400">
-              Available: {usdcBalance ? `${usdcBalance} USDC` : "Loading..."}
+              Available:{" "}
+              {usdcBalance && usdcBalance !== "0"
+                ? `${usdcBalance} USDC`
+                : "Loading..."}
             </p>
             {!walletsReady && (
               <p className="text-sm text-yellow-500">

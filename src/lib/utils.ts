@@ -8,8 +8,7 @@
  * @returns Formatted currency string
  */
 export function formatCurrency(amount: number): string {
-  // Log the amount for debugging
-  console.log("formatCurrency called with:", amount);
+  // Remove debug log
 
   // Handle very large numbers
   if (amount > 1000000) {

@@ -4,7 +4,6 @@ import {
   getPoolContract,
   getStageDotFunLiquidityContract,
 } from "../lib/contracts/StageDotFunPool";
-import { useContractInteraction } from "./useContractInteraction";
 import { usePrivy } from "@privy-io/react-auth";
 
 export interface PoolCommitment {
@@ -14,7 +13,6 @@ export interface PoolCommitment {
 }
 
 export function usePoolCommitments(poolAddress: string | null) {
-  const { getProvider } = useContractInteraction();
   const { user: privyUser } = usePrivy();
   const walletAddress = privyUser?.wallet?.address;
 
@@ -32,9 +30,13 @@ export function usePoolCommitments(poolAddress: string | null) {
       console.log("Fetching commitments for pool:", poolAddress);
 
       try {
-        console.log("Getting provider...");
-        const provider = await getProvider();
+        // Use a direct RPC provider instead of the embedded wallet
+        const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
+        if (!rpcUrl) {
+          throw new Error("RPC URL not configured");
+        }
 
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
         const pool = getPoolContract(provider, poolAddress!);
 
         // Get the LP token address from the pool

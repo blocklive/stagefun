@@ -24,6 +24,7 @@ import PoolActions from "./components/PoolActions";
 import OrganizerSection from "./components/OrganizerSection";
 import UserCommitment from "./components/UserCommitment";
 import PatronsTab from "./components/PatronsTab";
+import PoolFundsSection from "./components/PoolFundsSection";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -319,6 +320,13 @@ export default function PoolDetailsPage() {
     );
   };
 
+  // Render pool funds section
+  const renderPoolFunds = () => {
+    return (
+      <PoolFundsSection pool={pool} isCreator={creator?.id === dbUser?.id} />
+    );
+  };
+
   // Render main content
   const renderContent = () => {
     if (isLoading) {
@@ -356,6 +364,7 @@ export default function PoolDetailsPage() {
             <TradingPoolView
               pool={pool}
               renderUserCommitment={renderUserCommitment}
+              renderPoolFunds={renderPoolFunds}
               activeTab={contentTab}
               onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
               raisedAmount={raisedAmount}
@@ -461,7 +470,7 @@ export default function PoolDetailsPage() {
     <div className="min-h-screen bg-[#0F0D1B] text-white flex flex-col">
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Back Button */}
+        {/* Back Button - Always show now */}
         <div className="container mx-auto px-4 py-4">
           <button
             onClick={() => router.back()}
@@ -475,7 +484,7 @@ export default function PoolDetailsPage() {
         {renderContent()}
       </div>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Navigation - Always show now */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0F0D1B] border-t border-gray-800">
         <BottomNavbar activeTab="party" />
       </div>

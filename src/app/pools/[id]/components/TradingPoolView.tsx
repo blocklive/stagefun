@@ -9,6 +9,7 @@ type TabType = "overview" | "patrons";
 interface TradingPoolViewProps {
   pool: Pool;
   renderUserCommitment: () => React.ReactNode;
+  renderPoolFunds: () => React.ReactNode;
   activeTab?: TabType;
   onTabChange?: (tab: TabType) => void;
   raisedAmount: number;
@@ -17,6 +18,7 @@ interface TradingPoolViewProps {
 export default function TradingPoolView({
   pool,
   renderUserCommitment,
+  renderPoolFunds,
   activeTab = "overview",
   onTabChange,
   raisedAmount,
@@ -45,6 +47,9 @@ export default function TradingPoolView({
               </span>
             </div>
           </div>
+
+          {/* Pool Funds Section */}
+          {renderPoolFunds()}
 
           {/* User's Commitment */}
           {renderUserCommitment()}
