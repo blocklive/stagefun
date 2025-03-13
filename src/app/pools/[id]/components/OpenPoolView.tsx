@@ -72,24 +72,25 @@ export default function OpenPoolView({
           </div>
 
           {/* Time Left */}
-          <div className="bg-[#1A1727] p-4 rounded-lg mb-6">
-            <h2 className="text-xl font-semibold mb-4">Time left</h2>
-            <div className="grid grid-cols-4 gap-4">
-              <div className="bg-[#0F0D1B] p-4 rounded-lg text-center">
-                <div className="text-3xl font-bold">{days}</div>
-                <div className="text-gray-400">Days</div>
-              </div>
-              <div className="bg-[#0F0D1B] p-4 rounded-lg text-center">
-                <div className="text-3xl font-bold">{hours}</div>
-                <div className="text-gray-400">Hours</div>
-              </div>
-              <div className="bg-[#0F0D1B] p-4 rounded-lg text-center">
-                <div className="text-3xl font-bold">{minutes}</div>
-                <div className="text-gray-400">Minutes</div>
-              </div>
-              <div className="bg-[#0F0D1B] p-4 rounded-lg text-center">
-                <div className="text-3xl font-bold">{seconds}</div>
-                <div className="text-gray-400">Seconds</div>
+          <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Time left</h2>
+              <div className="flex space-x-2">
+                <div className="bg-[#FFFFFF0F] px-4 py-2 rounded-[12px] text-center">
+                  <div className="text-2xl font-bold">{days}</div>
+                </div>
+                <div className="text-xl font-bold flex items-center">:</div>
+                <div className="bg-[#FFFFFF0F] px-4 py-2 rounded-[12px] text-center">
+                  <div className="text-2xl font-bold">{hours}</div>
+                </div>
+                <div className="text-xl font-bold flex items-center">:</div>
+                <div className="bg-[#FFFFFF0F] px-4 py-2 rounded-[12px] text-center">
+                  <div className="text-2xl font-bold">{minutes}</div>
+                </div>
+                <div className="text-xl font-bold flex items-center">:</div>
+                <div className="bg-[#FFFFFF0F] px-4 py-2 rounded-[12px] text-center">
+                  <div className="text-2xl font-bold">{seconds}</div>
+                </div>
               </div>
             </div>
           </div>

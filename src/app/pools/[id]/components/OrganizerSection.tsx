@@ -18,10 +18,10 @@ export default function OrganizerSection({
   if (!creator) return null;
 
   return (
-    <div className="mt-6 p-4 bg-[#1A1625] rounded-lg">
+    <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
       <h3 className="text-xl font-semibold mb-4">Organizer</h3>
       <div
-        className="p-4 rounded-lg bg-[#2A2640] cursor-pointer hover:bg-[#352f54] transition-colors"
+        className="p-4 rounded-[12px] bg-[#FFFFFF0F] cursor-pointer hover:bg-[#FFFFFF1A] transition-colors"
         onClick={() => onNavigate(creator.id)}
       >
         <div className="flex items-center justify-between">

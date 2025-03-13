@@ -63,7 +63,7 @@ export default function CommitModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80">
-      <div className="bg-[#1A1625] rounded-xl w-full max-w-md mx-4 overflow-hidden shadow-2xl animate-fadeIn">
+      <div className="bg-[#000000] rounded-[16px] w-full max-w-md mx-4 overflow-hidden shadow-2xl animate-fadeIn">
         {/* Header */}
         <div className="px-6 py-5 flex justify-between items-center">
           <div className="w-6"></div> {/* Spacer for centering */}
@@ -93,12 +93,12 @@ export default function CommitModal({
                 onChange={(e) => setCommitAmount(e.target.value)}
                 min={pool.min_commitment || 1}
                 step="1"
-                className="flex-1 py-3 px-4 rounded-lg bg-[#2A2640] text-white border border-gray-700 focus:outline-none focus:border-indigo-500 text-lg"
+                className="flex-1 py-3 px-4 rounded-[12px] bg-[#FFFFFF0F] text-white border border-gray-700 focus:outline-none focus:border-indigo-500 text-lg"
                 placeholder={`Min: ${pool.min_commitment || 1}`}
               />
               <button
                 onClick={handleMaxClick}
-                className="px-4 py-3 rounded-lg bg-[#FFFFFF14] text-white hover:bg-[#FFFFFF20] transition-colors"
+                className="px-4 py-3 rounded-[12px] bg-[#FFFFFF14] text-white hover:bg-[#FFFFFF20] transition-colors"
               >
                 Max
               </button>
@@ -132,7 +132,7 @@ export default function CommitModal({
           </div>
 
           {/* Pool info */}
-          <div className="bg-[#2A2640] p-4 rounded-lg mb-6">
+          <div className="bg-[#FFFFFF0F] p-4 rounded-[12px] mb-6">
             <div className="flex justify-between mb-2">
               <span className="text-gray-400">Pool Target:</span>
               <span className="font-medium">${pool.target_amount} USDC</span>
@@ -156,13 +156,13 @@ export default function CommitModal({
                 !commitAmount ||
                 parseFloat(commitAmount) <= 0
               }
-              className={`w-full py-4 px-4 rounded-lg font-medium text-lg flex items-center justify-center transition-all duration-200 ${
+              className={`w-full py-4 px-4 rounded-full font-medium text-lg flex items-center justify-center transition-all duration-200 ${
                 isApproving ||
                 !walletsReady ||
                 !commitAmount ||
                 parseFloat(commitAmount) <= 0
                   ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                  : "bg-[#836EF9] text-white hover:bg-[#7058E8] shadow-lg shadow-purple-900/50 hover:shadow-xl hover:shadow-purple-900/60 hover:transform hover:scale-[1.02]"
+                  : "bg-[#836EF9] text-white hover:bg-[#7058E8]"
               }`}
             >
               {isApproving ? (

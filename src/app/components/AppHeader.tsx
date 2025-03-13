@@ -64,32 +64,70 @@ export default function AppHeader({
           {showGetTokensButton && (
             <button
               onClick={onGetTokensClick}
-              className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
+              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
             >
-              <FaDollarSign className="text-white" />
+              <Image
+                src="/icons/ic-droop.svg"
+                alt="Get Tokens"
+                width={20}
+                height={20}
+              />
             </button>
           )}
           {showCreateButton && (
             <button
               onClick={() => router.push("/pools/create")}
-              className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
+              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
             >
-              <FaPlus className="text-white" />
+              <svg
+                className="w-5 h-5 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.5"
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
             </button>
           )}
           {showRightButtons && (
             <>
               <button
                 onClick={() => setShowTokensModal(true)}
-                className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
+                className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
               >
-                <FaDollarSign className="text-white" />
+                <Image
+                  src="/icons/ic-droop.svg"
+                  alt="Get Tokens"
+                  width={20}
+                  height={20}
+                />
               </button>
               <button
                 onClick={() => router.push("/pools/create")}
-                className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
+                className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
               >
-                <FaPlus className="text-white" />
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.5"
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
               </button>
             </>
           )}

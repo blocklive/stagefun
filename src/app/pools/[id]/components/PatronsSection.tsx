@@ -28,7 +28,7 @@ export default function PatronsSection({ pool, patrons }: PatronsSectionProps) {
   const { currency } = pool;
 
   return (
-    <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+    <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Patrons</h3>
         <button
@@ -44,7 +44,7 @@ export default function PatronsSection({ pool, patrons }: PatronsSectionProps) {
           {patrons.map((patron) => (
             <div
               key={patron.id}
-              className="flex items-center justify-between p-2 rounded-lg bg-[#1A1625]"
+              className="flex items-center justify-between p-2 rounded-[12px] bg-[#FFFFFF0F]"
             >
               <div className="flex items-center">
                 {patron.user?.avatar_url && (

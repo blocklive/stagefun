@@ -456,7 +456,7 @@ export default function PoolDetailsPage() {
             {contentTab !== "overview" && (
               <div className="mt-6">
                 {contentTab === "patrons" && (
-                  <div className="bg-[#1A1727] p-4 rounded-lg mb-6 w-full">
+                  <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
                     <h3 className="text-xl font-semibold mb-4">Patrons</h3>
                     <PatronsTab poolAddress={pool?.contract_address || null} />
 
@@ -504,7 +504,7 @@ export default function PoolDetailsPage() {
             {contentTab !== "overview" && (
               <div className="mt-6">
                 {contentTab === "patrons" && (
-                  <div className="bg-[#1A1727] p-4 rounded-lg mb-6 w-full">
+                  <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
                     <h3 className="text-xl font-semibold mb-4">Patrons</h3>
                     <PatronsTab poolAddress={pool?.contract_address || null} />
                   </div>
@@ -533,9 +533,9 @@ export default function PoolDetailsPage() {
       <div className="px-4 py-2">
         <button
           onClick={() => router.back()}
-          className="w-12 h-12 bg-[#2A2640] rounded-full flex items-center justify-center text-white"
+          className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center text-white transition-colors"
         >
-          <FaArrowLeft />
+          <FaArrowLeft className="w-4 h-4" />
         </button>
       </div>
 
@@ -548,7 +548,7 @@ export default function PoolDetailsPage() {
           <div className="container mx-auto">
             <button
               onClick={() => setIsCommitModalOpen(true)}
-              className="w-full bg-[#836EF9] hover:bg-[#7058E8] text-white py-4 px-4 rounded-lg font-medium text-lg flex items-center justify-center shadow-lg shadow-purple-900/50 transition-all duration-200 hover:shadow-xl hover:shadow-purple-900/60 hover:transform hover:scale-[1.02]"
+              className="w-full bg-[#836EF9] hover:bg-[#7058E8] text-white py-4 px-4 rounded-full font-medium text-lg flex items-center justify-center transition-colors"
             >
               {commitButtonText}
             </button>

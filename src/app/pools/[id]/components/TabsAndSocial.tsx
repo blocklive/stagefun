@@ -90,7 +90,7 @@ export default function TabsAndSocial({
                 rel="noopener noreferrer"
                 aria-label={`Visit ${platform}`}
               >
-                <div className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center hover:bg-[#3A3650] transition-colors">
+                <div className="w-10 h-10 bg-[#FFFFFF14] rounded-full flex items-center justify-center hover:bg-[#FFFFFF1A] transition-colors">
                   <IconComponent className="text-white" size={20} />
                 </div>
               </Link>

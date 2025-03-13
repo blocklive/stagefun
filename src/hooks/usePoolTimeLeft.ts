@@ -1,45 +1,59 @@
-import useSWR from "swr";
-import { ethers } from "ethers";
+import { useState, useEffect } from "react";
 
 export function usePoolTimeLeft(pool: any) {
-  const {
-    data: timeLeft,
-    error,
-    isLoading,
-  } = useSWR(
-    pool ? ["poolEndTime", pool.ends_at] : null,
-    () => {
-      if (!pool?.ends_at) return null;
+  const [timeLeft, setTimeLeft] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    hasEnded: false,
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
+  useEffect(() => {
+    if (!pool?.ends_at) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Function to calculate time left
+    const calculateTimeLeft = () => {
       const now = Math.floor(Date.now() / 1000);
       const endTime = Math.floor(new Date(pool.ends_at).getTime() / 1000);
-      const timeLeft = endTime - now;
-      const hasEnded = timeLeft <= 0;
+      const diff = endTime - now;
+      const hasEnded = diff <= 0;
 
-      const days = Math.floor(timeLeft / (24 * 60 * 60));
-      const hours = Math.floor((timeLeft % (24 * 60 * 60)) / (60 * 60));
-      const minutes = Math.floor((timeLeft % (60 * 60)) / 60);
-      const seconds = Math.floor(timeLeft % 60);
+      const days = Math.floor(diff / (24 * 60 * 60));
+      const hours = Math.floor((diff % (24 * 60 * 60)) / (60 * 60));
+      const minutes = Math.floor((diff % (60 * 60)) / 60);
+      const seconds = Math.floor(diff % 60);
 
-      return {
+      setTimeLeft({
         days: Math.max(0, days),
         hours: Math.max(0, hours),
         minutes: Math.max(0, minutes),
         seconds: Math.max(0, seconds),
         hasEnded,
-      };
-    },
-    {
-      refreshInterval: 1000, // Update every second
-    }
-  );
+      });
+      setIsLoading(false);
+    };
+
+    // Calculate immediately
+    calculateTimeLeft();
+
+    // Set up interval to update every second
+    const intervalId = setInterval(calculateTimeLeft, 1000);
+
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [pool?.ends_at]);
 
   return {
-    days: timeLeft?.days ?? 0,
-    hours: timeLeft?.hours ?? 0,
-    minutes: timeLeft?.minutes ?? 0,
-    seconds: timeLeft?.seconds ?? 0,
-    hasEnded: timeLeft?.hasEnded ?? false,
-    isLoading: !error && !timeLeft,
+    days: timeLeft.days,
+    hours: timeLeft.hours,
+    minutes: timeLeft.minutes,
+    seconds: timeLeft.seconds,
+    hasEnded: timeLeft.hasEnded,
+    isLoading,
   };
 }

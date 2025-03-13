@@ -58,8 +58,8 @@ export default function GetTokensModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
-      <div className="bg-black w-full max-w-md rounded-t-3xl p-6 border border-gray-800">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-[#000000] w-full max-w-md rounded-[16px] p-6 border border-gray-800">
         <div className="flex justify-end">
           <button onClick={onClose} className="text-gray-400 hover:text-white">
             <svg

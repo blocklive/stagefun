@@ -67,9 +67,9 @@ export default function UserCommitment({
   // Show loading state while commitments are being fetched
   if (isCommitmentsLoading || (commitmentsError && !showError)) {
     return (
-      <div className="mt-6 p-4 bg-[#1A1625] rounded-lg">
+      <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
         <h3 className="text-lg font-semibold mb-4">Your Total Commitment</h3>
-        <div className="p-3 rounded-lg bg-[#2A2640] flex justify-center">
+        <div className="p-3 rounded-[12px] bg-[#FFFFFF0F] flex justify-center">
           <div
             className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2"
             style={{ borderColor: "#836EF9" }}
@@ -82,9 +82,9 @@ export default function UserCommitment({
   // Check if there was an error fetching commitments - only show after loading is complete AND delay has passed
   if (commitmentsError && showError) {
     return (
-      <div className="mt-6 p-4 bg-[#1A1625] rounded-lg">
+      <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
         <h3 className="text-lg font-semibold mb-4">Your Total Commitment</h3>
-        <div className="p-3 rounded-lg bg-[#2A2640] text-center">
+        <div className="p-3 rounded-[12px] bg-[#FFFFFF0F] text-center">
           <p className="text-red-400">
             Unable to fetch your token balance. Please try again later.
           </p>
@@ -97,9 +97,9 @@ export default function UserCommitment({
   if (!userCommitment) return null;
 
   return (
-    <div className="mt-6 p-4 bg-[#1A1625] rounded-lg">
+    <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
       <h3 className="text-xl font-semibold mb-4">Your Commitment</h3>
-      <div className="p-4 rounded-lg bg-[#2A2640]">
+      <div className="p-4 rounded-[12px] bg-[#FFFFFF0F]">
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Amount:</span>
           <div className="flex items-center">

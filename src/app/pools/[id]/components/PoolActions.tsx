@@ -29,7 +29,7 @@ export default function PoolActions({
   refreshBalance,
 }: PoolActionsProps) {
   return (
-    <div className="mt-6 p-4 bg-[#2A2640] rounded-lg">
+    <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Your Balance:</span>
@@ -60,12 +60,12 @@ export default function PoolActions({
             onChange={(e) => setCommitAmount(e.target.value)}
             min={pool.min_commitment || 1}
             step="1"
-            className="flex-1 py-2 px-4 rounded-lg bg-[#1A1625] text-white border border-gray-700 focus:outline-none focus:border-blue-500"
+            className="flex-1 py-2 px-4 rounded-[12px] bg-[#FFFFFF0F] text-white border border-gray-700 focus:outline-none focus:border-blue-500"
             placeholder={`Min: ${pool.min_commitment || 1}`}
           />
           <button
             onClick={handleMaxClick}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+            className="px-4 py-2 rounded-[12px] bg-[#FFFFFF14] text-white hover:bg-[#FFFFFF1A]"
           >
             Max
           </button>
@@ -73,10 +73,10 @@ export default function PoolActions({
         <button
           onClick={handleCommit}
           disabled={isApproving}
-          className={`w-full py-3 px-4 rounded-lg font-medium text-lg ${
+          className={`w-full py-3 px-4 rounded-full font-medium text-lg ${
             isApproving
               ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-              : "bg-[#4F46E5] text-white hover:bg-[#4338CA]"
+              : "bg-[#836EF9] text-white hover:bg-[#7058E8]"
           }`}
         >
           {isApproving ? "Processing..." : "Commit"}

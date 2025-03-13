@@ -13,7 +13,7 @@ export default function PoolHeader({ pool, isTrading }: PoolHeaderProps) {
     <div className="mb-6">
       <div className="flex items-center gap-4">
         {/* Pool Image */}
-        <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-700 flex-shrink-0">
+        <div className="relative w-12 h-12 rounded-[16px] overflow-hidden bg-gray-700 flex-shrink-0">
           {pool.image_url ? (
             <Image
               src={pool.image_url}

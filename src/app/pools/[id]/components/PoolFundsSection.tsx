@@ -555,163 +555,212 @@ export default function PoolFundsSection({
 
   return (
     <>
-      <div className="mt-6 p-4 bg-[#1A1625] rounded-lg">
+      <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
         <h3 className="text-xl font-semibold mb-4">Pool Funds</h3>
-        <div className="p-4 rounded-lg bg-[#2A2640]">
-          <div className="flex justify-between items-center mb-3">
-            <div className="text-gray-400">Total Deposits</div>
-            <div className="text-xl font-bold">{totalDeposits}</div>
-          </div>
-          <div className="flex justify-between items-center mb-3">
-            <div className="text-gray-400">Revenue Accumulated</div>
-            <div className="text-xl font-bold">{revenueAccumulated}</div>
+
+        <div className="mb-6">
+          <div className="text-5xl font-bold mb-2">{contractBalance}</div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex mb-6 w-full max-w-xs">
+          <div className="flex flex-col items-center w-20">
+            <button
+              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center mb-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onClick={openReceiveModal}
+              disabled={isReceiving}
+              title="Deposit"
+            >
+              {isReceiving ? (
+                <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              ) : (
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  ></path>
+                </svg>
+              )}
+            </button>
+            <span className="text-gray-400 text-sm">Deposit</span>
           </div>
 
-          {/* On-chain Contract Balance */}
-          <div className="flex justify-between items-center mb-3 border-t border-gray-700 pt-3 mt-3">
-            <div className="flex items-center">
-              <div className="text-gray-400">Current Contract Balance</div>
-              <button
-                onClick={() => refreshOnChainData()}
-                className="ml-2 text-gray-400 hover:text-white p-1 rounded-full transition-colors"
-                title="Refresh on-chain data"
+          <div className="flex flex-col items-center w-20">
+            <button
+              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center mb-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onClick={openWithdrawModal}
+              disabled={isWithdrawing || rawTotalFunds <= 0}
+              title="Withdraw"
+            >
+              {isWithdrawing ? (
+                <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              ) : (
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M5 10l7-7m0 0l7 7m-7-7v18"
+                  ></path>
+                </svg>
+              )}
+            </button>
+            <span className="text-gray-400 text-sm">Withdraw</span>
+          </div>
+
+          <div className="flex flex-col items-center w-20">
+            <button
+              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center mb-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onClick={openDistributeModal}
+              disabled={
+                isDistributing ||
+                (onChainData
+                  ? parseFloat(
+                      ethers.formatUnits(onChainData.revenueAccumulated, 6)
+                    ) <= 0
+                  : (pool.revenue_accumulated || 0) <= 0)
+              }
+              title="Distribute"
+            >
+              {isDistributing && !showDistributeModal ? (
+                <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              ) : (
+                <FaDollarSign className="w-5 h-5 text-white" size={20} />
+              )}
+            </button>
+            <span className="text-gray-400 text-sm">Distribute</span>
+          </div>
+        </div>
+
+        {/* Assets Section */}
+        <h3 className="text-2xl font-semibold mb-4">Assets</h3>
+        <div className="p-4 rounded-[12px] bg-[#FFFFFF14] flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center mr-3">
+              <svg
+                className="w-6 h-6 text-white"
+                viewBox="0 0 24 24"
+                fill="currentColor"
               >
-                <FaSync className="h-3 w-3" />
-              </button>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
+                <path d="M12 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+              </svg>
             </div>
-            <div className="text-xl font-bold text-green-400">
-              {contractBalance}
-            </div>
-          </div>
-
-          {onChainError && (
-            <div className="text-red-400 text-sm mt-1 mb-3">
-              Error loading on-chain data. Please try refreshing.
-            </div>
-          )}
-
-          {statusMessage && (
-            <div className="mt-3 p-2 bg-green-600 text-white rounded-md text-center">
-              {statusMessage}
-            </div>
-          )}
-
-          {isCreator && (
-            <div className="mt-4">
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  className="bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-3 px-4 rounded-lg transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                  onClick={openWithdrawModal}
-                  disabled={isWithdrawing || rawTotalFunds <= 0}
-                >
-                  <FaArrowUp className="mr-2" />
-                  {isWithdrawing ? (
-                    <span className="flex items-center justify-center">
-                      <svg
-                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Processing...
-                    </span>
-                  ) : (
-                    "Withdraw Funds"
-                  )}
-                </button>
-                <button
-                  className="bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-3 px-4 rounded-lg transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                  onClick={openReceiveModal}
-                  disabled={isReceiving}
-                >
-                  <FaPlus className="mr-2" />
-                  {isReceiving ? (
-                    <span className="flex items-center justify-center">
-                      <svg
-                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Processing...
-                    </span>
-                  ) : (
-                    "Receive Revenue"
-                  )}
-                </button>
-                <button
-                  className="bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-3 px-4 rounded-lg transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                  onClick={openDistributeModal}
-                  disabled={
-                    isDistributing ||
-                    (onChainData
-                      ? parseFloat(
-                          ethers.formatUnits(onChainData.revenueAccumulated, 6)
-                        ) <= 0
-                      : (pool.revenue_accumulated || 0) <= 0)
-                  }
-                >
-                  <FaDollarSign className="mr-2" />
-                  {isDistributing && !showDistributeModal ? (
-                    <span className="flex items-center justify-center">
-                      <svg
-                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Processing...
-                    </span>
-                  ) : (
-                    "Distribute Revenue"
-                  )}
-                </button>
+            <div>
+              <div className="text-gray-400">Testnet USDC</div>
+              <div className="text-xl font-bold">
+                {onChainData
+                  ? parseFloat(
+                      ethers.formatUnits(onChainData.contractBalance, 6)
+                    ).toFixed(2) + " USDC"
+                  : "Loading..."}
               </div>
             </div>
-          )}
+          </div>
+          <div className="flex flex-col items-end">
+            <div className="text-xl font-bold">{contractBalance}</div>
+          </div>
         </div>
+
+        {statusMessage && (
+          <div className="mt-3 p-2 bg-green-600 text-white rounded-md text-center">
+            {statusMessage}
+          </div>
+        )}
       </div>
 
       {/* Withdraw Modal */}
@@ -719,13 +768,13 @@ export default function PoolFundsSection({
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
           <div
             ref={modalRef}
-            className="bg-[#121212] rounded-lg w-full max-w-md overflow-hidden"
+            className="bg-[#000000] rounded-[16px] w-full max-w-md overflow-hidden"
           >
             {/* Modal Header */}
             <div className="p-4 flex items-center">
               <button
                 onClick={() => setShowWithdrawModal(false)}
-                className="p-2 rounded-full bg-[#2A2A2A] mr-4"
+                className="p-2 rounded-full bg-[#FFFFFF14] mr-4"
               >
                 <FaChevronLeft className="text-white" />
               </button>
@@ -740,7 +789,7 @@ export default function PoolFundsSection({
               {/* Pool Icon and Amount */}
               <div className="flex justify-center mb-6">
                 <div className="flex items-center">
-                  <div className="bg-blue-500 rounded-full p-2 mr-2">
+                  <div className="bg-[#FFFFFF14] rounded-full p-2 mr-2">
                     <svg
                       className="w-6 h-6 text-white"
                       fill="currentColor"
@@ -846,13 +895,13 @@ export default function PoolFundsSection({
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
           <div
             ref={receiveModalRef}
-            className="bg-[#121212] rounded-lg w-full max-w-md overflow-hidden"
+            className="bg-[#000000] rounded-[16px] w-full max-w-md overflow-hidden"
           >
             {/* Modal Header */}
             <div className="p-4 flex items-center">
               <button
                 onClick={() => setShowReceiveModal(false)}
-                className="p-2 rounded-full bg-[#2A2A2A] mr-4"
+                className="p-2 rounded-full bg-[#FFFFFF14] mr-4"
               >
                 <FaChevronLeft className="text-white" />
               </button>
@@ -867,7 +916,7 @@ export default function PoolFundsSection({
               {/* Pool Icon and Amount */}
               <div className="flex justify-center mb-6">
                 <div className="flex items-center">
-                  <div className="bg-green-500 rounded-full p-2 mr-2">
+                  <div className="bg-[#FFFFFF14] rounded-full p-2 mr-2">
                     <FaPlus className="w-6 h-6 text-white" />
                   </div>
                   <div className="text-4xl font-bold text-white">
@@ -887,7 +936,7 @@ export default function PoolFundsSection({
                   type="number"
                   value={receiveAmount}
                   onChange={(e) => setReceiveAmount(e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-3 rounded-lg border border-gray-700 focus:outline-none focus:border-green-500"
+                  className="w-full bg-[#2A2A2A] text-white p-3 rounded-[12px] border border-gray-700 focus:outline-none focus:border-green-500"
                   placeholder="0.00"
                   step="0.01"
                   min="0"
@@ -898,19 +947,19 @@ export default function PoolFundsSection({
               <div className="flex gap-2 mb-6">
                 <button
                   onClick={() => setReceiveAmount("10")}
-                  className="flex-1 bg-[#2A2A2A] text-white py-2 px-4 rounded-full"
+                  className="flex-1 bg-[#FFFFFF14] text-white py-2 px-4 rounded-full"
                 >
                   10 USDC
                 </button>
                 <button
                   onClick={() => setReceiveAmount("50")}
-                  className="flex-1 bg-[#2A2A2A] text-white py-2 px-4 rounded-full"
+                  className="flex-1 bg-[#FFFFFF14] text-white py-2 px-4 rounded-full"
                 >
                   50 USDC
                 </button>
                 <button
                   onClick={() => setReceiveAmount("100")}
-                  className="flex-1 bg-[#2A2A2A] text-white py-2 px-4 rounded-full"
+                  className="flex-1 bg-[#FFFFFF14] text-white py-2 px-4 rounded-full"
                 >
                   100 USDC
                 </button>
@@ -972,13 +1021,13 @@ export default function PoolFundsSection({
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
           <div
             ref={distributeModalRef}
-            className="bg-[#121212] rounded-lg w-full max-w-md overflow-hidden"
+            className="bg-[#000000] rounded-[16px] w-full max-w-md overflow-hidden"
           >
             {/* Modal Header */}
             <div className="p-4 flex items-center">
               <button
                 onClick={() => setShowDistributeModal(false)}
-                className="p-2 rounded-full bg-[#2A2A2A] mr-4"
+                className="p-2 rounded-full bg-[#FFFFFF14] mr-4"
               >
                 <FaChevronLeft className="text-white" />
               </button>
@@ -993,8 +1042,8 @@ export default function PoolFundsSection({
               {/* Pool Icon and Amount */}
               <div className="flex justify-center mb-6">
                 <div className="flex items-center">
-                  <div className="bg-blue-500 rounded-full p-2 mr-2">
-                    <FaDollarSign className="w-6 h-6 text-white" />
+                  <div className="bg-[#FFFFFF14] rounded-full p-2 mr-2">
+                    <FaDollarSign className="w-5 h-5 text-white" />
                   </div>
                   <div className="text-4xl font-bold text-white">
                     {distributeAmount
@@ -1027,7 +1076,7 @@ export default function PoolFundsSection({
                   parseFloat(distributeAmount) <= 0 ||
                   patronCount === 0
                 }
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 px-4 rounded-full font-semibold transition-colors disabled:bg-blue-300 disabled:text-gray-200 disabled:cursor-not-allowed"
+                className="w-full bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-4 px-4 rounded-full font-semibold transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed"
               >
                 {isDistributing ? (
                   <span className="flex items-center justify-center">
