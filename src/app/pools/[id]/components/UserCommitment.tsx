@@ -104,7 +104,7 @@ export default function UserCommitment({
           <span className="text-gray-400">Amount:</span>
           <div className="flex items-center">
             <span className="text-xl font-bold mr-2">
-              {userCommitment.amount}
+              {userCommitment.amount.toFixed(2)}
             </span>
             <span className="text-sm font-medium" style={{ color: "#836EF9" }}>
               {pool.currency}

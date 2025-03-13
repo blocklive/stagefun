@@ -27,17 +27,17 @@ export default function PatronsTab({ poolAddress }: PatronsTabProps) {
 
       // If the number is very large, format it with K/M/B suffixes
       if (formatted >= 1000000000) {
-        return `${(formatted / 1000000000).toFixed(1)}B`;
+        return `${(formatted / 1000000000).toFixed(2)}B`;
       } else if (formatted >= 1000000) {
-        return `${(formatted / 1000000).toFixed(1)}M`;
+        return `${(formatted / 1000000).toFixed(2)}M`;
       } else if (formatted >= 1000) {
-        return `${(formatted / 1000).toFixed(1)}K`;
+        return `${(formatted / 1000).toFixed(2)}K`;
       }
 
-      // For values between 0.01 and 1000, show with 1 decimal place
+      // For values between 0.01 and 1000, show with 2 decimal places
       return formatted.toLocaleString(undefined, {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
       });
     } catch (error) {
       console.error("Error formatting balance:", balance, error);

@@ -600,7 +600,7 @@ export default function PoolFundsSection({
             <div className="mt-4">
               <div className="grid grid-cols-3 gap-2">
                 <button
-                  className="bg-gray-200 hover:bg-gray-300 text-black py-3 px-4 rounded-lg transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                  className="bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-3 px-4 rounded-lg transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
                   onClick={openWithdrawModal}
                   disabled={isWithdrawing || rawTotalFunds <= 0}
                 >
@@ -608,7 +608,7 @@ export default function PoolFundsSection({
                   {isWithdrawing ? (
                     <span className="flex items-center justify-center">
                       <svg
-                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-black"
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
                         viewBox="0 0 24 24"
@@ -668,7 +668,7 @@ export default function PoolFundsSection({
                   )}
                 </button>
                 <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg transition-colors disabled:bg-blue-300 disabled:text-gray-200 disabled:cursor-not-allowed flex items-center justify-center"
+                  className="bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-3 px-4 rounded-lg transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
                   onClick={openDistributeModal}
                   disabled={
                     isDistributing ||
