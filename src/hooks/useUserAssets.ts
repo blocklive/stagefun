@@ -1,6 +1,6 @@
 import { useUSDCBalance } from "./useUSDCBalance";
 import { useNativeBalance } from "./useNativeBalance";
-import { useUserCreatedPools } from "./useUserCreatedPools";
+import { useUserHostedPools } from "./useUserHostedPools";
 import { useMemo } from "react";
 import { useSupabase } from "../contexts/SupabaseContext";
 
@@ -23,8 +23,10 @@ export function useUserAssets() {
     refresh: refreshUsdcBalance,
   } = useUSDCBalance();
   const { balance: monBalance, isLoading: isLoadingMon } = useNativeBalance();
-  const { pools: userPools, isLoading: isLoadingPools } = useUserCreatedPools(
-    dbUser?.id || ""
+
+  // Pass the user ID directly - the hook will handle filtering internally
+  const { pools: userPools, isLoading: isLoadingPools } = useUserHostedPools(
+    dbUser?.id
   );
 
   const assets = useMemo(() => {

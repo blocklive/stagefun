@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FaPlus, FaArrowLeft } from "react-icons/fa";
+import { FaPlus, FaDollarSign, FaArrowLeft } from "react-icons/fa";
 import React, { useState } from "react";
 import GetTokensModal from "./GetTokensModal";
 import Image from "next/image";
@@ -66,12 +66,7 @@ export default function AppHeader({
               onClick={onGetTokensClick}
               className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
             >
-              <Image
-                src="/icons/ic-droop.svg"
-                alt="Get Tokens"
-                width={20}
-                height={20}
-              />
+              <FaDollarSign className="text-white" />
             </button>
           )}
           {showCreateButton && (
@@ -88,12 +83,7 @@ export default function AppHeader({
                 onClick={() => setShowTokensModal(true)}
                 className="w-10 h-10 bg-[#2A2640] rounded-full flex items-center justify-center"
               >
-                <Image
-                  src="/icons/ic-droop.svg"
-                  alt="Get Tokens"
-                  width={20}
-                  height={20}
-                />
+                <FaDollarSign className="text-white" />
               </button>
               <button
                 onClick={() => router.push("/pools/create")}

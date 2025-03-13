@@ -24,9 +24,9 @@ import {
   getUserById,
 } from "../../../lib/services/user-service";
 import BottomNavbar from "../../components/BottomNavbar";
-import { useUserCreatedPools } from "../../../hooks/useUserCreatedPools";
 import { useUserAssets } from "../../../hooks/useUserAssets";
 import AppHeader from "../../components/AppHeader";
+import { useUserHostedPools } from "../../../hooks/useUserHostedPools";
 
 export default function ProfileComponent() {
   const router = useRouter();
@@ -70,14 +70,16 @@ export default function ProfileComponent() {
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isLoadingProfileUser, setIsLoadingProfileUser] = useState(false);
 
-  // Use our new hook to fetch user created pools
+  // Use our new hook to fetch user hosted pools - pass the user ID directly
   const userId = profileUser?.id || dbUser?.id;
   const {
-    pools: userCreatedPools,
+    pools: userHostedPools,
     isLoading: isUserPoolsLoading,
     error: userPoolsError,
     refresh: refreshUserPools,
-  } = useUserCreatedPools(userId);
+    isRpcError,
+    isUsingCache,
+  } = useUserHostedPools(userId);
 
   const {
     assets,
@@ -140,13 +142,6 @@ export default function ProfileComponent() {
       fetchProfileUser();
     }
   }, [profileUserId, dbUser, ready, router]);
-
-  // Refresh user pools when profile user changes
-  useEffect(() => {
-    if (userId) {
-      refreshUserPools();
-    }
-  }, [userId, refreshUserPools]);
 
   // Add a useEffect for handling redirects when not authenticated
   useEffect(() => {
@@ -731,6 +726,12 @@ export default function ProfileComponent() {
         ) : userPoolsError ? (
           <div className="text-center py-8 text-red-400">
             <p>Error loading pools. Please try again.</p>
+            {isRpcError && (
+              <p className="text-sm mt-1">
+                There was an issue connecting to the blockchain. Using cached
+                data if available.
+              </p>
+            )}
             <button
               onClick={() => refreshUserPools()}
               className="mt-4 hover:bg-opacity-80 px-4 py-2 rounded-lg transition-colors"
@@ -739,9 +740,17 @@ export default function ProfileComponent() {
               Retry
             </button>
           </div>
-        ) : userCreatedPools.length > 0 ? (
+        ) : userHostedPools.length > 0 ? (
           <div className="space-y-4">
-            {userCreatedPools.map((pool) => (
+            {isUsingCache && (
+              <div className="text-center py-2 text-amber-400 text-sm">
+                Using cached data.{" "}
+                <button onClick={refreshUserPools} className="underline">
+                  Refresh
+                </button>
+              </div>
+            )}
+            {userHostedPools.map((pool) => (
               <div
                 key={pool.id}
                 className="bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-700 transition-colors p-4"
@@ -769,20 +778,16 @@ export default function ProfileComponent() {
                   <div className="ml-4 flex-1">
                     <h3 className="font-bold">{pool.name}</h3>
                     <div className="flex items-center text-sm">
-                      <span
-                        className={`${
-                          getPoolStatus(pool.ends_at) === "Trading"
-                            ? "text-green-400"
-                            : "text-blue-400"
-                        }`}
-                      >
-                        • {getPoolStatus(pool.ends_at)}
+                      <span className={`text-gray-400 flex items-center`}>
+                        <span
+                          className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                            getPoolStatus(pool.ends_at) === "Trading"
+                              ? "bg-[#836EF9]" // Purple dot for Trading
+                              : "bg-green-400" // Green dot for Raising
+                          }`}
+                        ></span>
+                        {getPoolStatus(pool.ends_at)}
                       </span>
-                      {pool.ends_at && (
-                        <span className="text-gray-400 ml-2">
-                          {new Date(pool.ends_at).toLocaleDateString()}
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>

@@ -14,7 +14,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const POOLS_PER_PAGE = 10; // Number of pools to fetch per page
+const POOLS_PER_PAGE = 25; // Number of pools to fetch per page
 const MAX_RETRIES = 3; // Maximum number of retries for failed requests
 const RETRY_DELAY = 2000; // Delay between retries in milliseconds
 
