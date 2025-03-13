@@ -19,7 +19,7 @@ const SOCIAL_PLATFORMS = {
     placeholder: "Your website",
     prefix: "https://",
     displayPrefix: "",
-    color: "#2A2640",
+    color: "#FFFFFF14",
   },
   twitter: {
     name: "X",
@@ -27,7 +27,7 @@ const SOCIAL_PLATFORMS = {
     placeholder: "username",
     prefix: "https://x.com/",
     displayPrefix: "x.com/",
-    color: "#2A2640",
+    color: "#FFFFFF14",
   },
   discord: {
     name: "Discord",
@@ -35,7 +35,7 @@ const SOCIAL_PLATFORMS = {
     placeholder: "invite-code",
     prefix: "https://discord.gg/",
     displayPrefix: "discord.gg/",
-    color: "#2A2640",
+    color: "#FFFFFF14",
   },
   instagram: {
     name: "Instagram",
@@ -43,7 +43,7 @@ const SOCIAL_PLATFORMS = {
     placeholder: "username",
     prefix: "https://instagram.com/",
     displayPrefix: "instagram.com/",
-    color: "#2A2640",
+    color: "#FFFFFF14",
   },
 };
 
@@ -153,7 +153,7 @@ export default function SocialLinksInput({
       {/* X (Twitter) */}
       <div className="relative">
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
-          <div className="w-8 h-8 bg-[#2A2640] rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
             <SOCIAL_PLATFORMS.twitter.icon className="text-white" size={18} />
           </div>
         </div>
@@ -166,7 +166,7 @@ export default function SocialLinksInput({
             placeholder={SOCIAL_PLATFORMS.twitter.placeholder}
             value={usernames.twitter || ""}
             onChange={(e) => handleUsernameChange("twitter", e.target.value)}
-            className="w-full p-4 bg-[#2A2640] rounded-r-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full p-4 bg-[#FFFFFF14] rounded-r-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
           />
         </div>
       </div>
@@ -174,7 +174,7 @@ export default function SocialLinksInput({
       {/* Discord */}
       <div className="relative">
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
-          <div className="w-8 h-8 bg-[#2A2640] rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
             <SOCIAL_PLATFORMS.discord.icon className="text-white" size={18} />
           </div>
         </div>
@@ -187,7 +187,7 @@ export default function SocialLinksInput({
             placeholder={SOCIAL_PLATFORMS.discord.placeholder}
             value={usernames.discord || ""}
             onChange={(e) => handleUsernameChange("discord", e.target.value)}
-            className="w-full p-4 bg-[#2A2640] rounded-r-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full p-4 bg-[#FFFFFF14] rounded-r-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
           />
         </div>
       </div>
@@ -195,7 +195,7 @@ export default function SocialLinksInput({
       {/* Instagram */}
       <div className="relative">
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
-          <div className="w-8 h-8 bg-[#2A2640] rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
             <SOCIAL_PLATFORMS.instagram.icon className="text-white" size={18} />
           </div>
         </div>
@@ -208,7 +208,7 @@ export default function SocialLinksInput({
             placeholder={SOCIAL_PLATFORMS.instagram.placeholder}
             value={usernames.instagram || ""}
             onChange={(e) => handleUsernameChange("instagram", e.target.value)}
-            className="w-full p-4 bg-[#2A2640] rounded-r-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full p-4 bg-[#FFFFFF14] rounded-r-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
           />
         </div>
       </div>
@@ -216,7 +216,7 @@ export default function SocialLinksInput({
       {/* Website */}
       <div className="relative">
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
-          <div className="w-8 h-8 bg-[#2A2640] rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
             <SOCIAL_PLATFORMS.website.icon className="text-white" size={18} />
           </div>
         </div>
@@ -226,7 +226,7 @@ export default function SocialLinksInput({
             placeholder={SOCIAL_PLATFORMS.website.placeholder}
             value={websiteInput}
             onChange={(e) => handleWebsiteChange(e.target.value)}
-            className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
           />
         </div>
       </div>

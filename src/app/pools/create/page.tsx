@@ -402,7 +402,7 @@ export default function CreatePoolPage() {
         <div className="px-4 py-2">
           <button
             onClick={() => router.back()}
-            className="w-12 h-12 bg-[#2A2640] rounded-full flex items-center justify-center text-white"
+            className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
           >
             <FaArrowLeft />
           </button>
@@ -417,7 +417,7 @@ export default function CreatePoolPage() {
         <div className="px-6" style={{ paddingBottom: "100px" }}>
           {/* Pool Image */}
           <div className="mt-8">
-            <div className="relative w-full aspect-square bg-purple-500 rounded-lg overflow-hidden">
+            <div className="relative w-full aspect-square bg-[#836EF9] rounded-lg overflow-hidden">
               {imagePreview ? (
                 <>
                   <Image
@@ -438,7 +438,7 @@ export default function CreatePoolPage() {
                   <div className="text-4xl font-bold text-center text-[#1E1B2E] p-8">
                     YOU ARE INVITED
                   </div>
-                  <label className="absolute bottom-4 right-4 w-12 h-12 bg-[#2A2640] rounded-full flex items-center justify-center cursor-pointer hover:bg-[#3A3650]">
+                  <label className="absolute bottom-4 right-4 w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center cursor-pointer hover:bg-[#FFFFFF1A]">
                     <input
                       type="file"
                       accept="image/*"
@@ -467,7 +467,7 @@ export default function CreatePoolPage() {
                 name="name"
                 value={poolName}
                 onChange={(e) => setPoolName(e.target.value)}
-                className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
               />
             </div>
 
@@ -479,7 +479,7 @@ export default function CreatePoolPage() {
                 name="ticker"
                 value={ticker}
                 onChange={(e) => setTicker(e.target.value)}
-                className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
               />
             </div>
 
@@ -490,7 +490,7 @@ export default function CreatePoolPage() {
                 {/* Amount Input */}
                 <div className="flex-1 relative">
                   <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-[#836EF9] rounded-full flex items-center justify-center">
                       <span className="text-white font-bold">$</span>
                     </div>
                   </div>
@@ -500,20 +500,20 @@ export default function CreatePoolPage() {
                     name="fundingGoal"
                     value={fundingGoal}
                     onChange={(e) => setFundingGoal(e.target.value)}
-                    className="w-full p-4 pl-16 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
                   />
                 </div>
 
                 {/* Currency Selector */}
                 <div className="relative">
                   <button
-                    className="h-full px-4 bg-[#2A2640] rounded-lg flex items-center gap-2"
+                    className="h-full px-4 bg-[#FFFFFF14] rounded-lg flex items-center gap-2 hover:bg-[#FFFFFF1A] transition-colors"
                     onClick={(e) => {
                       e.preventDefault();
                       setShowCurrencyDropdown(!showCurrencyDropdown);
                     }}
                   >
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-[#836EF9] rounded-full flex items-center justify-center">
                       <span className="text-white font-bold">$</span>
                     </div>
                     <span>{currency}</span>
@@ -539,9 +539,9 @@ export default function CreatePoolPage() {
 
                   {/* Dropdown */}
                   {showCurrencyDropdown && (
-                    <div className="absolute top-full right-0 mt-2 w-full bg-[#2A2640] rounded-lg shadow-lg z-10">
+                    <div className="absolute top-full right-0 mt-2 w-full bg-[#FFFFFF14] rounded-lg shadow-lg z-10">
                       <button
-                        className="w-full p-3 text-left hover:bg-[#3A3650] transition-colors"
+                        className="w-full p-3 text-left hover:bg-[#FFFFFF1A] transition-colors"
                         onClick={(e) => {
                           e.preventDefault();
                           setCurrency("USDC");
@@ -551,7 +551,7 @@ export default function CreatePoolPage() {
                         USDC
                       </button>
                       <button
-                        className="w-full p-3 text-left hover:bg-[#3A3650] transition-colors"
+                        className="w-full p-3 text-left hover:bg-[#FFFFFF1A] transition-colors"
                         onClick={(e) => {
                           e.preventDefault();
                           setCurrency("ETH");
@@ -570,7 +570,7 @@ export default function CreatePoolPage() {
             <div className="mb-6">
               <div className="relative">
                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-[#836EF9] rounded-full flex items-center justify-center">
                     <span className="text-white font-bold">$</span>
                   </div>
                 </div>
@@ -580,7 +580,7 @@ export default function CreatePoolPage() {
                   name="minCommitment"
                   value={minCommitment}
                   onChange={(e) => setMinCommitment(e.target.value)}
-                  className="w-full p-4 pl-16 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
                 />
               </div>
             </div>
@@ -593,14 +593,14 @@ export default function CreatePoolPage() {
                 name="patrons"
                 value={patrons}
                 onChange={(e) => setPatrons(e.target.value)}
-                className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
               />
             </div>
 
             {/* Description */}
             <div className="mb-6">
               <h2 className="text-2xl font-bold mb-4">Description</h2>
-              <div className="bg-[#2A2640] rounded-lg overflow-hidden">
+              <div className="bg-[#FFFFFF14] rounded-lg overflow-hidden">
                 <textarea
                   placeholder="Write your story..."
                   name="description"
@@ -637,7 +637,7 @@ export default function CreatePoolPage() {
             <div className="mb-6">
               <div className="relative">
                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                  <div className="w-8 h-8 bg-[#2A2640] rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
                     <FaMapMarkerAlt className="text-white" />
                   </div>
                 </div>
@@ -647,7 +647,7 @@ export default function CreatePoolPage() {
                   name="location"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full p-4 pl-16 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
                 />
               </div>
             </div>
@@ -680,7 +680,7 @@ export default function CreatePoolPage() {
                       setEndDate(selectedDate);
                     }
                   }}
-                  className="w-full p-4 bg-[#2A2640] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
                 />
               </div>
               <p className="text-sm text-gray-400 mt-2">
@@ -696,7 +696,7 @@ export default function CreatePoolPage() {
       <div className="absolute bottom-0 left-0 right-0 px-6 py-6 bg-[#15161a]">
         <button
           onClick={handleSubmit}
-          className="w-full py-4 bg-purple-500 rounded-full text-white font-medium text-lg"
+          className="w-full py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors"
           disabled={isSubmitting}
         >
           {isSubmitting ? "Creating..." : "Launch Party Round"}
