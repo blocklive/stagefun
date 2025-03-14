@@ -133,8 +133,15 @@ export async function POST(request: NextRequest) {
       // Since we're the authorized withdrawer, we can use the direct withdrawal method
       // We'll create a milestone and immediately approve and withdraw it
 
+      // Get the current milestone count before creating a new one
+      const milestones = poolDetails._milestones;
+      const initialMilestoneCount = milestones.length;
+      console.log(`Current milestone count: ${initialMilestoneCount}`);
+
       // First, create a milestone for the amount
       const now = Math.floor(Date.now() / 1000);
+      // Set unlock time to 5 seconds in the future for faster processing
+      const unlockTime = now + 5;
       const descriptions = ["Withdrawal"];
       const amounts = [
         ethers.parseUnits(
@@ -144,8 +151,7 @@ export async function POST(request: NextRequest) {
           6
         ),
       ];
-      // Set unlock time to 5 seconds in the future to satisfy the contract requirement
-      const unlockTimes = [now + 5];
+      const unlockTimes = [unlockTime];
 
       const setMilestoneTx = await poolContract.setMilestones(
         descriptions,
@@ -155,25 +161,99 @@ export async function POST(request: NextRequest) {
       await setMilestoneTx.wait();
       console.log("Milestone created for withdrawal");
 
-      // Wait for the unlock time to pass before approving
-      console.log(
-        `Waiting for unlock time (${unlockTimes[0]}) to be reached...`
+      // The new milestone index will be the initial count (since arrays are 0-indexed)
+      const newMilestoneIndex = initialMilestoneCount;
+      console.log(`New milestone index: ${newMilestoneIndex}`);
+
+      // Approve the milestone with retry logic
+      const approveWithRetry = async (maxRetries = 3) => {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            console.log(
+              `Attempting to approve milestone (attempt ${attempt}/${maxRetries})...`
+            );
+            const approveTx = await poolContract.approveMilestone(
+              newMilestoneIndex
+            );
+            await approveTx.wait();
+            console.log(`Milestone ${newMilestoneIndex} approved successfully`);
+            return true;
+          } catch (error) {
+            console.error(
+              `Error approving milestone (attempt ${attempt}/${maxRetries}):`,
+              error
+            );
+
+            // Check if it's a "Too early" error
+            if (error instanceof Error && error.message.includes("Too early")) {
+              console.log("Got 'Too early' error, waiting before retrying...");
+
+              // Only check blockchain time and wait if we get a "Too early" error
+              await waitForUnlockTime(unlockTime, provider);
+            } else if (
+              error instanceof Error &&
+              error.message.includes("Already approved")
+            ) {
+              console.log(
+                `Milestone ${newMilestoneIndex} was already approved, continuing...`
+              );
+              return true;
+            } else if (attempt === maxRetries) {
+              // If this was our last attempt, rethrow the error
+              throw error;
+            } else {
+              // For other errors, wait a bit before retrying
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+            }
+          }
+        }
+        throw new Error(
+          `Failed to approve milestone after ${maxRetries} attempts`
+        );
+      };
+
+      // Function to wait until the unlock time is reached
+      const waitForUnlockTime = async (
+        targetTime: number,
+        provider: ethers.JsonRpcProvider
+      ) => {
+        // Get the current blockchain time
+        const currentBlock = await provider.getBlock("latest");
+        if (!currentBlock) {
+          throw new Error("Failed to get current block");
+        }
+
+        const currentBlockTime = currentBlock.timestamp;
+        console.log(
+          `Current block time: ${currentBlockTime}, Unlock time: ${targetTime}`
+        );
+
+        // If the current time is already past the unlock time, we're good to go
+        if (currentBlockTime >= targetTime) {
+          return;
+        }
+
+        // Calculate how much time we need to wait (in seconds)
+        const timeToWait = targetTime - currentBlockTime;
+        console.log(`Need to wait ${timeToWait} more seconds`);
+
+        // Add a buffer of 2 seconds to ensure we're past the unlock time
+        const waitTimeMs = (timeToWait + 2) * 1000;
+
+        // Wait for the calculated time
+        await new Promise((resolve) => setTimeout(resolve, waitTimeMs));
+      };
+
+      // Try to approve the milestone with retries
+      await approveWithRetry();
+
+      // Withdraw the milestone using the correct index
+      const withdrawTx = await poolContract.withdrawMilestone(
+        newMilestoneIndex
       );
-      const waitTime = (unlockTimes[0] - Math.floor(Date.now() / 1000)) * 1000;
-      if (waitTime > 0) {
-        await new Promise((resolve) => setTimeout(resolve, waitTime + 1000)); // Add 1 extra second to be safe
-      }
-
-      // Approve the milestone
-      const approveTx = await poolContract.approveMilestone(0);
-      await approveTx.wait();
-      console.log("Milestone approved");
-
-      // Withdraw the milestone
-      const withdrawTx = await poolContract.withdrawMilestone(0);
       const receipt = await withdrawTx.wait();
       txHash = receipt.hash;
-      console.log("Milestone withdrawn", { txHash });
+      console.log(`Milestone ${newMilestoneIndex} withdrawn`, { txHash });
 
       // If a destination address was provided and it's different from the wallet address,
       // transfer the funds to the destination address

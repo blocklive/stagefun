@@ -56,8 +56,8 @@ StageFun is a decentralized platform for creating and managing party rounds for 
 │           │           │         │           │                     │
 │           ▼           │         │           │ ┌─────────────────┐ │
 │  ┌─────────────────┐  │         └──────────►│ │  Commitments    │ │
-│  │StageDotFunPool  │  │                     │ │  Table          │ │
-│  │Contracts        │◄─┼─────────────────────┤ └─────────────────┘ │
+│  │StageDotFunPool  │  │         |           │ │  Table          │ │
+│  │Contracts        │◄─┼─────────|           | └─────────────────┘ │
 │  └────────┬────────┘  │                     │                     │
 │           │           │                     │ ┌─────────────────┐ │
 │           ▼           │                     │ │   Users         │ │

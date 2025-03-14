@@ -807,6 +807,23 @@ export default function PoolFundsSection({
                 </div>
               </div>
 
+              {/* Amount Input */}
+              <div className="mb-6">
+                <label className="block text-gray-400 text-sm mb-2">
+                  Enter USDC amount to withdraw
+                </label>
+                <input
+                  type="number"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  className="w-full bg-[#2A2A2A] text-white p-3 rounded-[12px] border border-gray-700 focus:outline-none focus:border-blue-500"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  max={rawTotalFunds.toFixed(2)}
+                />
+              </div>
+
               {/* Percentage Buttons */}
               <div className="flex gap-2 mb-6">
                 <button
