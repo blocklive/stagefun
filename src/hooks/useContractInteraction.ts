@@ -84,6 +84,22 @@ interface ContractInteractionHookResult {
     txHash?: string;
     error?: string;
   }>;
+  updatePoolName: (
+    poolAddress: string,
+    newName: string
+  ) => Promise<{
+    success: boolean;
+    txHash?: string;
+    error?: string;
+  }>;
+  updateMinCommitment: (
+    poolAddress: string,
+    newMinCommitment: number
+  ) => Promise<{
+    success: boolean;
+    txHash?: string;
+    error?: string;
+  }>;
   getPool: (poolId: string) => Promise<ContractPool | null>;
   getPoolLpHolders: (poolId: string) => Promise<string[]>;
   getUserPoolBalance: (userAddress: string, poolId: string) => Promise<string>;
@@ -1489,6 +1505,197 @@ export function useContractInteraction(): ContractInteractionHookResult {
     [signer]
   );
 
+  // Update pool name
+  const updatePoolName = async (
+    poolAddress: string,
+    newName: string
+  ): Promise<{
+    success: boolean;
+    txHash?: string;
+    error?: string;
+  }> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (!walletsReady || !wallets.length) {
+        throw new Error("No wallets available - please connect your wallet");
+      }
+
+      const ethersProvider = await getProvider();
+      const signer = await ethersProvider.getSigner();
+      const signerAddress = await signer.getAddress();
+
+      console.log("Updating pool name:", {
+        poolAddress,
+        newName,
+        signerAddress,
+      });
+
+      // Create contract interface for the pool
+      const poolContract = new ethers.Contract(
+        poolAddress,
+        StageDotFunPoolABI,
+        signer
+      );
+
+      // Encode the function call
+      const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+      const updateNameData = poolInterface.encodeFunctionData(
+        "updatePoolName",
+        [newName]
+      );
+
+      // Prepare the transaction request
+      const updateNameRequest = {
+        to: poolAddress,
+        data: updateNameData,
+        value: "0",
+        from: signerAddress,
+        chainId: 10143, // Monad Testnet
+      };
+
+      // Set UI options for the transaction
+      const updateNameUiOptions: SendTransactionModalUIOptions = {
+        description: `Updating pool name to "${newName}"`,
+        buttonText: "Update Name",
+        transactionInfo: {
+          title: "Update Pool Name",
+          action: "Update Name",
+          contractInfo: {
+            name: "StageDotFun Pool",
+          },
+        },
+      };
+
+      console.log("Sending update name transaction");
+      const txHash = await sendTransaction(updateNameRequest, {
+        uiOptions: updateNameUiOptions,
+      });
+
+      // Wait for transaction to be mined
+      const receipt = await ethersProvider.waitForTransaction(txHash.hash);
+
+      console.log("Pool name updated successfully:", {
+        txHash: txHash.hash,
+        receipt,
+      });
+
+      setIsLoading(false);
+      return {
+        success: true,
+        txHash: txHash.hash,
+      };
+    } catch (error) {
+      console.error("Error updating pool name:", error);
+      setError(error instanceof Error ? error.message : "Unknown error");
+      setIsLoading(false);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  };
+
+  // Update minimum commitment
+  const updateMinCommitment = async (
+    poolAddress: string,
+    newMinCommitment: number
+  ): Promise<{
+    success: boolean;
+    txHash?: string;
+    error?: string;
+  }> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (!walletsReady || !wallets.length) {
+        throw new Error("No wallets available - please connect your wallet");
+      }
+
+      const ethersProvider = await getProvider();
+      const signer = await ethersProvider.getSigner();
+      const signerAddress = await signer.getAddress();
+
+      // Convert the min commitment to the correct format (USDC has 6 decimals)
+      const minCommitmentBigInt = ethers.parseUnits(
+        newMinCommitment.toString(),
+        6
+      );
+
+      console.log("Updating min commitment:", {
+        poolAddress,
+        newMinCommitment,
+        minCommitmentBigInt: minCommitmentBigInt.toString(),
+        signerAddress,
+      });
+
+      // Create contract interface for the pool
+      const poolContract = new ethers.Contract(
+        poolAddress,
+        StageDotFunPoolABI,
+        signer
+      );
+
+      // Encode the function call
+      const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+      const updateMinCommitmentData = poolInterface.encodeFunctionData(
+        "updateMinCommitment",
+        [minCommitmentBigInt]
+      );
+
+      // Prepare the transaction request
+      const updateMinCommitmentRequest = {
+        to: poolAddress,
+        data: updateMinCommitmentData,
+        value: "0",
+        from: signerAddress,
+        chainId: 10143, // Monad Testnet
+      };
+
+      // Set UI options for the transaction
+      const updateMinCommitmentUiOptions: SendTransactionModalUIOptions = {
+        description: `Updating minimum commitment to ${newMinCommitment} USDC`,
+        buttonText: "Update Min Commitment",
+        transactionInfo: {
+          title: "Update Min Commitment",
+          action: "Update Min Commitment",
+          contractInfo: {
+            name: "StageDotFun Pool",
+          },
+        },
+      };
+
+      console.log("Sending update min commitment transaction");
+      const txHash = await sendTransaction(updateMinCommitmentRequest, {
+        uiOptions: updateMinCommitmentUiOptions,
+      });
+
+      // Wait for transaction to be mined
+      const receipt = await ethersProvider.waitForTransaction(txHash.hash);
+
+      console.log("Min commitment updated successfully:", {
+        txHash: txHash.hash,
+        receipt,
+      });
+
+      setIsLoading(false);
+      return {
+        success: true,
+        txHash: txHash.hash,
+      };
+    } catch (error) {
+      console.error("Error updating min commitment:", error);
+      setError(error instanceof Error ? error.message : "Unknown error");
+      setIsLoading(false);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  };
+
   return {
     isLoading,
     error,
@@ -1496,6 +1703,8 @@ export function useContractInteraction(): ContractInteractionHookResult {
     createPoolWithDatabase,
     depositToPool,
     withdrawFromPool,
+    updatePoolName,
+    updateMinCommitment,
     getPool,
     getPoolLpHolders,
     getUserPoolBalance,

@@ -28,6 +28,8 @@ import GetTokensModal from "../../components/GetTokensModal";
 import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
 import { useNativeBalance } from "../../../hooks/useNativeBalance";
 import toast from "react-hot-toast";
+import PoolImageUpload from "@/components/PoolImageUpload";
+import { uploadPoolImage } from "@/lib/utils/imageUpload";
 
 // Helper function to format a date for datetime-local input
 function formatDateForInput(date: Date): string {
@@ -165,120 +167,7 @@ export default function CreatePoolPage() {
       return null;
     }
 
-    try {
-      setIsUploadingImage(true);
-      console.log("Starting image upload...");
-
-      // Create a unique file name
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${Math.random()
-        .toString(36)
-        .substring(2)}_${Date.now()}.${fileExt}`;
-      // Use just the filename without the pool-images/ prefix since the bucket name is already pool-images
-      const filePath = fileName;
-
-      console.log(`Uploading to path: ${filePath}`);
-
-      // Try to upload with the authenticated client first
-      let data;
-      let error;
-
-      try {
-        const result = await supabase.storage
-          .from("pool-images")
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          });
-
-        data = result.data;
-        error = result.error;
-      } catch (uploadError) {
-        console.error("Initial upload attempt failed:", uploadError);
-        error = uploadError;
-      }
-
-      // If there's an RLS error, try a different approach
-      if (
-        error &&
-        typeof error === "object" &&
-        "message" in error &&
-        typeof error.message === "string" &&
-        (error.message.includes("security policy") ||
-          error.message.includes("permission denied"))
-      ) {
-        console.log(
-          "RLS policy error detected, trying alternative approach..."
-        );
-
-        // Create a FormData object
-        const formData = new FormData();
-        formData.append("file", file);
-
-        // Use fetch API to upload directly to Supabase Storage REST API
-        try {
-          // Get authentication token from user session
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          const token = session?.access_token;
-
-          if (!token) {
-            throw new Error("No authentication token available");
-          }
-
-          const uploadResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/pool-images/${filePath}`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-              body: formData,
-            }
-          );
-
-          if (!uploadResponse.ok) {
-            const errorData = await uploadResponse.json();
-            throw new Error(`Upload failed: ${JSON.stringify(errorData)}`);
-          }
-
-          console.log("Upload successful via REST API");
-          error = null;
-        } catch (restError) {
-          console.error("REST API upload failed:", restError);
-          error = restError;
-        }
-      }
-
-      if (error) {
-        console.error("Supabase storage upload error:", error);
-        throw error;
-      }
-
-      console.log("Upload successful:", data);
-
-      // Get the public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("pool-images").getPublicUrl(filePath);
-
-      console.log("Generated public URL:", publicUrl);
-      return publicUrl;
-    } catch (error: any) {
-      console.error("Error uploading image:", error);
-
-      // More detailed error message
-      let errorMessage = "Failed to upload image. Please try again.";
-      if (error?.message) {
-        errorMessage += ` Error: ${error.message}`;
-      }
-
-      alert(errorMessage);
-      return null;
-    } finally {
-      setIsUploadingImage(false);
-    }
+    return uploadPoolImage(file, supabase, setIsUploadingImage);
   };
 
   const handleSubmit = async (
@@ -516,46 +405,13 @@ export default function CreatePoolPage() {
         {/* Main content */}
         <div className="px-6" style={{ paddingBottom: "100px" }}>
           {/* Pool Image */}
-          <div className="mt-8">
-            <div className="relative w-full aspect-square bg-[#836EF9] rounded-lg overflow-hidden">
-              {imagePreview ? (
-                <>
-                  <Image
-                    src={imagePreview}
-                    alt="Pool preview"
-                    fill
-                    className="object-cover"
-                  />
-                  <button
-                    onClick={handleRemoveImage}
-                    className="absolute top-4 right-4 w-10 h-10 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600"
-                  >
-                    <FaTimes className="text-white" />
-                  </button>
-                </>
-              ) : (
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-4xl font-bold text-center text-[#1E1B2E] p-8">
-                    YOU ARE INVITED
-                  </div>
-                  <label className="absolute bottom-4 right-4 w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center cursor-pointer hover:bg-[#FFFFFF1A]">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageSelect}
-                      className="hidden"
-                    />
-                    <FaPencilAlt className="text-white" />
-                  </label>
-                </div>
-              )}
-            </div>
-            {isUploadingImage && (
-              <div className="mt-2 text-sm text-gray-400">
-                Uploading image...
-              </div>
-            )}
-          </div>
+          <PoolImageUpload
+            imagePreview={imagePreview}
+            isUploadingImage={isUploadingImage}
+            onImageSelect={handleImageSelect}
+            onRemoveImage={handleRemoveImage}
+            placeholderText="YOU ARE INVITED"
+          />
 
           {/* Form */}
           <form id="createPoolForm" onSubmit={handleSubmit} className="mt-8">

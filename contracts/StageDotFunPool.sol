@@ -65,6 +65,8 @@ contract StageDotFunPool is Ownable {
     event TargetReached(uint256 totalAmount);
     event FundsReturned(address indexed lp, uint256 amount);
     event PoolStatusUpdated(PoolStatus newStatus);
+    event PoolNameUpdated(string oldName, string newName);
+    event MinCommitmentUpdated(uint256 oldMinCommitment, uint256 newMinCommitment);
     
     // View functions to get all pool details in a single call
     function getPoolDetails() external view returns (
@@ -471,5 +473,21 @@ contract StageDotFunPool is Ownable {
         }
         
         return (holders, balances);
+    }
+    
+    // Update pool name - only owner can call this
+    function updatePoolName(string memory _newName) external onlyOwner {
+        require(bytes(_newName).length > 0, "Name cannot be empty");
+        string memory oldName = name;
+        name = _newName;
+        emit PoolNameUpdated(oldName, _newName);
+    }
+    
+    // Update minimum commitment - only owner can call this
+    function updateMinCommitment(uint256 _newMinCommitment) external onlyOwner {
+        require(_newMinCommitment > 0, "Min commitment must be greater than 0");
+        uint256 oldMinCommitment = minCommitment;
+        minCommitment = _newMinCommitment;
+        emit MinCommitmentUpdated(oldMinCommitment, _newMinCommitment);
     }
 } 

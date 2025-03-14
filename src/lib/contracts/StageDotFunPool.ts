@@ -39,6 +39,8 @@ export const StageDotFunPoolABI = [
   "event TargetReached(uint256 totalAmount)",
   "event FundsReturned(address indexed lp, uint256 amount)",
   "event PoolStatusUpdated(uint8 newStatus)",
+  "event PoolNameUpdated(string oldName, string newName)",
+  "event MinCommitmentUpdated(uint256 oldMinCommitment, uint256 newMinCommitment)",
 
   // View functions
   "function getPoolDetails() view returns (string _name, string _uniqueId, address _creator, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _minCommitment, uint8 _status, address _lpTokenAddress, address[] memory _lpHolders, tuple(string description, uint256 amount, uint256 unlockTime, bool released)[] memory _milestones, bool _emergencyMode, uint256 _emergencyWithdrawalRequestTime, address _authorizedWithdrawer)",
@@ -76,6 +78,8 @@ export const StageDotFunPoolABI = [
   "function updateStatus(uint8 newStatus) external",
   "function setAdditionalMilestones(string[] calldata descriptions, uint256[] calldata amounts, uint256[] calldata unlockTimes) external",
   "function replaceDefaultMilestone(string[] calldata descriptions, uint256[] calldata amounts, uint256[] calldata unlockTimes) external",
+  "function updatePoolName(string memory _newName) external",
+  "function updateMinCommitment(uint256 _newMinCommitment) external",
 ];
 
 // ABI for the StageDotFunLiquidity token

@@ -71,6 +71,14 @@ export interface ContractInteractionContextType {
     amount: number,
     destinationAddress: string
   ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
+  updatePoolName: (
+    poolAddress: string,
+    newName: string
+  ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
+  updateMinCommitment: (
+    poolAddress: string,
+    newMinCommitment: number
+  ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
   approveWithRetry: (
     poolAddress: string,
     milestoneId: number
@@ -122,6 +130,12 @@ export const ContractInteractionContext =
       throw new Error("ContractInteractionContext not initialized");
     },
     withdrawFromPool: async () => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
+    updatePoolName: async () => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
+    updateMinCommitment: async () => {
       throw new Error("ContractInteractionContext not initialized");
     },
     distributeRevenue: async () => {

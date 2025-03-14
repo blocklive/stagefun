@@ -30,6 +30,8 @@ import CommitModal from "./components/CommitModal";
 import GetTokensModal from "../../components/GetTokensModal";
 import PoolDescription from "./components/PoolDescription";
 import UnfundedPoolView from "./components/UnfundedPoolView";
+import PoolLocation from "./components/PoolLocation";
+import PoolSocialLinks from "./components/PoolSocialLinks";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -47,6 +49,28 @@ export default function PoolDetailsPage() {
     isLoading,
     refresh: refreshPool,
   } = usePool(poolId);
+
+  // Check if we need to refresh the data (coming from edit page)
+  useEffect(() => {
+    // Check if the URL has a refresh parameter
+    const searchParams = new URLSearchParams(window.location.search);
+    const shouldRefresh = searchParams.get("refresh") === "true";
+
+    if (shouldRefresh) {
+      console.log("Refreshing pool data after edit...");
+      refreshPool();
+
+      // Clean up the URL by removing the refresh parameter
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [refreshPool]);
+
+  // Always refresh the pool data when the component mounts
+  useEffect(() => {
+    console.log("Initial pool data refresh on mount");
+    refreshPool();
+  }, [refreshPool, poolId]);
 
   const { creator, patrons, isLoading: isPoolLoading } = usePoolDetails(poolId);
 
@@ -272,11 +296,6 @@ export default function PoolDetailsPage() {
     }
   }, [pool, hasEnded, showCommitButton]);
 
-  // Debug log for showCommitButton changes
-  useEffect(() => {
-    console.log("showCommitButton changed:", showCommitButton);
-  }, [showCommitButton]);
-
   // Handle refund functionality
   const handleRefund = async () => {
     if (!pool || !pool.contract_address) {
@@ -410,6 +429,16 @@ export default function PoolDetailsPage() {
       (hasEnded && pool.raised_amount < pool.target_amount)
     : false;
 
+  // Check if the current user is the creator of the pool
+  const isCreator = dbUser?.id === pool?.creator_id;
+
+  // Handle edit button click
+  const handleEditClick = () => {
+    if (pool) {
+      router.push(`/pools/edit/${pool.id}`);
+    }
+  };
+
   // Render main content
   const renderContent = () => {
     if (isLoading) {
@@ -436,7 +465,13 @@ export default function PoolDetailsPage() {
     return (
       <div className="container mx-auto px-4 pb-8">
         {/* Pool Header */}
-        <PoolHeader pool={pool} isFunded={isFunded} isUnfunded={isUnfunded} />
+        <PoolHeader
+          pool={pool}
+          isFunded={isFunded}
+          isUnfunded={isUnfunded}
+          isCreator={isCreator}
+          handleEditClick={handleEditClick}
+        />
 
         {/* Conditional rendering based on pool state */}
         {isFunded ? (
@@ -453,6 +488,15 @@ export default function PoolDetailsPage() {
             {/* Tab Content */}
             {contentTab === "overview" && (
               <div className="mt-6">
+                {/* Description */}
+                <PoolDescription pool={pool} />
+
+                {/* Location */}
+                <PoolLocation pool={pool} />
+
+                {/* Social Links */}
+                <PoolSocialLinks pool={pool} />
+
                 {/* Token Section */}
                 <TokenSection pool={pool} />
 
@@ -495,6 +539,15 @@ export default function PoolDetailsPage() {
             {/* Tab Content */}
             {contentTab === "overview" && (
               <div className="mt-6">
+                {/* Description */}
+                <PoolDescription pool={pool} />
+
+                {/* Location */}
+                <PoolLocation pool={pool} />
+
+                {/* Social Links */}
+                <PoolSocialLinks pool={pool} />
+
                 {/* Token Section */}
                 <TokenSection pool={pool} />
 
@@ -540,6 +593,15 @@ export default function PoolDetailsPage() {
             {/* Tab Content */}
             {contentTab === "overview" && (
               <div className="mt-6">
+                {/* Description */}
+                <PoolDescription pool={pool} />
+
+                {/* Location */}
+                <PoolLocation pool={pool} />
+
+                {/* Social Links */}
+                <PoolSocialLinks pool={pool} />
+
                 {/* Token Section */}
                 <TokenSection pool={pool} />
 

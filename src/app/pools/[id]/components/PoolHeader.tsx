@@ -7,12 +7,16 @@ export interface PoolHeaderProps {
   pool: Pool;
   isFunded: boolean;
   isUnfunded?: boolean;
+  isCreator?: boolean;
+  handleEditClick?: () => void;
 }
 
 export default function PoolHeader({
   pool,
   isFunded,
   isUnfunded,
+  isCreator,
+  handleEditClick,
 }: PoolHeaderProps) {
   // Determine the status text and color
   let statusText = "Accepting patrons";
@@ -77,6 +81,28 @@ export default function PoolHeader({
           </div>
         </div>
       </div>
+
+      {/* Edit Button - Only show if user is the creator */}
+      {isCreator && (
+        <button
+          onClick={handleEditClick}
+          className="flex items-center gap-2 px-4 py-2 bg-[#FFFFFF14] rounded-lg text-white hover:bg-opacity-80 transition-all"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+          </svg>
+          <span>Edit</span>
+        </button>
+      )}
     </div>
   );
 }
