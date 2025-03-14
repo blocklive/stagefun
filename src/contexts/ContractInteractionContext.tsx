@@ -42,8 +42,23 @@ interface ContractResult {
 // Define the context type
 export interface ContractInteractionContextType {
   createPool: (
-    data: PoolCreationData
-  ) => Promise<{ success: boolean; error?: string; poolAddress?: string }>;
+    name: string,
+    uniqueId: string,
+    symbol: string,
+    endTime: number,
+    targetAmount: number,
+    minCommitment: number
+  ) => Promise<any>;
+  createPoolWithDatabase: (
+    poolData: PoolCreationData,
+    endTimeUnix: number
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    poolAddress?: string;
+    txHash?: string;
+    data?: any;
+  }>;
   getPoolDetails: (poolAddress: string) => Promise<any>;
   depositToPool: (
     poolAddress: string,
@@ -92,7 +107,10 @@ export const ContractInteractionContext =
     ) => {
       throw new Error("ContractInteractionContext not initialized");
     },
-    createPoolWithDatabase: async () => {
+    createPoolWithDatabase: async (
+      poolData: PoolCreationData,
+      endTimeUnix: number
+    ) => {
       throw new Error("ContractInteractionContext not initialized");
     },
     depositToPool: async () => {

@@ -129,21 +129,13 @@ export async function getPoolFromChain(
       status: details.status.toString(),
       lpTokenAddress: details.lpTokenAddress,
       lpHolders: details.lpHolders,
-      milestones: details.milestones.map(
-        (milestone: {
-          description: string;
-          amount: bigint;
-          unlockTime: bigint;
-          approved: boolean;
-          released: boolean;
-        }) => ({
-          description: milestone.description,
-          amount: milestone.amount.toString(),
-          unlockTime: milestone.unlockTime.toString(),
-          approved: milestone.approved,
-          released: milestone.released,
-        })
-      ),
+      milestones: details.milestones.map((milestone: any) => ({
+        description: milestone.description,
+        amount: milestone.amount.toString(),
+        unlockTime: milestone.unlockTime.toString(),
+        approved: milestone.approved !== undefined ? milestone.approved : false,
+        released: milestone.released,
+      })),
       emergencyMode: details.emergencyMode,
       emergencyWithdrawalRequestTime:
         details.emergencyWithdrawalRequestTime.toString(),
