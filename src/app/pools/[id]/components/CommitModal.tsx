@@ -14,10 +14,8 @@ interface CommitModalProps {
   isApproving: boolean;
   isUsingCache?: boolean;
   walletsReady?: boolean;
-  biconomyWalletAddress?: string | null;
   handleMaxClick: () => void;
   handleCommit: () => Promise<void>;
-  handleBiconomyCommit?: () => Promise<void>;
   setCommitAmount: (value: string) => void;
   refreshBalance?: () => void;
 }
@@ -32,10 +30,8 @@ export default function CommitModal({
   isApproving,
   isUsingCache = false,
   walletsReady = true,
-  biconomyWalletAddress = null,
   handleMaxClick,
   handleCommit,
-  handleBiconomyCommit,
   setCommitAmount,
   refreshBalance,
 }: CommitModalProps) {

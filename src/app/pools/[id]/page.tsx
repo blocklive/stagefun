@@ -13,7 +13,6 @@ import { usePoolDetails } from "../../../hooks/usePoolDetails";
 import { usePoolCommitments } from "../../../hooks/usePoolCommitments";
 import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
 import { usePool } from "../../../hooks/usePool";
-import { useBiconomyContractInteraction } from "../../../hooks/useBiconomyContractInteraction";
 import AppHeader from "../../components/AppHeader";
 
 // Import components
@@ -77,18 +76,13 @@ export default function PoolDetailsPage() {
     isLoading: isTimeLoading,
   } = usePoolTimeLeft(pool);
 
-  // Add Biconomy contract interaction
-  const {
-    depositToPool: commitToBiconomy,
-    isLoading: isBiconomyLoading,
-    error: biconomyError,
-    walletAddress: biconomyWalletAddress,
-  } = useBiconomyContractInteraction();
+  // Add contract interaction
+  const { isLoading: isContractLoading } = useContractInteraction();
 
   // Calculate total committed and target amount from commitments
   const totalCommitted =
     commitments?.reduce(
-      (sum, commitment) => sum + Number(commitment.amount),
+      (sum, commitment) => sum + (Number(commitment.amount) || 0),
       0
     ) || 0;
 
@@ -228,89 +222,6 @@ export default function PoolDetailsPage() {
     }
   };
 
-  // Add a new function to handle commits via Biconomy
-  const handleBiconomyCommit = async () => {
-    if (!pool || !dbUser) return;
-
-    try {
-      setIsApproving(true);
-      const amount = parseFloat(commitAmount);
-
-      if (isNaN(amount) || amount <= 0) {
-        toast.error("Please enter a valid amount");
-        return;
-      }
-
-      // Show initial toast
-      const loadingToast = toast.loading("Preparing your commitment...");
-
-      // Make sure we have a contract address
-      if (!pool.contract_address) {
-        toast.error("Pool contract address not found", { id: loadingToast });
-        return;
-      }
-
-      console.log("Pool details in handleBiconomyCommit:", {
-        id: pool.id,
-        name: pool.name,
-        contractAddress: pool.contract_address,
-        status: pool.status,
-      });
-
-      console.log("Calling commitToBiconomy with:", {
-        firstArg: pool.contract_address,
-        amount,
-      });
-
-      // Update toast for USDC approval
-      toast.loading("Requesting approval for USDC transfer...", {
-        id: loadingToast,
-      });
-
-      // Update toast for approval success
-      toast.loading("✅ USDC approved! Preparing gasless transaction...", {
-        id: loadingToast,
-      });
-
-      // Update toast for transaction in progress
-      toast.loading("Transaction submitted to blockchain...", {
-        id: loadingToast,
-      });
-
-      // Use Biconomy to commit to the pool (gasless transaction)
-      await commitToBiconomy(pool.contract_address, amount);
-
-      // Update toast for waiting confirmation
-      toast.loading(
-        "Transaction successful! Waiting for final confirmation...",
-        { id: loadingToast }
-      );
-
-      // Update toast for receipt received
-      toast.loading("Receipt received! Finalizing your deposit...", {
-        id: loadingToast,
-      });
-
-      // Refresh data
-      refreshPool();
-      refreshBalance();
-      refreshCommitments();
-
-      // Success toast with emoji
-      toast.success(
-        `🎉 Successfully committed ${amount} USDC to ${pool.name}!`,
-        { id: loadingToast }
-      );
-      setCommitAmount("");
-      setIsApproving(false);
-      setIsCommitModalOpen(false); // Close the modal on success
-    } catch (error) {
-      console.error("Error committing to pool with Biconomy:", error);
-      toast.error("Failed to commit to pool. Please try again.");
-      setIsApproving(false);
-    }
-  };
-
   // Find the user's commitment to this pool
   const getUserCommitment = useCallback(() => {
     if (!dbUser || !commitments) return null;
@@ -371,14 +282,13 @@ export default function PoolDetailsPage() {
           userCommitment={userCommitment}
           isCommitmentsLoading={isCommitmentsLoading}
           commitmentsError={commitmentsError}
+          usdcBalance={usdcBalance}
           commitAmount={commitAmount}
           isApproving={isApproving}
           walletsReady={walletsReady}
-          biconomyWalletAddress={biconomyWalletAddress}
-          usdcBalance={usdcBalance}
-          setCommitAmount={setCommitAmount}
           handleCommit={handleCommit}
-          handleBiconomyCommit={handleBiconomyCommit}
+          setCommitAmount={setCommitAmount}
+          refreshBalance={refreshBalance}
         />
         <PoolDescription pool={pool} />
       </>
@@ -575,10 +485,8 @@ export default function PoolDetailsPage() {
         isApproving={isApproving}
         isUsingCache={isUsingCachedBalance}
         walletsReady={walletsReady}
-        biconomyWalletAddress={biconomyWalletAddress}
         handleMaxClick={handleMaxClick}
         handleCommit={handleCommit}
-        handleBiconomyCommit={handleBiconomyCommit}
         setCommitAmount={setCommitAmount}
         refreshBalance={refreshBalance}
       />

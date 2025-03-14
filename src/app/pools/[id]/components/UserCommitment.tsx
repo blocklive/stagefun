@@ -15,16 +15,15 @@ interface UserCommitmentProps {
     user: User;
     onChain: boolean;
   } | null;
-  isCommitmentsLoading: boolean;
-  commitmentsError: any;
+  isCommitmentsLoading?: boolean;
+  commitmentsError?: any;
   commitAmount: string;
   isApproving: boolean;
   walletsReady: boolean;
-  biconomyWalletAddress: string | null;
   usdcBalance: string;
   setCommitAmount: (value: string) => void;
   handleCommit: () => Promise<void>;
-  handleBiconomyCommit: () => Promise<void>;
+  refreshBalance?: () => void;
 }
 
 export default function UserCommitment({
@@ -33,6 +32,13 @@ export default function UserCommitment({
   userCommitment,
   isCommitmentsLoading,
   commitmentsError,
+  commitAmount,
+  isApproving,
+  walletsReady,
+  usdcBalance,
+  setCommitAmount,
+  handleCommit,
+  refreshBalance,
 }: UserCommitmentProps) {
   // State to track if we should show the error (only after a delay)
   const [showError, setShowError] = useState(false);
