@@ -26,7 +26,12 @@ export default function PoolHeader({
     statusColor = "#F87171"; // Red for unfunded
   } else if (pool.blockchain_status === "pending") {
     statusText = "Pending";
-  } else if (pool.status === "inactive") {
+  } else if (
+    pool.status === "inactive" &&
+    pool.blockchain_status !== "active" &&
+    pool.blockchain_status !== "confirmed"
+  ) {
+    // Only show inactive if the pool is truly inactive (not active on blockchain)
     statusText = "Inactive";
   }
 

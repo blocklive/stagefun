@@ -5,6 +5,8 @@ import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { FaArrowLeft, FaPlus } from "react-icons/fa";
 import { toast } from "react-hot-toast";
+import { ethers } from "ethers";
+import { StageDotFunPoolABI } from "../../../lib/contracts/StageDotFunPool";
 import BottomNavbar from "../../components/BottomNavbar";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
@@ -286,11 +288,62 @@ export default function PoolDetailsPage() {
     const loadingToast = toast.loading("Preparing refund...");
 
     try {
+      // Log pool status for debugging
+      console.log("Pool status:", {
+        blockchain_status: pool.blockchain_status,
+        isUnfunded,
+        hasEnded,
+        raisedAmount: pool.raised_amount,
+        targetAmount: pool.target_amount,
+      });
+
+      // Get user's LP token balance first to check if they have tokens to refund
+      const userCommitment = getUserCommitment();
+      console.log("User commitment:", userCommitment);
+
+      if (!userCommitment || userCommitment.amount <= 0) {
+        throw new Error("You don't have any tokens to refund in this pool");
+      }
+
       // Call the claimRefund function from the contract
+      console.log(
+        "Attempting to claim refund for contract:",
+        pool.contract_address
+      );
+
+      // Update toast message to indicate we're checking pool status
+      toast.loading("Checking pool eligibility for refund...", {
+        id: loadingToast,
+      });
+
       const result = await claimRefund(pool.contract_address);
 
       if (!result.success) {
-        throw new Error(result.error || "Failed to claim refund");
+        // If the refund fails, provide more detailed error information
+        console.error("Refund failed with result:", result);
+
+        // Check if the error is related to eligibility
+        if (result.error && result.error.includes("not eligible for refunds")) {
+          throw new Error(
+            "This pool is not eligible for refunds yet. The end time must have passed without meeting the target amount."
+          );
+        } else if (
+          result.error &&
+          result.error.includes("No LP tokens to refund")
+        ) {
+          throw new Error(
+            "You don't have any LP tokens to refund in this pool."
+          );
+        } else if (
+          result.error &&
+          result.error.includes("doesn't have enough USDC")
+        ) {
+          throw new Error(
+            "The pool doesn't have enough USDC to process your refund. Please contact support."
+          );
+        } else {
+          throw new Error(result.error || "Failed to claim refund");
+        }
       }
 
       toast.success("Refund claimed successfully!", { id: loadingToast });
