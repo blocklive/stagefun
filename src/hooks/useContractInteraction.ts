@@ -19,15 +19,61 @@ import {
   getPoolId,
   getContractAddresses,
   StageDotFunPoolABI,
+  StageDotFunPoolFactoryABI,
   getPoolByName,
   getPoolContract,
+  getStageDotFunPoolFactoryContract,
 } from "../lib/contracts/StageDotFunPool";
 import { supabase } from "../lib/supabase";
+
+interface PoolCreationData {
+  id: string;
+  name: string;
+  ticker: string;
+  description: string;
+  target_amount: number;
+  min_commitment: number;
+  currency: string;
+  token_amount: number;
+  token_symbol: string;
+  location: string;
+  venue: string;
+  status: string;
+  funding_stage: string;
+  ends_at: string;
+  creator_id: string;
+  raised_amount: number;
+  image_url: string | null;
+  social_links: any;
+}
+
+interface BlockchainPoolResult {
+  receipt: any;
+  poolAddress: string;
+  lpTokenAddress: string;
+  transactionHash: string;
+}
 
 interface ContractInteractionHookResult {
   isLoading: boolean;
   error: string | null;
-  createPool: (name: string, ticker: string) => Promise<any>;
+  createPool: (
+    name: string,
+    uniqueId: string,
+    symbol: string,
+    endTime: number,
+    targetAmount: number,
+    minCommitment: number
+  ) => Promise<any>;
+  createPoolWithDatabase: (
+    poolData: PoolCreationData,
+    endTimeUnix: number
+  ) => Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+    txHash?: string;
+  }>;
   depositToPool: (poolId: string, amount: number) => Promise<any>;
   getPool: (poolId: string) => Promise<ContractPool | null>;
   getPoolLpHolders: (poolId: string) => Promise<string[]>;
@@ -105,36 +151,278 @@ export function useContractInteraction(): ContractInteractionHookResult {
   }, [user, getProvider]);
 
   // Create a pool on the blockchain
-  const createPool = async (name: string, ticker: string) => {
-    setIsLoading(true);
-    setError(null);
+  const createPool = useCallback(
+    async (
+      name: string,
+      uniqueId: string,
+      symbol: string,
+      endTime: number,
+      targetAmount: number,
+      minCommitment: number
+    ) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const signer = await getSigner();
-      // Set end time to 2 days from now by default
-      const endTime = Math.floor(Date.now() / 1000) + 2 * 24 * 60 * 60;
-      // Default target amount to 1000 USDC (1000 * 10^6)
-      const targetAmount = BigInt(1000_000_000);
-      // Default min commitment to 0 USDC
-      const minCommitment = BigInt(0);
+      try {
+        if (!user) {
+          throw new Error("User not logged in");
+        }
 
-      const { receipt, poolId } = await createPoolOnChain(
-        signer,
-        name,
-        `pool-${Date.now()}`, // Generate a unique ID based on timestamp
-        ticker,
-        BigInt(endTime),
-        targetAmount,
-        minCommitment
-      );
-      return { receipt, poolId };
-    } catch (err: any) {
-      setError(err.message || "Error creating pool on chain");
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        console.log(
+          "Starting pool creation process for:",
+          name,
+          "uniqueId:",
+          uniqueId,
+          "symbol:",
+          symbol,
+          "endTime:",
+          endTime,
+          "targetAmount:",
+          targetAmount,
+          "minCommitment:",
+          minCommitment
+        );
+
+        // Get the embedded wallet
+        console.log(
+          "Available wallets for pool creation:",
+          wallets.map((w) => ({
+            address: w.address,
+            type: w.walletClientType,
+            chainId: w.chainId,
+          }))
+        );
+
+        const embeddedWallet = wallets.find(
+          (wallet) => wallet.walletClientType === "privy"
+        );
+
+        if (!embeddedWallet) {
+          console.error(
+            "No embedded wallet found for pool creation. Available wallets:",
+            wallets.map((w) => w.walletClientType)
+          );
+          throw new Error(
+            "No embedded wallet found. Please try logging out and logging in again."
+          );
+        }
+
+        console.log(
+          "Using embedded wallet for pool creation:",
+          embeddedWallet.address
+        );
+
+        // Get the provider and signer
+        const provider = await embeddedWallet.getEthereumProvider();
+        const ethersProvider = new ethers.BrowserProvider(provider);
+        const signer = await ethersProvider.getSigner();
+
+        console.log("Got signer for address:", await signer.getAddress());
+
+        // Convert amounts to BigInt with proper units
+        const targetAmountBigInt = ethers.parseUnits(
+          targetAmount.toString(),
+          6 // USDC has 6 decimals
+        );
+        const minCommitmentBigInt = ethers.parseUnits(
+          minCommitment.toString(),
+          6 // USDC has 6 decimals
+        );
+
+        // Get contract addresses
+        const contractAddresses = getContractAddresses();
+        console.log(
+          "Factory contract address:",
+          contractAddresses.stageDotFunPoolFactory
+        );
+
+        // Get the factory contract with signer
+        const factory = new ethers.Contract(
+          contractAddresses.stageDotFunPoolFactory,
+          StageDotFunPoolFactoryABI,
+          signer
+        );
+
+        console.log("Creating pool with parameters:", {
+          name,
+          uniqueId,
+          symbol,
+          endTime,
+          targetAmount: targetAmountBigInt.toString(),
+          minCommitment: minCommitmentBigInt.toString(),
+        });
+
+        // Call the contract directly - now anyone can create pools
+        console.log("Calling factory.createPool directly...");
+        const tx = await factory.createPool(
+          name,
+          uniqueId,
+          symbol,
+          BigInt(endTime),
+          targetAmountBigInt,
+          minCommitmentBigInt,
+          {
+            gasLimit: 3000000, // Set a high gas limit to ensure the transaction goes through
+          }
+        );
+
+        console.log("Transaction sent:", tx.hash);
+
+        // Wait for transaction to be mined
+        console.log("Waiting for transaction confirmation...");
+        const receipt = await tx.wait();
+        console.log("Pool creation transaction confirmed:", receipt);
+
+        if (!receipt) {
+          throw new Error("Transaction receipt not found");
+        }
+
+        // Check if the transaction was successful
+        if (!receipt.status) {
+          throw new Error("Transaction failed on chain");
+        }
+
+        // Find the PoolCreated event in the logs
+        const event = receipt.logs
+          .map((log: ethers.Log) => {
+            try {
+              return factory.interface.parseLog({
+                topics: log.topics as string[],
+                data: log.data,
+              });
+            } catch (e) {
+              return null;
+            }
+          })
+          .find(
+            (event: ethers.LogDescription | null) =>
+              event && event.name === "PoolCreated"
+          );
+
+        if (!event) {
+          throw new Error("PoolCreated event not found in transaction logs");
+        }
+
+        // Extract pool address and LP token address from the event
+        const poolAddress = event.args.poolAddress;
+        const lpTokenAddress = event.args.lpTokenAddress;
+        const eventUniqueId = event.args.uniqueId;
+
+        console.log("Pool created successfully:", {
+          poolAddress,
+          lpTokenAddress,
+          eventUniqueId,
+          transactionHash: receipt.hash,
+        });
+
+        // Note: Database update is handled by the calling component (pools/create/page.tsx)
+        // We just return the necessary data here
+
+        return {
+          receipt,
+          poolAddress,
+          lpTokenAddress,
+          transactionHash: receipt.hash,
+        };
+      } catch (err: any) {
+        console.error("Error creating pool:", err);
+        setError(err.message || "Error creating pool on chain");
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user, wallets]
+  );
+
+  // Create a pool on the blockchain and then in the database
+  const createPoolWithDatabase = useCallback(
+    async (poolData: PoolCreationData, endTimeUnix: number) => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        if (!user) {
+          throw new Error("User not logged in");
+        }
+
+        console.log("Starting pool creation process with data:", poolData);
+
+        // STEP 1: First create the pool on the blockchain
+        let blockchainResult: BlockchainPoolResult;
+        try {
+          // Call the createPool function to handle the blockchain interaction
+          blockchainResult = await createPool(
+            poolData.name,
+            poolData.id, // Use the uniqueId from poolData
+            poolData.token_symbol,
+            endTimeUnix, // Use Unix timestamp for blockchain
+            poolData.target_amount, // Will be converted to base units in the hook
+            poolData.min_commitment || 0 // Will be converted to base units in the hook
+          );
+
+          console.log(
+            "Pool created successfully on blockchain:",
+            blockchainResult
+          );
+        } catch (blockchainError: any) {
+          console.error("Error creating pool on blockchain:", blockchainError);
+          return {
+            success: false,
+            error: blockchainError.message || "Unknown blockchain error",
+          };
+        }
+
+        // STEP 2: Now that blockchain creation succeeded, add to database
+        console.log(
+          "Adding pool to database with blockchain details:",
+          blockchainResult
+        );
+
+        // Add blockchain information to the pool data
+        const poolDataWithBlockchain = {
+          ...poolData,
+          blockchain_tx_hash: blockchainResult.transactionHash,
+          blockchain_status: "active",
+          contract_address: blockchainResult.poolAddress,
+          lp_token_address: blockchainResult.lpTokenAddress,
+        };
+
+        // Insert the pool using supabase
+        const { data, error } = await supabase
+          .from("pools")
+          .insert(poolDataWithBlockchain)
+          .select()
+          .single();
+
+        if (error) {
+          console.error("Error creating pool in database:", error);
+          return {
+            success: false,
+            error: "Pool was created on blockchain but database entry failed",
+            txHash: blockchainResult.transactionHash,
+          };
+        }
+
+        console.log("Pool created successfully in database:", data);
+        return {
+          success: true,
+          data,
+          txHash: blockchainResult.transactionHash,
+        };
+      } catch (err: any) {
+        console.error("Error in createPoolWithDatabase:", err);
+        setError(err.message || "Error creating pool");
+        return {
+          success: false,
+          error: err.message || "Unknown error in pool creation process",
+        };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user, createPool]
+  );
 
   // Deposit to a pool on the blockchain
   const depositToPool = useCallback(
@@ -197,14 +485,36 @@ export function useContractInteraction(): ContractInteractionHookResult {
         const amountFormatted = ethers.formatUnits(amountBigInt, usdcDecimals);
 
         // Get the pool contract address from the database
-        const { data: pool } = await supabase
+        console.log("Looking up pool in database with ID:", poolId);
+        const { data: pool, error: poolError } = await supabase
           .from("pools")
-          .select("contract_address, status")
+          .select("contract_address, status, id, name")
           .eq("id", poolId)
           .single();
 
+        console.log("Database lookup result:", { pool, error: poolError });
+
         if (!pool || !pool.contract_address) {
-          throw new Error("Pool contract address not found");
+          // If we can't find the pool by ID, try looking it up by name
+          console.log("Pool not found by ID, trying to look up by name...");
+          const { data: poolsByName, error: nameError } = await supabase
+            .from("pools")
+            .select("contract_address, status, id, name")
+            .eq("name", poolId);
+
+          console.log("Lookup by name result:", {
+            pools: poolsByName,
+            error: nameError,
+          });
+
+          if (poolsByName && poolsByName.length > 0) {
+            console.log("Found pool by name:", poolsByName[0]);
+            throw new Error(
+              `Pool ID mismatch. Try using ID: ${poolsByName[0].id} instead of ${poolId}`
+            );
+          }
+
+          throw new Error(`Pool contract address not found for ID: ${poolId}`);
         }
 
         // Check if pool is active
@@ -695,6 +1005,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
     isLoading,
     error,
     createPool,
+    createPoolWithDatabase,
     depositToPool,
     getPool,
     getPoolLpHolders,

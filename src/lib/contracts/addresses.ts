@@ -8,7 +8,7 @@ export const CONTRACT_ADDRESSES = {
     usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
   },
   monadTestnet: {
-    stageDotFunPoolFactory: "0x591697DfC15bbAFb1930E4Ae5c187e55c153d623",
+    stageDotFunPoolFactory: "0x0630554464780789b21df4455EbF7d1FE7c2d94d",
     usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
   },
 } as const;
@@ -18,7 +18,7 @@ export const CONTRACT_ADDRESSES = {
  */
 export const NETWORK = {
   chainId: 10143, // Monad Testnet
-  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL,
+  rpcUrl: "https://falling-practical-rain.monad-testnet.quiknode.pro/a5d256e0fcaf1ff2574b5d13322cb315b0cec88f",
   explorerUrl: "https://testnet.monadexplorer.com",
 } as const;
 

@@ -134,7 +134,7 @@ The frontend is built with Next.js and React, providing a responsive and user-fr
 
 - **Blockchain Interaction**: Wagmi hooks and Viem for type-safe contract interactions, with proper error handling and transaction status tracking.
 
-- **State Management**: Combination of SWR for data fetching and Zustand for global state management.
+- **State Management**: SWR for data fetching and state management.
 
 ### Data Synchronization
 

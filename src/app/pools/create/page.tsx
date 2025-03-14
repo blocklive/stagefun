@@ -23,6 +23,7 @@ import { Pool } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
 import SocialLinksInput from "@/components/SocialLinksInput";
 import AppHeader from "../../components/AppHeader";
+import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
 
 // Helper function to format a date for datetime-local input
 function formatDateForInput(date: Date): string {
@@ -41,6 +42,8 @@ export default function CreatePoolPage() {
   const { dbUser } = useSupabase();
   const { client: supabase, isLoading: isClientLoading } =
     useAuthenticatedSupabase();
+  const { createPoolWithDatabase, isLoading: isContractLoading } =
+    useContractInteraction();
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [poolName, setPoolName] = useState("");
@@ -295,7 +298,7 @@ export default function CreatePoolPage() {
         timestamp: Math.floor(endDate.getTime() / 1000),
       });
 
-      // Create pool data directly from state variables
+      // Create pool data object
       const poolData = {
         id: uniqueId, // Use the UUID as the primary key
         name: poolName,
@@ -317,66 +320,31 @@ export default function CreatePoolPage() {
         social_links: Object.keys(socialLinks).length > 0 ? socialLinks : null,
       };
 
-      console.log("Submitting pool data:", poolData);
+      // Convert end date to Unix timestamp (seconds since epoch)
+      const endTimeUnix = Math.floor(endDate.getTime() / 1000);
+      console.log("End time Unix timestamp:", endTimeUnix);
 
-      // Insert the pool using the authenticated client
-      const { data, error } = await supabase
-        .from("pools")
-        .insert(poolData)
-        .select()
-        .single();
+      // Use the new createPoolWithDatabase function that handles both blockchain and database operations
+      const result = await createPoolWithDatabase(poolData, endTimeUnix);
 
-      if (error) {
-        console.error("Error creating pool:", error);
-        alert("Failed to create pool: " + error.message);
+      if (!result.success) {
+        console.error("Error creating pool:", result.error);
+        alert(result.error || "Failed to create pool");
+
+        // If we have a transaction hash but database failed, show special message
+        if (result.txHash) {
+          alert(
+            "Warning: Pool was created on blockchain but database entry failed. Please contact support with your transaction hash: " +
+              result.txHash
+          );
+          router.push("/");
+        }
+
         return;
       }
 
-      console.log("Pool created successfully in database:", data);
-
-      // Now create the pool on the blockchain using the backend API
-      try {
-        console.log("Creating pool on blockchain via backend API...");
-
-        // Convert end date to Unix timestamp (seconds since epoch)
-        const endTimeUnix = Math.floor(endDate.getTime() / 1000);
-        console.log("End time Unix timestamp:", endTimeUnix);
-
-        const response = await fetch("/api/blockchain/create-pool", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            poolId: data.id,
-            name: poolData.name,
-            uniqueId: uniqueId, // Pass the uniqueId to the blockchain
-            symbol: poolData.token_symbol,
-            endTime: endTimeUnix, // Use Unix timestamp for blockchain
-            targetAmount: poolData.target_amount * 1_000_000, // Convert to base units for blockchain
-            minCommitment: poolData.min_commitment * 1_000_000, // Convert to base units for blockchain
-          }),
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            result.error || "Failed to create pool on blockchain"
-          );
-        }
-
-        console.log("Pool created successfully on blockchain:", result);
-      } catch (blockchainError: any) {
-        console.error("Error creating pool on blockchain:", blockchainError);
-        // We don't want to block the user from proceeding if the blockchain transaction fails
-        // Just show a warning
-        alert(
-          "Warning: Pool was created in the database but blockchain transaction failed. Some features may be limited."
-        );
-      }
-
-      router.push(`/pools/${data.id}`);
+      console.log("Pool created successfully:", result.data);
+      router.push(`/pools/${result.data.id}`);
     } catch (error) {
       console.error("Error:", error);
       alert("An error occurred");

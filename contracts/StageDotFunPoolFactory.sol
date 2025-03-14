@@ -36,7 +36,7 @@ contract StageDotFunPoolFactory is Ownable {
         uint256 endTime,
         uint256 targetAmount,
         uint256 minCommitment
-    ) external onlyOwner returns (address) {
+    ) external returns (address) {
         require(endTime > block.timestamp, "End time must be in future");
         require(targetAmount > 0, "Target amount must be greater than 0");
         require(minCommitment > 0, "Min commitment must be greater than 0");
@@ -54,7 +54,7 @@ contract StageDotFunPoolFactory is Ownable {
             endTime,
             depositToken,
             msg.sender,
-            tx.origin, // Use tx.origin as the creator address
+            msg.sender, // Use msg.sender as the creator address instead of tx.origin
             targetAmount,
             minCommitment
         );
@@ -65,7 +65,7 @@ contract StageDotFunPoolFactory is Ownable {
             address(newPool),
             name,
             uniqueId,
-            tx.origin,
+            msg.sender,
             address(newPool.lpToken()),
             endTime
         );

@@ -14,11 +14,7 @@
     "db:reset": "supabase db reset",
     "db:generate-migration": "bash scripts/generate-migration.sh",
     "db:push": "supabase db push",
-    "blockchain:migrate": "bash scripts/apply-blockchain-migration.sh",
-    "deploy:monad-testnet": "hardhat run scripts/deploy-monad.js --network monadTestnet",
-    "deploy:monad-local": "hardhat run scripts/deploy-monad.js --network localhost",
     "compile": "hardhat compile",
-    "deploy:factory": "hardhat run scripts/deploy-factory.ts --network baseSepolia",
     "deploy:factory:monad": "hardhat run scripts/deploy-factory.ts --network monadTestnet"
   },
   "dependencies": {
@@ -39,8 +35,7 @@
     "swr": "^2.3.2",
     "use-sync-external-store": "^1.4.0",
     "uuid": "^11.1.0",
-    "viem": "^2.23.5",
-    "zustand": "^5.0.3"
+    "viem": "^2.23.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

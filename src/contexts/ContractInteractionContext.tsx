@@ -5,12 +5,51 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useContractInteraction as useContractInteractionHook } from "../hooks/useContractInteraction";
 import { ContractPool } from "../lib/contracts/StageDotFunPool";
 
+// Define the interface for pool creation data
+interface PoolCreationData {
+  id: string;
+  name: string;
+  ticker: string;
+  description: string;
+  target_amount: number;
+  min_commitment: number;
+  currency: string;
+  token_amount: number;
+  token_symbol: string;
+  location: string;
+  venue: string;
+  status: string;
+  funding_stage: string;
+  ends_at: string;
+  creator_id: string;
+  raised_amount: number;
+  image_url: string | null;
+  social_links: any;
+}
+
 // Define the context type
 interface ContractInteractionContextType {
   isLoading: boolean;
   error: string | null;
-  /** Creates a pool with a default end time of 2 days from now */
-  createPool: (name: string, ticker: string) => Promise<any>;
+  /** Creates a pool on the blockchain using the user's wallet */
+  createPool: (
+    name: string,
+    uniqueId: string,
+    symbol: string,
+    endTime: number,
+    targetAmount: number,
+    minCommitment: number
+  ) => Promise<any>;
+  /** Creates a pool on the blockchain and then adds it to the database */
+  createPoolWithDatabase: (
+    poolData: PoolCreationData,
+    endTimeUnix: number
+  ) => Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+    txHash?: string;
+  }>;
   depositToPool: (poolId: string, amount: number) => Promise<any>;
   getPool: (poolId: string) => Promise<ContractPool | null>;
   getPoolLpHolders: (poolId: string) => Promise<string[]>;
@@ -27,7 +66,17 @@ export const ContractInteractionContext =
   createContext<ContractInteractionContextType>({
     isLoading: false,
     error: null,
-    createPool: async () => {
+    createPool: async (
+      name: string,
+      uniqueId: string,
+      symbol: string,
+      endTime: number,
+      targetAmount: number,
+      minCommitment: number
+    ) => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
+    createPoolWithDatabase: async () => {
       throw new Error("ContractInteractionContext not initialized");
     },
     depositToPool: async () => {
