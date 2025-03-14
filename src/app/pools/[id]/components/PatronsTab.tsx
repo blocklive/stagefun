@@ -70,81 +70,73 @@ export default function PatronsTab({ poolAddress }: PatronsTabProps) {
   }
 
   return (
-    <div className="mt-6">
-      <div className="p-4 bg-[#FFFFFF0A] rounded-[16px]">
-        <h3 className="text-xl font-semibold mb-4">Patrons</h3>
-        <div className="p-4 rounded-[12px] bg-[#FFFFFF0F]">
-          {loading ? (
-            <div className="flex justify-center py-4">
-              <div
-                className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2"
-                style={{ borderColor: "#836EF9" }}
-              ></div>
-            </div>
-          ) : error ? (
-            <div className="text-center py-4 text-red-400">
-              Failed to load patrons. Please try again later.
-            </div>
-          ) : patrons.length === 0 ? (
-            <div className="text-center py-4 text-gray-400">
-              No patrons yet. Be the first to commit!
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {patrons.map((patron, index) => (
-                <div
-                  key={index}
-                  className="flex justify-between items-center py-2 border-b border-[#FFFFFF14] last:border-0"
-                >
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-[#FFFFFF14] flex items-center justify-center mr-3">
-                      <Image
-                        src={patron.avatarUrl || ""}
-                        alt={patron.displayName || patron.username || ""}
-                        width={32}
-                        height={32}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center">
-                        <p className="font-semibold">
-                          {patron.displayName ||
-                            patron.username ||
-                            `${patron.address.substring(
-                              0,
-                              6
-                            )}...${patron.address.substring(38)}`}
-                        </p>
-                        {patron.isCurrentUser && (
-                          <span className="text-blue-400 ml-2 text-sm">
-                            You
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-400">
-                        @
-                        {patron.username || `${patron.address.substring(0, 6)}`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="text-lg font-bold mr-2">
-                      {formatBalance(patron.balance)}
-                    </span>
-                    <span
-                      className="text-sm font-medium"
-                      style={{ color: "#836EF9" }}
-                    >
-                      USDC
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+    <div className="rounded-[12px] bg-[#FFFFFF0F] p-4">
+      {loading ? (
+        <div className="flex justify-center py-4">
+          <div
+            className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2"
+            style={{ borderColor: "#836EF9" }}
+          ></div>
         </div>
-      </div>
+      ) : error ? (
+        <div className="text-center py-4 text-red-400">
+          Failed to load patrons. Please try again later.
+        </div>
+      ) : patrons.length === 0 ? (
+        <div className="text-center py-4 text-gray-400">
+          No patrons yet. Be the first to commit!
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {patrons.map((patron, index) => (
+            <div
+              key={index}
+              className="flex justify-between items-center py-2 border-b border-[#FFFFFF14] last:border-0"
+            >
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-[#FFFFFF14] flex items-center justify-center mr-3">
+                  <Image
+                    src={patron.avatarUrl || ""}
+                    alt={patron.displayName || patron.username || ""}
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center">
+                    <p className="font-semibold">
+                      {patron.displayName ||
+                        patron.username ||
+                        `${patron.address.substring(
+                          0,
+                          6
+                        )}...${patron.address.substring(38)}`}
+                    </p>
+                    {patron.isCurrentUser && (
+                      <span className="text-blue-400 ml-2 text-sm">You</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-400">
+                    @{patron.username || `${patron.address.substring(0, 6)}`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center">
+                <span className="text-lg font-bold mr-2">
+                  {formatBalance(patron.balance)}
+                </span>
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: "#836EF9" }}
+                >
+                  USDC
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

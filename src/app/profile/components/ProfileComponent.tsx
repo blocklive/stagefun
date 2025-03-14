@@ -753,13 +753,13 @@ export default function ProfileComponent() {
             {userHostedPools.map((pool) => (
               <div
                 key={pool.id}
-                className="bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-700 transition-colors p-4"
+                className="bg-[#1C1B1F] rounded-xl overflow-hidden cursor-pointer hover:bg-[#28262C] transition-colors p-4"
                 onClick={() => router.push(`/pools/${pool.id}`)}
               >
                 <div className="flex items-center">
                   <div
-                    className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center"
-                    style={{ backgroundColor: "#836EF9" }}
+                    className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                    style={{ backgroundColor: "#2A2640" }}
                   >
                     {pool.image_url ? (
                       <Image
@@ -767,13 +767,10 @@ export default function ProfileComponent() {
                         alt={pool.name}
                         width={48}
                         height={48}
-                        className="object-cover w-full h-full rounded-full"
+                        className="w-full h-full object-cover"
+                        unoptimized={true}
                       />
-                    ) : (
-                      <span className="text-lg font-bold">
-                        {pool.name.charAt(0)}
-                      </span>
-                    )}
+                    ) : null}
                   </div>
                   <div className="ml-4 flex-1">
                     <h3 className="font-bold">{pool.name}</h3>
