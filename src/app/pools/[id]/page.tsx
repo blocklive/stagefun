@@ -18,7 +18,7 @@ import AppHeader from "../../components/AppHeader";
 // Import components
 import PoolHeader from "./components/PoolHeader";
 import OpenPoolView from "./components/OpenPoolView";
-import TradingPoolView from "./components/TradingPoolView";
+import FundedPoolView from "./components/FundedPoolView";
 import TokenSection from "./components/TokenSection";
 import OrganizerSection from "./components/OrganizerSection";
 import UserCommitment from "./components/UserCommitment";
@@ -27,6 +27,7 @@ import PoolFundsSection from "./components/PoolFundsSection";
 import CommitModal from "./components/CommitModal";
 import GetTokensModal from "../../components/GetTokensModal";
 import PoolDescription from "./components/PoolDescription";
+import UnfundedPoolView from "./components/UnfundedPoolView";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -49,6 +50,7 @@ export default function PoolDetailsPage() {
 
   const {
     depositToPool: commitToBlockchain,
+    claimRefund,
     isLoading: isBlockchainLoading,
     walletsReady,
     privyReady,
@@ -119,6 +121,9 @@ export default function PoolDetailsPage() {
 
   // Add state for getting tokens
   const [showTokensModal, setShowTokensModal] = useState(false);
+
+  // Add state for refunding
+  const [isRefunding, setIsRefunding] = useState(false);
 
   // Handle max click
   const handleMaxClick = useCallback(() => {
@@ -270,6 +275,42 @@ export default function PoolDetailsPage() {
     console.log("showCommitButton changed:", showCommitButton);
   }, [showCommitButton]);
 
+  // Handle refund functionality
+  const handleRefund = async () => {
+    if (!pool || !pool.contract_address) {
+      toast.error("Pool contract address not found");
+      return;
+    }
+
+    setIsRefunding(true);
+    const loadingToast = toast.loading("Preparing refund...");
+
+    try {
+      // Call the claimRefund function from the contract
+      const result = await claimRefund(pool.contract_address);
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to claim refund");
+      }
+
+      toast.success("Refund claimed successfully!", { id: loadingToast });
+      console.log("Refund result:", result);
+
+      // Refresh data after successful refund
+      refreshPool();
+      refreshBalance();
+      refreshCommitments();
+    } catch (error) {
+      console.error("Error claiming refund:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to claim refund",
+        { id: loadingToast }
+      );
+    } finally {
+      setIsRefunding(false);
+    }
+  };
+
   // Render user's commitment section
   const renderUserCommitment = () => {
     const userCommitment = getUserCommitment();
@@ -289,6 +330,9 @@ export default function PoolDetailsPage() {
           handleCommit={handleCommit}
           setCommitAmount={setCommitAmount}
           refreshBalance={refreshBalance}
+          isUnfunded={isUnfunded}
+          handleRefund={handleRefund}
+          isRefunding={isRefunding}
         />
         <PoolDescription pool={pool} />
       </>
@@ -301,6 +345,17 @@ export default function PoolDetailsPage() {
       <PoolFundsSection pool={pool} isCreator={creator?.id === dbUser?.id} />
     );
   };
+
+  // Update the logic to check if a pool is funded or unfunded
+  const isFunded = pool
+    ? pool.blockchain_status === "FUNDED" ||
+      (hasEnded && pool.raised_amount >= pool.target_amount)
+    : false;
+
+  const isUnfunded = pool
+    ? pool.blockchain_status === "FAILED" ||
+      (hasEnded && pool.raised_amount < pool.target_amount)
+    : false;
 
   // Render main content
   const renderContent = () => {
@@ -325,18 +380,15 @@ export default function PoolDetailsPage() {
       );
     }
 
-    // Check if the pool is in trading mode (ended)
-    const isTrading = hasEnded;
-
     return (
       <div className="container mx-auto px-4 pb-8">
         {/* Pool Header */}
-        <PoolHeader pool={pool} isTrading={isTrading} />
+        <PoolHeader pool={pool} isFunded={isFunded} isUnfunded={isUnfunded} />
 
         {/* Conditional rendering based on pool state */}
-        {isTrading ? (
+        {isFunded ? (
           <>
-            <TradingPoolView
+            <FundedPoolView
               pool={pool}
               renderUserCommitment={renderUserCommitment}
               renderPoolFunds={renderPoolFunds}
@@ -372,6 +424,45 @@ export default function PoolDetailsPage() {
 
                     {/* Extra space at the bottom */}
                     <div className="h-8"></div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        ) : isUnfunded ? (
+          <>
+            <UnfundedPoolView
+              pool={pool}
+              renderUserCommitment={renderUserCommitment}
+              activeTab={contentTab}
+              onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
+              raisedAmount={raisedAmount}
+            />
+
+            {/* Tab Content */}
+            {contentTab === "overview" && (
+              <div className="mt-6">
+                {/* Token Section */}
+                <TokenSection pool={pool} />
+
+                {/* Organizer */}
+                <OrganizerSection
+                  creator={creator}
+                  dbUser={dbUser}
+                  onNavigate={(userId) => router.push(`/profile/${userId}`)}
+                />
+
+                {/* Extra space at the bottom */}
+                <div className="h-8"></div>
+              </div>
+            )}
+
+            {contentTab !== "overview" && (
+              <div className="mt-6">
+                {contentTab === "patrons" && (
+                  <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
+                    <h3 className="text-xl font-semibold mb-4">Patrons</h3>
+                    <PatronsTab poolAddress={pool?.contract_address || null} />
                   </div>
                 )}
               </div>

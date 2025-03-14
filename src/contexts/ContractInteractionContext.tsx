@@ -31,6 +31,14 @@ interface PoolCreationData {
   social_links: any;
 }
 
+// Update the ContractResult type to include data property
+interface ContractResult {
+  success: boolean;
+  error?: string;
+  txHash?: string;
+  data?: any;
+}
+
 // Define the context type
 export interface ContractInteractionContextType {
   createPool: (
@@ -236,11 +244,68 @@ export const ContractInteractionProvider: React.FC<{
     }
   };
 
-  const contextValue = {
+  // Claim refund from a pool
+  const claimRefund = async (
+    contractAddress: string
+  ): Promise<{ success: boolean; error?: string; txHash?: string }> => {
+    if (!wallets || wallets.length === 0) {
+      return {
+        success: false,
+        error: "No wallet connected",
+      };
+    }
+
+    try {
+      const embeddedWallet = wallets.find(
+        (wallet: any) => wallet.walletClientType === "privy"
+      );
+
+      if (!embeddedWallet) {
+        return {
+          success: false,
+          error:
+            "No embedded wallet found. Please try logging out and logging in again.",
+        };
+      }
+
+      const provider = await embeddedWallet.getEthereumProvider();
+      const ethersProvider = new ethers.BrowserProvider(provider);
+      const signer = await ethersProvider.getSigner();
+
+      const poolContract = new ethers.Contract(
+        contractAddress,
+        StageDotFunPoolABI,
+        signer
+      );
+
+      const tx = await poolContract.claimRefund();
+      const receipt = await tx.wait();
+
+      return {
+        success: true,
+        txHash: receipt.hash,
+      };
+    } catch (error) {
+      console.error("Error claiming refund:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to claim refund",
+      };
+    }
+  };
+
+  const contextValue: ContractInteractionContextType = {
     ...contractInteraction,
     privyReady,
     walletsReady,
     distributeRevenue,
+    claimRefund,
+    getPoolDetails: async () => ({ success: false, error: "Not implemented" }),
+    approveWithRetry: async () => ({
+      success: false,
+      error: "Not implemented",
+    }),
   };
 
   return (

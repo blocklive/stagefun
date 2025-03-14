@@ -439,7 +439,7 @@ export default function ProfileComponent() {
   const getPoolStatus = (endsAt: string) => {
     const now = new Date();
     const endDate = new Date(endsAt);
-    return now > endDate ? "Trading" : "Raising";
+    return now > endDate ? "Funded" : "Raising";
   };
 
   return (
@@ -781,9 +781,9 @@ export default function ProfileComponent() {
                       <span className={`text-gray-400 flex items-center`}>
                         <span
                           className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                            getPoolStatus(pool.ends_at) === "Trading"
-                              ? "bg-[#836EF9]" // Purple dot for Trading
-                              : "bg-green-400" // Green dot for Raising
+                            getPoolStatus(pool.ends_at) === "Funded"
+                              ? "bg-[#836EF9]" // Purple dot for Funded
+                              : "bg-[#00C48C]" // Green dot for Raising
                           }`}
                         ></span>
                         {getPoolStatus(pool.ends_at)}

@@ -15,7 +15,7 @@ import Image from "next/image";
 import GetTokensModal from "../components/GetTokensModal";
 import AppHeader from "../components/AppHeader";
 
-type TabType = "open" | "my" | "trading";
+type TabType = "open" | "my" | "funded" | "unfunded";
 
 // Define a type for the pools returned by usePoolsWithDeposits
 type OnChainPool = {
@@ -104,8 +104,16 @@ export default function PoolsPage() {
       const now = new Date();
       const isEnded = endDate < now;
 
-      if (activeTab === "trading") {
-        return isEnded;
+      if (activeTab === "funded") {
+        return (
+          pool.blockchain_status === "FUNDED" ||
+          (isEnded && pool.raised_amount >= pool.target_amount)
+        );
+      } else if (activeTab === "unfunded") {
+        return (
+          pool.blockchain_status === "FAILED" ||
+          (isEnded && pool.raised_amount < pool.target_amount)
+        );
       } else if (activeTab === "my") {
         return !isEnded && pool.creator_id === dbUser?.id;
       } else {
@@ -268,13 +276,23 @@ export default function PoolsPage() {
         </button>
         <button
           className={`px-6 py-3 rounded-full text-lg ${
-            activeTab === "trading"
+            activeTab === "funded"
               ? "bg-white text-black font-medium"
               : "bg-transparent text-white border border-gray-700"
           }`}
-          onClick={() => setActiveTab("trading")}
+          onClick={() => setActiveTab("funded")}
         >
-          Trading
+          Funded
+        </button>
+        <button
+          className={`px-6 py-3 rounded-full text-lg ${
+            activeTab === "unfunded"
+              ? "bg-white text-black font-medium"
+              : "bg-transparent text-white border border-gray-700"
+          }`}
+          onClick={() => setActiveTab("unfunded")}
+        >
+          Unfunded
         </button>
       </div>
 
@@ -292,7 +310,7 @@ export default function PoolsPage() {
           {showSortDropdown && (
             <div className="absolute right-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
               <ul>
-                {activeTab !== "trading" ? (
+                {activeTab !== "funded" && activeTab !== "unfunded" ? (
                   <>
                     <li
                       className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
@@ -376,7 +394,7 @@ export default function PoolsPage() {
           </div>
         ) : (
           <ul className="space-y-4">
-            {activeTab !== "trading"
+            {activeTab !== "funded"
               ? // Open Rounds and My Rounds UI
                 sortedPools.map((pool: OnChainPool) => (
                   <li
@@ -442,7 +460,7 @@ export default function PoolsPage() {
                     </div>
                   </li>
                 ))
-              : // Trading Pools UI - based on the image
+              : // Funded Pools UI - based on the image
                 sortedPools.map((pool: OnChainPool) => (
                   <li
                     key={pool.id}
@@ -503,7 +521,9 @@ export default function PoolsPage() {
                   ? "No open rounds available."
                   : activeTab === "my"
                   ? "You haven't created any rounds yet."
-                  : "No trading pools available."}
+                  : activeTab === "funded"
+                  ? "No funded pools available."
+                  : "No unfunded pools available."}
               </div>
             )}
           </ul>
