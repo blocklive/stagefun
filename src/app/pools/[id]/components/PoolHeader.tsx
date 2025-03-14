@@ -14,6 +14,22 @@ export default function PoolHeader({
   isFunded,
   isUnfunded,
 }: PoolHeaderProps) {
+  // Determine the status text and color
+  let statusText = "Accepting patrons";
+  let statusColor = "#836EF9"; // Purple for default/accepting patrons
+
+  if (isFunded) {
+    statusText = "Funded";
+    statusColor = "#A78BFA"; // Purple for funded
+  } else if (isUnfunded) {
+    statusText = "Unfunded";
+    statusColor = "#F87171"; // Red for unfunded
+  } else if (pool.blockchain_status === "pending") {
+    statusText = "Pending";
+  } else if (pool.status === "inactive") {
+    statusText = "Inactive";
+  }
+
   return (
     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 py-4">
       <div className="flex items-center gap-4">
@@ -39,32 +55,20 @@ export default function PoolHeader({
         {/* Pool Title and Status */}
         <div className="flex-1">
           <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">{pool?.name}</h1>
-              {isFunded && (
-                <span className="text-sm text-purple-400 flex items-center">
-                  <span className="w-2 h-2 bg-purple-400 rounded-full mr-1"></span>
-                  • Funded
-                </span>
-              )}
-              {isUnfunded && (
-                <span className="text-sm text-red-400 flex items-center">
-                  <span className="w-2 h-2 bg-red-400 rounded-full mr-1"></span>
-                  • Unfunded
-                </span>
-              )}
-            </div>
+            {/* Status indicator above title */}
             <div
-              className="text-sm font-medium mb-1"
-              style={{ color: "#836EF9" }}
+              className="text-sm font-medium mb-1 flex items-center"
+              style={{ color: statusColor }}
             >
-              {pool.blockchain_status === "active" ||
-              pool.blockchain_status === "confirmed"
-                ? "Accepting patrons"
-                : pool.blockchain_status === "pending"
-                ? "Pending"
-                : pool.status || "Inactive"}
+              <span
+                className="w-2 h-2 rounded-full mr-1"
+                style={{ backgroundColor: statusColor }}
+              ></span>
+              {statusText}
             </div>
+
+            {/* Title */}
+            <h1 className="text-2xl font-bold">{pool?.name}</h1>
           </div>
         </div>
       </div>
