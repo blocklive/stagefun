@@ -15,7 +15,7 @@ import Image from "next/image";
 import GetTokensModal from "../components/GetTokensModal";
 import AppHeader from "../components/AppHeader";
 
-type TabType = "open" | "my" | "funded" | "unfunded";
+type TabType = "open" | "funded" | "unfunded";
 
 // Define a type for the pools returned by usePoolsWithDeposits
 type OnChainPool = {
@@ -47,6 +47,9 @@ export default function PoolsPage() {
   const [sortBy, setSortBy] = useState("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const typeDropdownRef = useRef<HTMLDivElement>(null);
+  const [poolType, setPoolType] = useState("all"); // "all" or "my"
   const {
     pools,
     isLoading: loading,
@@ -68,7 +71,7 @@ export default function PoolsPage() {
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
-  // Handle clicks outside the sort dropdown
+  // Handle clicks outside the dropdowns
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -76,6 +79,12 @@ export default function PoolsPage() {
         !sortDropdownRef.current.contains(event.target as Node)
       ) {
         setShowSortDropdown(false);
+      }
+      if (
+        typeDropdownRef.current &&
+        !typeDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowTypeDropdown(false);
       }
     }
 
@@ -97,13 +106,19 @@ export default function PoolsPage() {
     fetchJoinedPools();
   }, [dbUser]);
 
-  // Filter pools based on active tab
+  // Filter pools based on active tab and pool type
   const filteredPools =
     pools?.filter((pool: OnChainPool) => {
       const endDate = new Date(pool.ends_at);
       const now = new Date();
       const isEnded = endDate < now;
 
+      // First filter by pool type (all or my)
+      if (poolType === "my" && pool.creator_id !== dbUser?.id) {
+        return false;
+      }
+
+      // Then filter by tab
       if (activeTab === "funded") {
         return (
           pool.blockchain_status === "FUNDED" ||
@@ -114,8 +129,6 @@ export default function PoolsPage() {
           pool.blockchain_status === "FAILED" ||
           (isEnded && pool.raised_amount < pool.target_amount)
         );
-      } else if (activeTab === "my") {
-        return !isEnded && pool.creator_id === dbUser?.id;
       } else {
         // open
         return !isEnded;
@@ -195,6 +208,17 @@ export default function PoolsPage() {
     }
   };
 
+  // Handle type selection
+  const handleTypeSelect = (typeOption: string) => {
+    setPoolType(typeOption);
+    setShowTypeDropdown(false);
+  };
+
+  // Get type display text
+  const getTypeText = () => {
+    return poolType === "all" ? "All types" : "My pools";
+  };
+
   // Render skeleton loading UI for pools
   const renderSkeletonItem = () => (
     <li className="p-4 bg-[#FFFFFF0A] rounded-xl animate-pulse">
@@ -266,16 +290,6 @@ export default function PoolsPage() {
         </button>
         <button
           className={`px-6 py-3 rounded-full text-lg ${
-            activeTab === "my"
-              ? "bg-white text-black font-medium"
-              : "bg-transparent text-white border border-gray-700"
-          }`}
-          onClick={() => setActiveTab("my")}
-        >
-          My rounds
-        </button>
-        <button
-          className={`px-6 py-3 rounded-full text-lg ${
             activeTab === "funded"
               ? "bg-white text-black font-medium"
               : "bg-transparent text-white border border-gray-700"
@@ -297,8 +311,40 @@ export default function PoolsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex justify-end items-center mt-6 px-4 w-full">
-        <div className="relative ml-auto" ref={sortDropdownRef}>
+      <div className="flex justify-between items-center mt-6 px-4 w-full">
+        {/* Type Dropdown */}
+        <div className="relative" ref={typeDropdownRef}>
+          <button
+            className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
+            onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+          >
+            {getTypeText()} <FaChevronDown className="text-xs ml-1" />
+          </button>
+
+          {showTypeDropdown && (
+            <div className="absolute left-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
+              <ul>
+                <li
+                  className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                  style={{ color: poolType === "all" ? "#836EF9" : "" }}
+                  onClick={() => handleTypeSelect("all")}
+                >
+                  All types
+                </li>
+                <li
+                  className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                  style={{ color: poolType === "my" ? "#836EF9" : "" }}
+                  onClick={() => handleTypeSelect("my")}
+                >
+                  My pools
+                </li>
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Sort Dropdown */}
+        <div className="relative" ref={sortDropdownRef}>
           <button
             className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
             onClick={() => setShowSortDropdown(!showSortDropdown)}
@@ -395,7 +441,7 @@ export default function PoolsPage() {
         ) : (
           <ul className="space-y-4">
             {activeTab !== "funded"
-              ? // Open Rounds and My Rounds UI
+              ? // Open Rounds UI
                 sortedPools.map((pool: OnChainPool) => (
                   <li
                     key={pool.id}
@@ -518,11 +564,15 @@ export default function PoolsPage() {
             {sortedPools.length === 0 && !loading && (
               <div className="p-8 text-center text-gray-400">
                 {activeTab === "open"
-                  ? "No open rounds available."
-                  : activeTab === "my"
-                  ? "You haven't created any rounds yet."
+                  ? poolType === "my"
+                    ? "You haven't created any open rounds yet."
+                    : "No open rounds available."
                   : activeTab === "funded"
-                  ? "No funded pools available."
+                  ? poolType === "my"
+                    ? "You haven't created any funded pools yet."
+                    : "No funded pools available."
+                  : poolType === "my"
+                  ? "You haven't created any unfunded pools yet."
                   : "No unfunded pools available."}
               </div>
             )}

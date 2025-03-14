@@ -533,7 +533,7 @@ export default function PoolDetailsPage() {
       {/* Back button below header */}
       <div className="px-4 py-2">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push("/pools")}
           className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center text-white transition-colors"
         >
           <FaArrowLeft className="w-4 h-4" />
