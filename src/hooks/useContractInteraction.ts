@@ -233,6 +233,25 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
         console.log("Got signer for address:", await signer.getAddress());
 
+        // Check native balance before proceeding
+        try {
+          const address = await signer.getAddress();
+          const balance = await ethersProvider.getBalance(address);
+          const balanceInEther = ethers.formatEther(balance);
+          console.log("Current MON balance:", balanceInEther);
+
+          // Warn if balance is very low (less than 0.005 MON)
+          if (parseFloat(balanceInEther) < 0.005) {
+            console.warn(
+              "WARNING: Very low MON balance detected:",
+              balanceInEther
+            );
+          }
+        } catch (balanceError) {
+          console.error("Error checking MON balance:", balanceError);
+          // Continue anyway, we'll catch any gas-related errors later
+        }
+
         // Convert amounts to BigInt with proper units
         const targetAmountBigInt = ethers.parseUnits(
           targetAmount.toString(),
@@ -268,76 +287,103 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
         // Call the contract directly - now anyone can create pools
         console.log("Calling factory.createPool directly...");
-        const tx = await factory.createPool(
-          name,
-          uniqueId,
-          symbol,
-          BigInt(endTime),
-          targetAmountBigInt,
-          minCommitmentBigInt,
-          {
-            gasLimit: 5000000, // Increase gas limit to ensure the transaction goes through
-          }
-        );
 
-        console.log("Transaction sent:", tx.hash);
-
-        // Wait for transaction to be mined
-        console.log("Waiting for transaction confirmation...");
-        const receipt = await tx.wait();
-        console.log("Pool creation transaction confirmed:", receipt);
-
-        if (!receipt) {
-          throw new Error("Transaction receipt not found");
-        }
-
-        // Check if the transaction was successful
-        if (!receipt.status) {
-          throw new Error("Transaction failed on chain");
-        }
-
-        // Find the PoolCreated event in the logs
-        const event = receipt.logs
-          .map((log: ethers.Log) => {
-            try {
-              return factory.interface.parseLog({
-                topics: log.topics as string[],
-                data: log.data,
-              });
-            } catch (e) {
-              return null;
+        try {
+          const tx = await factory.createPool(
+            name,
+            uniqueId,
+            symbol,
+            BigInt(endTime),
+            targetAmountBigInt,
+            minCommitmentBigInt,
+            {
+              gasLimit: 5000000, // Increase gas limit to ensure the transaction goes through
             }
-          })
-          .find(
-            (event: ethers.LogDescription | null) =>
-              event && event.name === "PoolCreated"
           );
 
-        if (!event) {
-          throw new Error("PoolCreated event not found in transaction logs");
+          console.log("Transaction sent:", tx.hash);
+
+          // Wait for transaction to be mined
+          console.log("Waiting for transaction confirmation...");
+          const receipt = await tx.wait();
+          console.log("Pool creation transaction confirmed:", receipt);
+
+          if (!receipt) {
+            throw new Error("Transaction receipt not found");
+          }
+
+          // Check if the transaction was successful
+          if (!receipt.status) {
+            throw new Error("Transaction failed on chain");
+          }
+
+          // Find the PoolCreated event in the logs
+          const event = receipt.logs
+            .map((log: ethers.Log) => {
+              try {
+                return factory.interface.parseLog({
+                  topics: log.topics as string[],
+                  data: log.data,
+                });
+              } catch (e) {
+                return null;
+              }
+            })
+            .find(
+              (event: ethers.LogDescription | null) =>
+                event && event.name === "PoolCreated"
+            );
+
+          if (!event) {
+            throw new Error("PoolCreated event not found in transaction logs");
+          }
+
+          // Extract pool address and LP token address from the event
+          const poolAddress = event.args.poolAddress;
+          const lpTokenAddress = event.args.lpTokenAddress;
+          const eventUniqueId = event.args.uniqueId;
+
+          console.log("Pool created successfully:", {
+            poolAddress,
+            lpTokenAddress,
+            eventUniqueId,
+            transactionHash: receipt.hash,
+          });
+
+          // Note: Database update is handled by the calling component (pools/create/page.tsx)
+          // We just return the necessary data here
+
+          return {
+            receipt,
+            poolAddress,
+            lpTokenAddress,
+            transactionHash: receipt.hash,
+          };
+        } catch (txError: any) {
+          console.error("Transaction error:", txError);
+
+          // Check for specific error messages related to gas
+          const errorMessage = txError.message || "";
+
+          if (
+            errorMessage.includes("insufficient funds") ||
+            errorMessage.includes("not enough funds") ||
+            errorMessage.includes("insufficient balance")
+          ) {
+            throw new Error(
+              "Insufficient MON for gas. Please add more MON to your wallet to deploy the contract."
+            );
+          } else if (errorMessage.includes("gas required exceeds allowance")) {
+            throw new Error(
+              "Gas required exceeds your MON balance. Please add more MON to your wallet."
+            );
+          } else if (errorMessage.includes("user rejected transaction")) {
+            throw new Error("Transaction was rejected. Please try again.");
+          }
+
+          // Re-throw the original error if it's not one we can provide a better message for
+          throw txError;
         }
-
-        // Extract pool address and LP token address from the event
-        const poolAddress = event.args.poolAddress;
-        const lpTokenAddress = event.args.lpTokenAddress;
-        const eventUniqueId = event.args.uniqueId;
-
-        console.log("Pool created successfully:", {
-          poolAddress,
-          lpTokenAddress,
-          eventUniqueId,
-          transactionHash: receipt.hash,
-        });
-
-        // Note: Database update is handled by the calling component (pools/create/page.tsx)
-        // We just return the necessary data here
-
-        return {
-          receipt,
-          poolAddress,
-          lpTokenAddress,
-          transactionHash: receipt.hash,
-        };
       } catch (err: any) {
         console.error("Error creating pool:", err);
         setError(err.message || "Error creating pool on chain");

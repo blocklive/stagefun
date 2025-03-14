@@ -24,6 +24,7 @@
     "@radix-ui/react-progress": "^1.1.2",
     "@supabase/supabase-js": "^2.39.0",
     "@types/uuid": "^10.0.0",
+    "axios": "^1.8.2",
     "dotenv": "^16.4.7",
     "hardhat": "^2.19.4",
     "next": "15.1.7",

@@ -14,6 +14,7 @@ import {
   FaListUl,
   FaMapMarkerAlt,
   FaTimes,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 import Image from "next/image";
 import { useSupabase } from "../../../contexts/SupabaseContext";
@@ -23,7 +24,10 @@ import { Pool } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
 import SocialLinksInput from "@/components/SocialLinksInput";
 import AppHeader from "../../components/AppHeader";
+import GetTokensModal from "../../components/GetTokensModal";
 import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
+import { useNativeBalance } from "../../../hooks/useNativeBalance";
+import toast from "react-hot-toast";
 
 // Helper function to format a date for datetime-local input
 function formatDateForInput(date: Date): string {
@@ -44,6 +48,8 @@ export default function CreatePoolPage() {
     useAuthenticatedSupabase();
   const { createPoolWithDatabase, isLoading: isContractLoading } =
     useContractInteraction();
+  const { balance: nativeBalance, isLoading: isBalanceLoading } =
+    useNativeBalance();
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [poolName, setPoolName] = useState("");
@@ -72,6 +78,26 @@ export default function CreatePoolPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uniqueId, setUniqueId] = useState<string>(uuidv4());
+
+  const [showGasWarning, setShowGasWarning] = useState(false);
+  const [showTokensModal, setShowTokensModal] = useState(false);
+  const [balanceChecked, setBalanceChecked] = useState(false);
+
+  // Check if the user has enough gas for deployment
+  // Minimum recommended balance in MON (0.5 MON should be enough for deployment)
+  const MIN_GAS_BALANCE = 0.5;
+
+  // Effect to check gas balance
+  useEffect(() => {
+    if (!isBalanceLoading) {
+      // Balance check is complete
+      setBalanceChecked(true);
+      if (nativeBalance) {
+        const balanceNum = parseFloat(nativeBalance);
+        setShowGasWarning(balanceNum < MIN_GAS_BALANCE);
+      }
+    }
+  }, [nativeBalance, isBalanceLoading]);
 
   // Update the input value whenever endDate changes
   useEffect(() => {
@@ -261,7 +287,59 @@ export default function CreatePoolPage() {
     e.preventDefault();
 
     if (!dbUser || !supabase || isClientLoading) {
-      alert("Please wait for authentication to complete");
+      toast.error("Please wait for authentication to complete");
+      return;
+    }
+
+    // Check if user has enough gas for deployment
+    if (parseFloat(nativeBalance) < MIN_GAS_BALANCE) {
+      // Show a toast notification instead of an alert
+      toast(
+        (t) => (
+          <div className="flex items-start">
+            <div className="bg-[#836EF9] bg-opacity-20 p-2 rounded-full mr-3 mt-1">
+              <FaExclamationTriangle className="text-[#836EF9]" size={16} />
+            </div>
+            <div>
+              <h3 className="font-bold text-white">Low MON Balance</h3>
+              <p className="text-sm text-gray-300">
+                Your wallet has {parseFloat(nativeBalance).toFixed(4)} MON.
+                Deploying a pool requires MON to pay for gas.
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Get 0.5 MON from our faucet to continue.
+              </p>
+              <div className="mt-2 flex space-x-2">
+                <button
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    setShowTokensModal(true);
+                  }}
+                  className="px-3 py-1 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-xs text-white transition-colors"
+                >
+                  Get MON
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="px-3 py-1 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-xs text-white transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        ),
+        {
+          duration: 6000,
+          style: {
+            background: "#1E1F25",
+            color: "white",
+            border: "1px solid rgba(131, 110, 249, 0.3)",
+            maxWidth: "400px",
+          },
+        }
+      );
+
       return;
     }
 
@@ -329,13 +407,29 @@ export default function CreatePoolPage() {
 
       if (!result.success) {
         console.error("Error creating pool:", result.error);
-        alert(result.error || "Failed to create pool");
+        toast.error(result.error || "Failed to create pool");
 
         // If we have a transaction hash but database failed, show special message
         if (result.txHash) {
-          alert(
-            "Warning: Pool was created on blockchain but database entry failed. Please contact support with your transaction hash: " +
-              result.txHash
+          toast.error(
+            <div>
+              <p>
+                Warning: Pool was created on blockchain but database entry
+                failed.
+              </p>
+              <p className="text-xs mt-1">
+                Please contact support with your transaction hash:{" "}
+                {result.txHash}
+              </p>
+            </div>,
+            {
+              duration: 10000,
+              style: {
+                background: "#1E1F25",
+                color: "white",
+                border: "1px solid rgba(255, 100, 100, 0.3)",
+              },
+            }
           );
           router.push("/");
         }
@@ -344,10 +438,11 @@ export default function CreatePoolPage() {
       }
 
       console.log("Pool created successfully:", result.data);
+      toast.success("Pool created successfully!");
       router.push(`/pools/${result.data.id}`);
     } catch (error) {
       console.error("Error:", error);
-      alert("An error occurred");
+      toast.error("An error occurred");
     } finally {
       setIsSubmitting(false);
     }
@@ -359,10 +454,12 @@ export default function CreatePoolPage() {
       style={{ height: viewportHeight }}
     >
       <div className="flex-1 overflow-y-auto">
-        {/* Use the new AppHeader component */}
+        {/* Use the AppHeader component with tokens button */}
         <AppHeader
           showBackButton={false}
           showTitle={false}
+          showGetTokensButton={true}
+          onGetTokensClick={() => setShowTokensModal(true)}
           backgroundColor="#15161a"
         />
 
@@ -380,6 +477,41 @@ export default function CreatePoolPage() {
         <div className="px-6 mt-4">
           <h1 className="text-5xl font-bold">CREATE PARTY ROUND</h1>
         </div>
+
+        {/* Gas Warning Banner - Only show when balance check is complete and balance is low */}
+        {balanceChecked && showGasWarning && (
+          <div className="mx-6 mt-4 p-4 bg-[#1E1F25] border border-[#836EF9] border-opacity-50 rounded-lg">
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-[#836EF9] bg-opacity-20 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
+                <FaExclamationTriangle className="text-[#836EF9]" size={18} />
+              </div>
+              <div>
+                <h3 className="font-bold text-white">Low MON Balance</h3>
+                <p className="text-sm text-gray-300">
+                  Your wallet has {parseFloat(nativeBalance).toFixed(4)} MON.
+                  Deploying a pool requires MON to pay for gas. Get 0.5 MON from
+                  our faucet to continue.
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 space-y-2">
+              <button
+                onClick={() => setShowTokensModal(true)}
+                className="w-full py-2 px-3 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-center text-sm transition-colors"
+              >
+                Get MON and USDC
+              </button>
+              <a
+                href="https://faucet.monad.xyz/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full py-2 px-3 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-center text-sm transition-colors"
+              >
+                Monad Testnet Faucet
+              </a>
+            </div>
+          </div>
+        )}
 
         {/* Main content */}
         <div className="px-6" style={{ paddingBottom: "100px" }}>
@@ -670,6 +802,12 @@ export default function CreatePoolPage() {
           {isSubmitting ? "Creating..." : "Launch Party Round"}
         </button>
       </div>
+
+      {/* Get Tokens Modal */}
+      <GetTokensModal
+        isOpen={showTokensModal}
+        onClose={() => setShowTokensModal(false)}
+      />
     </div>
   );
 }

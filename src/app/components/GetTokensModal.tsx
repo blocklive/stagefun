@@ -118,7 +118,7 @@ export default function GetTokensModal({
             <p>Successfully received:</p>
             <ul className="list-disc list-inside mt-1">
               <li>0.1 USDC</li>
-              <li>0.1 MON (native currency)</li>
+              <li>0.5 MON (native currency)</li>
             </ul>
           </div>
         )}
