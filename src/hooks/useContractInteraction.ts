@@ -93,6 +93,10 @@ interface ContractInteractionHookResult {
   walletsReady: boolean;
   privyReady: boolean;
   getProvider: () => Promise<ethers.Provider>;
+  distributeRevenue: (
+    poolAddress: string,
+    amount: number // This parameter is kept for interface consistency but not used
+  ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
 }
 
 export function useContractInteraction(): ContractInteractionHookResult {
@@ -101,6 +105,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
   const { sendTransaction } = useSendTransaction();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [signer, setSigner] = useState<ethers.Signer | null>(null);
 
   // Function to get a provider for read operations
   const getProvider = useCallback(async () => {
@@ -1381,6 +1386,63 @@ export function useContractInteraction(): ContractInteractionHookResult {
     }
   };
 
+  // Distribute revenue to LPs
+  const distributeRevenue = useCallback(
+    async (
+      poolAddress: string,
+      amount: number // This parameter is kept for interface consistency but not used
+    ): Promise<{ success: boolean; error?: string; txHash?: string }> => {
+      if (!signer) {
+        console.error("No signer available");
+        return { success: false, error: "No wallet connected" };
+      }
+
+      try {
+        console.log(`Preparing to distribute revenue for pool: ${poolAddress}`);
+
+        // Create contract instance
+        const poolContract = new ethers.Contract(
+          poolAddress,
+          StageDotFunPoolABI,
+          signer
+        );
+
+        // Call the distributeRevenue function - note that it doesn't take any parameters
+        const tx = await poolContract.distributeRevenue({
+          gasLimit: 3000000, // Increased gas limit for safety
+        });
+
+        console.log("Distribution transaction submitted:", tx.hash);
+
+        // Wait for transaction to be mined
+        const receipt = await tx.wait();
+        console.log("Distribution transaction confirmed:", receipt);
+
+        return {
+          success: true,
+          txHash: tx.hash,
+        };
+      } catch (error) {
+        console.error("Error in distributeRevenue:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        // Check for specific error messages
+        if (errorMessage.includes("user rejected transaction")) {
+          return { success: false, error: "Transaction rejected by user" };
+        } else if (errorMessage.includes("insufficient funds")) {
+          return {
+            success: false,
+            error: "Insufficient funds for transaction",
+          };
+        }
+
+        return { success: false, error: errorMessage };
+      }
+    },
+    [signer]
+  );
+
   return {
     isLoading,
     error,
@@ -1397,5 +1459,6 @@ export function useContractInteraction(): ContractInteractionHookResult {
     walletsReady,
     privyReady,
     getProvider,
+    distributeRevenue,
   };
 }

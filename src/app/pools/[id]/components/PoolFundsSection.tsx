@@ -472,7 +472,7 @@ export default function PoolFundsSection({
   };
 
   // Add the contract interaction hook
-  const { withdrawFromPool } = useContractInteraction();
+  const { withdrawFromPool, distributeRevenue } = useContractInteraction();
 
   // Handle withdraw funds
   const handleWithdrawFunds = async () => {
@@ -582,7 +582,7 @@ export default function PoolFundsSection({
 
   // Open distribute revenue modal
   const openDistributeModal = () => {
-    // Set initial distribute amount to the total revenue accumulated
+    // Set initial distribute amount to the total revenue accumulated (for display only)
     if (onChainData) {
       const revenueAccumulated = parseFloat(
         ethers.formatUnits(onChainData.revenueAccumulated, 6)
@@ -603,44 +603,32 @@ export default function PoolFundsSection({
       return;
     }
 
-    const amount = parseFloat(distributeAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-
-    // Check if there's enough revenue to distribute
+    // Check if there's any revenue to distribute
     const availableRevenue = onChainData
       ? parseFloat(ethers.formatUnits(onChainData.revenueAccumulated, 6))
       : pool.revenue_accumulated || 0;
 
-    if (amount > availableRevenue) {
-      toast.error("Distribution amount cannot exceed available revenue");
+    if (availableRevenue <= 0) {
+      toast.error("No revenue available to distribute");
       return;
     }
 
     setIsDistributing(true);
-    try {
-      // Call the backend API to distribute revenue
-      const response = await fetch("/api/pools/distribute-revenue", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          poolAddress: pool.contract_address,
-          amount: amount,
-        }),
-      });
+    const loadingToast = toast.loading("Preparing distribution...");
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to distribute revenue");
+    try {
+      // Use the distributeRevenue function from the hook
+      // Note: The contract function doesn't take an amount parameter, it distributes all available revenue
+      const result = await distributeRevenue(pool.contract_address, 0); // Amount is ignored by the contract
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to distribute revenue");
       }
 
-      const result = await response.json();
-      toast.success("Revenue distribution initiated");
-      setStatusMessage("Distribution request submitted successfully!");
+      toast.success("Revenue distribution initiated successfully!", {
+        id: loadingToast,
+      });
+      setStatusMessage("Distribution completed successfully!");
       console.log("Distribution result:", result);
       setShowDistributeModal(false);
 
@@ -649,7 +637,8 @@ export default function PoolFundsSection({
     } catch (error) {
       console.error("Error distributing revenue:", error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to distribute revenue"
+        error instanceof Error ? error.message : "Failed to distribute revenue",
+        { id: loadingToast }
       );
     } finally {
       setIsDistributing(false);
@@ -1151,6 +1140,13 @@ export default function PoolFundsSection({
                         }`}
                   </div>
                 </div>
+                <div className="text-gray-400 text-sm">
+                  <p>
+                    This will distribute all available revenue (
+                    {distributeAmount} USDC) to pool patrons based on their LP
+                    token holdings.
+                  </p>
+                </div>
               </div>
 
               {/* Distribute Button */}
@@ -1158,7 +1154,6 @@ export default function PoolFundsSection({
                 onClick={handleDistributeRevenue}
                 disabled={
                   isDistributing ||
-                  !distributeAmount ||
                   parseFloat(distributeAmount) <= 0 ||
                   patronCount === 0
                 }

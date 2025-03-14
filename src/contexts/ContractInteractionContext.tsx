@@ -1,9 +1,13 @@
 "use client";
 
 import React, { createContext, useContext, useCallback } from "react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { useContractInteraction as useContractInteractionHook } from "../hooks/useContractInteraction";
-import { ContractPool } from "../lib/contracts/StageDotFunPool";
+import {
+  ContractPool,
+  StageDotFunPoolABI,
+} from "../lib/contracts/StageDotFunPool";
+import { ethers } from "ethers";
 
 // Define the interface for pool creation data
 interface PoolCreationData {
@@ -28,40 +32,33 @@ interface PoolCreationData {
 }
 
 // Define the context type
-interface ContractInteractionContextType {
-  isLoading: boolean;
-  error: string | null;
-  /** Creates a pool on the blockchain using the user's wallet */
+export interface ContractInteractionContextType {
   createPool: (
-    name: string,
-    uniqueId: string,
-    symbol: string,
-    endTime: number,
-    targetAmount: number,
-    minCommitment: number
-  ) => Promise<any>;
-  /** Creates a pool on the blockchain and then adds it to the database */
-  createPoolWithDatabase: (
-    poolData: PoolCreationData,
-    endTimeUnix: number
-  ) => Promise<{
-    success: boolean;
-    data?: any;
-    error?: string;
-    txHash?: string;
-  }>;
-  /** Deposits funds to a pool on the blockchain */
-  depositToPool: (poolId: string, amount: number) => Promise<any>;
-  /** Withdraws funds from a pool on the blockchain using the user's wallet */
+    data: PoolCreationData
+  ) => Promise<{ success: boolean; error?: string; poolAddress?: string }>;
+  getPoolDetails: (poolAddress: string) => Promise<any>;
+  depositToPool: (
+    poolAddress: string,
+    amount: number
+  ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
   withdrawFromPool: (
     poolAddress: string,
     amount: number,
     destinationAddress: string
-  ) => Promise<{
-    success: boolean;
-    txHash?: string;
-    error?: string;
-  }>;
+  ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
+  approveWithRetry: (
+    poolAddress: string,
+    milestoneId: number
+  ) => Promise<{ success: boolean; error?: string }>;
+  claimRefund: (
+    poolAddress: string
+  ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
+  distributeRevenue: (
+    poolAddress: string,
+    amount: number
+  ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
+  isLoading: boolean;
+  error: string | null;
   getPool: (poolId: string) => Promise<ContractPool | null>;
   getPoolLpHolders: (poolId: string) => Promise<string[]>;
   getUserPoolBalance: (userAddress: string, poolId: string) => Promise<string>;
@@ -96,6 +93,9 @@ export const ContractInteractionContext =
     withdrawFromPool: async () => {
       throw new Error("ContractInteractionContext not initialized");
     },
+    distributeRevenue: async () => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
     getPool: async () => {
       throw new Error("ContractInteractionContext not initialized");
     },
@@ -114,7 +114,7 @@ export const ContractInteractionContext =
     walletAddress: null,
     walletsReady: false,
     privyReady: false,
-  });
+  } as any);
 
 // Provider component
 export const ContractInteractionProvider: React.FC<{
@@ -122,12 +122,125 @@ export const ContractInteractionProvider: React.FC<{
 }> = ({ children }) => {
   const contractInteraction = useContractInteractionHook();
   const { ready: privyReady } = usePrivy();
-  const { ready: walletsReady } = useWallets();
+  const { ready: walletsReady, wallets } = useWallets();
+  const { sendTransaction } = useSendTransaction();
+
+  // Distribute revenue function
+  const distributeRevenue = async (
+    poolAddress: string,
+    amount: number
+  ): Promise<{
+    success: boolean;
+    txHash?: string;
+    error?: string;
+  }> => {
+    if (!wallets || wallets.length === 0) {
+      return {
+        success: false,
+        error: "No wallet connected",
+      };
+    }
+
+    try {
+      // Get the embedded wallet
+      const embeddedWallet = wallets.find(
+        (wallet: any) => wallet.walletClientType === "privy"
+      );
+
+      if (!embeddedWallet) {
+        return {
+          success: false,
+          error:
+            "No embedded wallet found. Please try logging out and logging in again.",
+        };
+      }
+
+      // Get the provider and create contract instances
+      const provider = await embeddedWallet.getEthereumProvider();
+      const ethersProvider = new ethers.BrowserProvider(provider);
+      const signer = await ethersProvider.getSigner();
+
+      // Create contract instance for the pool
+      const poolContract = new ethers.Contract(
+        poolAddress,
+        StageDotFunPoolABI,
+        signer
+      );
+
+      console.log("Distributing revenue:", {
+        poolAddress,
+        amount,
+      });
+
+      // Create contract interface for pool
+      const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+
+      // Based on the error, it seems the distributeRevenue function doesn't take any arguments
+      const distributeData = poolInterface.encodeFunctionData(
+        "distributeRevenue",
+        []
+      );
+
+      // Prepare the transaction request
+      const distributeRequest = {
+        to: poolAddress,
+        data: distributeData,
+        value: "0",
+      };
+
+      // Set UI options for the transaction
+      const uiOptions = {
+        description: `Distributing revenue to pool patrons`,
+        buttonText: "Distribute Revenue",
+        transactionInfo: {
+          title: "Distribute Revenue",
+          action: "Distribute Revenue to Patrons",
+          contractInfo: {
+            name: "StageDotFun Pool",
+          },
+        },
+      };
+
+      // Send the transaction
+      console.log("Sending distribute transaction", distributeRequest);
+      const txHash = await sendTransaction(distributeRequest, {
+        uiOptions,
+      });
+
+      console.log("Distribution transaction sent:", txHash);
+
+      // Wait for transaction to be mined
+      const receipt = await ethersProvider.waitForTransaction(txHash.hash);
+      console.log("Distribution transaction receipt:", receipt);
+
+      if (!receipt?.status) {
+        return {
+          success: false,
+          error: "Transaction failed on chain",
+        };
+      }
+
+      return {
+        success: true,
+        txHash: txHash.hash,
+      };
+    } catch (error) {
+      console.error("Error distributing revenue:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to distribute revenue",
+      };
+    }
+  };
 
   const contextValue = {
     ...contractInteraction,
     privyReady,
     walletsReady,
+    distributeRevenue,
   };
 
   return (
