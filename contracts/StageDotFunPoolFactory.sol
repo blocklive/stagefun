@@ -17,6 +17,8 @@ contract StageDotFunPoolFactory is Ownable {
         address lpTokenAddress,
         uint256 endTime
     );
+    
+    event PoolStatusUpdated(address indexed poolAddress, uint8 status);
 
     constructor(address _depositToken) Ownable(msg.sender) {
         depositToken = _depositToken;
@@ -88,6 +90,24 @@ contract StageDotFunPoolFactory is Ownable {
             )
         );
         return address(uint160(uint256(hash)));
+    }
+    
+    // Check if a pool's target has been met
+    function checkPoolStatus(address poolAddress) external {
+        StageDotFunPool pool = StageDotFunPool(poolAddress);
+        pool.checkPoolStatus();
+    }
+    
+    // Check if a pool's end time has passed without meeting target
+    function checkAllPoolsStatus() external {
+        for (uint i = 0; i < deployedPools.length; i++) {
+            StageDotFunPool pool = StageDotFunPool(deployedPools[i]);
+            try pool.checkPoolStatus() {
+                // Successfully checked pool status
+            } catch {
+                // Skip if there's an error
+            }
+        }
     }
 
     // Get details for deployed pools with pagination support

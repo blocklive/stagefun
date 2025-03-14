@@ -17,12 +17,15 @@ contract StageDotFunPool is Ownable {
     uint256 public endTime;
     uint256 public targetAmount;
     uint256 public minCommitment;
+    bool public targetReached; // Flag to track if target has been reached
     
     enum PoolStatus {
         INACTIVE,
         ACTIVE,
         PAUSED,
-        CLOSED
+        CLOSED,
+        FUNDED,  // New status for when target is reached
+        FAILED   // New status for when end time is reached without meeting target
     }
     
     PoolStatus public status;
@@ -31,7 +34,6 @@ contract StageDotFunPool is Ownable {
         string description;
         uint256 amount;
         uint256 unlockTime;
-        bool approved;
         bool released;
     }
     
@@ -54,13 +56,15 @@ contract StageDotFunPool is Ownable {
     event RevenueReceived(uint256 amount);
     event RevenueDistributed(uint256 amount);
     event MilestoneCreated(uint256 indexed milestoneIndex, string description, uint256 amount, uint256 unlockTime);
-    event MilestoneApproved(uint256 indexed milestoneIndex);
     event MilestoneWithdrawn(uint256 indexed milestoneIndex, uint256 amount);
     event EmergencyModeEnabled();
     event EmergencyWithdrawalRequested(uint256 unlockTime);
     event EmergencyWithdrawalExecuted(uint256 amount);
     event WithdrawerAuthorized(address withdrawer);
     event WithdrawerRevoked(address withdrawer);
+    event TargetReached(uint256 totalAmount);
+    event FundsReturned(address indexed lp, uint256 amount);
+    event PoolStatusUpdated(PoolStatus newStatus);
     
     // View functions to get all pool details in a single call
     function getPoolDetails() external view returns (
@@ -118,9 +122,22 @@ contract StageDotFunPool is Ownable {
         status = PoolStatus.ACTIVE;
         targetAmount = _targetAmount;
         minCommitment = _minCommitment;
+        targetReached = false;
+        authorizedWithdrawer = _owner; // Set owner as authorized withdrawer by default
         
         string memory tokenName = string(abi.encodePacked(_name, " LP Token"));
         lpToken = new StageDotFunLiquidity(tokenName, symbol);
+        
+        // Create default milestone for the entire target amount
+        // This milestone will be available when target is reached
+        string[] memory descriptions = new string[](1);
+        descriptions[0] = "Default milestone";
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = _targetAmount;
+        uint256[] memory unlockTimes = new uint256[](1);
+        unlockTimes[0] = block.timestamp; // Immediately available once target is reached
+        
+        _createMilestones(descriptions, amounts, unlockTimes);
     }
     
     modifier poolIsActive() {
@@ -133,8 +150,31 @@ contract StageDotFunPool is Ownable {
         _;
     }
     
+    modifier targetMet() {
+        require(targetReached, "Target amount not reached");
+        _;
+    }
+    
+    // Check if pool conditions need to be updated
+    function _checkPoolConditions() internal {
+        // Check if target has been reached
+        if (!targetReached && totalDeposits >= targetAmount) {
+            targetReached = true;
+            status = PoolStatus.FUNDED;
+            emit TargetReached(totalDeposits);
+            emit PoolStatusUpdated(PoolStatus.FUNDED);
+        }
+        
+        // Check if end time has passed and target not met
+        if (block.timestamp > endTime && !targetReached && status == PoolStatus.ACTIVE) {
+            status = PoolStatus.FAILED;
+            emit PoolStatusUpdated(PoolStatus.FAILED);
+        }
+    }
+    
     function deposit(uint256 amount) external poolIsActive {
         require(amount >= minCommitment, "Amount below minimum commitment");
+        require(block.timestamp <= endTime, "Pool funding period has ended");
         require(totalDeposits + amount <= targetAmount, "Would exceed target amount");
         require(depositToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         
@@ -148,9 +188,35 @@ contract StageDotFunPool is Ownable {
         }
         
         emit Deposit(msg.sender, amount);
+        
+        // Check if this deposit reached the target
+        _checkPoolConditions();
     }
     
-    function receiveRevenue(uint256 amount) external poolIsActive {
+    // Allow LPs to claim their funds back if the pool failed to meet its target
+    function claimRefund() external {
+        require(status == PoolStatus.FAILED, "Pool has not failed");
+        
+        // Check LP token balance directly from the token contract
+        uint256 lpBalance = lpToken.balanceOf(msg.sender);
+        require(lpBalance > 0, "No LP tokens to refund");
+        
+        // Burn LP tokens
+        lpToken.burn(msg.sender, lpBalance);
+        
+        // Update internal tracking
+        if (isLpHolder[msg.sender]) {
+            lpBalances[msg.sender] = 0;
+        }
+        
+        // Return USDC
+        require(depositToken.transfer(msg.sender, lpBalance), "Refund transfer failed");
+        
+        emit FundsReturned(msg.sender, lpBalance);
+    }
+    
+    function receiveRevenue(uint256 amount) external {
+        require(status == PoolStatus.FUNDED || status == PoolStatus.ACTIVE, "Pool not in valid state for revenue");
         require(
             depositToken.transferFrom(msg.sender, address(this), amount),
             "Revenue transfer failed"
@@ -169,7 +235,7 @@ contract StageDotFunPool is Ownable {
         
         for (uint i = 0; i < lpHolders.length; i++) {
             address holder = lpHolders[i];
-            uint256 lpBalance = lpBalances[holder];
+            uint256 lpBalance = lpToken.balanceOf(holder);
             if (lpBalance > 0) {
                 uint256 share = (lpBalance * revenueAccumulated) / totalPoolTokens;
                 require(depositToken.transfer(holder, share), "Distribution failed");
@@ -180,11 +246,12 @@ contract StageDotFunPool is Ownable {
         revenueAccumulated = 0;
     }
     
-    function setMilestones(
-        string[] calldata descriptions,
-        uint256[] calldata amounts,
-        uint256[] calldata unlockTimes
-    ) external onlyOwner {
+    // Internal function to create milestones
+    function _createMilestones(
+        string[] memory descriptions,
+        uint256[] memory amounts,
+        uint256[] memory unlockTimes
+    ) internal {
         require(
             descriptions.length == amounts.length && amounts.length == unlockTimes.length,
             "Array lengths mismatch"
@@ -194,16 +261,13 @@ contract StageDotFunPool is Ownable {
         for (uint i = 0; i < amounts.length; i++) {
             totalAmount += amounts[i];
         }
-        require(totalAmount <= totalDeposits, "Milestone amounts exceed deposits");
         
         for (uint i = 0; i < descriptions.length; i++) {
-            require(unlockTimes[i] > block.timestamp, "Unlock time must be in future");
             milestones.push(
                 Milestone({
                     description: descriptions[i],
                     amount: amounts[i],
                     unlockTime: unlockTimes[i],
-                    approved: false,
                     released: false
                 })
             );
@@ -216,23 +280,55 @@ contract StageDotFunPool is Ownable {
         }
     }
     
-    function approveMilestone(uint256 milestoneIndex) external onlyOwner {
-        require(milestoneIndex < milestones.length, "Invalid milestone index");
-        Milestone storage milestone = milestones[milestoneIndex];
+    // Allow owner to set additional milestones
+    function setAdditionalMilestones(
+        string[] calldata descriptions,
+        uint256[] calldata amounts,
+        uint256[] calldata unlockTimes
+    ) external onlyOwner {
+        require(milestones.length > 0, "Cannot replace default milestone");
         
-        require(!milestone.approved, "Already approved");
-        require(block.timestamp >= milestone.unlockTime, "Too early");
+        uint256 totalAmount = 0;
+        for (uint i = 0; i < amounts.length; i++) {
+            totalAmount += amounts[i];
+        }
         
-        milestone.approved = true;
-        emit MilestoneApproved(milestoneIndex);
+        // Check if the total of all milestones (existing + new) doesn't exceed target
+        uint256 existingTotal = 0;
+        for (uint i = 0; i < milestones.length; i++) {
+            if (!milestones[i].released) {
+                existingTotal += milestones[i].amount;
+            }
+        }
+        
+        require(existingTotal + totalAmount <= targetAmount, "Milestone amounts exceed target");
+        
+        _createMilestones(descriptions, amounts, unlockTimes);
     }
     
-    function withdrawMilestone(uint256 milestoneIndex) external onlyAuthorizedWithdrawer {
+    // Replace the default milestone with custom milestones
+    function replaceDefaultMilestone(
+        string[] calldata descriptions,
+        uint256[] calldata amounts,
+        uint256[] calldata unlockTimes
+    ) external onlyOwner {
+        require(milestones.length == 1, "Default milestone already replaced");
+        require(!milestones[0].released, "Default milestone already released");
+        
+        // Delete the default milestone
+        delete milestones;
+        
+        // Create new milestones
+        _createMilestones(descriptions, amounts, unlockTimes);
+    }
+    
+    // Withdraw a milestone - only if target is reached and unlock time has passed
+    function withdrawMilestone(uint256 milestoneIndex) external onlyAuthorizedWithdrawer targetMet {
         require(milestoneIndex < milestones.length, "Invalid milestone index");
         Milestone storage milestone = milestones[milestoneIndex];
         
-        require(milestone.approved, "Not approved");
         require(!milestone.released, "Already released");
+        require(block.timestamp >= milestone.unlockTime, "Too early");
         
         milestone.released = true;
         require(depositToken.transfer(msg.sender, milestone.amount), "Transfer failed");
@@ -248,7 +344,7 @@ contract StageDotFunPool is Ownable {
     
     function revokeAuthorizedWithdrawer() external onlyOwner {
         address oldWithdrawer = authorizedWithdrawer;
-        delete authorizedWithdrawer;
+        authorizedWithdrawer = owner(); // Reset to owner instead of deleting
         emit WithdrawerRevoked(oldWithdrawer);
     }
     
@@ -290,6 +386,11 @@ contract StageDotFunPool is Ownable {
         delete emergencyMode;
     }
     
+    // Check if end time has passed without meeting target
+    function checkPoolStatus() external {
+        _checkPoolConditions();
+    }
+    
     function updateStatus(PoolStatus newStatus) external onlyOwner {
         require(status != newStatus, "Pool already in this status");
         
@@ -298,6 +399,7 @@ contract StageDotFunPool is Ownable {
         }
         
         status = newStatus;
+        emit PoolStatusUpdated(newStatus);
     }
     
     // View functions
@@ -323,7 +425,7 @@ contract StageDotFunPool is Ownable {
     }
 
     function getLpBalance(address holder) external view returns (uint256) {
-        return lpBalances[holder];
+        return lpToken.balanceOf(holder);
     }
 
     // Get LP balances with pagination support
@@ -365,7 +467,7 @@ contract StageDotFunPool is Ownable {
             uint256 holderIndex = startIndex + i;
             address holder = lpHolders[holderIndex];
             holders[i] = holder;
-            balances[i] = lpBalances[holder];
+            balances[i] = lpToken.balanceOf(holder);
         }
         
         return (holders, balances);

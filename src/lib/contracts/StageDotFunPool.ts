@@ -14,32 +14,34 @@ export const StageDotFunPoolFactoryABI = [
   "function deployedPools(uint256) view returns (address)",
   "function getDeployedPools() view returns (address[])",
   "function getPoolCount() view returns (uint256)",
-  "function getPoolByAddress(address poolAddress) view returns (address)",
+  "function predictPoolAddress(string uniqueId, uint256 timestamp) view returns (address)",
   "function getDeployedPoolsDetails(uint256 startIndex, uint256 endIndex) view returns (address[] poolAddresses, string[] names, string[] uniqueIds, address[] creators, uint256[] totalDeposits, uint256[] revenueAccumulated, uint256[] endTimes, uint256[] targetAmounts, uint8[] statuses)",
 
   // State-changing functions
   "function createPool(string name, string uniqueId, string symbol, uint256 endTime, uint256 targetAmount, uint256 minCommitment) external returns (address)",
-  "function updatePoolStatus(address poolAddress, uint8 status) external",
+  "function checkPoolStatus(address poolAddress) external",
+  "function checkAllPoolsStatus() external",
 ];
 
 // ABI for the StageDotFunPool contract
 export const StageDotFunPoolABI = [
   // Events
   "event Deposit(address indexed lp, uint256 amount)",
-  "event Withdraw(address indexed lp, uint256 amount)",
   "event RevenueReceived(uint256 amount)",
   "event RevenueDistributed(uint256 amount)",
   "event MilestoneCreated(uint256 indexed milestoneIndex, string description, uint256 amount, uint256 unlockTime)",
-  "event MilestoneApproved(uint256 indexed milestoneIndex)",
   "event MilestoneWithdrawn(uint256 indexed milestoneIndex, uint256 amount)",
   "event EmergencyModeEnabled()",
   "event EmergencyWithdrawalRequested(uint256 unlockTime)",
   "event EmergencyWithdrawalExecuted(uint256 amount)",
   "event WithdrawerAuthorized(address withdrawer)",
   "event WithdrawerRevoked(address withdrawer)",
+  "event TargetReached(uint256 totalAmount)",
+  "event FundsReturned(address indexed lp, uint256 amount)",
+  "event PoolStatusUpdated(uint8 newStatus)",
 
   // View functions
-  "function getPoolDetails() view returns (string _name, string _uniqueId, address _creator, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _minCommitment, uint8 _status, address _lpTokenAddress, address[] memory _lpHolders, tuple(string description, uint256 amount, uint256 unlockTime, bool approved, bool released)[] memory _milestones, bool _emergencyMode, uint256 _emergencyWithdrawalRequestTime, address _authorizedWithdrawer)",
+  "function getPoolDetails() view returns (string _name, string _uniqueId, address _creator, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _minCommitment, uint8 _status, address _lpTokenAddress, address[] memory _lpHolders, tuple(string description, uint256 amount, uint256 unlockTime, bool released)[] memory _milestones, bool _emergencyMode, uint256 _emergencyWithdrawalRequestTime, address _authorizedWithdrawer)",
   "function getLpBalance(address holder) view returns (uint256)",
   "function getLpBalances(uint256 startIndex, uint256 endIndex) view returns (address[] memory holders, uint256[] memory balances)",
   "function depositToken() view returns (address)",
@@ -54,28 +56,26 @@ export const StageDotFunPoolABI = [
   "function targetAmount() view returns (uint256)",
   "function minCommitment() view returns (uint256)",
   "function status() view returns (uint8)",
-  "function lpBalances(address) view returns (uint256)",
-  "function lpHolders(uint256) view returns (address)",
-  "function isLpHolder(address) view returns (bool)",
-  "function milestones(uint256) view returns (tuple(string description, uint256 amount, uint256 unlockTime, bool approved, bool released))",
-  "function emergencyMode() view returns (bool)",
-  "function emergencyWithdrawalRequestTime() view returns (uint256)",
-  "function authorizedWithdrawer() view returns (address)",
+  "function targetReached() view returns (bool)",
+  "function getMilestones() view returns (tuple(string description, uint256 amount, uint256 unlockTime, bool released)[] memory)",
+  "function getLpHolders() view returns (address[] memory)",
+  "function getEmergencyStatus() view returns (bool isEmergency, uint256 withdrawalUnlockTime, bool canExecuteWithdrawal)",
 
   // State-changing functions
   "function deposit(uint256 amount) external",
-  "function withdraw(uint256 amount) external",
+  "function claimRefund() external",
   "function receiveRevenue(uint256 amount) external",
   "function distributeRevenue() external",
-  "function setMilestones(string[] calldata descriptions, uint256[] calldata amounts, uint256[] calldata unlockTimes) external",
-  "function approveMilestone(uint256 milestoneIndex) external",
   "function withdrawMilestone(uint256 milestoneIndex) external",
-  "function setAuthorizedWithdrawer(address withdrawer) external",
+  "function setAuthorizedWithdrawer(address _withdrawer) external",
   "function revokeAuthorizedWithdrawer() external",
   "function enableEmergencyMode() external",
   "function requestEmergencyWithdrawal() external",
   "function executeEmergencyWithdrawal() external",
+  "function checkPoolStatus() external",
   "function updateStatus(uint8 newStatus) external",
+  "function setAdditionalMilestones(string[] calldata descriptions, uint256[] calldata amounts, uint256[] calldata unlockTimes) external",
+  "function replaceDefaultMilestone(string[] calldata descriptions, uint256[] calldata amounts, uint256[] calldata unlockTimes) external",
 ];
 
 // ABI for the StageDotFunLiquidity token
@@ -138,7 +138,6 @@ export interface ContractPool {
     description: string;
     amount: bigint;
     unlockTime: bigint;
-    approved: boolean;
     released: boolean;
   }[];
   emergencyMode: boolean;

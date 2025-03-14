@@ -19,6 +19,11 @@ import {
 } from "react-icons/fa";
 import useSWR from "swr";
 import { usePoolPatrons } from "../../../../hooks/usePoolPatrons";
+import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
+import {
+  PoolStatus,
+  getPoolStatusFromNumber,
+} from "../../../../lib/contracts/types";
 
 interface PoolFundsSectionProps {
   pool: Pool & {
@@ -61,6 +66,29 @@ const fetcher = async (url: string, contractAddress: string) => {
     revenueAccumulated: poolDetails._revenueAccumulated,
     contractBalance: balance,
   };
+};
+
+// Function to check on-chain pool status
+const checkOnChainPoolStatus = async (
+  contractAddress: string
+): Promise<number> => {
+  try {
+    const provider = new ethers.JsonRpcProvider(
+      process.env.NEXT_PUBLIC_RPC_URL
+    );
+    const poolContract = new ethers.Contract(
+      contractAddress,
+      StageDotFunPoolABI,
+      provider
+    );
+
+    // Call the status() function on the contract
+    const status = await poolContract.status();
+    return Number(status);
+  } catch (error) {
+    console.error("Error checking on-chain pool status:", error);
+    throw error;
+  }
 };
 
 export default function PoolFundsSection({
@@ -399,21 +427,52 @@ export default function PoolFundsSection({
   };
 
   // Open withdraw modal
-  const openWithdrawModal = () => {
-    setWithdrawAmount("");
-    setShowWithdrawModal(true);
+  const openWithdrawModal = async () => {
+    if (!pool.contract_address) {
+      toast.error("Pool contract address not found");
+      return;
+    }
+
+    console.log("Pool status from database:", pool.status, typeof pool.status);
+
+    try {
+      // Always check on-chain status first as the source of truth
+      const onChainStatus = await checkOnChainPoolStatus(pool.contract_address);
+      console.log(
+        "On-chain pool status:",
+        onChainStatus,
+        PoolStatus[onChainStatus]
+      );
+
+      // If on-chain status is not FUNDED, prevent withdrawal
+      if (onChainStatus !== PoolStatus.FUNDED) {
+        toast.error(
+          `Pool must be in FUNDED status to withdraw funds. On-chain status: ${PoolStatus[onChainStatus]}`
+        );
+        return;
+      }
+
+      // If we get here, the on-chain status is FUNDED, so we can proceed
+      console.log("Pool is FUNDED on-chain, proceeding with withdrawal");
+
+      // Set the withdrawal amount to the target amount (default milestone)
+      if (onChainData) {
+        const targetAmount = parseFloat(
+          ethers.formatUnits(onChainData.totalDeposits, 6)
+        );
+        setWithdrawAmount(targetAmount.toString());
+      } else {
+        setWithdrawAmount(pool.target_amount?.toString() || "");
+      }
+      setShowWithdrawModal(true);
+    } catch (error) {
+      console.error("Error checking on-chain pool status:", error);
+      toast.error("Error checking pool status. See console for details.");
+    }
   };
 
-  // Set withdraw amount to percentage of total
-  const setWithdrawPercentage = (percentage: number) => {
-    const amount = ((rawTotalFunds * percentage) / 100).toFixed(2);
-    setWithdrawAmount(amount);
-  };
-
-  // Set withdraw amount to max
-  const setWithdrawMax = () => {
-    setWithdrawAmount(rawTotalFunds.toFixed(2));
-  };
+  // Add the contract interaction hook
+  const { withdrawFromPool } = useContractInteraction();
 
   // Handle withdraw funds
   const handleWithdrawFunds = async () => {
@@ -427,41 +486,84 @@ export default function PoolFundsSection({
       return;
     }
 
+    // Check if the pool is in FUNDED status using the enum
+    console.log(
+      "Pool status before conversion (withdraw):",
+      pool.status,
+      typeof pool.status
+    );
+
+    try {
+      // First check on-chain status
+      const onChainStatus = await checkOnChainPoolStatus(pool.contract_address);
+      console.log(
+        "On-chain pool status (withdraw):",
+        onChainStatus,
+        PoolStatus[onChainStatus]
+      );
+
+      // If on-chain status is not FUNDED, prevent withdrawal
+      if (onChainStatus !== PoolStatus.FUNDED) {
+        toast.error(
+          `Pool must be in FUNDED status to withdraw funds. On-chain status: ${PoolStatus[onChainStatus]}`
+        );
+        return;
+      }
+
+      // Continue with local status check as a backup
+      const poolStatusEnum = getPoolStatusFromNumber(pool.status);
+      console.log(
+        "Pool status after conversion (withdraw):",
+        poolStatusEnum,
+        PoolStatus[poolStatusEnum]
+      );
+
+      if (poolStatusEnum !== PoolStatus.FUNDED) {
+        console.log("Warning: Local status doesn't match on-chain status", {
+          localStatus: PoolStatus[poolStatusEnum],
+          onChainStatus: PoolStatus[onChainStatus],
+        });
+        // We'll continue anyway since on-chain status is FUNDED
+      }
+    } catch (error) {
+      console.error("Error processing pool status (withdraw):", error);
+      toast.error("Error checking pool status. See console for details.");
+      return;
+    }
+
     const amount = parseFloat(withdrawAmount);
     if (isNaN(amount) || amount <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
 
-    if (amount > rawTotalFunds) {
-      toast.error("Withdrawal amount cannot exceed total funds");
+    // Ensure the withdrawal amount matches the target amount
+    const targetAmount = pool.target_amount || 0;
+    if (Math.abs(amount - targetAmount) > 0.01) {
+      // Allow small rounding differences
+      toast.error(
+        `Withdrawal amount must be the full target amount: ${targetAmount}`
+      );
       return;
     }
 
     setIsWithdrawing(true);
-    try {
-      // For now, we'll just make a direct API call to a backend endpoint
-      // that will handle the withdrawal for us
-      const response = await fetch("/api/pools/withdraw-funds", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          poolAddress: pool.contract_address,
-          amount: amount,
-          destinationAddress: withdrawAddress,
-        }),
-      });
+    const loadingToast = toast.loading("Preparing withdrawal...");
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to withdraw funds");
+    try {
+      // Use the new withdrawFromPool function from the hook
+      const result = await withdrawFromPool(
+        pool.contract_address,
+        amount,
+        withdrawAddress
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to withdraw funds");
       }
 
-      const result = await response.json();
-      toast.success("Funds withdrawal initiated");
-      setStatusMessage("Withdrawal request submitted successfully!");
+      toast.success("Funds withdrawn successfully!", { id: loadingToast });
+      setStatusMessage("Withdrawal completed successfully!");
       console.log("Withdrawal result:", result);
       setShowWithdrawModal(false);
 
@@ -470,7 +572,8 @@ export default function PoolFundsSection({
     } catch (error) {
       console.error("Error withdrawing funds:", error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to withdraw funds"
+        error instanceof Error ? error.message : "Failed to withdraw funds",
+        { id: loadingToast }
       );
     } finally {
       setIsWithdrawing(false);
@@ -807,46 +910,12 @@ export default function PoolFundsSection({
                 </div>
               </div>
 
-              {/* Amount Input */}
-              <div className="mb-6">
-                <label className="block text-gray-400 text-sm mb-2">
-                  Enter USDC amount to withdraw
-                </label>
-                <input
-                  type="number"
-                  value={withdrawAmount}
-                  onChange={(e) => setWithdrawAmount(e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-3 rounded-[12px] border border-gray-700 focus:outline-none focus:border-blue-500"
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  max={rawTotalFunds.toFixed(2)}
-                />
-              </div>
-
-              {/* Percentage Buttons */}
-              <div className="flex gap-2 mb-6">
-                <button
-                  onClick={() => setWithdrawPercentage(10)}
-                  className="flex-1 bg-[#2A2A2A] text-white py-2 px-4 rounded-full"
-                >
-                  10%
-                </button>
-                <button
-                  onClick={() => setWithdrawPercentage(50)}
-                  className="flex-1 bg-[#2A2A2A] text-white py-2 px-4 rounded-full"
-                >
-                  50%
-                </button>
-                <button
-                  onClick={setWithdrawMax}
-                  className="flex-1 bg-[#2A2A2A] text-white py-2 px-4 rounded-full flex items-center justify-center"
-                >
-                  <span>Max</span>
-                  <span className="ml-2 text-blue-400">
-                    {rawTotalFunds.toFixed(2)}
-                  </span>
-                </button>
+              {/* Info Text */}
+              <div className="mb-6 text-gray-400 text-sm">
+                <p>
+                  You are withdrawing the full milestone amount. This is only
+                  available once the pool has reached its funding target.
+                </p>
               </div>
 
               {/* Wallet Address Input */}

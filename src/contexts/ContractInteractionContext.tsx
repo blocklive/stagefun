@@ -50,7 +50,18 @@ interface ContractInteractionContextType {
     error?: string;
     txHash?: string;
   }>;
+  /** Deposits funds to a pool on the blockchain */
   depositToPool: (poolId: string, amount: number) => Promise<any>;
+  /** Withdraws funds from a pool on the blockchain using the user's wallet */
+  withdrawFromPool: (
+    poolAddress: string,
+    amount: number,
+    destinationAddress: string
+  ) => Promise<{
+    success: boolean;
+    txHash?: string;
+    error?: string;
+  }>;
   getPool: (poolId: string) => Promise<ContractPool | null>;
   getPoolLpHolders: (poolId: string) => Promise<string[]>;
   getUserPoolBalance: (userAddress: string, poolId: string) => Promise<string>;
@@ -80,6 +91,9 @@ export const ContractInteractionContext =
       throw new Error("ContractInteractionContext not initialized");
     },
     depositToPool: async () => {
+      throw new Error("ContractInteractionContext not initialized");
+    },
+    withdrawFromPool: async () => {
       throw new Error("ContractInteractionContext not initialized");
     },
     getPool: async () => {

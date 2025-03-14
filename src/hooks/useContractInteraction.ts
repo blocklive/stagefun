@@ -75,6 +75,15 @@ interface ContractInteractionHookResult {
     txHash?: string;
   }>;
   depositToPool: (poolId: string, amount: number) => Promise<any>;
+  withdrawFromPool: (
+    poolAddress: string,
+    amount: number,
+    destinationAddress: string
+  ) => Promise<{
+    success: boolean;
+    txHash?: string;
+    error?: string;
+  }>;
   getPool: (poolId: string) => Promise<ContractPool | null>;
   getPoolLpHolders: (poolId: string) => Promise<string[]>;
   getUserPoolBalance: (userAddress: string, poolId: string) => Promise<string>;
@@ -262,7 +271,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
           targetAmountBigInt,
           minCommitmentBigInt,
           {
-            gasLimit: 3000000, // Set a high gas limit to ensure the transaction goes through
+            gasLimit: 5000000, // Increase gas limit to ensure the transaction goes through
           }
         );
 
@@ -851,6 +860,377 @@ export function useContractInteraction(): ContractInteractionHookResult {
     [user, getSigner, wallets, sendTransaction]
   );
 
+  // Withdraw funds from a pool
+  const withdrawFromPool = useCallback(
+    async (
+      poolAddress: string,
+      amount: number,
+      destinationAddress: string
+    ): Promise<{
+      success: boolean;
+      txHash?: string;
+      error?: string;
+    }> => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        if (!user) {
+          throw new Error("User not logged in");
+        }
+
+        if (!ethers.isAddress(poolAddress)) {
+          throw new Error("Invalid pool address");
+        }
+
+        if (!ethers.isAddress(destinationAddress)) {
+          throw new Error("Invalid destination address");
+        }
+
+        if (isNaN(amount) || amount <= 0) {
+          throw new Error("Invalid withdrawal amount");
+        }
+
+        console.log(
+          "Starting withdrawal process for pool:",
+          poolAddress,
+          "amount:",
+          amount,
+          "destination:",
+          destinationAddress
+        );
+
+        // Get the embedded wallet
+        console.log(
+          "Available wallets for withdrawal:",
+          wallets.map((w) => ({
+            address: w.address,
+            type: w.walletClientType,
+            chainId: w.chainId,
+          }))
+        );
+
+        const embeddedWallet = wallets.find(
+          (wallet) => wallet.walletClientType === "privy"
+        );
+
+        if (!embeddedWallet) {
+          console.error(
+            "No embedded wallet found for withdrawal. Available wallets:",
+            wallets.map((w) => w.walletClientType)
+          );
+          throw new Error(
+            "No embedded wallet found. Please try logging out and logging in again."
+          );
+        }
+
+        console.log(
+          "Using embedded wallet for withdrawal:",
+          embeddedWallet.address
+        );
+
+        // Get the provider and signer
+        const provider = await embeddedWallet.getEthereumProvider();
+        const ethersProvider = new ethers.BrowserProvider(provider);
+        const signer = await ethersProvider.getSigner();
+        const signerAddress = await signer.getAddress();
+
+        console.log("Got signer for address:", signerAddress);
+
+        // Get the pool contract
+        const poolContract = new ethers.Contract(
+          poolAddress,
+          StageDotFunPoolABI,
+          signer
+        );
+
+        // Get the pool details to verify the caller is authorized
+        const poolDetails = await poolContract.getPoolDetails();
+
+        console.log("Pool details:", {
+          name: poolDetails._name,
+          creator: poolDetails._creator,
+          totalDeposits: poolDetails._totalDeposits.toString(),
+          revenueAccumulated: poolDetails._revenueAccumulated.toString(),
+          authorizedWithdrawer: poolDetails._authorizedWithdrawer,
+          status: poolDetails._status,
+          milestones: poolDetails._milestones.length,
+        });
+
+        // Check if the pool has reached its target (FUNDED status)
+        if (Number(poolDetails._status) !== 4) {
+          // 4 is FUNDED status
+          throw new Error("Pool must be in FUNDED status to withdraw funds");
+        }
+
+        // Calculate the total available funds
+        const totalDeposits = ethers.formatUnits(poolDetails._totalDeposits, 6);
+        const revenueAccumulated = ethers.formatUnits(
+          poolDetails._revenueAccumulated,
+          6
+        );
+        const totalAvailable =
+          parseFloat(totalDeposits) + parseFloat(revenueAccumulated);
+
+        // Check if the requested amount is available
+        if (amount > totalAvailable) {
+          throw new Error(
+            `Requested amount (${amount}) exceeds available funds (${totalAvailable})`
+          );
+        }
+
+        // Convert amount to wei
+        const usdcDecimals = 6;
+        const amountInWei = ethers.parseUnits(amount.toString(), usdcDecimals);
+
+        // Create a transaction tracker to avoid duplicate transactions
+        let lastTxHash = "";
+
+        // STEP 1: Set authorized withdrawer if needed
+        if (poolDetails._authorizedWithdrawer !== signerAddress) {
+          console.log("Setting authorized withdrawer to user's wallet");
+
+          const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+          const authData = poolInterface.encodeFunctionData(
+            "setAuthorizedWithdrawer",
+            [signerAddress]
+          );
+
+          const authRequest = {
+            to: poolAddress,
+            data: authData,
+            value: "0",
+            from: signerAddress,
+            chainId: 10143, // Monad Testnet
+          };
+
+          const authUiOptions: SendTransactionModalUIOptions = {
+            description: `Setting your wallet as the authorized withdrawer`,
+            buttonText: "Authorize Withdrawal",
+            transactionInfo: {
+              title: "Authorize Withdrawal",
+              action: "Set Authorized Withdrawer",
+              contractInfo: {
+                name: "StageDotFun Pool",
+              },
+            },
+          };
+
+          console.log("Sending authorization transaction");
+          const authTxHash = await sendTransaction(authRequest, {
+            uiOptions: authUiOptions,
+          });
+
+          lastTxHash = authTxHash.hash;
+
+          // Wait for transaction to be mined
+          const authReceipt = await ethersProvider.waitForTransaction(
+            lastTxHash
+          );
+
+          if (!authReceipt?.status) {
+            throw new Error("Failed to set authorized withdrawer");
+          }
+
+          console.log("Successfully set authorized withdrawer");
+        }
+
+        // STEP 2: Check if the default milestone exists
+        const milestones = poolDetails._milestones;
+
+        if (milestones.length === 0) {
+          throw new Error("No milestones found in the pool");
+        }
+
+        console.log(`Found ${milestones.length} milestones in the pool`);
+
+        // Use the default milestone (index 0)
+        const defaultMilestoneIndex = 0;
+        const defaultMilestone = milestones[defaultMilestoneIndex];
+
+        console.log("Default milestone:", {
+          description: defaultMilestone.description,
+          amount: defaultMilestone.amount.toString(),
+          unlockTime: defaultMilestone.unlockTime.toString(),
+          released: defaultMilestone.released,
+        });
+
+        // Check if the milestone is already released
+        if (defaultMilestone.released) {
+          throw new Error("Default milestone has already been released");
+        }
+
+        // Check if the requested amount matches the milestone amount
+        if (defaultMilestone.amount.toString() !== amountInWei.toString()) {
+          throw new Error(
+            `Withdrawal amount (${amount}) must match the default milestone amount (${ethers.formatUnits(
+              defaultMilestone.amount,
+              usdcDecimals
+            )})`
+          );
+        }
+
+        // STEP 3: Withdraw the milestone
+        console.log(
+          `Withdrawing default milestone (index ${defaultMilestoneIndex})`
+        );
+
+        const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+        const withdrawData = poolInterface.encodeFunctionData(
+          "withdrawMilestone",
+          [defaultMilestoneIndex]
+        );
+
+        const withdrawRequest = {
+          to: poolAddress,
+          data: withdrawData,
+          value: "0",
+          from: signerAddress,
+          chainId: 10143, // Monad Testnet
+        };
+
+        const withdrawUiOptions: SendTransactionModalUIOptions = {
+          description: `Withdrawing funds from pool`,
+          buttonText: "Withdraw Funds",
+          transactionInfo: {
+            title: "Withdraw Funds",
+            action: "Withdraw Milestone",
+            contractInfo: {
+              name: "StageDotFun Pool",
+            },
+          },
+        };
+
+        console.log("Sending withdraw transaction");
+        const withdrawTxHash = await sendTransaction(withdrawRequest, {
+          uiOptions: withdrawUiOptions,
+        });
+
+        lastTxHash = withdrawTxHash.hash;
+
+        // Wait for transaction to be mined
+        const withdrawReceipt = await ethersProvider.waitForTransaction(
+          lastTxHash
+        );
+
+        if (!withdrawReceipt?.status) {
+          throw new Error("Failed to withdraw milestone");
+        }
+
+        console.log(`Successfully withdrew milestone ${defaultMilestoneIndex}`);
+
+        // STEP 4: Transfer funds to destination if needed
+        if (destinationAddress.toLowerCase() !== signerAddress.toLowerCase()) {
+          return await transferFundsToDestination(
+            ethersProvider,
+            signer,
+            signerAddress,
+            destinationAddress,
+            amount,
+            lastTxHash
+          );
+        }
+
+        return {
+          success: true,
+          txHash: lastTxHash,
+        };
+      } catch (err: any) {
+        console.error("Error in withdrawFromPool:", err);
+        setError(err.message || "Error withdrawing from pool");
+        return {
+          success: false,
+          error: err.message || "Unknown error in withdrawal process",
+        };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user, wallets, sendTransaction]
+  );
+
+  // Helper function to transfer funds to destination address
+  const transferFundsToDestination = async (
+    ethersProvider: ethers.BrowserProvider,
+    signer: ethers.Signer,
+    signerAddress: string,
+    destinationAddress: string,
+    amount: number,
+    previousTxHash: string
+  ): Promise<{
+    success: boolean;
+    txHash?: string;
+    error?: string;
+  }> => {
+    try {
+      console.log(
+        `Transferring funds to destination address: ${destinationAddress}`
+      );
+
+      // Get the USDC token address
+      const usdcAddress = getContractAddresses().usdc;
+
+      // Create contract interface for USDC transfer
+      const usdcInterface = new ethers.Interface([
+        "function transfer(address to, uint256 value) returns (bool)",
+      ]);
+
+      const transferData = usdcInterface.encodeFunctionData("transfer", [
+        destinationAddress,
+        ethers.parseUnits(amount.toString(), 6),
+      ]);
+
+      // Prepare the transaction request
+      const transferRequest = {
+        to: usdcAddress,
+        data: transferData,
+        value: "0",
+        from: signerAddress,
+        chainId: 10143, // Monad Testnet
+      };
+
+      // Set UI options for the transaction
+      const transferUiOptions: SendTransactionModalUIOptions = {
+        description: `Transferring ${amount} USDC to ${destinationAddress}`,
+        buttonText: "Transfer USDC",
+        transactionInfo: {
+          title: "Transfer USDC",
+          action: "Transfer Funds",
+          contractInfo: {
+            name: "USDC Token",
+          },
+        },
+      };
+
+      console.log("Sending transfer transaction");
+      const transferTxHash = await sendTransaction(transferRequest, {
+        uiOptions: transferUiOptions,
+      });
+
+      // Wait for transaction to be mined
+      const transferReceipt = await ethersProvider.waitForTransaction(
+        transferTxHash.hash
+      );
+
+      if (!transferReceipt?.status) {
+        throw new Error("Failed to transfer funds to destination address");
+      }
+
+      console.log("Successfully transferred funds to destination address");
+      return {
+        success: true,
+        txHash: transferTxHash.hash,
+      };
+    } catch (error: any) {
+      console.error("Error transferring funds to destination:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to transfer funds to destination",
+        txHash: previousTxHash, // Return the previous transaction hash since the withdrawal itself succeeded
+      };
+    }
+  };
+
   // Get pool data from the blockchain
   const getPool = async (poolId: string): Promise<ContractPool | null> => {
     setIsLoading(true);
@@ -1007,6 +1387,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
     createPool,
     createPoolWithDatabase,
     depositToPool,
+    withdrawFromPool,
     getPool,
     getPoolLpHolders,
     getUserPoolBalance,
