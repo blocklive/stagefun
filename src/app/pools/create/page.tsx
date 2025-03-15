@@ -61,8 +61,7 @@ export default function CreatePoolPage() {
   const [patrons, setPatrons] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
-  const [currency, setCurrency] = useState("USDC");
-  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
+  const [currency] = useState("USDC");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [socialLinks, setSocialLinks] = useState({});
 
@@ -451,73 +450,84 @@ export default function CreatePoolPage() {
                     </div>
                   </div>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9]*\.?[0-9]*"
                     placeholder="0"
                     name="fundingGoal"
                     value={fundingGoal}
-                    onChange={(e) => setFundingGoal(e.target.value)}
+                    onChange={(e) => {
+                      // Only allow numbers and a single decimal point
+                      const value = e.target.value;
+                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                        setFundingGoal(value);
+                      }
+                    }}
                     className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
+                    style={{ appearance: "textfield" }}
                   />
+                  <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col gap-1">
+                    <button
+                      type="button"
+                      className="w-6 h-6 bg-[#2A2640] hover:bg-[#3A3650] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+                      onClick={() => {
+                        const currentValue = parseFloat(fundingGoal) || 0;
+                        setFundingGoal((currentValue + 1).toString());
+                      }}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M18 15L12 9L6 15"
+                          stroke="white"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="w-6 h-6 bg-[#2A2640] hover:bg-[#3A3650] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+                      onClick={() => {
+                        const currentValue = parseFloat(fundingGoal) || 0;
+                        if (currentValue > 0) {
+                          setFundingGoal((currentValue - 1).toString());
+                        }
+                      }}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M6 9L12 15L18 9"
+                          stroke="white"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Currency Selector */}
                 <div className="relative">
-                  <button
-                    className="h-full px-4 bg-[#FFFFFF14] rounded-lg flex items-center gap-2 hover:bg-[#FFFFFF1A] transition-colors"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowCurrencyDropdown(!showCurrencyDropdown);
-                    }}
-                  >
+                  <div className="h-full px-4 bg-[#FFFFFF14] rounded-lg flex items-center gap-2">
                     <div className="w-8 h-8 bg-[#836EF9] rounded-full flex items-center justify-center">
                       <span className="text-white font-bold">$</span>
                     </div>
-                    <span>{currency}</span>
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className={`transition-transform ${
-                        showCurrencyDropdown ? "rotate-180" : ""
-                      }`}
-                    >
-                      <path
-                        d="M6 9L12 15L18 9"
-                        stroke="white"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-
-                  {/* Dropdown */}
-                  {showCurrencyDropdown && (
-                    <div className="absolute top-full right-0 mt-2 w-full bg-[#FFFFFF14] rounded-lg shadow-lg z-10">
-                      <button
-                        className="w-full p-3 text-left hover:bg-[#FFFFFF1A] transition-colors"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCurrency("USDC");
-                          setShowCurrencyDropdown(false);
-                        }}
-                      >
-                        USDC
-                      </button>
-                      <button
-                        className="w-full p-3 text-left hover:bg-[#FFFFFF1A] transition-colors"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCurrency("ETH");
-                          setShowCurrencyDropdown(false);
-                        }}
-                      >
-                        ETH
-                      </button>
-                    </div>
-                  )}
+                    <span>USDC</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -532,12 +542,73 @@ export default function CreatePoolPage() {
                 </div>
                 <input
                   type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*\.?[0-9]*"
                   placeholder="Minimum commitment"
                   name="minCommitment"
                   value={minCommitment}
-                  onChange={(e) => setMinCommitment(e.target.value)}
+                  onChange={(e) => {
+                    // Only allow numbers and a single decimal point
+                    const value = e.target.value;
+                    if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                      setMinCommitment(value);
+                    }
+                  }}
                   className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
+                  style={{ appearance: "textfield" }}
                 />
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col gap-1">
+                  <button
+                    type="button"
+                    className="w-6 h-6 bg-[#2A2640] hover:bg-[#3A3650] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+                    onClick={() => {
+                      const currentValue = parseFloat(minCommitment) || 0;
+                      setMinCommitment((currentValue + 0.1).toFixed(1));
+                    }}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M18 15L12 9L6 15"
+                        stroke="white"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    className="w-6 h-6 bg-[#2A2640] hover:bg-[#3A3650] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+                    onClick={() => {
+                      const currentValue = parseFloat(minCommitment) || 0;
+                      if (currentValue > 0.1) {
+                        setMinCommitment((currentValue - 0.1).toFixed(1));
+                      }
+                    }}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M6 9L12 15L18 9"
+                        stroke="white"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
 
