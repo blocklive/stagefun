@@ -16,14 +16,18 @@ import { useSupabase } from "../../../../contexts/SupabaseContext";
 import { useAuthenticatedSupabase } from "@/hooks/useAuthenticatedSupabase";
 import { Pool } from "@/lib/supabase";
 import AppHeader from "../../../components/AppHeader";
+import GetTokensModal from "../../../components/GetTokensModal";
+import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
+import { useNativeBalance } from "../../../../hooks/useNativeBalance";
 import toast from "react-hot-toast";
 import PoolImageUpload from "@/components/PoolImageUpload";
 import { uploadPoolImage } from "@/lib/utils/imageUpload";
 import { usePool } from "@/hooks/usePool";
-import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
 import SocialLinksInput, {
   SocialLinksType,
 } from "@/components/SocialLinksInput";
+import SideNavbar from "../../../components/SideNavbar";
+import BottomNavbar from "../../../components/BottomNavbar";
 
 export default function EditPoolPage() {
   const { user: privyUser } = usePrivy();
@@ -57,6 +61,8 @@ export default function EditPoolPage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  const [showGetTokensModal, setShowGetTokensModal] = useState(false);
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -287,141 +293,164 @@ export default function EditPoolPage() {
   }
 
   return (
-    <div
-      className="flex flex-col bg-[#121212] text-white min-h-screen"
-      style={{ minHeight: viewportHeight }}
-    >
-      <AppHeader />
+    <div className="min-h-screen bg-[#15161a] text-white">
+      <SideNavbar activeTab="party" />
 
-      {/* Back Button and Title */}
-      <div className="flex items-center px-6 py-4">
-        <button
-          onClick={() => router.back()}
-          className="mr-4 text-gray-400 hover:text-white"
-        >
-          <FaArrowLeft />
-        </button>
-        <h1 className="text-2xl font-bold">Edit Pool Details</h1>
-      </div>
-
-      <div className="px-6" style={{ paddingBottom: "100px" }}>
-        {/* Pool Image */}
-        <PoolImageUpload
-          imagePreview={imagePreview}
-          isUploadingImage={isUploadingImage}
-          onImageSelect={handleImageSelect}
-          onRemoveImage={handleRemoveImage}
-          placeholderText={poolName || "Edit Pool"}
+      <div className="md:pl-64">
+        <AppHeader
+          showBackButton={false}
+          showTitle={false}
+          backgroundColor="#15161a"
+          showGetTokensButton={true}
+          onGetTokensClick={() => setShowGetTokensModal(true)}
         />
 
-        {/* Form */}
-        <form id="editPoolForm" onSubmit={handleSubmit} className="mt-8">
-          {/* Patrons */}
-          <div className="mb-6">
-            <input
-              type="text"
-              placeholder="Patrons"
-              name="patrons"
-              value={patrons}
-              onChange={(e) => setPatrons(e.target.value)}
-              className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
-            />
-          </div>
-
-          {/* Description */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold mb-4">Description</h2>
-            <div className="bg-[#FFFFFF14] rounded-lg overflow-hidden">
-              <textarea
-                placeholder="Write your story..."
-                name="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none min-h-[200px] resize-none"
-              />
-
-              {/* Text formatting toolbar */}
-              <div className="flex items-center p-2 border-t border-gray-700">
-                <button
-                  type="button"
-                  className="p-2 text-gray-400 hover:text-white"
-                >
-                  <FaBold />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 text-gray-400 hover:text-white"
-                >
-                  <FaItalic />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 text-gray-400 hover:text-white"
-                >
-                  <FaListUl />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 text-gray-400 hover:text-white"
-                >
-                  <FaLink />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 text-gray-400 hover:text-white"
-                >
-                  <FaYoutube />
-                </button>
-                <button
-                  type="button"
-                  className="p-2 text-gray-400 hover:text-white"
-                >
-                  <FaImage />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Location */}
-          <div className="mb-6">
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
-                  <FaMapMarkerAlt className="text-white" />
-                </div>
-              </div>
-              <input
-                type="text"
-                placeholder="Location (Optional)"
-                name="location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
-              />
-            </div>
-          </div>
-
-          {/* Social Links */}
-          <div className="mb-6">
-            <SocialLinksInput value={socialLinks} onChange={setSocialLinks} />
-          </div>
-
-          {/* Submit Button */}
-          <div className="fixed bottom-0 left-0 right-0 bg-[#121212] p-4 border-t border-gray-800">
+        {/* Main Content */}
+        <div className="px-4 pb-24 md:pb-8">
+          {/* Back button below header */}
+          <div className="py-2">
             <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`w-full py-4 rounded-lg font-bold ${
-                isSubmitting
-                  ? "bg-gray-600 text-gray-300"
-                  : "bg-[#836EF9] text-white hover:bg-opacity-90"
-              }`}
+              onClick={() => router.back()}
+              className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
             >
-              {isSubmitting ? "Updating..." : "Update Pool"}
+              <FaArrowLeft />
             </button>
           </div>
-        </form>
+
+          {/* Page Title */}
+          <div className="px-2 mt-4">
+            <h1 className="text-2xl font-bold">Edit Pool Details</h1>
+          </div>
+
+          <div className="px-6" style={{ paddingBottom: "100px" }}>
+            {/* Pool Image */}
+            <PoolImageUpload
+              imagePreview={imagePreview}
+              isUploadingImage={isUploadingImage}
+              onImageSelect={handleImageSelect}
+              onRemoveImage={handleRemoveImage}
+              placeholderText={poolName || "Edit Pool"}
+            />
+
+            {/* Form */}
+            <form id="editPoolForm" onSubmit={handleSubmit} className="mt-8">
+              {/* Patrons */}
+              <div className="mb-6">
+                <input
+                  type="text"
+                  placeholder="Patrons"
+                  name="patrons"
+                  value={patrons}
+                  onChange={(e) => setPatrons(e.target.value)}
+                  className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold mb-4">Description</h2>
+                <div className="bg-[#FFFFFF14] rounded-lg overflow-hidden">
+                  <textarea
+                    placeholder="Write your story..."
+                    name="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none min-h-[200px] resize-none"
+                  />
+
+                  {/* Text formatting toolbar */}
+                  <div className="flex items-center p-2 border-t border-gray-700">
+                    <button
+                      type="button"
+                      className="p-2 text-gray-400 hover:text-white"
+                    >
+                      <FaBold />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 text-gray-400 hover:text-white"
+                    >
+                      <FaItalic />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 text-gray-400 hover:text-white"
+                    >
+                      <FaListUl />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 text-gray-400 hover:text-white"
+                    >
+                      <FaLink />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 text-gray-400 hover:text-white"
+                    >
+                      <FaYoutube />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 text-gray-400 hover:text-white"
+                    >
+                      <FaImage />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location */}
+              <div className="mb-6">
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                    <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
+                      <FaMapMarkerAlt className="text-white" />
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Location (Optional)"
+                    name="location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
+                  />
+                </div>
+              </div>
+
+              {/* Social Links */}
+              <div className="mb-6">
+                <SocialLinksInput
+                  value={socialLinks}
+                  onChange={setSocialLinks}
+                />
+              </div>
+
+              {/* Update Button - Fixed at bottom on mobile, normal position on desktop */}
+              <div className="fixed bottom-0 left-0 right-0 md:static md:mt-8 px-6 py-6 bg-[#15161a] md:px-0 md:py-0 z-10">
+                <button
+                  onClick={handleSubmit}
+                  className="w-full py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Updating..." : "Update Pool Details"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
+
+      <BottomNavbar activeTab="party" />
+
+      {/* Modals */}
+      {showGetTokensModal && (
+        <GetTokensModal
+          isOpen={showGetTokensModal}
+          onClose={() => setShowGetTokensModal(false)}
+        />
+      )}
     </div>
   );
 }

@@ -38,17 +38,9 @@ export default function AppHeader({
     <div className={`${className}`} style={{ backgroundColor }}>
       {/* Header with Logo and Action Buttons */}
       <header className="flex justify-between items-center p-4">
-        {/* Logo */}
+        {/* Logo - Only visible on mobile */}
         <div className="flex items-center">
-          {showBackButton && renderBackButton && (
-            <button
-              onClick={() => router.back()}
-              className="mr-4 text-gray-400 hover:text-white"
-            >
-              <FaArrowLeft />
-            </button>
-          )}
-          <div className="h-10">
+          <div className="h-10 md:hidden">
             <Image
               src="/stagefunheader.png"
               alt="StageFun Logo"

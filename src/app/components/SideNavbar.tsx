@@ -1,47 +1,57 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FaChartLine } from "react-icons/fa";
 import { IoFlash } from "react-icons/io5";
+import Image from "next/image";
 
-interface BottomNavbarProps {
+interface SideNavbarProps {
   activeTab: "party" | "portfolio";
 }
 
-export default function BottomNavbar({ activeTab }: BottomNavbarProps) {
+export default function SideNavbar({ activeTab }: SideNavbarProps) {
   const router = useRouter();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 flex justify-around items-center py-5 px-4 bg-[#15161a] border-t border-gray-800 md:hidden">
-      {/* Party Rounds */}
-      <div
-        className="flex flex-col items-center cursor-pointer"
-        onClick={() => router.push("/pools")}
-      >
-        <div className="flex flex-col items-center">
+    <nav className="hidden md:flex flex-col h-screen fixed left-0 top-0 w-64 bg-[#15161a] border-r border-gray-800 py-4 px-4">
+      {/* Logo */}
+      <div className="mb-8 px-2">
+        <Image
+          src="/stagefunheader.png"
+          alt="StageFun Logo"
+          width={40}
+          height={40}
+          className="object-contain"
+        />
+      </div>
+
+      {/* Navigation Items */}
+      <div className="flex flex-col space-y-6">
+        {/* Party Rounds */}
+        <div
+          className="flex items-center cursor-pointer px-4 py-3 rounded-full hover:bg-[#FFFFFF14] transition-colors"
+          onClick={() => router.push("/pools")}
+        >
           <IoFlash
-            className={`text-2xl ${
+            className={`text-2xl mr-4 ${
               activeTab === "party" ? "text-[#8B7EF8]" : "text-gray-500"
             }`}
           />
           <span
-            className={`text-sm mt-1 ${
+            className={`text-lg ${
               activeTab === "party" ? "text-[#8B7EF8]" : "text-gray-500"
             }`}
           >
             Party Rounds
           </span>
         </div>
-      </div>
 
-      {/* Portfolio (links to profile) */}
-      <div
-        className="flex flex-col items-center cursor-pointer"
-        onClick={() => router.push("/profile")}
-      >
-        <div className="flex flex-col items-center">
+        {/* Portfolio */}
+        <div
+          className="flex items-center cursor-pointer px-4 py-3 rounded-full hover:bg-[#FFFFFF14] transition-colors"
+          onClick={() => router.push("/profile")}
+        >
           <div
-            className={`text-2xl ${
+            className={`text-2xl mr-4 ${
               activeTab === "portfolio" ? "text-[#8B7EF8]" : "text-gray-500"
             }`}
           >
@@ -70,7 +80,7 @@ export default function BottomNavbar({ activeTab }: BottomNavbarProps) {
             </svg>
           </div>
           <span
-            className={`text-sm mt-1 ${
+            className={`text-lg ${
               activeTab === "portfolio" ? "text-[#8B7EF8]" : "text-gray-500"
             }`}
           >

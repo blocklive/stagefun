@@ -47,7 +47,7 @@ export default function LoginPage() {
     >
       {/* Main content area with scrolling */}
       <div className="flex-1 overflow-y-auto">
-        {/* Use the new AppHeader component */}
+        {/* Use the AppHeader component */}
         <AppHeader showTitle={false} backgroundColor="#1E1B2E" />
 
         {/* Auto-scrolling Navigation */}

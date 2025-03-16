@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import { ethers } from "ethers";
 import { StageDotFunPoolABI } from "../../../lib/contracts/StageDotFunPool";
 import BottomNavbar from "../../components/BottomNavbar";
+import SideNavbar from "../../components/SideNavbar";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
 import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
@@ -635,32 +636,29 @@ export default function PoolDetailsPage() {
 
   return (
     <div className="min-h-screen bg-[#15161a] text-white flex flex-col">
-      {/* Use the new AppHeader component without back button */}
-      <AppHeader
-        showBackButton={false}
-        showTitle={false}
-        backgroundColor="#15161a"
-        showGetTokensButton={true}
-        showCreateButton={true}
-        onGetTokensClick={() => setShowTokensModal(true)}
-      />
+      <SideNavbar activeTab="party" />
 
-      {/* Back button below header */}
-      <div className="px-4 py-2">
-        <button
-          onClick={() => router.push("/pools")}
-          className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center text-white transition-colors"
-        >
-          <FaArrowLeft className="w-4 h-4" />
-        </button>
+      <div className="md:pl-64">
+        <div className="relative">
+          <AppHeader
+            showBackButton={true}
+            showTitle={false}
+            backgroundColor="#15161a"
+            showGetTokensButton={true}
+            showCreateButton={true}
+            onGetTokensClick={() => setShowTokensModal(true)}
+          />
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
+          {renderContent()}
+        </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">{renderContent()}</div>
-
-      {/* Commit Button - Fixed above bottom navbar */}
+      {/* Commit Button - Fixed at bottom for both mobile and desktop */}
       {showCommitButton && (
-        <div className="fixed bottom-20 left-0 right-0 z-50 px-4 py-3 bg-[#15161a] border-t border-gray-800 shadow-lg">
+        <div className="fixed bottom-20 md:bottom-0 left-0 right-0 z-50 px-4 py-3 bg-[#15161a] border-t border-gray-800 shadow-lg md:ml-64">
           <div className="container mx-auto">
             <button
               onClick={() => setIsCommitModalOpen(true)}
