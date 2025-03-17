@@ -32,6 +32,190 @@ import PoolImageUpload from "@/components/PoolImageUpload";
 import { uploadPoolImage } from "@/lib/utils/imageUpload";
 import SideNavbar from "../../components/SideNavbar";
 import BottomNavbar from "../../components/BottomNavbar";
+import { IoFlash } from "react-icons/io5";
+
+// Define types for the custom navigation components
+interface CustomNavProps {
+  activeTab: "party" | "portfolio";
+  checkBeforeNavigate: (path: string) => boolean;
+}
+
+// Custom wrapper components for navigation
+const CustomSideNavbar = ({
+  activeTab,
+  checkBeforeNavigate,
+}: CustomNavProps) => {
+  const router = useRouter();
+
+  const handleNavigation = (path: string) => {
+    if (checkBeforeNavigate(path)) {
+      router.push(path);
+    }
+  };
+
+  return (
+    <nav className="hidden md:flex flex-col h-screen fixed left-0 top-0 w-64 bg-[#15161a] border-r border-gray-800 py-4 px-4">
+      {/* Logo */}
+      <div className="mb-8 px-2">
+        <Image
+          src="/stagefunheader.png"
+          alt="StageFun Logo"
+          width={40}
+          height={40}
+          className="object-contain"
+        />
+      </div>
+
+      {/* Navigation Items */}
+      <div className="flex flex-col space-y-6">
+        {/* Party Rounds */}
+        <div
+          className="flex items-center cursor-pointer px-4 py-3 rounded-full hover:bg-[#FFFFFF14] transition-colors"
+          onClick={() => handleNavigation("/pools")}
+        >
+          <IoFlash
+            className={`text-2xl mr-4 ${
+              activeTab === "party" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          />
+          <span
+            className={`text-lg ${
+              activeTab === "party" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          >
+            Party Rounds
+          </span>
+        </div>
+
+        {/* Portfolio */}
+        <div
+          className="flex items-center cursor-pointer px-4 py-3 rounded-full hover:bg-[#FFFFFF14] transition-colors"
+          onClick={() => handleNavigation("/profile")}
+        >
+          <div
+            className={`text-2xl mr-4 ${
+              activeTab === "portfolio" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          >
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 28 28"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                x="6"
+                y="6"
+                width="16"
+                height="16"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
+              <path
+                d="M6 18L12 12L16 16L22 10"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <span
+            className={`text-lg ${
+              activeTab === "portfolio" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          >
+            Portfolio
+          </span>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+const CustomBottomNavbar = ({
+  activeTab,
+  checkBeforeNavigate,
+}: CustomNavProps) => {
+  const router = useRouter();
+
+  const handleNavigation = (path: string) => {
+    if (checkBeforeNavigate(path)) {
+      router.push(path);
+    }
+  };
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 flex justify-around items-center py-5 px-4 bg-[#15161a] border-t border-gray-800 md:hidden">
+      {/* Party Rounds */}
+      <div
+        className="flex flex-col items-center cursor-pointer"
+        onClick={() => handleNavigation("/pools")}
+      >
+        <div className="flex flex-col items-center">
+          <IoFlash
+            className={`text-2xl ${
+              activeTab === "party" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          />
+          <span
+            className={`text-sm mt-1 ${
+              activeTab === "party" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          >
+            Party Rounds
+          </span>
+        </div>
+      </div>
+
+      {/* Portfolio (links to profile) */}
+      <div
+        className="flex flex-col items-center cursor-pointer"
+        onClick={() => handleNavigation("/profile")}
+      >
+        <div className="flex flex-col items-center">
+          <div
+            className={`text-2xl ${
+              activeTab === "portfolio" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          >
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 28 28"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                x="6"
+                y="6"
+                width="16"
+                height="16"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
+              <path
+                d="M6 18L12 12L16 16L22 10"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <span
+            className={`text-sm mt-1 ${
+              activeTab === "portfolio" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          >
+            Portfolio
+          </span>
+        </div>
+      </div>
+    </nav>
+  );
+};
 
 // Helper function to format a date for datetime-local input
 function formatDateForInput(date: Date): string {
@@ -85,6 +269,8 @@ export default function CreatePoolPage() {
   const [showGasWarning, setShowGasWarning] = useState(false);
   const [showTokensModal, setShowTokensModal] = useState(false);
   const [balanceChecked, setBalanceChecked] = useState(false);
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+  const [navigationPath, setNavigationPath] = useState<string | null>(null);
 
   // Check if the user has enough gas for deployment
   // Minimum recommended balance in MON (0.5 MON should be enough for deployment)
@@ -123,6 +309,48 @@ export default function CreatePoolPage() {
     // Clean up
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
+
+  // Handle browser back button
+  useEffect(() => {
+    // Function to handle beforeunload event
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Check if the user has entered any data
+      if (
+        poolName ||
+        ticker ||
+        fundingGoal ||
+        minCommitment ||
+        patrons ||
+        description ||
+        location ||
+        selectedImage ||
+        Object.keys(socialLinks).length > 0
+      ) {
+        // Standard way to show a confirmation dialog when leaving the page
+        e.preventDefault();
+        e.returnValue = "";
+        return "";
+      }
+    };
+
+    // Add event listener
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Clean up
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [
+    poolName,
+    ticker,
+    fundingGoal,
+    minCommitment,
+    patrons,
+    description,
+    location,
+    selectedImage,
+    socialLinks,
+  ]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -338,9 +566,49 @@ export default function CreatePoolPage() {
     }
   };
 
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = () => {
+    return !!(
+      poolName ||
+      ticker ||
+      fundingGoal ||
+      minCommitment ||
+      patrons ||
+      description ||
+      location ||
+      selectedImage ||
+      Object.keys(socialLinks).length > 0
+    );
+  };
+
+  // Handle navigation attempts
+  const handleNavigationAttempt = (path: string) => {
+    if (hasUnsavedChanges()) {
+      setNavigationPath(path);
+      setShowExitConfirmModal(true);
+      return false; // Prevent navigation
+    }
+    return true; // Allow navigation
+  };
+
+  // Handle back button click
+  const handleBackClick = () => {
+    // If the user has entered any data, show the confirmation modal
+    if (hasUnsavedChanges()) {
+      setNavigationPath(null); // null indicates we should use router.back()
+      setShowExitConfirmModal(true);
+    } else {
+      // If no data entered, just go back
+      router.back();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#15161a] text-white">
-      <SideNavbar activeTab="party" />
+      <CustomSideNavbar
+        activeTab="party"
+        checkBeforeNavigate={(path) => handleNavigationAttempt(path)}
+      />
 
       <div className="md:pl-64">
         <AppHeader
@@ -356,7 +624,7 @@ export default function CreatePoolPage() {
           {/* Back button below header */}
           <div className="py-2">
             <button
-              onClick={() => router.back()}
+              onClick={handleBackClick}
               className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
             >
               <FaArrowLeft />
@@ -736,7 +1004,10 @@ export default function CreatePoolPage() {
         </div>
       </div>
 
-      <BottomNavbar activeTab="party" />
+      <CustomBottomNavbar
+        activeTab="party"
+        checkBeforeNavigate={(path) => handleNavigationAttempt(path)}
+      />
 
       {/* Modals */}
       {showTokensModal && (
@@ -744,6 +1015,56 @@ export default function CreatePoolPage() {
           isOpen={showTokensModal}
           onClose={() => setShowTokensModal(false)}
         />
+      )}
+
+      {/* Exit Confirmation Modal */}
+      {showExitConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1E1F25] rounded-[16px] w-full max-w-md overflow-hidden border border-[#836EF9] border-opacity-30">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-gray-800 flex items-center justify-center">
+              <div className="w-10 h-10 bg-[#836EF9] bg-opacity-20 rounded-full flex items-center justify-center mr-3">
+                <FaExclamationTriangle className="text-[#836EF9]" size={18} />
+              </div>
+              <h2 className="text-xl font-bold text-white">Discard Pool?</h2>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <p className="text-gray-300 text-center">
+                Are you sure you want to discard this pool?
+              </p>
+
+              <div className="mt-6 flex flex-col space-y-3">
+                <button
+                  onClick={() => {
+                    setShowExitConfirmModal(false);
+                    if (navigationPath) {
+                      router.push(navigationPath);
+                    } else {
+                      router.back();
+                    }
+                    // Reset the navigation path
+                    setNavigationPath(null);
+                  }}
+                  className="w-full py-3 bg-[#E53E3E] hover:bg-[#C53030] rounded-full text-white font-medium transition-colors"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={() => {
+                    setShowExitConfirmModal(false);
+                    // Reset the navigation path
+                    setNavigationPath(null);
+                  }}
+                  className="w-full py-3 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-white font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

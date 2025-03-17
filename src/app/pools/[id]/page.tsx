@@ -384,7 +384,7 @@ export default function PoolDetailsPage() {
     }
   };
 
-  // Render user's commitment section
+  // Render user commitment section
   const renderUserCommitment = () => {
     const userCommitment = getUserCommitment();
 
@@ -407,7 +407,6 @@ export default function PoolDetailsPage() {
           handleRefund={handleRefund}
           isRefunding={isRefunding}
         />
-        <PoolDescription pool={pool} />
       </>
     );
   };
@@ -495,9 +494,6 @@ export default function PoolDetailsPage() {
                 {/* Location */}
                 <PoolLocation pool={pool} />
 
-                {/* Social Links */}
-                <PoolSocialLinks pool={pool} />
-
                 {/* Token Section */}
                 <TokenSection pool={pool} />
 
@@ -545,9 +541,6 @@ export default function PoolDetailsPage() {
 
                 {/* Location */}
                 <PoolLocation pool={pool} />
-
-                {/* Social Links */}
-                <PoolSocialLinks pool={pool} />
 
                 {/* Token Section */}
                 <TokenSection pool={pool} />
@@ -600,9 +593,6 @@ export default function PoolDetailsPage() {
                 {/* Location */}
                 <PoolLocation pool={pool} />
 
-                {/* Social Links */}
-                <PoolSocialLinks pool={pool} />
-
                 {/* Token Section */}
                 <TokenSection pool={pool} />
 
@@ -641,13 +631,23 @@ export default function PoolDetailsPage() {
       <div className="md:pl-64">
         <div className="relative">
           <AppHeader
-            showBackButton={true}
+            showBackButton={false}
             showTitle={false}
             backgroundColor="#15161a"
             showGetTokensButton={true}
             showCreateButton={true}
             onGetTokensClick={() => setShowTokensModal(true)}
           />
+
+          {/* Back button below header */}
+          <div className="px-4 py-2">
+            <button
+              onClick={() => router.back()}
+              className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
+            >
+              <FaArrowLeft />
+            </button>
+          </div>
         </div>
 
         {/* Main Content */}
@@ -656,21 +656,36 @@ export default function PoolDetailsPage() {
         </div>
       </div>
 
-      {/* Commit Button - Fixed at bottom for both mobile and desktop */}
+      {/* Commit Button - Fixed at bottom for mobile, part of normal flow for desktop */}
       {showCommitButton && (
-        <div className="fixed bottom-20 md:bottom-0 left-0 right-0 z-50 px-4 py-3 bg-[#15161a] border-t border-gray-800 shadow-lg md:ml-64">
-          <div className="container mx-auto">
-            <button
-              onClick={() => setIsCommitModalOpen(true)}
-              className="w-full bg-[#836EF9] hover:bg-[#7058E8] text-white py-4 px-4 rounded-full font-medium text-lg flex items-center justify-center transition-colors"
-            >
-              {commitButtonText}
-            </button>
+        <>
+          {/* Mobile version - fixed at bottom */}
+          <div className="fixed bottom-20 left-0 right-0 z-50 px-4 py-3 bg-[#15161a] border-t border-gray-800 shadow-lg md:hidden">
+            <div className="container mx-auto">
+              <button
+                onClick={() => setIsCommitModalOpen(true)}
+                className="w-full bg-[#836EF9] hover:bg-[#7058E8] text-white py-4 px-4 rounded-full font-medium text-lg flex items-center justify-center transition-colors"
+              >
+                {commitButtonText}
+              </button>
+            </div>
           </div>
-        </div>
+
+          {/* Desktop version - part of normal flow */}
+          <div className="hidden md:block md:ml-64 px-4 py-3 bg-[#15161a] border-t border-gray-800 shadow-lg">
+            <div className="container mx-auto">
+              <button
+                onClick={() => setIsCommitModalOpen(true)}
+                className="w-full bg-[#836EF9] hover:bg-[#7058E8] text-white py-4 px-4 rounded-full font-medium text-lg flex items-center justify-center transition-colors"
+              >
+                {commitButtonText}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
-      {/* Bottom Navigation - Always show now */}
+      {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#15161a] border-t border-gray-800">
         <BottomNavbar activeTab="party" />
       </div>
