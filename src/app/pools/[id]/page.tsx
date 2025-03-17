@@ -407,7 +407,6 @@ export default function PoolDetailsPage() {
           handleRefund={handleRefund}
           isRefunding={isRefunding}
         />
-        <PoolDescription pool={pool} />
       </>
     );
   };
@@ -495,9 +494,6 @@ export default function PoolDetailsPage() {
                 {/* Location */}
                 <PoolLocation pool={pool} />
 
-                {/* Social Links */}
-                <PoolSocialLinks pool={pool} />
-
                 {/* Token Section */}
                 <TokenSection pool={pool} />
 
@@ -545,9 +541,6 @@ export default function PoolDetailsPage() {
 
                 {/* Location */}
                 <PoolLocation pool={pool} />
-
-                {/* Social Links */}
-                <PoolSocialLinks pool={pool} />
 
                 {/* Token Section */}
                 <TokenSection pool={pool} />
@@ -600,9 +593,6 @@ export default function PoolDetailsPage() {
                 {/* Location */}
                 <PoolLocation pool={pool} />
 
-                {/* Social Links */}
-                <PoolSocialLinks pool={pool} />
-
                 {/* Token Section */}
                 <TokenSection pool={pool} />
 
@@ -652,6 +642,16 @@ export default function PoolDetailsPage() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
+          {/* Back button below header on mobile, top left on desktop */}
+          <div className="py-2 px-4">
+            <button
+              onClick={() => router.back()}
+              className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
+            >
+              <FaArrowLeft />
+            </button>
+          </div>
+
           {renderContent()}
         </div>
       </div>
