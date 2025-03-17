@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import {
   FaArrowLeft,
   FaPencilAlt,
@@ -15,6 +15,7 @@ import {
   FaMapMarkerAlt,
   FaTimes,
   FaExclamationTriangle,
+  FaPlus,
 } from "react-icons/fa";
 import Image from "next/image";
 import { useSupabase } from "../../../contexts/SupabaseContext";
@@ -33,6 +34,7 @@ import { uploadPoolImage } from "@/lib/utils/imageUpload";
 import SideNavbar from "../../components/SideNavbar";
 import BottomNavbar from "../../components/BottomNavbar";
 import { IoFlash } from "react-icons/io5";
+import { useFundWallet } from "@privy-io/react-auth";
 
 // Define types for the custom navigation components
 interface CustomNavProps {
@@ -250,6 +252,7 @@ export default function CreatePoolPage() {
   const [currency] = useState("USDC");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [socialLinks, setSocialLinks] = useState({});
+  const { fundWallet } = useFundWallet();
 
   // Default end date is 2 days from now
   const [endDate, setEndDate] = useState<Date>(
@@ -271,6 +274,7 @@ export default function CreatePoolPage() {
   const [balanceChecked, setBalanceChecked] = useState(false);
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const [navigationPath, setNavigationPath] = useState<string | null>(null);
+  const [showValidation, setShowValidation] = useState(false);
 
   // Check if the user has enough gas for deployment
   // Minimum recommended balance in MON (0.5 MON should be enough for deployment)
@@ -404,8 +408,33 @@ export default function CreatePoolPage() {
   ) => {
     e.preventDefault();
 
+    // Set validation visibility to true when submit is attempted
+    setShowValidation(true);
+
     if (!dbUser || !supabase || isClientLoading) {
       toast.error("Please wait for authentication to complete");
+      return;
+    }
+
+    // Validate required fields
+    if (!poolName) {
+      toast.error("Please enter a pool name");
+      return;
+    }
+
+    if (!fundingGoal || parseFloat(fundingGoal) <= 0) {
+      toast.error("Please enter a valid funding goal");
+      return;
+    }
+
+    if (!minCommitment || parseFloat(minCommitment) <= 0) {
+      toast.error("Please enter a valid minimum commitment");
+      return;
+    }
+
+    // Check if an image has been selected
+    if (!selectedImage) {
+      toast.error("Please upload an image for your pool");
       return;
     }
 
@@ -422,28 +451,9 @@ export default function CreatePoolPage() {
               <h3 className="font-bold text-white">Low MON Balance</h3>
               <p className="text-sm text-gray-300">
                 Your wallet has {parseFloat(nativeBalance).toFixed(4)} MON.
-                Deploying a pool requires MON to pay for gas.
+                Deploying a pool requires at least 0.5 MON to pay for gas. Use
+                one of the options below to refill your wallet.
               </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Get 0.5 MON from our faucet to continue.
-              </p>
-              <div className="mt-2 flex space-x-2">
-                <button
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    setShowTokensModal(true);
-                  }}
-                  className="px-3 py-1 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-xs text-white transition-colors"
-                >
-                  Get MON
-                </button>
-                <button
-                  onClick={() => toast.dismiss(t.id)}
-                  className="px-3 py-1 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-xs text-white transition-colors"
-                >
-                  Dismiss
-                </button>
-              </div>
             </div>
           </div>
         ),
@@ -647,8 +657,8 @@ export default function CreatePoolPage() {
                   <h3 className="font-bold text-white">Low MON Balance</h3>
                   <p className="text-sm text-gray-300">
                     Your wallet has {parseFloat(nativeBalance).toFixed(4)} MON.
-                    Deploying a pool requires MON to pay for gas. Get 0.5 MON
-                    from our faucet to continue.
+                    Deploying a pool requires at least 0.5 MON to pay for gas.
+                    Use one of the options below to refill your wallet.
                   </p>
                 </div>
               </div>
@@ -657,16 +667,28 @@ export default function CreatePoolPage() {
                   onClick={() => setShowTokensModal(true)}
                   className="w-full py-2 px-3 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-center text-sm transition-colors"
                 >
-                  Get MON and USDC
+                  Stage Fun Drip
                 </button>
-                <a
-                  href="https://faucet.monad.xyz/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full py-2 px-3 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-center text-sm transition-colors"
+                <button
+                  onClick={() => {
+                    if (privyUser?.wallet?.address) {
+                      fundWallet(privyUser.wallet.address, {
+                        chain: {
+                          id: 10143,
+                        },
+                        asset: "native-currency",
+                        uiConfig: {
+                          receiveFundsTitle: "Refill Gas on Monad",
+                          receiveFundsSubtitle:
+                            "Scan this QR code or copy your wallet address to receive MON on Monad Testnet.",
+                        },
+                      });
+                    }
+                  }}
+                  className="w-full py-2 px-3 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-center text-sm transition-colors"
                 >
-                  Monad Testnet Faucet
-                </a>
+                  Refill Gas
+                </button>
               </div>
             </div>
           )}
@@ -680,6 +702,8 @@ export default function CreatePoolPage() {
               onImageSelect={handleImageSelect}
               onRemoveImage={handleRemoveImage}
               placeholderText="YOU ARE INVITED"
+              isRequired={true}
+              showValidation={showValidation}
             />
 
             {/* Form */}

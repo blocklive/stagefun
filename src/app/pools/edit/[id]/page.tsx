@@ -83,18 +83,42 @@ export default function EditPoolPage() {
 
   // Load pool data when available
   useEffect(() => {
-    if (pool && !poolName) {
-      setPoolName(pool.name);
-      setMinCommitment(pool.min_commitment?.toString() || "");
-      setDescription(pool.description || "");
-      setLocation(pool.location || "");
-      setPatrons(pool.patrons_number?.toString() || "");
-      setSocialLinks(pool.social_links || {});
+    if (pool) {
+      // Only set these values if they are empty to avoid overwriting user edits
+      if (!poolName) {
+        setPoolName(pool.name);
+      }
+      if (!minCommitment) {
+        setMinCommitment(pool.min_commitment?.toString() || "");
+      }
+      if (!description) {
+        setDescription(pool.description || "");
+      }
+      if (!location) {
+        setLocation(pool.location || "");
+      }
+      if (!patrons) {
+        setPatrons(pool.patrons_number?.toString() || "");
+      }
+      if (Object.keys(socialLinks).length === 0) {
+        setSocialLinks(pool.social_links || {});
+      }
+
+      // Always set the image preview from the pool data if it exists
       if (pool.image_url) {
         setImagePreview(pool.image_url);
       }
     }
-  }, [pool, poolId, poolName]);
+  }, [
+    pool,
+    poolId,
+    poolName,
+    minCommitment,
+    description,
+    location,
+    patrons,
+    socialLinks,
+  ]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

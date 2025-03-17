@@ -40,7 +40,10 @@ export default function AppHeader({
       <header className="flex justify-between items-center p-4">
         {/* Logo - Only visible on mobile */}
         <div className="flex items-center">
-          <div className="h-10 md:hidden">
+          <div
+            className="h-10 md:hidden cursor-pointer"
+            onClick={() => router.push("/pools")}
+          >
             <Image
               src="/stagefunheader.png"
               alt="StageFun Logo"
