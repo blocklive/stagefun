@@ -58,7 +58,10 @@ const CustomSideNavbar = ({
   return (
     <nav className="hidden md:flex flex-col h-screen fixed left-0 top-0 w-64 bg-[#15161a] border-r border-gray-800 py-4 px-4">
       {/* Logo */}
-      <div className="mb-8 px-2">
+      <div
+        className="mb-8 px-2 cursor-pointer"
+        onClick={() => handleNavigation("/pools")}
+      >
         <Image
           src="/stagefunheader.png"
           alt="StageFun Logo"

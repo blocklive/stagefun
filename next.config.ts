@@ -21,6 +21,36 @@ const nextConfig = {
       },
     ],
   },
+  // Add Privy-recommended Content Security Policy
+  // https://docs.privy.io/guide/security/implementation/csp
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: `
+              default-src 'self';
+              script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io https://privy.io https://*.privy.io https://challenges.cloudflare.com https://telegram.org;
+              style-src 'self' 'unsafe-inline' https://privy.io https://*.privy.io;
+              img-src 'self' data: blob: https://privy.io https://*.privy.io https://*.supabase.co https://explorer-api.walletconnect.com;
+              font-src 'self' data:;
+              object-src 'none';
+              base-uri 'self';
+              form-action 'self';
+              frame-ancestors 'none';
+              child-src https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org;
+              frame-src https://auth.privy.io https://privy.io https://*.privy.io https://verify.walletconnect.com https://verify.walletconnect.org https://challenges.cloudflare.com https://oauth.telegram.org;
+              connect-src 'self' https://privy.io https://*.privy.io https://auth.privy.io wss://relay.walletconnect.com wss://relay.walletconnect.org wss://www.walletlink.org https://*.rpc.privy.systems https://explorer-api.walletconnect.com https://api.relay.link https://api.testnets.relay.link https://*.supabase.co https://falling-practical-rain.monad-testnet.quiknode.pro;
+              worker-src 'self';
+              manifest-src 'self'
+            `.replace(/\n\s*/g, ""),
+          },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = withPWA(nextConfig);

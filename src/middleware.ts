@@ -3,11 +3,14 @@ import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export async function middleware(request: NextRequest) {
+  // Get the response to modify
+  const response = NextResponse.next();
+
   // Get the Privy JWT from the request cookies or headers
   const privyToken = request.cookies.get("privy_token")?.value;
 
   if (!privyToken) {
-    return NextResponse.next();
+    return response;
   }
 
   // Create a new Supabase client for each request
@@ -26,7 +29,7 @@ export async function middleware(request: NextRequest) {
     console.error("Error setting Supabase session:", error);
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
