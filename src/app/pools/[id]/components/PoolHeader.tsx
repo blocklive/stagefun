@@ -86,7 +86,7 @@ export default function PoolHeader({
       {isCreator && (
         <button
           onClick={handleEditClick}
-          className="flex items-center gap-2 px-4 py-2 bg-[#FFFFFF14] rounded-lg text-white hover:bg-opacity-80 transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-[#FFFFFF14] rounded-[16px] text-white hover:bg-opacity-80 transition-all"
         >
           <svg
             width="16"
@@ -100,7 +100,7 @@ export default function PoolHeader({
           >
             <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
           </svg>
-          <span>Edit</span>
+          <span>Manage</span>
         </button>
       )}
     </div>
