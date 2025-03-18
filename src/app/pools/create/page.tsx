@@ -241,8 +241,11 @@ export default function CreatePoolPage() {
     useAuthenticatedSupabase();
   const { createPoolWithDatabase, isLoading: isContractLoading } =
     useContractInteraction();
-  const { balance: nativeBalance, isLoading: isBalanceLoading } =
-    useNativeBalance();
+  const {
+    balance: nativeBalance,
+    isLoading: isBalanceLoading,
+    refresh: refreshNativeBalance,
+  } = useNativeBalance();
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [poolName, setPoolName] = useState("");
@@ -614,6 +617,15 @@ export default function CreatePoolPage() {
       // If no data entered, just go back
       router.back();
     }
+  };
+
+  // Handle faucet usage
+  const handleFaucetUsage = async () => {
+    setShowTokensModal(false);
+    // Wait a bit for the transaction to be mined
+    setTimeout(() => {
+      refreshNativeBalance();
+    }, 5000);
   };
 
   return (
@@ -1040,7 +1052,7 @@ export default function CreatePoolPage() {
       {showTokensModal && (
         <GetTokensModal
           isOpen={showTokensModal}
-          onClose={() => setShowTokensModal(false)}
+          onClose={() => handleFaucetUsage()}
         />
       )}
 

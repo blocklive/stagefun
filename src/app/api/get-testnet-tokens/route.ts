@@ -6,8 +6,8 @@ import { supabase } from "../../../lib/supabase";
 // Amount of USDC to send (0.1 USDC = 100000 in USDC's 6 decimal format)
 const USDC_AMOUNT = BigInt(100000);
 
-// Amount of MON to send (0.1 MON = 0.1 * 10^18)
-const MON_AMOUNT = ethers.parseEther("0.1");
+// Amount of MON to send (0.5 MON = 0.5 * 10^18)
+const MON_AMOUNT = ethers.parseEther("0.5");
 
 // Rate limit: 24 hours in milliseconds
 const RATE_LIMIT_MS = 24 * 60 * 60 * 1000;

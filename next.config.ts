@@ -33,6 +33,7 @@ const nextConfig = {
             value: `
               default-src 'self';
               script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io https://privy.io https://*.privy.io https://challenges.cloudflare.com https://telegram.org;
+              script-src-elem 'self' 'unsafe-inline' https://auth.privy.io https://privy.io https://*.privy.io https://challenges.cloudflare.com https://telegram.org;
               style-src 'self' 'unsafe-inline' https://privy.io https://*.privy.io;
               img-src 'self' data: blob: https://privy.io https://*.privy.io https://*.supabase.co https://explorer-api.walletconnect.com;
               font-src 'self' data:;
