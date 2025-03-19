@@ -1,9 +1,9 @@
 "use client";
 
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaPlus, FaDollarSign, FaArrowLeft } from "react-icons/fa";
-import React, { useState } from "react";
-import GetTokensModal from "./GetTokensModal";
+import { BiInfoCircle } from "react-icons/bi";
 import Image from "next/image";
 
 interface AppHeaderProps {
@@ -12,6 +12,7 @@ interface AppHeaderProps {
   showGetTokensButton?: boolean;
   showRightButtons?: boolean;
   onGetTokensClick?: () => void;
+  onInfoClick?: () => void;
   title?: string;
   showTitle?: boolean;
   className?: string;
@@ -25,6 +26,7 @@ export default function AppHeader({
   showGetTokensButton = false,
   showRightButtons = false,
   onGetTokensClick,
+  onInfoClick,
   title = "POOLS",
   showTitle = true,
   className = "",
@@ -32,7 +34,6 @@ export default function AppHeader({
   renderBackButton = true,
 }: AppHeaderProps) {
   const router = useRouter();
-  const [showTokensModal, setShowTokensModal] = useState(false);
 
   return (
     <div className={`${className}`} style={{ backgroundColor }}>
@@ -56,6 +57,14 @@ export default function AppHeader({
 
         {/* Action Buttons */}
         <div className="flex gap-3">
+          {/* Info Button - Always visible */}
+          <button
+            onClick={onInfoClick}
+            className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
+          >
+            <BiInfoCircle className="text-white w-5 h-5" />
+          </button>
+
           {showGetTokensButton && (
             <button
               onClick={onGetTokensClick}
@@ -94,7 +103,7 @@ export default function AppHeader({
           {showRightButtons && (
             <>
               <button
-                onClick={() => setShowTokensModal(true)}
+                onClick={onGetTokensClick}
                 className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
               >
                 <Image
@@ -138,12 +147,6 @@ export default function AppHeader({
           {title}
         </h1>
       )}
-
-      {/* Get Tokens Modal */}
-      <GetTokensModal
-        isOpen={showTokensModal}
-        onClose={() => setShowTokensModal(false)}
-      />
     </div>
   );
 }

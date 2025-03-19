@@ -20,15 +20,15 @@ import GetTokensModal from "../../../components/GetTokensModal";
 import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
 import { useNativeBalance } from "../../../../hooks/useNativeBalance";
 import toast from "react-hot-toast";
-import PoolImageUpload from "@/components/PoolImageUpload";
+import PoolImageUpload from "@/app/components/PoolImageUpload";
 import { uploadPoolImage } from "@/lib/utils/imageUpload";
 import { usePool } from "@/hooks/usePool";
 import SocialLinksInput, {
   SocialLinksType,
-} from "@/components/SocialLinksInput";
+} from "@/app/components/SocialLinksInput";
 import SideNavbar from "../../../components/SideNavbar";
 import BottomNavbar from "../../../components/BottomNavbar";
-import RichTextEditor from "@/components/RichTextEditor";
+import RichTextEditor from "@/app/components/RichTextEditor";
 
 export default function EditPoolPage() {
   const { user: privyUser } = usePrivy();

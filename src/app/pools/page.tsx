@@ -14,6 +14,7 @@ import CircularProgress from "../components/CircularProgress";
 import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
 import Image from "next/image";
 import GetTokensModal from "../components/GetTokensModal";
+import InfoModal from "../components/InfoModal";
 import AppHeader from "../components/AppHeader";
 
 type TabType = "open" | "funded" | "unfunded";
@@ -61,6 +62,7 @@ export default function PoolsPage() {
   } = usePoolsWithDeposits();
   const [showUSDCModal, setShowUSDCModal] = useState(false);
   const [showTokensModal, setShowTokensModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   // Set the correct viewport height
   useEffect(() => {
@@ -263,13 +265,17 @@ export default function PoolsPage() {
       <SideNavbar activeTab="party" />
 
       <div className="md:pl-64">
-        <AppHeader
-          showTitle={false}
-          backgroundColor="#15161a"
-          showGetTokensButton={true}
-          showCreateButton={true}
-          onGetTokensClick={() => setShowTokensModal(true)}
-        />
+        <div className="relative">
+          <AppHeader
+            showBackButton={false}
+            showTitle={false}
+            backgroundColor="#15161a"
+            showGetTokensButton={true}
+            showCreateButton={true}
+            onGetTokensClick={() => setShowTokensModal(true)}
+            onInfoClick={() => setShowInfoModal(true)}
+          />
+        </div>
 
         {/* Main Content */}
         <div className="px-4 pb-24 md:pb-8">
@@ -598,6 +604,11 @@ export default function PoolsPage() {
           onClose={() => setShowTokensModal(false)}
         />
       )}
+
+      <InfoModal
+        isOpen={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+      />
     </div>
   );
 }

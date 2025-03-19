@@ -31,6 +31,7 @@ import PoolDescription from "./components/PoolDescription";
 import UnfundedPoolView from "./components/UnfundedPoolView";
 import PoolLocation from "./components/PoolLocation";
 import FixedBottomBar from "./components/FixedBottomBar";
+import InfoModal from "../../components/InfoModal";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -148,6 +149,9 @@ export default function PoolDetailsPage() {
 
   // Add state for refunding
   const [isRefunding, setIsRefunding] = useState(false);
+
+  // Add state for InfoModal
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   // Handle max click
   const handleMaxClick = useCallback(() => {
@@ -634,6 +638,7 @@ export default function PoolDetailsPage() {
             showGetTokensButton={true}
             showCreateButton={true}
             onGetTokensClick={() => setShowTokensModal(true)}
+            onInfoClick={() => setShowInfoModal(true)}
           />
 
           {/* Back button below header */}
@@ -687,6 +692,12 @@ export default function PoolDetailsPage() {
       <GetTokensModal
         isOpen={showTokensModal}
         onClose={() => setShowTokensModal(false)}
+      />
+
+      {/* Info Modal */}
+      <InfoModal
+        isOpen={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
       />
     </div>
   );

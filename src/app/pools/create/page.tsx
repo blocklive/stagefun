@@ -23,19 +23,20 @@ import { createPool } from "../../../lib/services/pool-service";
 import { useAuthenticatedSupabase } from "@/hooks/useAuthenticatedSupabase";
 import { Pool } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
-import SocialLinksInput from "@/components/SocialLinksInput";
+import SocialLinksInput from "@/app/components/SocialLinksInput";
 import AppHeader from "../../components/AppHeader";
 import GetTokensModal from "../../components/GetTokensModal";
 import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
 import { useNativeBalance } from "../../../hooks/useNativeBalance";
 import toast from "react-hot-toast";
-import PoolImageUpload from "@/components/PoolImageUpload";
+import PoolImageUpload from "@/app/components/PoolImageUpload";
 import { uploadPoolImage } from "@/lib/utils/imageUpload";
 import SideNavbar from "../../components/SideNavbar";
 import BottomNavbar from "../../components/BottomNavbar";
 import { IoFlash } from "react-icons/io5";
 import { useFundWallet } from "@privy-io/react-auth";
-import RichTextEditor from "@/components/RichTextEditor";
+import RichTextEditor from "@/app/components/RichTextEditor";
+import InfoModal from "../../components/InfoModal";
 
 // Define types for the custom navigation components
 interface CustomNavProps {
@@ -278,9 +279,8 @@ export default function CreatePoolPage() {
 
   const [showGasWarning, setShowGasWarning] = useState(false);
   const [showTokensModal, setShowTokensModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
   const [balanceChecked, setBalanceChecked] = useState(false);
-  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
-  const [navigationPath, setNavigationPath] = useState<string | null>(null);
   const [showValidation, setShowValidation] = useState(false);
 
   // Check if the user has enough gas for deployment
@@ -601,8 +601,7 @@ export default function CreatePoolPage() {
   // Handle navigation attempts
   const handleNavigationAttempt = (path: string) => {
     if (hasUnsavedChanges()) {
-      setNavigationPath(path);
-      setShowExitConfirmModal(true);
+      router.push(path);
       return false; // Prevent navigation
     }
     return true; // Allow navigation
@@ -610,14 +609,7 @@ export default function CreatePoolPage() {
 
   // Handle back button click
   const handleBackClick = () => {
-    // If the user has entered any data, show the confirmation modal
-    if (hasUnsavedChanges()) {
-      setNavigationPath(null); // null indicates we should use router.back()
-      setShowExitConfirmModal(true);
-    } else {
-      // If no data entered, just go back
-      router.back();
-    }
+    router.back();
   };
 
   // Handle faucet usage
@@ -643,6 +635,7 @@ export default function CreatePoolPage() {
           backgroundColor="#15161a"
           showGetTokensButton={true}
           onGetTokensClick={() => setShowTokensModal(true)}
+          onInfoClick={() => setShowInfoModal(true)}
         />
 
         {/* Main Content */}
@@ -1038,55 +1031,10 @@ export default function CreatePoolPage() {
         />
       )}
 
-      {/* Exit Confirmation Modal */}
-      {showExitConfirmModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1E1F25] rounded-[16px] w-full max-w-md overflow-hidden border border-[#836EF9] border-opacity-30">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-gray-800 flex items-center justify-center">
-              <div className="w-10 h-10 bg-[#836EF9] bg-opacity-20 rounded-full flex items-center justify-center mr-3">
-                <FaExclamationTriangle className="text-[#836EF9]" size={18} />
-              </div>
-              <h2 className="text-xl font-bold text-white">Discard Pool?</h2>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6">
-              <p className="text-gray-300 text-center">
-                Are you sure you want to discard this pool?
-              </p>
-
-              <div className="mt-6 flex flex-col space-y-3">
-                <button
-                  onClick={() => {
-                    setShowExitConfirmModal(false);
-                    if (navigationPath) {
-                      router.push(navigationPath);
-                    } else {
-                      router.back();
-                    }
-                    // Reset the navigation path
-                    setNavigationPath(null);
-                  }}
-                  className="w-full py-3 bg-[#E53E3E] hover:bg-[#C53030] rounded-full text-white font-medium transition-colors"
-                >
-                  Discard
-                </button>
-                <button
-                  onClick={() => {
-                    setShowExitConfirmModal(false);
-                    // Reset the navigation path
-                    setNavigationPath(null);
-                  }}
-                  className="w-full py-3 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-white font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <InfoModal
+        isOpen={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+      />
     </div>
   );
 }

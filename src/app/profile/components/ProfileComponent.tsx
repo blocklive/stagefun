@@ -29,6 +29,7 @@ import AppHeader from "../../components/AppHeader";
 import { useUserHostedPools } from "../../../hooks/useUserHostedPools";
 import SideNavbar from "../../components/SideNavbar";
 import GetTokensModal from "../../components/GetTokensModal";
+import InfoModal from "../../components/InfoModal";
 
 export default function ProfileComponent() {
   const router = useRouter();
@@ -52,6 +53,7 @@ export default function ProfileComponent() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showGetTokensModal, setShowGetTokensModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get the user ID from the URL if present
@@ -458,6 +460,7 @@ export default function ProfileComponent() {
             showGetTokensButton={true}
             showCreateButton={true}
             onGetTokensClick={() => setShowGetTokensModal(true)}
+            onInfoClick={() => setShowInfoModal(true)}
           />
         </div>
 
@@ -827,6 +830,12 @@ export default function ProfileComponent() {
           onClose={() => setShowGetTokensModal(false)}
         />
       )}
+
+      {/* Info Modal */}
+      <InfoModal
+        isOpen={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+      />
     </div>
   );
 }

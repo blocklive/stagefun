@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Pool } from "@/lib/supabase";
-import { SOCIAL_PLATFORMS } from "@/components/SocialLinksInput";
+import { SOCIAL_PLATFORMS } from "@/app/components/SocialLinksInput";
 import { FaGlobe, FaDiscord, FaInstagram } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 
