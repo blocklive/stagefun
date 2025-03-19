@@ -779,7 +779,7 @@ export default function CreatePoolPage() {
                     <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col gap-1">
                       <button
                         type="button"
-                        className="w-6 h-6 bg-[#2A2640] hover:bg-[#3A3650] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+                        className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
                         onClick={() => {
                           const currentValue = parseFloat(fundingGoal) || 0;
                           setFundingGoal((currentValue + 1).toString());
@@ -803,7 +803,7 @@ export default function CreatePoolPage() {
                       </button>
                       <button
                         type="button"
-                        className="w-6 h-6 bg-[#2A2640] hover:bg-[#3A3650] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+                        className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
                         onClick={() => {
                           const currentValue = parseFloat(fundingGoal) || 0;
                           if (currentValue > 0) {
@@ -870,7 +870,7 @@ export default function CreatePoolPage() {
                   <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col gap-1">
                     <button
                       type="button"
-                      className="w-6 h-6 bg-[#2A2640] hover:bg-[#3A3650] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+                      className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
                       onClick={() => {
                         const currentValue = parseFloat(minCommitment) || 0;
                         setMinCommitment((currentValue + 0.1).toFixed(1));
@@ -894,7 +894,7 @@ export default function CreatePoolPage() {
                     </button>
                     <button
                       type="button"
-                      className="w-6 h-6 bg-[#2A2640] hover:bg-[#3A3650] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+                      className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
                       onClick={() => {
                         const currentValue = parseFloat(minCommitment) || 0;
                         if (currentValue > 0.1) {

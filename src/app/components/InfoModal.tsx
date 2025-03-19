@@ -19,17 +19,39 @@ export default function InfoModal({ isOpen, onClose }: InfoModalProps) {
     {
       title: "Close your round",
       description:
-        "Invite patrons to support. You'll have 48 hours to close your financing before the it's cancelled and cash is returned.",
+        "Invite patrons to support. You'll have until the end date to close your financing before it's cancelled and cash is returned.",
     },
     {
       title: "Pool is created",
       description:
-        "Upon successful close you'll be able to withdraw cash to produce your event. Patrons will receive a Patron Pass for onsite benefits and tradable token.",
+        "Upon successful close you'll be able to withdraw cash to produce your event. Patrons will receive a tradable token redeemable for yield based on your revenue.",
     },
     {
       title: "Deliver your event",
       description:
         "Don't forget to reward your early supporters onsite. We recommend using Blocklive to easily token gate rewards for patrons.",
+    },
+  ];
+
+  const patronSteps = [
+    {
+      title: "Commit to a round",
+      description:
+        "Find an event or venue you'd like to support and commit USDC.",
+    },
+    {
+      title: "Receive your tokens",
+      description:
+        "A token will be dropped automatically into your wallet 1:1 with your commitment.",
+    },
+    {
+      title: "Trade or hold",
+      description: "The token and any rights attached can be traded or held.",
+    },
+    {
+      title: "Go to the events",
+      description:
+        "Show up and enjoy the benefits, you earned it for supporting early. After the event is completed you will be paid back yield based on your patronage.",
     },
   ];
 
@@ -82,7 +104,7 @@ export default function InfoModal({ isOpen, onClose }: InfoModalProps) {
         </div>
 
         {/* Content */}
-        <div className="space-y-6">
+        <div className="space-y-6 min-h-[450px]">
           {activeTab === "producer" ? (
             <div className="space-y-6">
               {producerSteps.map((step, index) => (
@@ -100,8 +122,20 @@ export default function InfoModal({ isOpen, onClose }: InfoModalProps) {
               ))}
             </div>
           ) : (
-            <div className="text-center text-gray-400">
-              Patron content coming soon...
+            <div className="space-y-6">
+              {patronSteps.map((step, index) => (
+                <div key={index} className="flex items-start">
+                  <div className="w-8 h-8 rounded-full bg-[#FFFFFF14] flex items-center justify-center flex-shrink-0 mt-1">
+                    <span className="text-white font-medium">{index + 1}</span>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-white font-medium mb-1">
+                      {step.title}
+                    </h3>
+                    <p className="text-gray-400 text-sm">{step.description}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

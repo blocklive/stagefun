@@ -154,11 +154,14 @@ export default function SocialLinksInput({
       <div className="relative">
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
           <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
-            <SOCIAL_PLATFORMS.twitter.icon className="text-white" size={18} />
+            <SOCIAL_PLATFORMS.twitter.icon
+              className="text-gray-400"
+              size={18}
+            />
           </div>
         </div>
         <div className="flex pl-16">
-          <div className="bg-[#1A1727] text-gray-400 p-4 rounded-l-lg whitespace-nowrap">
+          <div className="bg-[#FFFFFF0A] text-gray-400 p-4 rounded-l-lg whitespace-nowrap">
             {SOCIAL_PLATFORMS.twitter.displayPrefix}
           </div>
           <input
@@ -175,11 +178,14 @@ export default function SocialLinksInput({
       <div className="relative">
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
           <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
-            <SOCIAL_PLATFORMS.discord.icon className="text-white" size={18} />
+            <SOCIAL_PLATFORMS.discord.icon
+              className="text-gray-400"
+              size={18}
+            />
           </div>
         </div>
         <div className="flex pl-16">
-          <div className="bg-[#1A1727] text-gray-400 p-4 rounded-l-lg whitespace-nowrap">
+          <div className="bg-[#FFFFFF0A] text-gray-400 p-4 rounded-l-lg whitespace-nowrap">
             {SOCIAL_PLATFORMS.discord.displayPrefix}
           </div>
           <input
@@ -196,11 +202,14 @@ export default function SocialLinksInput({
       <div className="relative">
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
           <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
-            <SOCIAL_PLATFORMS.instagram.icon className="text-white" size={18} />
+            <SOCIAL_PLATFORMS.instagram.icon
+              className="text-gray-400"
+              size={18}
+            />
           </div>
         </div>
         <div className="flex pl-16">
-          <div className="bg-[#1A1727] text-gray-400 p-4 rounded-l-lg whitespace-nowrap">
+          <div className="bg-[#FFFFFF0A] text-gray-400 p-4 rounded-l-lg whitespace-nowrap">
             {SOCIAL_PLATFORMS.instagram.displayPrefix}
           </div>
           <input
@@ -217,7 +226,10 @@ export default function SocialLinksInput({
       <div className="relative">
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
           <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
-            <SOCIAL_PLATFORMS.website.icon className="text-white" size={18} />
+            <SOCIAL_PLATFORMS.website.icon
+              className="text-gray-400"
+              size={18}
+            />
           </div>
         </div>
         <div className="flex pl-16">
