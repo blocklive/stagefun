@@ -1,12 +1,10 @@
 "use client";
 
-import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { usePrivy } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
-import { FaArrowLeft, FaPlus } from "react-icons/fa";
+import { FaArrowLeft } from "react-icons/fa";
 import { toast } from "react-hot-toast";
-import { ethers } from "ethers";
-import { StageDotFunPoolABI } from "../../../lib/contracts/StageDotFunPool";
 import BottomNavbar from "../../components/BottomNavbar";
 import SideNavbar from "../../components/SideNavbar";
 import { useSupabase } from "../../../contexts/SupabaseContext";
@@ -32,12 +30,10 @@ import GetTokensModal from "../../components/GetTokensModal";
 import PoolDescription from "./components/PoolDescription";
 import UnfundedPoolView from "./components/UnfundedPoolView";
 import PoolLocation from "./components/PoolLocation";
-import PoolSocialLinks from "./components/PoolSocialLinks";
 import FixedBottomBar from "./components/FixedBottomBar";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
-  const { wallets, ready } = useWallets();
   const { dbUser } = useSupabase();
   const router = useRouter();
   const params = useParams();
