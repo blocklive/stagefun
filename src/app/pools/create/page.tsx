@@ -35,6 +35,7 @@ import SideNavbar from "../../components/SideNavbar";
 import BottomNavbar from "../../components/BottomNavbar";
 import { IoFlash } from "react-icons/io5";
 import { useFundWallet } from "@privy-io/react-auth";
+import RichTextEditor from "@/components/RichTextEditor";
 
 // Define types for the custom navigation components
 interface CustomNavProps {
@@ -722,7 +723,14 @@ export default function CreatePoolPage() {
             />
 
             {/* Form */}
-            <form id="createPoolForm" onSubmit={handleSubmit} className="mt-8">
+            <form
+              id="createPoolForm"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit(e);
+              }}
+              className="mt-8"
+            >
               {/* Pool Name Input */}
               <div className="mb-6">
                 <input
@@ -936,37 +944,11 @@ export default function CreatePoolPage() {
               {/* Description */}
               <div className="mb-6">
                 <h2 className="text-2xl font-bold mb-4">Description</h2>
-                <div className="bg-[#FFFFFF14] rounded-lg overflow-hidden">
-                  <textarea
-                    placeholder="Write your story..."
-                    name="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none min-h-[200px] resize-none"
-                  />
-
-                  {/* Text formatting toolbar */}
-                  <div className="flex items-center p-2 border-t border-gray-700">
-                    <button className="p-2 text-gray-400 hover:text-white">
-                      <FaBold />
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-white">
-                      <FaItalic />
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-white">
-                      <FaListUl />
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-white">
-                      <FaLink />
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-white">
-                      <FaYoutube />
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-white">
-                      <FaImage />
-                    </button>
-                  </div>
-                </div>
+                <RichTextEditor
+                  content={description}
+                  onChange={setDescription}
+                  placeholder="Write your story..."
+                />
               </div>
 
               {/* Location */}

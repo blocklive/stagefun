@@ -28,6 +28,7 @@ import SocialLinksInput, {
 } from "@/components/SocialLinksInput";
 import SideNavbar from "../../../components/SideNavbar";
 import BottomNavbar from "../../../components/BottomNavbar";
+import RichTextEditor from "@/components/RichTextEditor";
 
 export default function EditPoolPage() {
   const { user: privyUser } = usePrivy();
@@ -373,55 +374,11 @@ export default function EditPoolPage() {
               {/* Description */}
               <div className="mb-6">
                 <h2 className="text-2xl font-bold mb-4">Description</h2>
-                <div className="bg-[#FFFFFF14] rounded-lg overflow-hidden">
-                  <textarea
-                    placeholder="Write your story..."
-                    name="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none min-h-[200px] resize-none"
-                  />
-
-                  {/* Text formatting toolbar */}
-                  <div className="flex items-center p-2 border-t border-gray-700">
-                    <button
-                      type="button"
-                      className="p-2 text-gray-400 hover:text-white"
-                    >
-                      <FaBold />
-                    </button>
-                    <button
-                      type="button"
-                      className="p-2 text-gray-400 hover:text-white"
-                    >
-                      <FaItalic />
-                    </button>
-                    <button
-                      type="button"
-                      className="p-2 text-gray-400 hover:text-white"
-                    >
-                      <FaListUl />
-                    </button>
-                    <button
-                      type="button"
-                      className="p-2 text-gray-400 hover:text-white"
-                    >
-                      <FaLink />
-                    </button>
-                    <button
-                      type="button"
-                      className="p-2 text-gray-400 hover:text-white"
-                    >
-                      <FaYoutube />
-                    </button>
-                    <button
-                      type="button"
-                      className="p-2 text-gray-400 hover:text-white"
-                    >
-                      <FaImage />
-                    </button>
-                  </div>
-                </div>
+                <RichTextEditor
+                  content={description}
+                  onChange={setDescription}
+                  placeholder="Write your story..."
+                />
               </div>
 
               {/* Location */}
