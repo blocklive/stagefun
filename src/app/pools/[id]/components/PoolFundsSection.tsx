@@ -24,6 +24,7 @@ import {
   PoolStatus,
   getPoolStatusFromNumber,
 } from "../../../../lib/contracts/types";
+import CreatorActions from "./CreatorActions";
 
 interface PoolFundsSectionProps {
   pool: Pool & {
@@ -654,202 +655,29 @@ export default function PoolFundsSection({
           <div className="text-5xl font-bold mb-2">{contractBalance}</div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex mb-6 w-full max-w-xs">
-          <div className="flex flex-col items-center w-20">
-            <button
-              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center mb-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              onClick={openReceiveModal}
-              disabled={isReceiving}
-              title="Deposit"
-            >
-              {isReceiving ? (
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              ) : (
-                <svg
-                  className="w-5 h-5 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  ></path>
-                </svg>
-              )}
-            </button>
-            <span className="text-gray-400 text-sm">Deposit</span>
-          </div>
+        {/* Only show action buttons for pool creator */}
+        {isCreator && (
+          <CreatorActions
+            isReceiving={isReceiving}
+            isWithdrawing={isWithdrawing}
+            isDistributing={isDistributing}
+            rawTotalFunds={rawTotalFunds}
+            onReceiveClick={openReceiveModal}
+            onWithdrawClick={openWithdrawModal}
+            onDistributeClick={openDistributeModal}
+            revenueAccumulated={
+              onChainData
+                ? parseFloat(
+                    ethers.formatUnits(onChainData.revenueAccumulated, 6)
+                  )
+                : pool.revenue_accumulated || 0
+            }
+          />
+        )}
 
-          <div className="flex flex-col items-center w-20">
-            <button
-              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center mb-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              onClick={openWithdrawModal}
-              disabled={isWithdrawing || rawTotalFunds <= 0}
-              title="Withdraw"
-            >
-              {isWithdrawing ? (
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              ) : (
-                <svg
-                  className="w-5 h-5 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M5 10l7-7m0 0l7 7m-7-7v18"
-                  ></path>
-                </svg>
-              )}
-            </button>
-            <span className="text-gray-400 text-sm">Withdraw</span>
-          </div>
-
-          <div className="flex flex-col items-center w-20">
-            <button
-              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center mb-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              onClick={openDistributeModal}
-              disabled={
-                isDistributing ||
-                (onChainData
-                  ? parseFloat(
-                      ethers.formatUnits(onChainData.revenueAccumulated, 6)
-                    ) <= 0
-                  : (pool.revenue_accumulated || 0) <= 0)
-              }
-              title="Distribute"
-            >
-              {isDistributing && !showDistributeModal ? (
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              ) : (
-                <FaDollarSign className="w-5 h-5 text-white" size={20} />
-              )}
-            </button>
-            <span className="text-gray-400 text-sm">Distribute</span>
-          </div>
-        </div>
-
-        {/* Assets Section */}
-        <h3 className="text-2xl font-semibold mb-4">Assets</h3>
-        <div className="p-4 rounded-[12px] bg-[#FFFFFF14] flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center mr-3">
-              <svg
-                className="w-6 h-6 text-white"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
-                <path d="M12 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
-              </svg>
-            </div>
-            <div>
-              <div className="text-gray-400">Testnet USDC</div>
-              <div className="text-xl font-bold">
-                {onChainData
-                  ? parseFloat(
-                      ethers.formatUnits(onChainData.contractBalance, 6)
-                    ).toFixed(2) + " USDC"
-                  : "Loading..."}
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end">
-            <div className="text-xl font-bold">{contractBalance}</div>
-          </div>
-        </div>
-
+        {/* Status message */}
         {statusMessage && (
-          <div className="mt-3 p-2 bg-green-600 text-white rounded-md text-center">
+          <div className="mt-4 p-4 bg-green-500 bg-opacity-10 text-green-500 rounded-lg">
             {statusMessage}
           </div>
         )}

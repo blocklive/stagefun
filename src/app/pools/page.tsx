@@ -49,14 +49,13 @@ export default function PoolsPage() {
   const { dbUser } = useSupabase();
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
-  const [activeTab, setActiveTab] = useState<TabType>("open");
-  const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
   const [poolType, setPoolType] = useState("all"); // "all" or "my"
+  const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
   const {
     pools,
     isLoading: loading,
@@ -68,6 +67,21 @@ export default function PoolsPage() {
   const [showUSDCModal, setShowUSDCModal] = useState(false);
   const [showTokensModal, setShowTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+
+  // Get the active tab from URL search params, defaulting to "open"
+  const searchParams = new URLSearchParams(window.location.search);
+  const [activeTab, setActiveTab] = useState<TabType>(
+    (searchParams.get("tab") as TabType) || "open"
+  );
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: TabType) => {
+    const newSearchParams = new URLSearchParams(window.location.search);
+    newSearchParams.set("tab", tab);
+    // Update URL without refreshing the page
+    window.history.pushState({}, "", `?${newSearchParams.toString()}`);
+    setActiveTab(tab);
+  };
 
   // Set the correct viewport height
   useEffect(() => {
@@ -101,6 +115,22 @@ export default function PoolsPage() {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
+  }, []);
+
+  // Handle popstate event to update tab when user clicks back/forward
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab") as TabType;
+      if (tab) {
+        setActiveTab(tab);
+      } else {
+        setActiveTab("open");
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   // Fetch joined pools when user changes
@@ -290,7 +320,7 @@ export default function PoolsPage() {
                   ? "bg-white text-black font-medium"
                   : "bg-transparent text-white border border-gray-700"
               }`}
-              onClick={() => setActiveTab("open")}
+              onClick={() => handleTabChange("open")}
             >
               Open rounds
             </button>
@@ -300,7 +330,7 @@ export default function PoolsPage() {
                   ? "bg-white text-black font-medium"
                   : "bg-transparent text-white border border-gray-700"
               }`}
-              onClick={() => setActiveTab("funded")}
+              onClick={() => handleTabChange("funded")}
             >
               Funded
             </button>
@@ -310,7 +340,7 @@ export default function PoolsPage() {
                   ? "bg-white text-black font-medium"
                   : "bg-transparent text-white border border-gray-700"
               }`}
-              onClick={() => setActiveTab("unfunded")}
+              onClick={() => handleTabChange("unfunded")}
             >
               Unfunded
             </button>
