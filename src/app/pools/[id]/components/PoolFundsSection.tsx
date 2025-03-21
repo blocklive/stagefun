@@ -25,6 +25,7 @@ import {
   getPoolStatusFromNumber,
 } from "../../../../lib/contracts/types";
 import CreatorActions from "./CreatorActions";
+import NumberInput from "../../../components/NumberInput";
 
 interface PoolFundsSectionProps {
   pool: Pool & {
@@ -832,40 +833,14 @@ export default function PoolFundsSection({
 
               {/* Amount Input */}
               <div className="mb-6">
-                <label className="block text-gray-400 text-sm mb-2">
-                  Enter USDC amount to deposit as revenue
-                </label>
-                <input
-                  type="number"
+                <NumberInput
                   value={receiveAmount}
-                  onChange={(e) => setReceiveAmount(e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-3 rounded-[12px] border border-gray-700 focus:outline-none focus:border-green-500"
+                  onChange={setReceiveAmount}
+                  label="Enter USDC amount to deposit as revenue"
                   placeholder="0.00"
-                  step="0.01"
-                  min="0"
+                  step={0.1}
+                  min={0}
                 />
-              </div>
-
-              {/* Quick Amount Buttons */}
-              <div className="flex gap-2 mb-6">
-                <button
-                  onClick={() => setReceiveAmount("10")}
-                  className="flex-1 bg-[#FFFFFF14] text-white py-2 px-4 rounded-full"
-                >
-                  10 USDC
-                </button>
-                <button
-                  onClick={() => setReceiveAmount("50")}
-                  className="flex-1 bg-[#FFFFFF14] text-white py-2 px-4 rounded-full"
-                >
-                  50 USDC
-                </button>
-                <button
-                  onClick={() => setReceiveAmount("100")}
-                  className="flex-1 bg-[#FFFFFF14] text-white py-2 px-4 rounded-full"
-                >
-                  100 USDC
-                </button>
               </div>
 
               {/* Info Text */}

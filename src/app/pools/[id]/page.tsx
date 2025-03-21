@@ -287,8 +287,25 @@ export default function PoolDetailsPage() {
     }
   }, [dbUser, commitments, privyUser, poolId]);
 
+  // Update the logic to check if a pool is funded or unfunded using the shared function
+  const displayStatus = pool
+    ? getDisplayStatus(
+        pool.blockchain_status, // Now we have the raw numeric status
+        pool.ends_at,
+        pool.raised_amount,
+        pool.target_amount
+      )
+    : null;
+
+  const isFunded = displayStatus === PoolStatus.FUNDED;
+  const isUnfunded = displayStatus === PoolStatus.FAILED;
+
   // Always show the button for open pools, regardless of whether user has committed
-  const shouldShowCommitButton = !!pool && !hasEnded;
+  const shouldShowCommitButton =
+    !!pool &&
+    pool.blockchain_status === PoolStatus.ACTIVE &&
+    !isFunded &&
+    !isUnfunded;
   const commitButtonText = "Commit";
 
   // Effect to determine if commit button should be shown - simplified to avoid flickering
@@ -296,7 +313,7 @@ export default function PoolDetailsPage() {
     if (shouldShowCommitButton !== showCommitButton) {
       setShowCommitButton(shouldShowCommitButton);
     }
-  }, [pool, hasEnded, showCommitButton]);
+  }, [pool, showCommitButton, isFunded, isUnfunded]);
 
   // Handle refund functionality
   const handleRefund = async () => {
@@ -419,19 +436,6 @@ export default function PoolDetailsPage() {
       <PoolFundsSection pool={pool} isCreator={creator?.id === dbUser?.id} />
     );
   };
-
-  // Update the logic to check if a pool is funded or unfunded using the shared function
-  const displayStatus = pool
-    ? getDisplayStatus(
-        pool.blockchain_status, // Now we have the raw numeric status
-        pool.ends_at,
-        pool.raised_amount,
-        pool.target_amount
-      )
-    : null;
-
-  const isFunded = displayStatus === PoolStatus.FUNDED;
-  const isUnfunded = displayStatus === PoolStatus.FAILED;
 
   // Check if the current user is the creator of the pool
   const isCreator = dbUser?.id === pool?.creator_id;
