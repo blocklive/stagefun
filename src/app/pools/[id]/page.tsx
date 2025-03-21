@@ -313,7 +313,7 @@ export default function PoolDetailsPage() {
     if (shouldShowCommitButton !== showCommitButton) {
       setShowCommitButton(shouldShowCommitButton);
     }
-  }, [pool, showCommitButton, isFunded, isUnfunded]);
+  }, [pool, showCommitButton, shouldShowCommitButton]);
 
   // Handle refund functionality
   const handleRefund = async () => {

@@ -26,7 +26,7 @@ export default function FixedBottomBar({
       {/* Commit Button - Fixed at bottom for both mobile and desktop */}
       {showCommitButton && (
         <div className="fixed bottom-20 left-0 right-0 z-50 bg-[#15161a] border-t border-gray-800 shadow-lg md:bottom-0">
-          <div className="container mx-auto md:ml-64 px-4 py-3">
+          <div className="max-w-[1200px] mx-auto md:pl-64 px-4 py-3">
             <button
               onClick={onCommitClick}
               className="w-full bg-[#836EF9] hover:bg-[#7058E8] text-white py-4 px-4 rounded-full font-medium text-lg flex items-center justify-center transition-colors"
