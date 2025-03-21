@@ -447,6 +447,20 @@ export default function PoolDetailsPage() {
     }
   };
 
+  // Handle back button click
+  const handleBackClick = () => {
+    // Get the tab we came from
+    const searchParams = new URLSearchParams(window.location.search);
+    const fromTab = searchParams.get("from_tab");
+
+    // Navigate back to the pools page with the correct tab
+    if (fromTab) {
+      router.push(`/pools?tab=${fromTab}`);
+    } else {
+      router.back();
+    }
+  };
+
   // Render main content
   const renderContent = () => {
     if (isLoading) {
@@ -649,7 +663,7 @@ export default function PoolDetailsPage() {
           {/* Back button below header */}
           <div className="px-4 py-2">
             <button
-              onClick={() => router.back()}
+              onClick={handleBackClick}
               className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
             >
               <FaArrowLeft />

@@ -50,6 +50,37 @@ export default function PoolsPage() {
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState<TabType>("open");
+
+  // Update active tab when URL changes
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab") as TabType;
+      if (tab && ["open", "funded", "unfunded"].includes(tab)) {
+        setActiveTab(tab);
+      }
+    };
+
+    // Set initial state
+    handleUrlChange();
+
+    // Listen for popstate (back/forward navigation)
+    window.addEventListener("popstate", handleUrlChange);
+
+    return () => {
+      window.removeEventListener("popstate", handleUrlChange);
+    };
+  }, []);
+
+  // Handle tab change
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    // Update URL without adding to history
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.replaceState({}, "", url.toString());
+  };
+
   const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -263,6 +294,11 @@ export default function PoolsPage() {
     </ul>
   );
 
+  // Update the pool click handler
+  const handlePoolClick = (poolId: string) => {
+    router.push(`/pools/${poolId}?from_tab=${activeTab}`);
+  };
+
   return (
     <div className="min-h-screen bg-[#15161a] text-white">
       <SideNavbar activeTab="party" />
@@ -290,7 +326,7 @@ export default function PoolsPage() {
                   ? "bg-white text-black font-medium"
                   : "bg-transparent text-white border border-gray-700"
               }`}
-              onClick={() => setActiveTab("open")}
+              onClick={() => handleTabChange("open")}
             >
               Open rounds
             </button>
@@ -300,7 +336,7 @@ export default function PoolsPage() {
                   ? "bg-white text-black font-medium"
                   : "bg-transparent text-white border border-gray-700"
               }`}
-              onClick={() => setActiveTab("funded")}
+              onClick={() => handleTabChange("funded")}
             >
               Funded
             </button>
@@ -310,7 +346,7 @@ export default function PoolsPage() {
                   ? "bg-white text-black font-medium"
                   : "bg-transparent text-white border border-gray-700"
               }`}
-              onClick={() => setActiveTab("unfunded")}
+              onClick={() => handleTabChange("unfunded")}
             >
               Unfunded
             </button>
@@ -458,7 +494,7 @@ export default function PoolsPage() {
                       <li
                         key={pool.id}
                         className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
-                        onClick={() => router.push(`/pools/${pool.id}`)}
+                        onClick={() => handlePoolClick(pool.id)}
                       >
                         <div className="flex items-center gap-3">
                           {/* Pool Image */}
@@ -525,7 +561,7 @@ export default function PoolsPage() {
                       <li
                         key={pool.id}
                         className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
-                        onClick={() => router.push(`/pools/${pool.id}`)}
+                        onClick={() => handlePoolClick(pool.id)}
                       >
                         <div className="flex items-center gap-3">
                           {/* Pool Image */}
