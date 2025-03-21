@@ -37,7 +37,7 @@ export type Pool = {
   token_symbol: string;
   location?: string;
   venue?: string;
-  image_url?: string;
+  image_url?: string | null;
   creator_id: string;
   creator_name?: string;
   creator_avatar_url?: string;
@@ -46,17 +46,28 @@ export type Pool = {
   // Blockchain fields
   blockchain_tx_hash?: string;
   blockchain_block_number?: number;
-  blockchain_status?: string;
+  blockchain_status: number;
   blockchain_network?: string;
   blockchain_explorer_url?: string;
-  contract_address?: string; // Address of the deployed StageDotFunLiquidity token
+  contract_address?: string; // Address of the deployed pool contract
+  lp_token_address?: string;
+  // Additional fields
+  revenue_accumulated?: number;
+  patron_count?: number;
+  patrons_number?: number;
+  lp_holders?: any[];
+  milestones?: any[];
+  emergency_mode?: boolean;
+  emergency_withdrawal_request_time?: number;
+  authorized_withdrawer?: string;
+  // Social links
   social_links?: {
     website?: string;
     twitter?: string;
     discord?: string;
     instagram?: string;
     [key: string]: string | undefined;
-  };
+  } | null;
 };
 
 export type Patron = {

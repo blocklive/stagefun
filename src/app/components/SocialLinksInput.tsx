@@ -48,7 +48,11 @@ const SOCIAL_PLATFORMS = {
 };
 
 export type SocialLinksType = {
-  [key: string]: string;
+  website?: string;
+  twitter?: string;
+  discord?: string;
+  instagram?: string;
+  [key: string]: string | undefined;
 };
 
 interface SocialLinksInputProps {
@@ -71,7 +75,7 @@ export default function SocialLinksInput({
   useEffect(() => {
     const initialUsernames: Record<string, string> = {};
 
-    Object.entries(links).forEach(([platform, url]) => {
+    Object.entries(value).forEach(([platform, url]) => {
       if (platform === "website" && url) {
         // Handle website separately
         let websiteValue = url;
@@ -95,7 +99,8 @@ export default function SocialLinksInput({
     });
 
     setUsernames(initialUsernames);
-  }, []);
+    setLinks(value);
+  }, [value]);
 
   // Update parent component when links change
   useEffect(() => {

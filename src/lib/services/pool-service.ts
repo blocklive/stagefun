@@ -23,7 +23,7 @@ export interface Pool {
   token_symbol: string;
   location?: string;
   venue?: string;
-  image_url?: string;
+  image_url?: string | null;
   creator_id: string;
   creator_name?: string;
   creator_avatar_url?: string;
@@ -32,11 +32,28 @@ export interface Pool {
   // Blockchain fields
   blockchain_tx_hash?: string;
   blockchain_block_number?: number;
-  blockchain_status?: string;
+  blockchain_status: number;
   blockchain_network?: string;
   blockchain_explorer_url?: string;
   contract_address?: string; // Address of the deployed pool contract
   lp_token_address?: string;
+  // Additional fields
+  revenue_accumulated?: number;
+  patron_count?: number;
+  patrons_number?: number;
+  lp_holders?: any[];
+  milestones?: any[];
+  emergency_mode?: boolean;
+  emergency_withdrawal_request_time?: number;
+  authorized_withdrawer?: string;
+  // Social links
+  social_links?: {
+    website?: string;
+    twitter?: string;
+    discord?: string;
+    instagram?: string;
+    [key: string]: string | undefined;
+  } | null;
 }
 
 export async function getAllPools(): Promise<Pool[]> {
@@ -207,6 +224,7 @@ export async function getPoolById(id: string): Promise<Pool | null> {
     min_commitment: minCommitment || Number(dbPool.min_commitment) || 0,
     raised_amount: totalDeposits || 0,
     revenue_accumulated: revenueAccumulated || 0,
+    blockchain_status: Number(chainData.status || 0),
     status: chainData.status === 1 ? "active" : "inactive",
     end_time: Number(chainData.endTime) || 0,
     lp_token_address: chainData.lpTokenAddress || null,
@@ -216,67 +234,37 @@ export async function getPoolById(id: string): Promise<Pool | null> {
     emergency_withdrawal_request_time:
       Number(chainData.emergencyWithdrawalRequestTime) || 0,
     authorized_withdrawer: chainData.authorizedWithdrawer || "",
+    patrons_number: dbPool.patrons_number,
+    social_links: dbPool.social_links || null,
   };
 }
 
-export async function createPool(
-  poolData: Omit<
-    Pool,
-    | "id"
-    | "created_at"
-    | "updated_at"
-    | "contract_address"
-    | "lp_token_address"
-    | "raised_amount"
-    | "status"
-  >
-): Promise<Pool> {
-  // Create pool in database first
-  const { data: dbPool, error: dbError } = await supabase
-    .from("pools")
-    .insert([poolData])
-    .select()
-    .single();
+export async function createPool(pool: Partial<Pool>): Promise<Pool> {
+  try {
+    const { data, error } = await supabase
+      .from("pools")
+      .insert([
+        {
+          ...pool,
+          social_links: pool.social_links || null,
+          status: pool.status || "draft",
+          blockchain_status: pool.blockchain_status || 0,
+          raised_amount: pool.raised_amount || 0,
+          token_amount: pool.token_amount || 0,
+          patron_count: pool.patron_count || 0,
+          patrons_number: pool.patrons_number || 0,
+          revenue_accumulated: pool.revenue_accumulated || 0,
+        },
+      ])
+      .select()
+      .single();
 
-  if (dbError) throw dbError;
-
-  // Create pool on blockchain
-  const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL);
-  const signer = await provider.getSigner();
-
-  const { poolId: poolAddress, lpTokenAddress } = await createPoolOnChain(
-    signer,
-    poolData.name,
-    dbPool.id, // Using the pool's database ID as the uniqueId
-    "LP", // You might want to make this configurable
-    BigInt(new Date(poolData.ends_at).getTime() / 1000),
-    BigInt(poolData.target_amount),
-    BigInt(poolData.min_commitment || 0)
-  );
-
-  // Update database with contract addresses
-  const { data: updatedPool, error: updateError } = await supabase
-    .from("pools")
-    .update({
-      contract_address: poolAddress,
-      lp_token_address: lpTokenAddress,
-      status: "active",
-    })
-    .eq("id", dbPool.id)
-    .select()
-    .single();
-
-  if (updateError) throw updateError;
-
-  return {
-    ...updatedPool,
-    creator_name: updatedPool.creator?.name || "Anonymous",
-    creator_avatar_url: updatedPool.creator?.avatar_url || null,
-    raised_amount: 0,
-    status: "active",
-    ends_at: poolData.ends_at,
-    lp_token_address: lpTokenAddress,
-  };
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error creating pool:", error);
+    throw error;
+  }
 }
 
 export async function getPoolsByCreatorId(creatorId: string): Promise<Pool[]> {
@@ -309,20 +297,26 @@ export async function getOpenPools(): Promise<Pool[]> {
 export async function updatePool(
   poolId: string,
   updates: Partial<Pool>
-): Promise<Pool | null> {
-  const { data, error } = await supabase
-    .from("pools")
-    .update(updates)
-    .eq("id", poolId)
-    .select()
-    .single();
+): Promise<Pool> {
+  try {
+    // Handle social links update
+    if (updates.social_links !== undefined) {
+      updates.social_links = updates.social_links || null;
+    }
 
-  if (error) {
+    const { data, error } = await supabase
+      .from("pools")
+      .update(updates)
+      .eq("id", poolId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
     console.error("Error updating pool:", error);
-    return null;
+    throw error;
   }
-
-  return data;
 }
 
 export async function getUserPools(userId: string): Promise<Pool[]> {

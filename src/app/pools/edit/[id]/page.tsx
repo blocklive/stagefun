@@ -22,7 +22,7 @@ import { useNativeBalance } from "../../../../hooks/useNativeBalance";
 import toast from "react-hot-toast";
 import PoolImageUpload from "@/app/components/PoolImageUpload";
 import { uploadPoolImage } from "@/lib/utils/imageUpload";
-import { usePool } from "@/hooks/usePool";
+import { usePoolDetails } from "@/hooks/usePoolDetails";
 import SocialLinksInput, {
   SocialLinksType,
 } from "@/app/components/SocialLinksInput";
@@ -48,7 +48,7 @@ export default function EditPoolPage() {
     pool,
     isLoading: isPoolLoading,
     refresh: refreshPool,
-  } = usePool(poolId);
+  } = usePoolDetails(poolId);
 
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [poolName, setPoolName] = useState("");

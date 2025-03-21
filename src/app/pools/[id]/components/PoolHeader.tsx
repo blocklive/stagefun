@@ -2,41 +2,65 @@
 
 import Image from "next/image";
 import { Pool } from "../../../../lib/supabase";
+import {
+  PoolStatus,
+  getDisplayStatus,
+  getPoolStatusFromNumber,
+} from "../../../../lib/contracts/types";
 
 export interface PoolHeaderProps {
   pool: Pool;
-  isFunded: boolean;
-  isUnfunded?: boolean;
   isCreator?: boolean;
   handleEditClick?: () => void;
 }
 
 export default function PoolHeader({
   pool,
-  isFunded,
-  isUnfunded,
   isCreator,
   handleEditClick,
 }: PoolHeaderProps) {
+  // Convert blockchain status to number
+  const blockchainStatus = pool.blockchain_status;
+
+  // Get the display status directly
+  const displayStatus = getDisplayStatus(
+    blockchainStatus,
+    pool.ends_at,
+    pool.raised_amount,
+    pool.target_amount
+  );
+
   // Determine the status text and color
   let statusText = "Accepting patrons";
   let statusColor = "#836EF9"; // Purple for default/accepting patrons
 
-  if (isFunded) {
-    statusText = "Funded";
-    statusColor = "#A78BFA"; // Purple for funded
-  } else if (isUnfunded) {
-    statusText = "Unfunded";
-    statusColor = "#F87171"; // Red for unfunded
-  } else if (pool.blockchain_status === "pending") {
+  switch (displayStatus) {
+    case PoolStatus.FUNDED:
+      statusText = "Funded";
+      statusColor = "#A78BFA"; // Purple for funded
+      break;
+    case PoolStatus.FAILED:
+      statusText = "Unfunded";
+      statusColor = "#F87171"; // Red for unfunded
+      break;
+    case PoolStatus.INACTIVE:
+      statusText = "Inactive";
+      break;
+    case PoolStatus.PAUSED:
+      statusText = "Paused";
+      break;
+    case PoolStatus.CLOSED:
+      statusText = "Closed";
+      break;
+    case PoolStatus.ACTIVE:
+    default:
+      // Keep default "Accepting patrons" for active pools
+      break;
+  }
+
+  // Special case for pending status (blockchain_status === 0)
+  if (blockchainStatus === 0) {
     statusText = "Pending";
-  } else if (
-    pool.status === "inactive" &&
-    pool.blockchain_status !== "active" &&
-    pool.blockchain_status !== "confirmed"
-  ) {
-    // Only show inactive if the pool is truly inactive (not active on blockchain)
-    statusText = "Inactive";
   }
 
   return (

@@ -13,7 +13,6 @@ import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
 import { usePoolDetails } from "../../../hooks/usePoolDetails";
 import { usePoolCommitments } from "../../../hooks/usePoolCommitments";
 import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
-import { usePool } from "../../../hooks/usePool";
 import AppHeader from "../../components/AppHeader";
 
 // Import components
@@ -32,11 +31,7 @@ import UnfundedPoolView from "./components/UnfundedPoolView";
 import PoolLocation from "./components/PoolLocation";
 import FixedBottomBar from "./components/FixedBottomBar";
 import InfoModal from "../../components/InfoModal";
-import {
-  PoolStatus,
-  getPoolStatusFromNumber,
-  getDisplayStatus,
-} from "../../../lib/contracts/types";
+import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -47,12 +42,14 @@ export default function PoolDetailsPage() {
 
   const {
     pool,
+    creator,
+    patrons: poolPatrons,
     targetAmount,
     raisedAmount,
     percentage,
     isLoading,
     refresh: refreshPool,
-  } = usePool(poolId);
+  } = usePoolDetails(poolId);
 
   // Check if we need to refresh the data (coming from edit page)
   useEffect(() => {
@@ -75,8 +72,6 @@ export default function PoolDetailsPage() {
     console.log("Initial pool data refresh on mount");
     refreshPool();
   }, [refreshPool, poolId]);
-
-  const { creator, patrons, isLoading: isPoolLoading } = usePoolDetails(poolId);
 
   const {
     depositToPool: commitToBlockchain,
@@ -419,6 +414,7 @@ export default function PoolDetailsPage() {
 
   // Render pool funds section
   const renderPoolFunds = () => {
+    if (!pool) return null;
     return (
       <PoolFundsSection pool={pool} isCreator={creator?.id === dbUser?.id} />
     );
@@ -427,7 +423,7 @@ export default function PoolDetailsPage() {
   // Update the logic to check if a pool is funded or unfunded using the shared function
   const displayStatus = pool
     ? getDisplayStatus(
-        pool.blockchain_status,
+        pool.blockchain_status, // Now we have the raw numeric status
         pool.ends_at,
         pool.raised_amount,
         pool.target_amount
@@ -475,8 +471,6 @@ export default function PoolDetailsPage() {
         {/* Pool Header */}
         <PoolHeader
           pool={pool}
-          isFunded={isFunded}
-          isUnfunded={isUnfunded}
           isCreator={isCreator}
           handleEditClick={handleEditClick}
         />
