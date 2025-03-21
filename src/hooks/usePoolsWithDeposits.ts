@@ -35,7 +35,7 @@ export type TransformedPool = {
   image_url: string | null;
   description: string;
   creator_id: string;
-  blockchain_status: string;
+  blockchain_status: number | bigint;
 };
 
 export function usePoolsWithDeposits(page: number = 1, status?: string) {
@@ -123,7 +123,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
             image_url: supabaseData?.image_url || null,
             description: supabaseData?.description || "",
             creator_id: supabaseData?.creator_id || "",
-            blockchain_status: item.status === 1 ? "active" : "inactive",
+            blockchain_status: item.status, // Keep the numeric status from the contract
           };
         });
 

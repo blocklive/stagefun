@@ -16,6 +16,11 @@ import Image from "next/image";
 import GetTokensModal from "../components/GetTokensModal";
 import InfoModal from "../components/InfoModal";
 import AppHeader from "../components/AppHeader";
+import {
+  PoolStatus,
+  getPoolStatusFromNumber,
+  getDisplayStatus,
+} from "../../lib/contracts/types";
 
 type TabType = "open" | "funded" | "unfunded";
 
@@ -36,7 +41,7 @@ type OnChainPool = {
   image_url: string | null;
   description: string;
   creator_id: string;
-  blockchain_status: string;
+  blockchain_status: number | bigint;
 };
 
 export default function PoolsPage() {
@@ -113,29 +118,27 @@ export default function PoolsPage() {
   // Filter pools based on active tab and pool type
   const filteredPools =
     pools?.filter((pool: OnChainPool) => {
-      const endDate = new Date(pool.ends_at);
-      const now = new Date();
-      const isEnded = endDate < now;
-
       // First filter by pool type (all or my)
       if (poolType === "my" && pool.creator_id !== dbUser?.id) {
         return false;
       }
 
+      // Get the display status that takes into account both blockchain status and end time
+      const displayStatus = getDisplayStatus(
+        pool.blockchain_status,
+        pool.ends_at,
+        pool.raised_amount,
+        pool.target_amount
+      );
+
       // Then filter by tab
       if (activeTab === "funded") {
-        return (
-          pool.blockchain_status === "FUNDED" ||
-          (isEnded && pool.raised_amount >= pool.target_amount)
-        );
+        return displayStatus === PoolStatus.FUNDED;
       } else if (activeTab === "unfunded") {
-        return (
-          pool.blockchain_status === "FAILED" ||
-          (isEnded && pool.raised_amount < pool.target_amount)
-        );
+        return displayStatus === PoolStatus.FAILED;
       } else {
-        // open
-        return !isEnded;
+        // open - show active pools that aren't funded or failed
+        return displayStatus === PoolStatus.ACTIVE;
       }
     }) || [];
 

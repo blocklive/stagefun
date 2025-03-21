@@ -32,6 +32,11 @@ import UnfundedPoolView from "./components/UnfundedPoolView";
 import PoolLocation from "./components/PoolLocation";
 import FixedBottomBar from "./components/FixedBottomBar";
 import InfoModal from "../../components/InfoModal";
+import {
+  PoolStatus,
+  getPoolStatusFromNumber,
+  getDisplayStatus,
+} from "../../../lib/contracts/types";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -419,16 +424,18 @@ export default function PoolDetailsPage() {
     );
   };
 
-  // Update the logic to check if a pool is funded or unfunded
-  const isFunded = pool
-    ? pool.blockchain_status === "FUNDED" ||
-      (hasEnded && pool.raised_amount >= pool.target_amount)
-    : false;
+  // Update the logic to check if a pool is funded or unfunded using the shared function
+  const displayStatus = pool
+    ? getDisplayStatus(
+        pool.blockchain_status,
+        pool.ends_at,
+        pool.raised_amount,
+        pool.target_amount
+      )
+    : null;
 
-  const isUnfunded = pool
-    ? pool.blockchain_status === "FAILED" ||
-      (hasEnded && pool.raised_amount < pool.target_amount)
-    : false;
+  const isFunded = displayStatus === PoolStatus.FUNDED;
+  const isUnfunded = displayStatus === PoolStatus.FAILED;
 
   // Check if the current user is the creator of the pool
   const isCreator = dbUser?.id === pool?.creator_id;

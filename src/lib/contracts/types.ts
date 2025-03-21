@@ -76,3 +76,44 @@ export function getPoolStatusString(
 
   return PoolStatus[enumStatus];
 }
+
+/**
+ * Get the display status for a pool, taking into account both on-chain status and end date
+ * @param blockchainStatus - The numeric status from the blockchain (0-5)
+ * @param endTime - The end timestamp from the blockchain
+ * @param raisedAmount - The amount raised so far
+ * @param targetAmount - The target amount for the pool
+ * @returns PoolStatus - The status to display in the UI
+ */
+export function getDisplayStatus(
+  blockchainStatus: number | bigint,
+  endTime: number | bigint | string,
+  raisedAmount: number,
+  targetAmount: number
+): PoolStatus {
+  // Convert inputs to appropriate types
+  const status =
+    typeof blockchainStatus === "bigint"
+      ? Number(blockchainStatus)
+      : blockchainStatus;
+  const endTimeNum =
+    typeof endTime === "bigint"
+      ? Number(endTime)
+      : typeof endTime === "string"
+      ? new Date(endTime).getTime() / 1000
+      : endTime;
+  const now = Math.floor(Date.now() / 1000); // Current time in seconds
+
+  // If the pool is already marked as FUNDED or FAILED, respect that status
+  if (status === PoolStatus.FUNDED) return PoolStatus.FUNDED;
+  if (status === PoolStatus.FAILED) return PoolStatus.FAILED;
+
+  // Check if the pool has ended
+  if (now > endTimeNum) {
+    // Pool has ended - check if it met its target
+    return raisedAmount >= targetAmount ? PoolStatus.FUNDED : PoolStatus.FAILED;
+  }
+
+  // If not ended, return the current blockchain status
+  return status as PoolStatus;
+}
