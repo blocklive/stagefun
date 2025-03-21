@@ -23,3 +23,15 @@ export function formatCurrency(amount: number): string {
     maximumFractionDigits: 2,
   }).format(amount);
 }
+
+/**
+ * Format creator name with optional Twitter username
+ * @param creator The creator object containing name and twitter_username
+ * @returns Formatted creator name string
+ */
+export function getFormattedCreatorName(
+  creator: { name?: string | null; twitter_username?: string | null } | null
+): string {
+  if (!creator) return "Anonymous";
+  return creator.name || "Anonymous";
+}

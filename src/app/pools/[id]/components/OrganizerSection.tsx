@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { FaChevronRight } from "react-icons/fa";
 import { User } from "../../../../lib/supabase";
+import { getFormattedCreatorName } from "../../../../lib/utils";
 
 interface OrganizerSectionProps {
   creator: User | null;
@@ -45,12 +46,26 @@ export default function OrganizerSection({
             )}
             <div>
               <div className="font-semibold text-white">
-                {creator.name || "Anonymous"}
+                {getFormattedCreatorName(creator)}
                 {dbUser?.id === creator.id && (
                   <span className="ml-2 text-purple-400 text-sm">You</span>
                 )}
               </div>
-              <div className="text-sm text-gray-400">Eth Denver</div>
+              <div className="text-sm text-gray-400">
+                {creator.twitter_username ? (
+                  <a
+                    href={`https://x.com/${creator.twitter_username}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:text-purple-400 transition-colors"
+                  >
+                    @{creator.twitter_username}
+                  </a>
+                ) : (
+                  ""
+                )}
+              </div>
             </div>
           </div>
           <div className="text-gray-400">

@@ -64,14 +64,6 @@ export default function ProfileComponent() {
   const isOwnProfile =
     !profileUserId || (dbUser && profileUserId === dbUser.id);
 
-  // Add some debugging
-  useEffect(() => {
-    console.log("Profile page params:", params);
-    console.log("Profile user ID:", profileUserId);
-    console.log("Is own profile:", isOwnProfile);
-    console.log("Current user ID:", dbUser?.id);
-  }, [params, profileUserId, isOwnProfile, dbUser]);
-
   // Get the user to display (either the current user or the profile being viewed)
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isLoadingProfileUser, setIsLoadingProfileUser] = useState(false);
@@ -554,9 +546,16 @@ export default function ProfileComponent() {
 
             {/* Twitter handle if available */}
             {user?.twitter_username && (
-              <div className="flex items-center mt-1 text-gray-300">
-                <FaTwitter className="mr-2" />
-                <span>@{user.twitter_username}</span>
+              <div className="flex items-center mt-1">
+                <a
+                  href={`https://x.com/${user.twitter_username}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center text-gray-300 hover:text-purple-400 transition-colors"
+                >
+                  <FaTwitter className="mr-2" />
+                  <span>@{user.twitter_username}</span>
+                </a>
               </div>
             )}
 
@@ -786,7 +785,7 @@ export default function ProfileComponent() {
                 )}
                 {userHostedPools.map((pool) => (
                   <div
-                    key={pool.id}
+                    key={`${pool.id}-${pool.blockchain_status}`}
                     className="bg-[#1C1B1F] rounded-xl overflow-hidden cursor-pointer hover:bg-[#28262C] transition-colors p-4"
                     onClick={() => router.push(`/pools/${pool.id}`)}
                   >
