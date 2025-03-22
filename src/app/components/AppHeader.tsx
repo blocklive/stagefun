@@ -13,6 +13,7 @@ interface AppHeaderProps {
   showRightButtons?: boolean;
   onGetTokensClick?: () => void;
   onInfoClick?: () => void;
+  onBackClick?: () => void;
   title?: string;
   showTitle?: boolean;
   className?: string;
@@ -27,6 +28,7 @@ export default function AppHeader({
   showRightButtons = false,
   onGetTokensClick,
   onInfoClick,
+  onBackClick,
   title = "POOLS",
   showTitle = true,
   className = "",
@@ -39,8 +41,8 @@ export default function AppHeader({
     <div className={`${className}`} style={{ backgroundColor }}>
       {/* Header with Logo and Action Buttons */}
       <header className="flex justify-between items-center p-4">
-        {/* Logo - Only visible on mobile */}
-        <div className="flex items-center">
+        {/* Logo and Back Button */}
+        <div className="flex items-center gap-3">
           <div
             className="h-10 md:hidden cursor-pointer"
             onClick={() => router.push("/pools")}
@@ -53,6 +55,14 @@ export default function AppHeader({
               className="object-contain"
             />
           </div>
+          {showBackButton && (
+            <button
+              onClick={onBackClick || (() => router.back())}
+              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
+            >
+              <FaArrowLeft className="text-white w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -99,41 +109,6 @@ export default function AppHeader({
                 />
               </svg>
             </button>
-          )}
-          {showRightButtons && (
-            <>
-              <button
-                onClick={onGetTokensClick}
-                className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
-              >
-                <Image
-                  src="/icons/ic-droop.svg"
-                  alt="Get Tokens"
-                  width={20}
-                  height={20}
-                />
-              </button>
-              <button
-                onClick={() => router.push("/pools/create")}
-                className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
-              >
-                <svg
-                  className="w-5 h-5 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.5"
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
-              </button>
-            </>
           )}
         </div>
       </header>

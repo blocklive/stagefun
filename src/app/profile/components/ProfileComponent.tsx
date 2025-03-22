@@ -23,11 +23,9 @@ import {
   createOrUpdateUser,
   getUserById,
 } from "../../../lib/services/user-service";
-import BottomNavbar from "../../components/BottomNavbar";
 import { useUserAssets } from "../../../hooks/useUserAssets";
 import AppHeader from "../../components/AppHeader";
 import { useUserHostedPools } from "../../../hooks/useUserHostedPools";
-import SideNavbar from "../../components/SideNavbar";
 import GetTokensModal from "../../components/GetTokensModal";
 import InfoModal from "../../components/InfoModal";
 import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
@@ -455,385 +453,371 @@ export default function ProfileComponent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#15161a] text-white">
-      <SideNavbar activeTab="portfolio" />
+    <>
+      <AppHeader
+        showBackButton={false}
+        showTitle={false}
+        backgroundColor="#15161a"
+        showGetTokensButton={true}
+        showCreateButton={true}
+        onGetTokensClick={() => setShowGetTokensModal(true)}
+        onInfoClick={() => setShowInfoModal(true)}
+      />
 
-      <div className="md:pl-64">
-        <div className="relative">
-          <AppHeader
-            showBackButton={false}
-            showTitle={false}
-            backgroundColor="#15161a"
-            showGetTokensButton={true}
-            showCreateButton={true}
-            onGetTokensClick={() => setShowGetTokensModal(true)}
-            onInfoClick={() => setShowInfoModal(true)}
-          />
-        </div>
+      {/* Main Content */}
+      <div className="px-4 pb-24 md:pb-8">
+        {/* Back button if needed */}
+        {!isOwnProfile && (
+          <div className="py-2">
+            <button
+              onClick={() => router.back()}
+              className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
+            >
+              <FaArrowLeft />
+            </button>
+          </div>
+        )}
 
-        {/* Main Content */}
-        <div className="px-4 pb-24 md:pb-8">
-          {/* Back button if needed */}
-          {!isOwnProfile && (
-            <div className="py-2">
-              <button
-                onClick={() => router.back()}
-                className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
-              >
-                <FaArrowLeft />
-              </button>
-            </div>
-          )}
+        {/* Profile Header with Avatar and Name */}
+        <div className="relative pt-12 pb-8 flex flex-col items-center bg-gradient-to-b from-[#1A0B3E] to-[#4A2A9A]">
+          {/* Avatar with Edit Button */}
+          <div className="relative mb-4">
+            <div className="w-28 h-28 rounded-full bg-purple-600 overflow-hidden">
+              {imagePreview ? (
+                <Image
+                  src={imagePreview}
+                  alt="Profile Preview"
+                  width={112}
+                  height={112}
+                  className="object-cover w-full h-full"
+                  unoptimized={true}
+                />
+              ) : user?.avatar_url ? (
+                <Image
+                  src={user.avatar_url}
+                  alt="Profile"
+                  width={112}
+                  height={112}
+                  className="object-cover w-full h-full"
+                  unoptimized={true}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-3xl font-bold">
+                  {displayName.charAt(0)}
+                </div>
+              )}
 
-          {/* Profile Header with Avatar and Name */}
-          <div className="relative pt-12 pb-8 flex flex-col items-center bg-gradient-to-b from-[#1A0B3E] to-[#4A2A9A]">
-            {/* Avatar with Edit Button */}
-            <div className="relative mb-4">
-              <div className="w-28 h-28 rounded-full bg-purple-600 overflow-hidden">
-                {imagePreview ? (
-                  <Image
-                    src={imagePreview}
-                    alt="Profile Preview"
-                    width={112}
-                    height={112}
-                    className="object-cover w-full h-full"
-                    unoptimized={true}
-                  />
-                ) : user?.avatar_url ? (
-                  <Image
-                    src={user.avatar_url}
-                    alt="Profile"
-                    width={112}
-                    height={112}
-                    className="object-cover w-full h-full"
-                    unoptimized={true}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl font-bold">
-                    {displayName.charAt(0)}
-                  </div>
-                )}
-
-                {isUploadingImage && (
-                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
-                  </div>
-                )}
-              </div>
-
-              {/* Only show edit button if viewing own profile */}
-              {isOwnProfile && (
-                <>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                    ref={fileInputRef}
-                  />
-                  <button
-                    className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <FaEdit className="text-purple-600" />
-                  </button>
-                </>
+              {isUploadingImage && (
+                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+                </div>
               )}
             </div>
 
-            {/* Username */}
-            <h1 className="text-3xl font-bold">{displayName}</h1>
-
-            {/* Twitter handle if available */}
-            {user?.twitter_username && (
-              <div className="flex items-center mt-1">
-                <a
-                  href={`https://x.com/${user.twitter_username}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center text-gray-300 hover:text-purple-400 transition-colors"
-                >
-                  <FaTwitter className="mr-2" />
-                  <span>@{user.twitter_username}</span>
-                </a>
-              </div>
-            )}
-
-            {/* Only show Wallet Action Buttons if viewing own profile */}
-            {isOwnProfile && walletAddress && (
+            {/* Only show edit button if viewing own profile */}
+            {isOwnProfile && (
               <>
-                {/* Wallet Action Buttons */}
-                <div className="mt-4 flex items-center space-x-8 justify-center">
-                  {/* Receive Funds Button */}
-                  <button
-                    onClick={() => {
-                      if (walletAddress) {
-                        fundWallet(walletAddress, {
-                          chain: {
-                            id: 10143,
-                          },
-                          asset: "USDC",
-                          uiConfig: {
-                            receiveFundsTitle: "Receive USDC on Monad",
-                            receiveFundsSubtitle:
-                              "Scan this QR code or copy your wallet address to receive USDC on Monad Testnet.",
-                          },
-                        });
-                      }
-                    }}
-                    className="flex flex-col items-center"
-                    aria-label="Receive Funds"
-                  >
-                    <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M12 17L12 7"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M7 12L12 17L17 12"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M5 20H19"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </div>
-                    <span className="text-xs text-gray-400">Receive</span>
-                  </button>
-
-                  {/* Export Keys Button */}
-                  <button
-                    onClick={handleExportWallet}
-                    className="flex flex-col items-center"
-                    aria-label="Export Keys"
-                  >
-                    <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
-                      <FaKey className="text-xl" />
-                    </div>
-                    <span className="text-xs text-gray-400">Export</span>
-                  </button>
-
-                  {/* Logout Button */}
-                  <button
-                    onClick={logout}
-                    className="flex flex-col items-center"
-                    aria-label="Sign Out"
-                  >
-                    <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
-                      <FaSignOutAlt className="text-xl" />
-                    </div>
-                    <span className="text-xs text-gray-400">Sign Out</span>
-                  </button>
-                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                  ref={fileInputRef}
+                />
+                <button
+                  className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <FaEdit className="text-purple-600" />
+                </button>
               </>
             )}
           </div>
 
-          {/* Balance and Assets Section */}
-          {isOwnProfile && (
-            <div className="px-4 py-6 bg-black">
-              <h2 className="text-xl text-gray-400 mb-2">Balance</h2>
-              <div className="flex justify-between items-center mb-6">
-                <h1 className="text-5xl font-bold">${totalBalance}</h1>
-                {isUsingCachedBalance && (
-                  <div className="flex items-center">
-                    <span className="text-xs text-amber-300 mr-2">
-                      (using cached data)
-                    </span>
-                    <button
-                      onClick={refreshUsdcBalance}
-                      className="text-amber-300 hover:text-amber-200"
-                      title="Refresh balance"
-                    >
-                      <FaSync className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
+          {/* Username */}
+          <h1 className="text-3xl font-bold">{displayName}</h1>
 
-              <h2 className="text-2xl font-bold mt-8 mb-4">My assets</h2>
-
-              {isLoadingAssets ? (
-                <div className="flex justify-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500"></div>
-                </div>
-              ) : assets.length > 0 ? (
-                <div className="space-y-4">
-                  {assets.map((asset, index) => (
-                    <div
-                      key={index}
-                      className="bg-[#1C1B1F] rounded-xl p-4 flex items-center justify-between"
-                    >
-                      <div className="flex items-center">
-                        <div
-                          className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                            asset.type === "native"
-                              ? "bg-purple-600"
-                              : asset.type === "token"
-                              ? "bg-blue-500"
-                              : "bg-purple-500"
-                          }`}
-                        >
-                          {asset.type === "native" && (
-                            <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center">
-                              <div className="w-4 h-4 bg-purple-600 rounded-sm"></div>
-                            </div>
-                          )}
-                          {asset.type === "token" && (
-                            <div className="text-2xl font-bold text-white">
-                              $
-                            </div>
-                          )}
-                          {asset.type === "pool" && (
-                            <div className="text-xl font-bold text-white">
-                              ⚒️
-                            </div>
-                          )}
-                        </div>
-                        <div className="ml-3">
-                          <div className="flex items-center">
-                            <h3 className="font-semibold">{asset.name}</h3>
-                            {asset.status && (
-                              <span className="ml-2 text-sm text-gray-400">
-                                • {asset.status}
-                              </span>
-                            )}
-                            {asset.isUsingCache && (
-                              <span className="ml-2 text-xs text-amber-300">
-                                (cached)
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-gray-400">
-                            {asset.balance} {asset.symbol}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold">${asset.value.toFixed(2)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-gray-400">
-                  No assets found. Get some testnet tokens to get started!
-                </div>
-              )}
+          {/* Twitter handle if available */}
+          {user?.twitter_username && (
+            <div className="flex items-center mt-1">
+              <a
+                href={`https://x.com/${user.twitter_username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center text-gray-300 hover:text-purple-400 transition-colors"
+              >
+                <FaTwitter className="mr-2" />
+                <span>@{user.twitter_username}</span>
+              </a>
             </div>
           )}
 
-          {/* Heading for Hosted Pools */}
-          <div className="px-4 py-4 border-b border-gray-800">
-            <h2 className="text-xl font-bold">
-              {isOwnProfile
-                ? "My Hosted Pools"
-                : `${displayName}'s Hosted Pools`}
-            </h2>
-          </div>
-
-          {/* Pool List */}
-          <div className="flex-1 p-4 pb-32">
-            {isUserPoolsLoading ? (
-              <div className="flex justify-center py-8">
-                <div
-                  className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2"
-                  style={{ borderColor: "#836EF9" }}
-                ></div>
-              </div>
-            ) : userPoolsError ? (
-              <div className="text-center py-8 text-red-400">
-                <p>Error loading pools. Please try again.</p>
-                {isRpcError && (
-                  <p className="text-sm mt-1">
-                    There was an issue connecting to the blockchain. Using
-                    cached data if available.
-                  </p>
-                )}
+          {/* Only show Wallet Action Buttons if viewing own profile */}
+          {isOwnProfile && walletAddress && (
+            <>
+              {/* Wallet Action Buttons */}
+              <div className="mt-4 flex items-center space-x-8 justify-center">
+                {/* Receive Funds Button */}
                 <button
-                  onClick={() => refreshUserPools()}
-                  className="mt-4 hover:bg-opacity-80 px-4 py-2 rounded-lg transition-colors"
-                  style={{ backgroundColor: "#836EF9" }}
+                  onClick={() => {
+                    if (walletAddress) {
+                      fundWallet(walletAddress, {
+                        chain: {
+                          id: 10143,
+                        },
+                        asset: "USDC",
+                        uiConfig: {
+                          receiveFundsTitle: "Receive USDC on Monad",
+                          receiveFundsSubtitle:
+                            "Scan this QR code or copy your wallet address to receive USDC on Monad Testnet.",
+                        },
+                      });
+                    }
+                  }}
+                  className="flex flex-col items-center"
+                  aria-label="Receive Funds"
                 >
-                  Retry
+                  <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M12 17L12 7"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M7 12L12 17L17 12"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M5 20H19"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </div>
+                  <span className="text-xs text-gray-400">Receive</span>
+                </button>
+
+                {/* Export Keys Button */}
+                <button
+                  onClick={handleExportWallet}
+                  className="flex flex-col items-center"
+                  aria-label="Export Keys"
+                >
+                  <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
+                    <FaKey className="text-xl" />
+                  </div>
+                  <span className="text-xs text-gray-400">Export</span>
+                </button>
+
+                {/* Logout Button */}
+                <button
+                  onClick={logout}
+                  className="flex flex-col items-center"
+                  aria-label="Sign Out"
+                >
+                  <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
+                    <FaSignOutAlt className="text-xl" />
+                  </div>
+                  <span className="text-xs text-gray-400">Sign Out</span>
                 </button>
               </div>
-            ) : userHostedPools.length > 0 ? (
+            </>
+          )}
+        </div>
+
+        {/* Balance and Assets Section */}
+        {isOwnProfile && (
+          <div className="px-4 py-6 bg-black">
+            <h2 className="text-xl text-gray-400 mb-2">Balance</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-5xl font-bold">${totalBalance}</h1>
+              {isUsingCachedBalance && (
+                <div className="flex items-center">
+                  <span className="text-xs text-amber-300 mr-2">
+                    (using cached data)
+                  </span>
+                  <button
+                    onClick={refreshUsdcBalance}
+                    className="text-amber-300 hover:text-amber-200"
+                    title="Refresh balance"
+                  >
+                    <FaSync className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <h2 className="text-2xl font-bold mt-8 mb-4">My assets</h2>
+
+            {isLoadingAssets ? (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500"></div>
+              </div>
+            ) : assets.length > 0 ? (
               <div className="space-y-4">
-                {isUsingCache && (
-                  <div className="text-center py-2 text-amber-400 text-sm">
-                    Using cached data.{" "}
-                    <button onClick={refreshUserPools} className="underline">
-                      Refresh
-                    </button>
-                  </div>
-                )}
-                {userHostedPools.map((pool) => (
+                {assets.map((asset, index) => (
                   <div
-                    key={`${pool.id}-${pool.blockchain_status}`}
-                    className="bg-[#1C1B1F] rounded-xl overflow-hidden cursor-pointer hover:bg-[#28262C] transition-colors p-4"
-                    onClick={() => router.push(`/pools/${pool.id}`)}
+                    key={index}
+                    className="bg-[#1C1B1F] rounded-xl p-4 flex items-center justify-between"
                   >
                     <div className="flex items-center">
                       <div
-                        className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                        style={{ backgroundColor: "#2A2640" }}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                          asset.type === "native"
+                            ? "bg-purple-600"
+                            : asset.type === "token"
+                            ? "bg-blue-500"
+                            : "bg-purple-500"
+                        }`}
                       >
-                        {pool.image_url ? (
-                          <Image
-                            src={pool.image_url}
-                            alt={pool.name}
-                            width={48}
-                            height={48}
-                            className="w-full h-full object-cover"
-                            unoptimized={true}
-                          />
-                        ) : null}
+                        {asset.type === "native" && (
+                          <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center">
+                            <div className="w-4 h-4 bg-purple-600 rounded-sm"></div>
+                          </div>
+                        )}
+                        {asset.type === "token" && (
+                          <div className="text-2xl font-bold text-white">$</div>
+                        )}
+                        {asset.type === "pool" && (
+                          <div className="text-xl font-bold text-white">⚒️</div>
+                        )}
                       </div>
-                      <div className="ml-4 flex-1">
-                        <h3 className="font-bold">{pool.name}</h3>
-                        <div className="flex items-center text-sm">
-                          <span className={`text-gray-400 flex items-center`}>
-                            <span
-                              className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                                getPoolStatus(pool).colorClass
-                              }`}
-                            ></span>
-                            {getPoolStatus(pool).text}
-                          </span>
+                      <div className="ml-3">
+                        <div className="flex items-center">
+                          <h3 className="font-semibold">{asset.name}</h3>
+                          {asset.status && (
+                            <span className="ml-2 text-sm text-gray-400">
+                              • {asset.status}
+                            </span>
+                          )}
+                          {asset.isUsingCache && (
+                            <span className="ml-2 text-xs text-amber-300">
+                              (cached)
+                            </span>
+                          )}
                         </div>
+                        <p className="text-gray-400">
+                          {asset.balance} {asset.symbol}
+                        </p>
                       </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">${asset.value.toFixed(2)}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-400">
-                {isOwnProfile
-                  ? "You haven't created any pools yet."
-                  : `${displayName} hasn't created any pools yet.`}
+              <div className="text-center py-4 text-gray-400">
+                No assets found. Get some testnet tokens to get started!
               </div>
             )}
           </div>
+        )}
+
+        {/* Heading for Hosted Pools */}
+        <div className="px-4 py-4 border-b border-gray-800">
+          <h2 className="text-xl font-bold">
+            {isOwnProfile ? "My Hosted Pools" : `${displayName}'s Hosted Pools`}
+          </h2>
+        </div>
+
+        {/* Pool List */}
+        <div className="flex-1 p-4 pb-32">
+          {isUserPoolsLoading ? (
+            <div className="flex justify-center py-8">
+              <div
+                className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2"
+                style={{ borderColor: "#836EF9" }}
+              ></div>
+            </div>
+          ) : userPoolsError ? (
+            <div className="text-center py-8 text-red-400">
+              <p>Error loading pools. Please try again.</p>
+              {isRpcError && (
+                <p className="text-sm mt-1">
+                  There was an issue connecting to the blockchain. Using cached
+                  data if available.
+                </p>
+              )}
+              <button
+                onClick={() => refreshUserPools()}
+                className="mt-4 hover:bg-opacity-80 px-4 py-2 rounded-lg transition-colors"
+                style={{ backgroundColor: "#836EF9" }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : userHostedPools.length > 0 ? (
+            <div className="space-y-4">
+              {isUsingCache && (
+                <div className="text-center py-2 text-amber-400 text-sm">
+                  Using cached data.{" "}
+                  <button onClick={refreshUserPools} className="underline">
+                    Refresh
+                  </button>
+                </div>
+              )}
+              {userHostedPools.map((pool) => (
+                <div
+                  key={`${pool.id}-${pool.blockchain_status}`}
+                  className="bg-[#1C1B1F] rounded-xl overflow-hidden cursor-pointer hover:bg-[#28262C] transition-colors p-4"
+                  onClick={() => router.push(`/pools/${pool.id}`)}
+                >
+                  <div className="flex items-center">
+                    <div
+                      className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                      style={{ backgroundColor: "#2A2640" }}
+                    >
+                      {pool.image_url ? (
+                        <Image
+                          src={pool.image_url}
+                          alt={pool.name}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover"
+                          unoptimized={true}
+                        />
+                      ) : null}
+                    </div>
+                    <div className="ml-4 flex-1">
+                      <h3 className="font-bold">{pool.name}</h3>
+                      <div className="flex items-center text-sm">
+                        <span className={`text-gray-400 flex items-center`}>
+                          <span
+                            className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                              getPoolStatus(pool).colorClass
+                            }`}
+                          ></span>
+                          {getPoolStatus(pool).text}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              {isOwnProfile
+                ? "You haven't created any pools yet."
+                : `${displayName} hasn't created any pools yet.`}
+            </div>
+          )}
         </div>
       </div>
-
-      <BottomNavbar activeTab="portfolio" />
 
       {/* Modals */}
       {showGetTokensModal && (
@@ -848,6 +832,6 @@ export default function ProfileComponent() {
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}
       />
-    </div>
+    </>
   );
 }

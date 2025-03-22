@@ -5,8 +5,6 @@ import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { FaArrowLeft } from "react-icons/fa";
 import { toast } from "react-hot-toast";
-import BottomNavbar from "../../components/BottomNavbar";
-import SideNavbar from "../../components/SideNavbar";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
 import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
@@ -646,34 +644,18 @@ export default function PoolDetailsPage() {
 
   return (
     <div className="min-h-screen bg-[#15161a] text-white flex flex-col">
-      <SideNavbar activeTab="party" />
+      <AppHeader
+        showBackButton={true}
+        showTitle={false}
+        backgroundColor="#15161a"
+        showGetTokensButton={true}
+        onGetTokensClick={() => setShowTokensModal(true)}
+        onInfoClick={() => setShowInfoModal(true)}
+        onBackClick={handleBackClick}
+      />
 
-      <div className="md:pl-64">
-        <div className="relative">
-          <AppHeader
-            showBackButton={false}
-            showTitle={false}
-            backgroundColor="#15161a"
-            showGetTokensButton={true}
-            showCreateButton={true}
-            onGetTokensClick={() => setShowTokensModal(true)}
-            onInfoClick={() => setShowInfoModal(true)}
-          />
-
-          {/* Back button below header */}
-          <div className="px-4 py-2">
-            <button
-              onClick={handleBackClick}
-              className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
-            >
-              <FaArrowLeft />
-            </button>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto">{renderContent()}</div>
-      </div>
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto">{renderContent()}</div>
 
       {/* Fixed bottom elements */}
       <FixedBottomBar
@@ -681,14 +663,6 @@ export default function PoolDetailsPage() {
         onCommitClick={() => setIsCommitModalOpen(true)}
         commitButtonText={commitButtonText}
       />
-
-      {/* Bottom Navigation - Mobile only */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#15161a] border-t border-gray-800 md:hidden">
-        <BottomNavbar activeTab="party" />
-      </div>
-
-      {/* Add padding at the bottom of the main content to prevent overlap - mobile only */}
-      <div className="pb-56 md:pb-24"></div>
 
       {/* Commit Modal */}
       <CommitModal
@@ -708,10 +682,12 @@ export default function PoolDetailsPage() {
       />
 
       {/* Get Tokens Modal */}
-      <GetTokensModal
-        isOpen={showTokensModal}
-        onClose={() => setShowTokensModal(false)}
-      />
+      {showTokensModal && (
+        <GetTokensModal
+          isOpen={showTokensModal}
+          onClose={() => setShowTokensModal(false)}
+        />
+      )}
 
       {/* Info Modal */}
       <InfoModal
