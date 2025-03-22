@@ -313,17 +313,17 @@ export default function PoolsPage() {
         {/* Tabs */}
         <div className="flex justify-center gap-2 px-4">
           <button
-            className={`px-6 py-3 rounded-full text-lg ${
+            className={`w-[110px] py-3 rounded-full text-lg ${
               activeTab === "open"
                 ? "bg-white text-black font-medium"
                 : "bg-transparent text-white border border-gray-700"
             }`}
             onClick={() => handleTabChange("open")}
           >
-            Open rounds
+            Open
           </button>
           <button
-            className={`px-6 py-3 rounded-full text-lg ${
+            className={`w-[110px] py-3 rounded-full text-lg ${
               activeTab === "funded"
                 ? "bg-white text-black font-medium"
                 : "bg-transparent text-white border border-gray-700"
@@ -333,7 +333,7 @@ export default function PoolsPage() {
             Funded
           </button>
           <button
-            className={`px-6 py-3 rounded-full text-lg ${
+            className={`w-[110px] py-3 rounded-full text-lg ${
               activeTab === "unfunded"
                 ? "bg-white text-black font-medium"
                 : "bg-transparent text-white border border-gray-700"
