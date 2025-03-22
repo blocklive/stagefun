@@ -488,58 +488,65 @@ export default function PoolsPage() {
               </div>
             ) : (
               <ul className="space-y-4">
-                {activeTab !== "funded"
-                  ? // Open Rounds UI
-                    sortedPools.map((pool: OnChainPool) => (
-                      <li
-                        key={pool.id}
-                        className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
-                        onClick={() => handlePoolClick(pool.id)}
-                      >
-                        <div className="flex items-center gap-3">
-                          {/* Pool Image */}
-                          <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2A2640]">
-                            {pool.image_url && (
+                {sortedPools.map((pool: OnChainPool) => (
+                  <li
+                    key={pool.id}
+                    className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
+                    onClick={() => handlePoolClick(pool.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Pool Image */}
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2A2640]">
+                        {pool.image_url && (
+                          <Image
+                            src={pool.image_url}
+                            alt={pool.name}
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+
+                      {/* Pool Info */}
+                      <div className="flex-1">
+                        <div className="flex items-center">
+                          <h3 className="font-semibold text-lg">{pool.name}</h3>
+                          {activeTab !== "funded" && (
+                            <div className="ml-2">
+                              {getPoolStatusIndicator(pool)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
+                            {pool.creator_avatar_url && (
                               <Image
-                                src={pool.image_url}
-                                alt={pool.name}
-                                width={48}
-                                height={48}
+                                src={pool.creator_avatar_url || ""}
+                                alt={pool.creator_name || ""}
+                                width={24}
+                                height={24}
                                 className="w-full h-full object-cover"
                               />
                             )}
                           </div>
+                          <span className="text-sm text-gray-400">
+                            {pool.creator_name || "Anonymous"}
+                          </span>
+                        </div>
+                      </div>
 
-                          {/* Pool Info */}
-                          <div className="flex-1">
-                            <div className="flex items-center">
-                              <h3 className="font-semibold text-lg">
-                                {pool.name}
-                              </h3>
-                              <div className="ml-2">
-                                {getPoolStatusIndicator(pool)}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
-                                {pool.creator_avatar_url && (
-                                  <Image
-                                    src={pool.creator_avatar_url || ""}
-                                    alt={pool.creator_name || ""}
-                                    width={24}
-                                    height={24}
-                                    className="w-full h-full object-cover"
-                                  />
-                                )}
-                              </div>
-                              <span className="text-sm text-gray-400">
-                                {pool.creator_name || "Anonymous"}
-                              </span>
-                            </div>
+                      {/* Progress and Amount */}
+                      <div className="text-right flex items-center gap-4">
+                        {activeTab === "funded" ? (
+                          <div>
+                            <p className="text-sm text-gray-400">Vol</p>
+                            <p className="text-lg font-bold">
+                              ${formatAmount(pool.raised_amount)}
+                            </p>
                           </div>
-
-                          {/* Progress and Amount */}
-                          <div className="text-right flex items-center gap-4">
+                        ) : (
+                          <>
                             <div>
                               <div className="font-medium">
                                 ${formatAmount(pool.raised_amount)}
@@ -552,66 +559,12 @@ export default function PoolsPage() {
                               progress={getPercentComplete(pool)}
                               size={48}
                             />
-                          </div>
-                        </div>
-                      </li>
-                    ))
-                  : // Funded Pools UI - based on the image
-                    sortedPools.map((pool: OnChainPool) => (
-                      <li
-                        key={pool.id}
-                        className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
-                        onClick={() => handlePoolClick(pool.id)}
-                      >
-                        <div className="flex items-center gap-3">
-                          {/* Pool Image */}
-                          <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2A2640]">
-                            {pool.image_url && (
-                              <Image
-                                src={pool.image_url}
-                                alt={pool.name}
-                                width={48}
-                                height={48}
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-                          </div>
-
-                          {/* Pool Info */}
-                          <div className="flex-1">
-                            <div className="flex items-center">
-                              <h3 className="font-semibold text-lg">
-                                {pool.name}
-                              </h3>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
-                                {pool.creator_avatar_url && (
-                                  <Image
-                                    src={pool.creator_avatar_url || ""}
-                                    alt={pool.creator_name || ""}
-                                    width={24}
-                                    height={24}
-                                    className="w-full h-full object-cover"
-                                  />
-                                )}
-                              </div>
-                              <span className="text-sm text-gray-400">
-                                {pool.creator_name || "Anonymous"}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Volume Display */}
-                          <div className="text-right">
-                            <p className="text-sm text-gray-400">Vol</p>
-                            <p className="text-lg font-bold">
-                              ${formatAmount(pool.raised_amount)}
-                            </p>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
 
                 {sortedPools.length === 0 && !loading && (
                   <div className="p-8 text-center text-gray-400">

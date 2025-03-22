@@ -37,12 +37,11 @@ export default function PoolImageUpload({
 
   return (
     <div className="mt-8">
-      <div className="flex items-center mb-2">
-        <h2 className="text-2xl font-bold">Pool Image</h2>
-        {isRequired && showValidation && !imagePreview && (
-          <span className="text-red-500 ml-2">*</span>
-        )}
-      </div>
+      {isRequired && showValidation && !imagePreview && (
+        <div className="mb-2">
+          <span className="text-red-500">*</span>
+        </div>
+      )}
 
       {/* Main container - conditional background based on image presence */}
       <div

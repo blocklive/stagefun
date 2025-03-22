@@ -127,10 +127,17 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           };
         });
 
+        // Ensure unique pools by ID
+        const uniquePoolsMap = new Map();
+        transformedPools.forEach((pool) => {
+          uniquePoolsMap.set(pool.id, pool);
+        });
+        const uniquePools = Array.from(uniquePoolsMap.values());
+
         // Filter by status if needed
         const filteredPools = status
-          ? transformedPools.filter((pool) => pool.status === status)
-          : transformedPools;
+          ? uniquePools.filter((pool) => pool.status === status)
+          : uniquePools;
 
         // Sort by most recent (we don't have created_at from blockchain, so we'll use address as a proxy)
         const sortedPools = [...filteredPools].sort((a, b) =>
