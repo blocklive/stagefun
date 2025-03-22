@@ -15,7 +15,9 @@ contract StageDotFunPoolFactory is Ownable {
         string uniqueId,
         address creator,
         address lpTokenAddress,
-        uint256 endTime
+        uint256 endTime,
+        uint256 targetAmount,
+        uint256 capAmount
     );
     
     event PoolStatusUpdated(address indexed poolAddress, uint8 status);
@@ -26,7 +28,7 @@ contract StageDotFunPoolFactory is Ownable {
         poolBytecodeHash = keccak256(
             abi.encodePacked(
                 type(StageDotFunPool).creationCode,
-                abi.encode(address(0), "", "", "", 0, address(0), address(0), 0, 0) // Default constructor arguments
+                abi.encode(address(0), "", "", "", 0, address(0), address(0), 0, 0, 0) // Default constructor arguments
             )
         );
     }
@@ -37,10 +39,12 @@ contract StageDotFunPoolFactory is Ownable {
         string memory symbol,
         uint256 endTime,
         uint256 targetAmount,
+        uint256 capAmount,
         uint256 minCommitment
     ) external returns (address) {
         require(endTime > block.timestamp, "End time must be in future");
         require(targetAmount > 0, "Target amount must be greater than 0");
+        require(capAmount > targetAmount, "Cap amount must be greater than target amount");
         require(minCommitment > 0, "Min commitment must be greater than 0");
         require(minCommitment <= targetAmount, "Min commitment cannot exceed target amount");
         require(bytes(uniqueId).length > 0, "Unique ID cannot be empty");
@@ -56,8 +60,9 @@ contract StageDotFunPoolFactory is Ownable {
             endTime,
             depositToken,
             msg.sender,
-            msg.sender, // Use msg.sender as the creator address instead of tx.origin
+            msg.sender,
             targetAmount,
+            capAmount,
             minCommitment
         );
         
@@ -69,7 +74,9 @@ contract StageDotFunPoolFactory is Ownable {
             uniqueId,
             msg.sender,
             address(newPool.lpToken()),
-            endTime
+            endTime,
+            targetAmount,
+            capAmount
         );
         
         return address(newPool);
@@ -124,6 +131,7 @@ contract StageDotFunPoolFactory is Ownable {
         uint256[] memory revenueAccumulated,
         uint256[] memory endTimes,
         uint256[] memory targetAmounts,
+        uint256[] memory capAmounts,
         uint8[] memory statuses
     ) {
         uint256 poolCount = deployedPools.length;
@@ -153,6 +161,7 @@ contract StageDotFunPoolFactory is Ownable {
                 new uint256[](0),
                 new uint256[](0),
                 new uint256[](0),
+                new uint256[](0),
                 new uint8[](0)
             );
         }
@@ -167,6 +176,7 @@ contract StageDotFunPoolFactory is Ownable {
         revenueAccumulated = new uint256[](batchSize);
         endTimes = new uint256[](batchSize);
         targetAmounts = new uint256[](batchSize);
+        capAmounts = new uint256[](batchSize);
         statuses = new uint8[](batchSize);
         
         for (uint256 i = 0; i < batchSize; i++) {
@@ -182,10 +192,11 @@ contract StageDotFunPoolFactory is Ownable {
             revenueAccumulated[i] = pool.revenueAccumulated();
             endTimes[i] = pool.endTime();
             targetAmounts[i] = pool.targetAmount();
+            capAmounts[i] = pool.capAmount();
             statuses[i] = uint8(pool.status());
         }
         
-        return (poolAddresses, names, uniqueIds, creators, totalDeposits, revenueAccumulated, endTimes, targetAmounts, statuses);
+        return (poolAddresses, names, uniqueIds, creators, totalDeposits, revenueAccumulated, endTimes, targetAmounts, capAmounts, statuses);
     }
 
     function getDeployedPools() external view returns (address[] memory) {
