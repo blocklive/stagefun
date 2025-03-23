@@ -364,22 +364,27 @@ export default function CreatePoolPage() {
 
         {/* Main content */}
         <div className="px-6" style={{ paddingBottom: "100px" }}>
-          {/* Pool Details and Image Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-            {/* Pool Details */}
-            <div>
-              <h2 className="text-2xl font-bold mb-4">Pool Details</h2>
+          {/* Pool Details, Funding, and Image Section */}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] gap-x-8 gap-y-6 md:gap-y-0 mt-8">
+            {/* Left Column: Pool Details and Funding */}
+            <div className="space-y-6 order-2 md:order-1">
               <PoolDetailsSection
                 poolName={poolName}
                 ticker={ticker}
                 onPoolNameChange={setPoolName}
                 onTickerChange={setTicker}
               />
+
+              <FundingSection
+                fundingGoal={fundingGoal}
+                capAmount={capAmount}
+                onFundingGoalChange={setFundingGoal}
+                onCapAmountChange={setCapAmount}
+              />
             </div>
 
-            {/* Pool Image */}
-            <div>
-              <h2 className="text-2xl font-bold mb-4">Pool Image</h2>
+            {/* Right Column: Pool Image */}
+            <div className="w-full md:w-[400px] order-1 md:order-2">
               <PoolImageSection
                 imagePreview={imagePreview}
                 isUploadingImage={isUploadingImage}
@@ -392,14 +397,6 @@ export default function CreatePoolPage() {
 
           {/* Form */}
           <form id="createPoolForm" onSubmit={onSubmit} className="mt-8">
-            {/* Funding Section */}
-            <FundingSection
-              fundingGoal={fundingGoal}
-              capAmount={capAmount}
-              onFundingGoalChange={setFundingGoal}
-              onCapAmountChange={setCapAmount}
-            />
-
             {/* Add RewardItemsSection before TiersSection */}
             <RewardItemsSection
               rewardItems={rewardItems}

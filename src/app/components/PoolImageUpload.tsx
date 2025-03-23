@@ -36,7 +36,7 @@ export default function PoolImageUpload({
   };
 
   return (
-    <div className="mt-8">
+    <div>
       {isRequired && showValidation && !imagePreview && (
         <div className="mb-2">
           <span className="text-red-500">*</span>
