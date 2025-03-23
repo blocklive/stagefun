@@ -19,7 +19,6 @@ import {
   getPoolStatusFromNumber,
   getDisplayStatus,
 } from "../../lib/contracts/types";
-import SideNavbar from "../components/SideNavbar";
 
 type TabType = "open" | "funded" | "unfunded";
 
@@ -300,274 +299,271 @@ export default function PoolsPage() {
 
   return (
     <div className="min-h-screen bg-[#15161a] text-white">
-      <SideNavbar activeTab="party" />
-      <div className="md:pl-64">
-        <AppHeader
-          showBackButton={false}
-          showTitle={false}
-          backgroundColor="#15161a"
-          showGetTokensButton={true}
-          showCreateButton={true}
-          onGetTokensClick={() => setShowTokensModal(true)}
-          onInfoClick={() => setShowInfoModal(true)}
-        />
+      <AppHeader
+        showBackButton={false}
+        showTitle={false}
+        backgroundColor="#15161a"
+        showGetTokensButton={true}
+        showCreateButton={true}
+        onGetTokensClick={() => setShowTokensModal(true)}
+        onInfoClick={() => setShowInfoModal(true)}
+      />
 
-        {/* Main Content */}
-        <div className="px-4 pb-24 md:pb-8">
-          {/* Tabs */}
-          <div className="flex justify-center gap-2 px-4">
-            <button
-              className={`w-[110px] py-3 rounded-full text-lg ${
-                activeTab === "open"
-                  ? "bg-white text-black font-medium"
-                  : "bg-transparent text-white border border-gray-700"
-              }`}
-              onClick={() => handleTabChange("open")}
-            >
-              Open
-            </button>
-            <button
-              className={`w-[110px] py-3 rounded-full text-lg ${
-                activeTab === "funded"
-                  ? "bg-white text-black font-medium"
-                  : "bg-transparent text-white border border-gray-700"
-              }`}
-              onClick={() => handleTabChange("funded")}
-            >
-              Funded
-            </button>
-            <button
-              className={`w-[110px] py-3 rounded-full text-lg ${
-                activeTab === "unfunded"
-                  ? "bg-white text-black font-medium"
-                  : "bg-transparent text-white border border-gray-700"
-              }`}
-              onClick={() => handleTabChange("unfunded")}
-            >
-              Unfunded
-            </button>
-          </div>
-
-          {/* Filters */}
-          <div className="flex justify-between items-center mt-6 px-4 w-full">
-            {/* Type Dropdown */}
-            <div className="relative" ref={typeDropdownRef}>
-              <button
-                className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
-                onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-              >
-                {getTypeText()} <FaChevronDown className="text-xs ml-1" />
-              </button>
-
-              {showTypeDropdown && (
-                <div className="absolute left-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
-                  <ul>
-                    <li
-                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                      style={{ color: poolType === "all" ? "#836EF9" : "" }}
-                      onClick={() => handleTypeSelect("all")}
-                    >
-                      All types
-                    </li>
-                    <li
-                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                      style={{ color: poolType === "my" ? "#836EF9" : "" }}
-                      onClick={() => handleTypeSelect("my")}
-                    >
-                      My pools
-                    </li>
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            {/* Sort Dropdown */}
-            <div className="relative" ref={sortDropdownRef}>
-              <button
-                className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
-                onClick={() => setShowSortDropdown(!showSortDropdown)}
-              >
-                Sort by: {getSortByText()}{" "}
-                <FaChevronDown className="text-xs ml-1" />
-              </button>
-
-              {showSortDropdown && (
-                <div className="absolute right-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
-                  <ul>
-                    {activeTab !== "funded" && activeTab !== "unfunded" ? (
-                      <>
-                        <li
-                          className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                          style={{
-                            color: sortBy === "recent" ? "#836EF9" : "",
-                          }}
-                          onClick={() => handleSortSelect("recent")}
-                        >
-                          Recent
-                        </li>
-                        <li
-                          className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                          style={{
-                            color: sortBy === "amount" ? "#836EF9" : "",
-                          }}
-                          onClick={() => handleSortSelect("amount")}
-                        >
-                          Amount
-                        </li>
-                        <li
-                          className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                          style={{
-                            color: sortBy === "alphabetical" ? "#836EF9" : "",
-                          }}
-                          onClick={() => handleSortSelect("alphabetical")}
-                        >
-                          A-Z
-                        </li>
-                      </>
-                    ) : (
-                      <>
-                        <li
-                          className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                          style={{
-                            color: sortBy === "volume" ? "#836EF9" : "",
-                          }}
-                          onClick={() => handleSortSelect("volume")}
-                        >
-                          Volume
-                        </li>
-                        <li
-                          className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                          style={{
-                            color: sortBy === "alphabetical" ? "#836EF9" : "",
-                          }}
-                          onClick={() => handleSortSelect("alphabetical")}
-                        >
-                          A-Z
-                        </li>
-                      </>
-                    )}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* List of Items */}
-          <div
-            className="flex-1 overflow-y-auto mt-4 px-4"
-            style={{ paddingBottom: "128px" }}
+      {/* Main Content */}
+      <div className="px-4 pb-24 md:pb-8">
+        {/* Tabs */}
+        <div className="flex justify-center gap-2 px-4">
+          <button
+            className={`w-[110px] py-3 rounded-full text-lg ${
+              activeTab === "open"
+                ? "bg-white text-black font-medium"
+                : "bg-transparent text-white border border-gray-700"
+            }`}
+            onClick={() => handleTabChange("open")}
           >
-            {loading && pools.length === 0 ? (
-              renderSkeletonList()
-            ) : error && !isRpcError ? (
-              <div className="p-8 text-center text-red-400">
-                <p>Error loading pools. Please try again later.</p>
-                <button
-                  onClick={() => refresh()}
-                  className="mt-4 px-4 py-2 rounded-lg hover:bg-opacity-80 transition-colors"
-                  style={{ backgroundColor: "#836EF9" }}
-                >
-                  Refresh
-                </button>
-              </div>
-            ) : (
-              <ul className="space-y-4">
-                {sortedPools.map((pool: OnChainPool) => (
+            Open
+          </button>
+          <button
+            className={`w-[110px] py-3 rounded-full text-lg ${
+              activeTab === "funded"
+                ? "bg-white text-black font-medium"
+                : "bg-transparent text-white border border-gray-700"
+            }`}
+            onClick={() => handleTabChange("funded")}
+          >
+            Funded
+          </button>
+          <button
+            className={`w-[110px] py-3 rounded-full text-lg ${
+              activeTab === "unfunded"
+                ? "bg-white text-black font-medium"
+                : "bg-transparent text-white border border-gray-700"
+            }`}
+            onClick={() => handleTabChange("unfunded")}
+          >
+            Unfunded
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="flex justify-between items-center mt-6 px-4 w-full">
+          {/* Type Dropdown */}
+          <div className="relative" ref={typeDropdownRef}>
+            <button
+              className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
+              onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+            >
+              {getTypeText()} <FaChevronDown className="text-xs ml-1" />
+            </button>
+
+            {showTypeDropdown && (
+              <div className="absolute left-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
+                <ul>
                   <li
-                    key={pool.id}
-                    className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
-                    onClick={() => handlePoolClick(pool.id)}
+                    className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                    style={{ color: poolType === "all" ? "#836EF9" : "" }}
+                    onClick={() => handleTypeSelect("all")}
                   >
-                    <div className="flex items-center gap-3">
-                      {/* Pool Image */}
-                      <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2A2640]">
-                        {pool.image_url && (
-                          <Image
-                            src={pool.image_url}
-                            alt={pool.name}
-                            width={48}
-                            height={48}
-                            className="w-full h-full object-cover"
-                          />
-                        )}
-                      </div>
-
-                      {/* Pool Info */}
-                      <div className="flex-1">
-                        <div className="flex items-center">
-                          <h3 className="font-semibold text-lg">{pool.name}</h3>
-                          {activeTab !== "funded" && (
-                            <div className="ml-2">
-                              {getPoolStatusIndicator(pool)}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
-                            {pool.creator_avatar_url && (
-                              <Image
-                                src={pool.creator_avatar_url || ""}
-                                alt={pool.creator_name || ""}
-                                width={24}
-                                height={24}
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-                          </div>
-                          <span className="text-sm text-gray-400">
-                            {pool.creator_name || "Anonymous"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Progress and Amount */}
-                      <div className="text-right flex items-center gap-4">
-                        {activeTab === "funded" ? (
-                          <div>
-                            <p className="text-sm text-gray-400">Vol</p>
-                            <p className="text-lg font-bold">
-                              ${formatAmount(pool.raised_amount)}
-                            </p>
-                          </div>
-                        ) : (
-                          <>
-                            <div>
-                              <div className="font-medium">
-                                ${formatAmount(pool.raised_amount)}
-                              </div>
-                              <div className="text-sm text-gray-400">
-                                of ${formatAmount(pool.target_amount)}
-                              </div>
-                            </div>
-                            <CircularProgress
-                              progress={getPercentComplete(pool)}
-                              size={48}
-                            />
-                          </>
-                        )}
-                      </div>
-                    </div>
+                    All types
                   </li>
-                ))}
-
-                {sortedPools.length === 0 && !loading && (
-                  <div className="p-8 text-center text-gray-400">
-                    {activeTab === "open"
-                      ? poolType === "my"
-                        ? "You haven't created any open rounds yet."
-                        : "No open rounds available."
-                      : activeTab === "funded"
-                      ? poolType === "my"
-                        ? "You haven't created any funded pools yet."
-                        : "No funded pools available."
-                      : poolType === "my"
-                      ? "You haven't created any unfunded pools yet."
-                      : "No unfunded pools available."}
-                  </div>
-                )}
-              </ul>
+                  <li
+                    className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                    style={{ color: poolType === "my" ? "#836EF9" : "" }}
+                    onClick={() => handleTypeSelect("my")}
+                  >
+                    My pools
+                  </li>
+                </ul>
+              </div>
             )}
           </div>
+
+          {/* Sort Dropdown */}
+          <div className="relative" ref={sortDropdownRef}>
+            <button
+              className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
+              onClick={() => setShowSortDropdown(!showSortDropdown)}
+            >
+              Sort by: {getSortByText()}{" "}
+              <FaChevronDown className="text-xs ml-1" />
+            </button>
+
+            {showSortDropdown && (
+              <div className="absolute right-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
+                <ul>
+                  {activeTab !== "funded" && activeTab !== "unfunded" ? (
+                    <>
+                      <li
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                        style={{
+                          color: sortBy === "recent" ? "#836EF9" : "",
+                        }}
+                        onClick={() => handleSortSelect("recent")}
+                      >
+                        Recent
+                      </li>
+                      <li
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                        style={{
+                          color: sortBy === "amount" ? "#836EF9" : "",
+                        }}
+                        onClick={() => handleSortSelect("amount")}
+                      >
+                        Amount
+                      </li>
+                      <li
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                        style={{
+                          color: sortBy === "alphabetical" ? "#836EF9" : "",
+                        }}
+                        onClick={() => handleSortSelect("alphabetical")}
+                      >
+                        A-Z
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                        style={{
+                          color: sortBy === "volume" ? "#836EF9" : "",
+                        }}
+                        onClick={() => handleSortSelect("volume")}
+                      >
+                        Volume
+                      </li>
+                      <li
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                        style={{
+                          color: sortBy === "alphabetical" ? "#836EF9" : "",
+                        }}
+                        onClick={() => handleSortSelect("alphabetical")}
+                      >
+                        A-Z
+                      </li>
+                    </>
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* List of Items */}
+        <div
+          className="flex-1 overflow-y-auto mt-4 px-4"
+          style={{ paddingBottom: "128px" }}
+        >
+          {loading && pools.length === 0 ? (
+            renderSkeletonList()
+          ) : error && !isRpcError ? (
+            <div className="p-8 text-center text-red-400">
+              <p>Error loading pools. Please try again later.</p>
+              <button
+                onClick={() => refresh()}
+                className="mt-4 px-4 py-2 rounded-lg hover:bg-opacity-80 transition-colors"
+                style={{ backgroundColor: "#836EF9" }}
+              >
+                Refresh
+              </button>
+            </div>
+          ) : (
+            <ul className="space-y-4">
+              {sortedPools.map((pool: OnChainPool) => (
+                <li
+                  key={pool.id}
+                  className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
+                  onClick={() => handlePoolClick(pool.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Pool Image */}
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2A2640]">
+                      {pool.image_url && (
+                        <Image
+                          src={pool.image_url}
+                          alt={pool.name}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+
+                    {/* Pool Info */}
+                    <div className="flex-1">
+                      <div className="flex items-center">
+                        <h3 className="font-semibold text-lg">{pool.name}</h3>
+                        {activeTab !== "funded" && (
+                          <div className="ml-2">
+                            {getPoolStatusIndicator(pool)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
+                          {pool.creator_avatar_url && (
+                            <Image
+                              src={pool.creator_avatar_url || ""}
+                              alt={pool.creator_name || ""}
+                              width={24}
+                              height={24}
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
+                        <span className="text-sm text-gray-400">
+                          {pool.creator_name || "Anonymous"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress and Amount */}
+                    <div className="text-right flex items-center gap-4">
+                      {activeTab === "funded" ? (
+                        <div>
+                          <p className="text-sm text-gray-400">Vol</p>
+                          <p className="text-lg font-bold">
+                            ${formatAmount(pool.raised_amount)}
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <div>
+                            <div className="font-medium">
+                              ${formatAmount(pool.raised_amount)}
+                            </div>
+                            <div className="text-sm text-gray-400">
+                              of ${formatAmount(pool.target_amount)}
+                            </div>
+                          </div>
+                          <CircularProgress
+                            progress={getPercentComplete(pool)}
+                            size={48}
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+
+              {sortedPools.length === 0 && !loading && (
+                <div className="p-8 text-center text-gray-400">
+                  {activeTab === "open"
+                    ? poolType === "my"
+                      ? "You haven't created any open rounds yet."
+                      : "No open rounds available."
+                    : activeTab === "funded"
+                    ? poolType === "my"
+                      ? "You haven't created any funded pools yet."
+                      : "No funded pools available."
+                    : poolType === "my"
+                    ? "You haven't created any unfunded pools yet."
+                    : "No unfunded pools available."}
+                </div>
+              )}
+            </ul>
+          )}
         </div>
       </div>
 

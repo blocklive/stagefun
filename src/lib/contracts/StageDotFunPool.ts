@@ -15,7 +15,7 @@ export const StageDotFunPoolFactoryABI = [
   "function getDeployedPools() view returns (address[])",
   "function getPoolCount() view returns (uint256)",
   "function predictPoolAddress(string uniqueId, uint256 timestamp) view returns (address)",
-  "function getDeployedPoolsDetails(uint256 startIndex, uint256 endIndex) view returns (address[] poolAddresses, string[] names, string[] uniqueIds, address[] creators, uint256[] totalDeposits, uint256[] revenueAccumulated, uint256[] endTimes, uint256[] targetAmounts, uint8[] statuses)",
+  "function getDeployedPoolsDetails(uint256 startIndex, uint256 endIndex) view returns (string[] names, string[] uniqueIds, address[] creators, uint256[] totalDeposits, uint256[] revenueAccumulated, uint256[] endTimes, uint256[] targetAmounts, uint256[] capAmounts, uint8[] statuses, address[] lpTokenAddresses, address[] nftContractAddresses, uint256[] tierCounts)",
 
   // State-changing functions
   "function createPool(string name, string uniqueId, string symbol, uint256 endTime, address owner, address creator, uint256 targetAmount, uint256 capAmount) external returns (address)",
@@ -134,19 +134,11 @@ export interface ContractPool {
   revenueAccumulated: bigint;
   endTime: bigint;
   targetAmount: bigint;
-  minCommitment: bigint;
+  capAmount: bigint;
   status: number;
   lpTokenAddress: string;
-  lpHolders: string[];
-  milestones: {
-    description: string;
-    amount: bigint;
-    unlockTime: bigint;
-    released: boolean;
-  }[];
-  emergencyMode: boolean;
-  emergencyWithdrawalRequestTime: bigint;
-  authorizedWithdrawer: string;
+  nftContractAddress: string;
+  tierCount: bigint;
 }
 
 // Get the factory contract instance
@@ -171,7 +163,6 @@ export function getPoolContract(
 
 // Define a type for the pool list item
 export interface PoolListItem {
-  address: string;
   name: string;
   uniqueId: string;
   creator: string;
@@ -179,7 +170,11 @@ export interface PoolListItem {
   revenueAccumulated: bigint;
   endTime: bigint;
   targetAmount: bigint;
+  capAmount: bigint;
   status: number;
+  lpTokenAddress: string;
+  nftContractAddress: string;
+  tierCount: bigint;
 }
 
 // Get all deployed pools with pagination support
@@ -195,7 +190,6 @@ export async function getDeployedPoolsDetails(
   const end = endIndex ?? 0;
 
   const [
-    poolAddresses,
     names,
     uniqueIds,
     creators,
@@ -203,15 +197,18 @@ export async function getDeployedPoolsDetails(
     revenueAccumulated,
     endTimes,
     targetAmounts,
+    capAmounts,
     statuses,
+    lpTokenAddresses,
+    nftContractAddresses,
+    tierCounts,
   ] = await factory.getDeployedPoolsDetails(start, end);
 
   // Map the results to our PoolListItem interface
   const poolList: PoolListItem[] = [];
 
-  for (let i = 0; i < poolAddresses.length; i++) {
+  for (let i = 0; i < names.length; i++) {
     poolList.push({
-      address: poolAddresses[i],
       name: names[i],
       uniqueId: uniqueIds[i],
       creator: creators[i],
@@ -219,7 +216,11 @@ export async function getDeployedPoolsDetails(
       revenueAccumulated: revenueAccumulated[i],
       endTime: endTimes[i],
       targetAmount: targetAmounts[i],
+      capAmount: capAmounts[i],
       status: statuses[i],
+      lpTokenAddress: lpTokenAddresses[i],
+      nftContractAddress: nftContractAddresses[i],
+      tierCount: tierCounts[i],
     });
   }
 
@@ -260,25 +261,22 @@ export async function getPoolDetails(
       throw new Error("Contract not found at specified address");
     }
 
-    // Try to get the pool details
+    // Try to get the pool details - matches exactly with the ABI return values
     const details = await pool.getPoolDetails();
 
     return {
-      name: details[0],
-      uniqueId: details[1],
-      creator: details[2],
-      totalDeposits: details[3],
-      revenueAccumulated: details[4],
-      endTime: details[5],
-      targetAmount: details[6],
-      minCommitment: details[7],
-      status: details[8],
-      lpTokenAddress: details[9],
-      lpHolders: details[10],
-      milestones: details[11],
-      emergencyMode: details[12],
-      emergencyWithdrawalRequestTime: details[13],
-      authorizedWithdrawer: details[14],
+      name: details._name,
+      uniqueId: details._uniqueId,
+      creator: details._creator,
+      totalDeposits: details._totalDeposits,
+      revenueAccumulated: details._revenueAccumulated,
+      endTime: details._endTime,
+      targetAmount: details._targetAmount,
+      capAmount: details._capAmount,
+      status: details._status,
+      lpTokenAddress: details._lpTokenAddress,
+      nftContractAddress: details._nftContractAddress,
+      tierCount: details._tierCount,
     };
   } catch (error) {
     console.error(`Error getting pool details for ${poolAddress}:`, error);

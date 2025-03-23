@@ -299,26 +299,17 @@ export default function CreatePoolPage() {
   return (
     <>
       <AppHeader
-        showBackButton={false}
+        showBackButton={true}
         showTitle={false}
         backgroundColor="#15161a"
         showGetTokensButton={true}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
+        onBackClick={handleBackClick}
       />
 
       {/* Main Content */}
       <div className="px-4 pb-24 md:pb-8">
-        {/* Back button below header */}
-        <div className="py-2">
-          <button
-            onClick={handleBackClick}
-            className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
-          >
-            <FaArrowLeft />
-          </button>
-        </div>
-
         {/* Page Title */}
         <div className="px-2 mt-4">
           <h1 className="text-5xl font-bold">CREATE PARTY ROUND</h1>
