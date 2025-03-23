@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./StageDotFunLiquidity.sol";
 import "./StageDotFunNFT.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 
 contract StageDotFunPool is Ownable {
     // Constants
@@ -68,13 +69,6 @@ contract StageDotFunPool is Ownable {
         bool isClaimed; // Track if this reward has been claimed
     }
     
-    struct Milestone {
-        string description;
-        uint256 amount;
-        uint256 unlockTime;
-        bool released;
-    }
-    
     // Mapping from tier ID to Tier struct
     mapping(uint256 => Tier) public tiers;
     uint256 public tierCount;
@@ -91,9 +85,6 @@ contract StageDotFunPool is Ownable {
     address[] public lpHolders;
     mapping(address => bool) public isLpHolder;
     
-    // Milestones
-    Milestone[] public milestones;
-    
     // Track NFT claims
     mapping(address => mapping(uint256 => bool)) public hasClaimedNFT;
     mapping(uint256 => uint256) public tierNFTSupply; // tierId => current supply
@@ -109,19 +100,26 @@ contract StageDotFunPool is Ownable {
     event CapReached(uint256 totalAmount);
     event FundsReturned(address indexed lp, uint256 amount);
     event PoolStatusUpdated(PoolStatus newStatus);
-    event MilestoneCreated(uint256 indexed milestoneIndex, string description, uint256 amount, uint256 unlockTime);
-    event MilestoneCompleted(string name);
-    event MilestonePaid(string name, uint256 amount);
     event Deposit(address indexed lp, uint256 amount);
     event RevenueReceived(uint256 amount);
     event RevenueDistributed(uint256 amount);
     event PoolNameUpdated(string oldName, string newName);
-    event MilestoneWithdrawn(uint256 indexed milestoneIndex, uint256 amount);
     event NFTClaimed(address indexed user, uint256 indexed tierId, uint256 tokenId);
     event NFTsMintedForTier(uint256 indexed tierId, uint256 count);
     event LPTransfer(address indexed from, address indexed to, uint256 amount);
     
-    constructor(
+    // Add initializer modifier
+    modifier initializer() {
+        require(!initialized, "Already initialized");
+        _;
+        initialized = true;
+    }
+    
+    // Add initialization state
+    bool private initialized;
+    
+    // Add initialize function
+    function initialize(
         string memory _name,
         string memory _uniqueId,
         string memory symbol,
@@ -129,8 +127,11 @@ contract StageDotFunPool is Ownable {
         address _depositToken,
         address _owner,
         address _creator,
-        uint256 _targetAmount
-    ) Ownable(_owner) {
+        uint256 _targetAmount,
+        uint256 _capAmount,
+        address _lpTokenImplementation,
+        address _nftImplementation
+    ) external initializer {
         name = _name;
         uniqueId = _uniqueId;
         creator = _creator;
@@ -138,28 +139,26 @@ contract StageDotFunPool is Ownable {
         depositToken = IERC20(_depositToken);
         status = PoolStatus.ACTIVE;
         targetAmount = _targetAmount;
+        capAmount = _capAmount;
         targetReached = false;
+        capReached = false;
         
         string memory tokenName = string(abi.encodePacked(_name, " LP Token"));
-        lpToken = new StageDotFunLiquidity(tokenName, symbol);
+        lpToken = StageDotFunLiquidity(Clones.clone(_lpTokenImplementation));
+        lpToken.initialize(tokenName, symbol);
         
         // Deploy NFT contract for this pool with new naming convention
-        nftContract = new StageDotFunNFT(
+        nftContract = StageDotFunNFT(
+            Clones.clone(_nftImplementation)
+        );
+        nftContract.initialize(
             string(abi.encodePacked(_name, "Patron")),
             string(abi.encodePacked(symbol, "P")),
             _owner
         );
         
-        // Create default milestone for the entire target amount
-        // This milestone will be available when target is reached
-        string[] memory descriptions = new string[](1);
-        descriptions[0] = "Default milestone";
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = _targetAmount;
-        uint256[] memory unlockTimes = new uint256[](1);
-        unlockTimes[0] = block.timestamp; // Immediately available once target is reached
-        
-        _createMilestones(descriptions, amounts, unlockTimes);
+        // Transfer ownership to the specified owner
+        _transferOwnership(_owner);
     }
     
     modifier poolIsActive() {
@@ -358,107 +357,6 @@ contract StageDotFunPool is Ownable {
         revenueAccumulated = 0;
     }
     
-    // Internal function to create milestones
-    function _createMilestones(
-        string[] memory descriptions,
-        uint256[] memory amounts,
-        uint256[] memory unlockTimes
-    ) internal {
-        require(
-            descriptions.length == amounts.length && amounts.length == unlockTimes.length,
-            "Array lengths mismatch"
-        );
-        
-        uint256 totalAmount = 0;
-        for (uint i = 0; i < amounts.length; i++) {
-            totalAmount += amounts[i];
-        }
-        
-        for (uint i = 0; i < descriptions.length; i++) {
-            milestones.push(
-                Milestone({
-                    description: descriptions[i],
-                    amount: amounts[i],
-                    unlockTime: unlockTimes[i],
-                    released: false
-                })
-            );
-            emit MilestoneCreated(
-                milestones.length - 1,
-                descriptions[i],
-                amounts[i],
-                unlockTimes[i]
-            );
-        }
-    }
-    
-    // Allow owner to set additional milestones
-    function setAdditionalMilestones(
-        string[] calldata descriptions,
-        uint256[] calldata amounts,
-        uint256[] calldata unlockTimes
-    ) external onlyOwner {
-        require(milestones.length > 0, "Cannot replace default milestone");
-        
-        uint256 totalAmount = 0;
-        for (uint i = 0; i < amounts.length; i++) {
-            totalAmount += amounts[i];
-        }
-        
-        // Check if the total of all milestones (existing + new) doesn't exceed target
-        uint256 existingTotal = 0;
-        for (uint i = 0; i < milestones.length; i++) {
-            if (!milestones[i].released) {
-                existingTotal += milestones[i].amount;
-            }
-        }
-        
-        require(existingTotal + totalAmount <= targetAmount, "Milestone amounts exceed target");
-        
-        _createMilestones(descriptions, amounts, unlockTimes);
-    }
-    
-    // Replace the default milestone with custom milestones
-    function replaceDefaultMilestone(
-        string[] calldata descriptions,
-        uint256[] calldata amounts,
-        uint256[] calldata unlockTimes
-    ) external onlyOwner {
-        require(milestones.length == 1, "Default milestone already replaced");
-        require(!milestones[0].released, "Default milestone already released");
-        
-        // Delete the default milestone
-        delete milestones;
-        
-        // Create new milestones
-        _createMilestones(descriptions, amounts, unlockTimes);
-    }
-    
-    // Withdraw a milestone - only if target is reached and unlock time has passed
-    function withdrawMilestone(uint256 milestoneIndex) external onlyOwner targetMet {
-        require(milestoneIndex < milestones.length, "Invalid milestone index");
-        Milestone storage milestone = milestones[milestoneIndex];
-        
-        require(!milestone.released, "Already released");
-        require(block.timestamp >= milestone.unlockTime, "Too early");
-        
-        milestone.released = true;
-        require(depositToken.transfer(msg.sender, milestone.amount), "Transfer failed");
-        
-        emit MilestoneWithdrawn(milestoneIndex, milestone.amount);
-    }
-    
-    function updateStatus(PoolStatus newStatus) external onlyOwner {
-        require(status != newStatus, "Pool already in this status");
-        
-        if (newStatus == PoolStatus.CLOSED) {
-            require(revenueAccumulated == 0, "Distribute revenue before closing");
-        }
-        
-        status = newStatus;
-        emit PoolStatusUpdated(newStatus);
-    }
-    
     // View functions
     function getTier(uint256 tierId) external view returns (Tier memory) {
         require(tierId < tierCount, "Tier does not exist");
@@ -471,19 +369,6 @@ contract StageDotFunPool is Ownable {
     
     function getTierCount() external view returns (uint256) {
         return tierCount;
-    }
-    
-    function getMilestone(uint256 index) external view returns (Milestone memory) {
-        require(index < milestones.length, "Milestone does not exist");
-        return milestones[index];
-    }
-    
-    function getMilestoneCount() external view returns (uint256) {
-        return milestones.length;
-    }
-    
-    function getMilestones() external view returns (Milestone[] memory) {
-        return milestones;
     }
     
     function getLpBalance(address holder) external view returns (uint256) {
@@ -552,11 +437,6 @@ contract StageDotFunPool is Ownable {
         emit PoolNameUpdated(oldName, _newName);
     }
     
-    // View functions
-    function hasUserClaimedNFT(address user, uint256 tierId) external view returns (bool) {
-        return hasClaimedNFT[user][tierId];
-    }
-    
     function getTierNFTSupply(uint256 tierId) external view returns (uint256) {
         return tierNFTSupply[tierId];
     }
@@ -574,7 +454,6 @@ contract StageDotFunPool is Ownable {
         uint8 _status,
         address _lpTokenAddress,
         address _nftContractAddress,
-        Milestone[] memory _milestones,
         uint256 _tierCount
     ) {
         return (
@@ -589,7 +468,6 @@ contract StageDotFunPool is Ownable {
             uint8(status),
             address(lpToken),
             address(nftContract),
-            _milestones,
             tierCount
         );
     }
@@ -642,4 +520,7 @@ contract StageDotFunPool is Ownable {
         
         emit FundsReturned(msg.sender, lpBalance);
     }
+
+    // Remove the constructor since we're using initialize
+    constructor() Ownable(address(this)) {}
 } 

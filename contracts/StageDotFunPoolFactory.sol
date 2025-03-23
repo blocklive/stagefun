@@ -1,85 +1,103 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./StageDotFunPool.sol";
 
 contract StageDotFunPoolFactory is Ownable {
-    address public depositToken;
+    // Implementation contracts
+    address public immutable poolImplementation;
+    address public immutable lpTokenImplementation;
+    address public immutable nftImplementation;
+    
+    // Factory state
     address[] public deployedPools;
-    bytes32 public immutable poolBytecodeHash;
-
+    uint256 public poolCount;
+    address public depositToken;
+    
+    // Events
     event PoolCreated(
-        address indexed poolAddress,
+        address indexed pool,
         string name,
         string uniqueId,
-        address creator,
-        address lpTokenAddress,
         uint256 endTime,
+        address depositToken,
+        address owner,
+        address creator,
         uint256 targetAmount,
         uint256 capAmount
     );
     
-    event PoolStatusUpdated(address indexed poolAddress, uint8 status);
-
-    constructor(address _depositToken) Ownable(msg.sender) {
+    constructor(
+        address _depositToken,
+        address _poolImplementation,
+        address _lpTokenImplementation,
+        address _nftImplementation
+    ) Ownable(msg.sender) {
+        require(_depositToken != address(0), "Invalid deposit token");
+        require(_poolImplementation != address(0), "Invalid pool implementation");
+        require(_lpTokenImplementation != address(0), "Invalid LP token implementation");
+        require(_nftImplementation != address(0), "Invalid NFT implementation");
+        
         depositToken = _depositToken;
-        // Get the bytecode hash of the pool contract
-        poolBytecodeHash = keccak256(
-            abi.encodePacked(
-                type(StageDotFunPool).creationCode,
-                abi.encode(address(0), "", "", "", 0, address(0), address(0), 0, 0, 0) // Default constructor arguments
-            )
-        );
+        poolImplementation = _poolImplementation;
+        lpTokenImplementation = _lpTokenImplementation;
+        nftImplementation = _nftImplementation;
     }
-
+    
     function createPool(
         string memory name,
         string memory uniqueId,
         string memory symbol,
         uint256 endTime,
+        address owner,
+        address creator,
         uint256 targetAmount,
-        uint256 capAmount,
-        uint256 minCommitment
+        uint256 capAmount
     ) external returns (address) {
-        require(endTime > block.timestamp, "End time must be in future");
-        require(targetAmount > 0, "Target amount must be greater than 0");
-        require(capAmount > targetAmount, "Cap amount must be greater than target amount");
-        require(minCommitment > 0, "Min commitment must be greater than 0");
-        require(minCommitment <= targetAmount, "Min commitment cannot exceed target amount");
+        require(bytes(name).length > 0, "Name cannot be empty");
         require(bytes(uniqueId).length > 0, "Unique ID cannot be empty");
-
-        // Generate a unique salt for this pool
-        bytes32 salt = keccak256(abi.encodePacked(uniqueId, block.timestamp));
+        require(endTime > block.timestamp, "End time must be in the future");
+        require(owner != address(0), "Invalid owner");
+        require(creator != address(0), "Invalid creator");
+        require(targetAmount > 0, "Target amount must be greater than 0");
+        require(capAmount >= targetAmount, "Cap amount must be >= target amount");
         
-        // Deploy pool using CREATE2
-        StageDotFunPool newPool = new StageDotFunPool{salt: salt}(
+        // Create pool using minimal proxy
+        address pool = Clones.clone(poolImplementation);
+        
+        // Initialize the pool
+        StageDotFunPool(pool).initialize(
             name,
             uniqueId,
             symbol,
             endTime,
             depositToken,
-            msg.sender,
-            msg.sender,
+            owner,
+            creator,
             targetAmount,
             capAmount,
-            minCommitment
+            lpTokenImplementation,
+            nftImplementation
         );
         
-        deployedPools.push(address(newPool));
+        deployedPools.push(pool);
+        poolCount++;
         
         emit PoolCreated(
-            address(newPool),
+            pool,
             name,
             uniqueId,
-            msg.sender,
-            address(newPool.lpToken()),
             endTime,
+            depositToken,
+            owner,
+            creator,
             targetAmount,
             capAmount
         );
         
-        return address(newPool);
+        return pool;
     }
 
     // Predict the address where a pool will be deployed
@@ -93,7 +111,7 @@ contract StageDotFunPoolFactory is Ownable {
                 bytes1(0xff),
                 address(this),
                 salt,
-                poolBytecodeHash
+                keccak256(abi.encodePacked(poolImplementation))
             )
         );
         return address(uint160(uint256(hash)));
@@ -123,7 +141,6 @@ contract StageDotFunPoolFactory is Ownable {
         uint256 startIndex,
         uint256 endIndex
     ) external view returns (
-        address[] memory poolAddresses,
         string[] memory names,
         string[] memory uniqueIds,
         address[] memory creators,
@@ -132,10 +149,11 @@ contract StageDotFunPoolFactory is Ownable {
         uint256[] memory endTimes,
         uint256[] memory targetAmounts,
         uint256[] memory capAmounts,
-        uint8[] memory statuses
+        uint8[] memory statuses,
+        address[] memory lpTokenAddresses,
+        address[] memory nftContractAddresses,
+        uint256[] memory tierCounts
     ) {
-        uint256 poolCount = deployedPools.length;
-        
         // If both indices are 0, return all pools
         if (startIndex == 0 && endIndex == 0) {
             endIndex = poolCount > 0 ? poolCount - 1 : 0;
@@ -153,7 +171,6 @@ contract StageDotFunPoolFactory is Ownable {
         // If no pools or invalid range, return empty arrays
         if (poolCount == 0 || startIndex >= poolCount) {
             return (
-                new address[](0),
                 new string[](0),
                 new string[](0),
                 new address[](0),
@@ -162,13 +179,15 @@ contract StageDotFunPoolFactory is Ownable {
                 new uint256[](0),
                 new uint256[](0),
                 new uint256[](0),
-                new uint8[](0)
+                new uint8[](0),
+                new address[](0),
+                new address[](0),
+                new uint256[](0)
             );
         }
         
         uint256 batchSize = endIndex - startIndex + 1;
         
-        poolAddresses = new address[](batchSize);
         names = new string[](batchSize);
         uniqueIds = new string[](batchSize);
         creators = new address[](batchSize);
@@ -178,25 +197,45 @@ contract StageDotFunPoolFactory is Ownable {
         targetAmounts = new uint256[](batchSize);
         capAmounts = new uint256[](batchSize);
         statuses = new uint8[](batchSize);
+        lpTokenAddresses = new address[](batchSize);
+        nftContractAddresses = new address[](batchSize);
+        tierCounts = new uint256[](batchSize);
         
         for (uint256 i = 0; i < batchSize; i++) {
             uint256 poolIndex = startIndex + i;
-            StageDotFunPool pool = StageDotFunPool(deployedPools[poolIndex]);
-            poolAddresses[i] = deployedPools[poolIndex];
+            address poolAddress = deployedPools[poolIndex];
+            StageDotFunPool pool = StageDotFunPool(poolAddress);
             
-            // Get basic pool details
-            names[i] = pool.name();
-            uniqueIds[i] = pool.uniqueId();
-            creators[i] = pool.creator();
-            totalDeposits[i] = pool.totalDeposits();
-            revenueAccumulated[i] = pool.revenueAccumulated();
-            endTimes[i] = pool.endTime();
-            targetAmounts[i] = pool.targetAmount();
-            capAmounts[i] = pool.capAmount();
-            statuses[i] = uint8(pool.status());
+            (
+                names[i],
+                uniqueIds[i],
+                creators[i],
+                totalDeposits[i],
+                revenueAccumulated[i],
+                endTimes[i],
+                targetAmounts[i],
+                capAmounts[i],
+                statuses[i],
+                lpTokenAddresses[i],
+                nftContractAddresses[i],
+                tierCounts[i]
+            ) = pool.getPoolDetails();
         }
         
-        return (poolAddresses, names, uniqueIds, creators, totalDeposits, revenueAccumulated, endTimes, targetAmounts, capAmounts, statuses);
+        return (
+            names,
+            uniqueIds,
+            creators,
+            totalDeposits,
+            revenueAccumulated,
+            endTimes,
+            targetAmounts,
+            capAmounts,
+            statuses,
+            lpTokenAddresses,
+            nftContractAddresses,
+            tierCounts
+        );
     }
 
     function getDeployedPools() external view returns (address[] memory) {

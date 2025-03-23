@@ -20,17 +20,15 @@ const PoolImageSection: React.FC<PoolImageSectionProps> = ({
   onRemoveImage,
 }) => {
   return (
-    <div className="mb-6">
-      <PoolImageUpload
-        imagePreview={imagePreview}
-        isUploadingImage={isUploadingImage}
-        onImageSelect={onImageSelect}
-        onRemoveImage={onRemoveImage}
-        showValidation={showValidation}
-        placeholderText="YOU ARE INVITED"
-        isRequired={true}
-      />
-    </div>
+    <PoolImageUpload
+      imagePreview={imagePreview}
+      isUploadingImage={isUploadingImage}
+      onImageSelect={onImageSelect}
+      onRemoveImage={onRemoveImage}
+      showValidation={showValidation}
+      placeholderText="YOU ARE INVITED"
+      isRequired={true}
+    />
   );
 };
 

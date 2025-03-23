@@ -1,18 +1,31 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract StageDotFunLiquidity is ERC20, Ownable {
+    // Add initializer modifier
+    modifier initializer() {
+        require(!initialized, "Already initialized");
+        _;
+        initialized = true;
+    }
+    
+    // Add initialization state
+    bool private initialized;
+    
+    // Add initialize function
+    function initialize(string memory name, string memory symbol) external initializer {
+        // Transfer ownership to the factory
+        _transferOwnership(msg.sender);
+    }
+    
     // Track all holders
     address[] private _holders;
     mapping(address => bool) private _isHolder;
     
-    constructor(
-        string memory name,
-        string memory symbol
-    ) ERC20(name, symbol) Ownable(msg.sender) {}
+    constructor() ERC20("", "") Ownable(msg.sender) {}
 
     function mint(address to, uint256 amount) external onlyOwner {
         _mint(to, amount);

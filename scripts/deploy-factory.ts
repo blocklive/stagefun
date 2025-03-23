@@ -1,47 +1,103 @@
 // @ts-nocheck
-const hre = require("hardhat");
+const { ethers } = require("hardhat");
+const {
+  getContractAddresses,
+  updateContractAddresses,
+  getCurrentNetworkConfig,
+} = require("./config");
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config({ path: ".env.local" });
-const { CONTRACT_ADDRESSES } = require("./addresses");
 
 async function main() {
   console.log("Starting factory deployment...");
 
   // Get the deployer account
-  const [deployer] = await hre.ethers.getSigners();
+  const [deployer] = await ethers.getSigners();
   console.log("Deploying contracts with the account:", deployer.address);
 
-  // USDC address for Monad testnet
-  const usdcAddress = CONTRACT_ADDRESSES.usdc;
+  // Get USDC address from config
+  const { usdc } = getContractAddresses();
 
-  // Deploy StageDotFunPoolFactory
+  // Deploy implementation contracts first
+  console.log("Deploying implementation contracts...");
+
+  const StageDotFunLiquidity = await ethers.getContractFactory(
+    "StageDotFunLiquidity"
+  );
+  const lpTokenImplementation = await StageDotFunLiquidity.deploy();
+  await lpTokenImplementation.waitForDeployment();
+  console.log(
+    "StageDotFunLiquidity implementation deployed to:",
+    await lpTokenImplementation.getAddress()
+  );
+
+  const StageDotFunNFT = await ethers.getContractFactory("StageDotFunNFT");
+  const nftImplementation = await StageDotFunNFT.deploy();
+  await nftImplementation.waitForDeployment();
+  console.log(
+    "StageDotFunNFT implementation deployed to:",
+    await nftImplementation.getAddress()
+  );
+
+  const StageDotFunPool = await ethers.getContractFactory("StageDotFunPool");
+  const poolImplementation = await StageDotFunPool.deploy();
+  await poolImplementation.waitForDeployment();
+  console.log(
+    "StageDotFunPool implementation deployed to:",
+    await poolImplementation.getAddress()
+  );
+
+  // Deploy factory with implementation addresses
   console.log("Deploying StageDotFunPoolFactory...");
-  const StageDotFunPoolFactory = await hre.ethers.getContractFactory(
+  const StageDotFunPoolFactory = await ethers.getContractFactory(
     "StageDotFunPoolFactory"
   );
-  const factory = await StageDotFunPoolFactory.deploy(usdcAddress);
+  const factory = await StageDotFunPoolFactory.deploy(
+    usdc,
+    await poolImplementation.getAddress(),
+    await lpTokenImplementation.getAddress(),
+    await nftImplementation.getAddress()
+  );
   await factory.waitForDeployment();
-  const factoryAddress = await factory.getAddress();
-  console.log("StageDotFunPoolFactory deployed to:", factoryAddress);
+  console.log(
+    "StageDotFunPoolFactory deployed to:",
+    await factory.getAddress()
+  );
 
-  // Update addresses.ts
+  // Update config with new addresses
+  const updatedAddresses = updateContractAddresses({
+    stageDotFunPoolFactory: await factory.getAddress(),
+    poolImplementation: await poolImplementation.getAddress(),
+    lpTokenImplementation: await lpTokenImplementation.getAddress(),
+    nftImplementation: await nftImplementation.getAddress(),
+  });
+
+  // Log all deployed addresses
+  console.log("\nDeployment Summary:");
+  console.log("-------------------");
+  console.log("Factory:", await factory.getAddress());
+  console.log("Pool Implementation:", await poolImplementation.getAddress());
+  console.log(
+    "LP Token Implementation:",
+    await lpTokenImplementation.getAddress()
+  );
+  console.log("NFT Implementation:", await nftImplementation.getAddress());
+
+  // Update addresses.ts for frontend
   const addressesPath = path.join(
     __dirname,
     "../src/lib/contracts/addresses.ts"
   );
+  const networkConfig = getCurrentNetworkConfig();
   const addressesContent = `/**
  * Contract addresses for different networks
  * Update these addresses when deploying new contracts
  */
 export const CONTRACT_ADDRESSES = {
-  baseSepolia: {
-    stageDotFunPoolFactory: "0x...", // We'll fill this after deployment
-    usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
-  },
   monadTestnet: {
-    stageDotFunPoolFactory: "${factoryAddress}",
-    usdc: "${usdcAddress}",
+    stageDotFunPoolFactory: "${updatedAddresses.stageDotFunPoolFactory}",
+    usdc: "${usdc}",
   },
 } as const;
 
@@ -49,9 +105,9 @@ export const CONTRACT_ADDRESSES = {
  * Network configuration
  */
 export const NETWORK = {
-  chainId: 10143, // Monad Testnet
-  rpcUrl: "https://falling-practical-rain.monad-testnet.quiknode.pro/a5d256e0fcaf1ff2574b5d13322cb315b0cec88f",
-  explorerUrl: "https://testnet.monadexplorer.com",
+  chainId: ${networkConfig.chainId},
+  rpcUrl: "${networkConfig.rpcUrl}",
+  explorerUrl: "${networkConfig.explorerUrl}",
 } as const;
 
 // Helper to get addresses for current network
@@ -70,14 +126,19 @@ export function getContractAddresses() {
 
   // Verify the contract on Sourcify if not on a local network
   if (
-    hre.ethers.network.name !== "hardhat" &&
-    hre.ethers.network.name !== "localhost"
+    ethers.network.name !== "hardhat" &&
+    ethers.network.name !== "localhost"
   ) {
     console.log("Verifying contract on Sourcify...");
     try {
-      await hre.ethers.run("sourcify:verify", {
-        address: factoryAddress,
-        constructorArguments: [usdcAddress],
+      await ethers.run("sourcify:verify", {
+        address: await factory.getAddress(),
+        constructorArguments: [
+          usdc,
+          await poolImplementation.getAddress(),
+          await lpTokenImplementation.getAddress(),
+          await nftImplementation.getAddress(),
+        ],
       });
       console.log("Contract verified on Sourcify");
     } catch (error) {
@@ -86,7 +147,9 @@ export function getContractAddresses() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

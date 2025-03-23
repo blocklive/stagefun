@@ -6,7 +6,7 @@ import { CONTRACT_ADDRESSES, getContractAddresses } from "./addresses";
 // ABI for the StageDotFunPoolFactory contract
 export const StageDotFunPoolFactoryABI = [
   // Events
-  "event PoolCreated(address indexed poolAddress, string name, string uniqueId, address creator, address lpTokenAddress, uint256 endTime)",
+  "event PoolCreated(address indexed pool, string name, string uniqueId, uint256 endTime, address depositToken, address owner, address creator, uint256 targetAmount, uint256 capAmount)",
   "event PoolStatusUpdated(address indexed poolAddress, uint8 status)",
 
   // View functions
@@ -18,7 +18,7 @@ export const StageDotFunPoolFactoryABI = [
   "function getDeployedPoolsDetails(uint256 startIndex, uint256 endIndex) view returns (address[] poolAddresses, string[] names, string[] uniqueIds, address[] creators, uint256[] totalDeposits, uint256[] revenueAccumulated, uint256[] endTimes, uint256[] targetAmounts, uint8[] statuses)",
 
   // State-changing functions
-  "function createPool(string name, string uniqueId, string symbol, uint256 endTime, uint256 targetAmount, uint256 minCommitment) external returns (address)",
+  "function createPool(string name, string uniqueId, string symbol, uint256 endTime, address owner, address creator, uint256 targetAmount, uint256 capAmount) external returns (address)",
   "function checkPoolStatus(address poolAddress) external",
   "function checkAllPoolsStatus() external",
 ];
@@ -26,29 +26,26 @@ export const StageDotFunPoolFactoryABI = [
 // ABI for the StageDotFunPool contract
 export const StageDotFunPoolABI = [
   // Events
+  "event TierCreated(uint256 indexed tierId, string name, uint256 price)",
+  "event TierUpdated(uint256 indexed tierId, string name, uint256 price)",
+  "event TierDeactivated(uint256 indexed tierId)",
+  "event TierActivated(uint256 indexed tierId)",
+  "event RewardItemAdded(uint256 indexed tierId, string name, string itemType)",
+  "event TierCommitted(address indexed user, uint256 indexed tierId, uint256 amount)",
+  "event TargetReached(uint256 totalAmount)",
+  "event CapReached(uint256 totalAmount)",
+  "event FundsReturned(address indexed lp, uint256 amount)",
+  "event PoolStatusUpdated(uint8 newStatus)",
   "event Deposit(address indexed lp, uint256 amount)",
   "event RevenueReceived(uint256 amount)",
   "event RevenueDistributed(uint256 amount)",
-  "event MilestoneCreated(uint256 indexed milestoneIndex, string description, uint256 amount, uint256 unlockTime)",
-  "event MilestoneWithdrawn(uint256 indexed milestoneIndex, uint256 amount)",
-  "event EmergencyModeEnabled()",
-  "event EmergencyWithdrawalRequested(uint256 unlockTime)",
-  "event EmergencyWithdrawalExecuted(uint256 amount)",
-  "event WithdrawerAuthorized(address withdrawer)",
-  "event WithdrawerRevoked(address withdrawer)",
-  "event TargetReached(uint256 totalAmount)",
-  "event FundsReturned(address indexed lp, uint256 amount)",
-  "event PoolStatusUpdated(uint8 newStatus)",
   "event PoolNameUpdated(string oldName, string newName)",
-  "event MinCommitmentUpdated(uint256 oldMinCommitment, uint256 newMinCommitment)",
+  "event NFTClaimed(address indexed user, uint256 indexed tierId, uint256 tokenId)",
+  "event NFTsMintedForTier(uint256 indexed tierId, uint256 count)",
+  "event LPTransfer(address indexed from, address indexed to, uint256 amount)",
 
   // View functions
-  "function getPoolDetails() view returns (string _name, string _uniqueId, address _creator, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _minCommitment, uint8 _status, address _lpTokenAddress, address[] memory _lpHolders, tuple(string description, uint256 amount, uint256 unlockTime, bool released)[] memory _milestones, bool _emergencyMode, uint256 _emergencyWithdrawalRequestTime, address _authorizedWithdrawer)",
-  "function getLpBalance(address holder) view returns (uint256)",
-  "function getLpBalances(uint256 startIndex, uint256 endIndex) view returns (address[] memory holders, uint256[] memory balances)",
-  "function depositToken() view returns (address)",
-  "function lpToken() view returns (address)",
-  "function deposit(uint256 amount) returns ()",
+  "function getPoolDetails() view returns (string _name, string _uniqueId, address _creator, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _capAmount, uint8 _status, address _lpTokenAddress, address _nftContractAddress, uint256 _tierCount)",
   "function name() view returns (string)",
   "function uniqueId() view returns (string)",
   "function creator() view returns (address)",
@@ -56,30 +53,33 @@ export const StageDotFunPoolABI = [
   "function revenueAccumulated() view returns (uint256)",
   "function endTime() view returns (uint256)",
   "function targetAmount() view returns (uint256)",
-  "function minCommitment() view returns (uint256)",
+  "function capAmount() view returns (uint256)",
   "function status() view returns (uint8)",
   "function targetReached() view returns (bool)",
-  "function getMilestones() view returns (tuple(string description, uint256 amount, uint256 unlockTime, bool released)[] memory)",
-  "function getLpHolders() view returns (address[] memory)",
-  "function getEmergencyStatus() view returns (bool isEmergency, uint256 withdrawalUnlockTime, bool canExecuteWithdrawal)",
+  "function capReached() view returns (bool)",
+  "function depositToken() view returns (address)",
+  "function lpToken() view returns (address)",
+  "function nftContract() view returns (address)",
+  "function getTier(uint256 tierId) view returns (tuple(string name, uint256 price, bool isActive, string nftMetadata, bool isVariablePrice, uint256 minPrice, uint256 maxPrice, uint256 maxPatrons, uint256 currentPatrons))",
+  "function getUserTierCommitments(address user) view returns (uint256[])",
+  "function getTierCount() view returns (uint256)",
+  "function getLpBalance(address holder) view returns (uint256)",
+  "function getLpBalances(uint256 startIndex, uint256 endIndex) view returns (address[] holders, uint256[] balances)",
+  "function getTierNFTSupply(uint256 tierId) view returns (uint256)",
+  "function getLpHolders() view returns (address[])",
 
   // State-changing functions
-  "function deposit(uint256 amount) external",
-  "function claimRefund() external",
+  "function initialize(string _name, string _uniqueId, string symbol, uint256 _endTime, address _depositToken, address _owner, address _creator, uint256 _targetAmount, uint256 _capAmount, address _lpTokenImplementation, address _nftImplementation) external",
+  "function createTier(string _name, uint256 _price, string _nftMetadata, bool _isVariablePrice, uint256 _minPrice, uint256 _maxPrice, uint256 _maxPatrons) external",
+  "function updateTier(uint256 tierId, string _name, uint256 _price, string _nftMetadata, bool _isVariablePrice, uint256 _minPrice, uint256 _maxPrice, uint256 _maxPatrons) external",
+  "function deactivateTier(uint256 tierId) external",
+  "function activateTier(uint256 tierId) external",
+  "function commitToTier(uint256 tierId, uint256 amount) external",
   "function receiveRevenue(uint256 amount) external",
   "function distributeRevenue() external",
-  "function withdrawMilestone(uint256 milestoneIndex) external",
-  "function setAuthorizedWithdrawer(address _withdrawer) external",
-  "function revokeAuthorizedWithdrawer() external",
-  "function enableEmergencyMode() external",
-  "function requestEmergencyWithdrawal() external",
-  "function executeEmergencyWithdrawal() external",
+  "function updatePoolName(string _newName) external",
+  "function claimRefund() external",
   "function checkPoolStatus() external",
-  "function updateStatus(uint8 newStatus) external",
-  "function setAdditionalMilestones(string[] calldata descriptions, uint256[] calldata amounts, uint256[] calldata unlockTimes) external",
-  "function replaceDefaultMilestone(string[] calldata descriptions, uint256[] calldata amounts, uint256[] calldata unlockTimes) external",
-  "function updatePoolName(string memory _newName) external",
-  "function updateMinCommitment(uint256 _newMinCommitment) external",
 ];
 
 // ABI for the StageDotFunLiquidity token
@@ -153,8 +153,9 @@ export interface ContractPool {
 export function getStageDotFunPoolFactoryContract(
   signerOrProvider: ethers.Signer | ethers.Provider
 ) {
+  const factoryAddress = CONTRACT_ADDRESSES.monadTestnet.stageDotFunPoolFactory;
   return new ethers.Contract(
-    getContractAddresses().stageDotFunPoolFactory,
+    factoryAddress,
     StageDotFunPoolFactoryABI,
     signerOrProvider
   );
@@ -238,61 +239,6 @@ export async function getDeployedPools(provider: ethers.Provider) {
   );
 
   return pools;
-}
-
-// Create a new pool
-export async function createPool(
-  signer: ethers.Signer,
-  name: string,
-  uniqueId: string,
-  symbol: string,
-  endTime: bigint,
-  targetAmount: bigint,
-  minCommitment: bigint
-) {
-  const factory = getStageDotFunPoolFactoryContract(signer);
-
-  try {
-    const tx = await factory.createPool(
-      name,
-      uniqueId,
-      symbol,
-      endTime,
-      targetAmount,
-      minCommitment
-    );
-    const receipt = await tx.wait();
-
-    // Find the PoolCreated event in the receipt
-    const event = receipt.logs
-      .map((log: any) => {
-        try {
-          return factory.interface.parseLog({
-            topics: log.topics as string[],
-            data: log.data,
-          });
-        } catch (e) {
-          return null;
-        }
-      })
-      .find((event: any) => event && event.name === "PoolCreated");
-
-    if (event) {
-      return {
-        poolAddress: event.args.poolAddress,
-        name: event.args.name,
-        uniqueId: event.args.uniqueId,
-        creator: event.args.creator,
-        lpTokenAddress: event.args.lpTokenAddress,
-        endTime: event.args.endTime,
-      };
-    }
-
-    return null;
-  } catch (error) {
-    console.error("Error creating pool:", error);
-    throw error;
-  }
 }
 
 // Get pool details

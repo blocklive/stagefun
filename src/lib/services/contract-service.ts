@@ -21,7 +21,7 @@ import { StageDotFunPoolABI } from "../contracts/StageDotFunPool";
  * @param symbol The symbol of the pool
  * @param endTime The end time of the pool
  * @param targetAmount The target amount of the pool
- * @param minCommitment The minimum commitment of the pool
+ * @param capAmount The maximum amount that can be raised
  * @returns The transaction receipt and pool ID
  */
 export async function createPoolOnChain(
@@ -31,20 +31,23 @@ export async function createPoolOnChain(
   symbol: string,
   endTime: bigint,
   targetAmount: bigint,
-  minCommitment: bigint
+  capAmount: bigint
 ): Promise<{
   receipt: ethers.TransactionReceipt;
   poolId: string;
   lpTokenAddress: string;
 }> {
   const factory = getStageDotFunPoolFactoryContract(signer);
+  const signerAddress = await signer.getAddress();
   const tx = await factory.createPool(
     name,
     uniqueId,
     symbol,
     endTime,
+    signerAddress, // owner
+    signerAddress, // creator
     targetAmount,
-    minCommitment
+    capAmount
   );
   const receipt = await tx.wait();
 

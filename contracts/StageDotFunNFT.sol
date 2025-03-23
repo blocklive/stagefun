@@ -1,18 +1,30 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract StageDotFunNFT is ERC721URIStorage, Ownable {
-    uint256 private _tokenIds;
-    string private _baseTokenURI;
+    modifier initializer() {
+        require(!initialized, "Already initialized");
+        _;
+        initialized = true;
+    }
     
-    constructor(
+    bool private initialized;
+    
+    function initialize(
         string memory name,
         string memory symbol,
-        address initialOwner
-    ) ERC721(name, symbol) Ownable(initialOwner) {}
+        address _owner
+    ) external initializer {
+        _transferOwnership(_owner);
+    }
+    
+    constructor() ERC721("", "") Ownable(msg.sender) {}
+    
+    uint256 private _tokenIds;
+    string private _baseTokenURI;
     
     function mintNFT(address recipient, string memory tokenURI) external onlyOwner returns (uint256) {
         _tokenIds++;

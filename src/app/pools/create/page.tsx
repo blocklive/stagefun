@@ -25,6 +25,7 @@ import PoolDetailsSection from "./components/PoolDetailsSection";
 import FundingSection from "./components/FundingSection";
 import EndTimeSection from "./components/EndTimeSection";
 import { TiersSection } from "./components/TiersSection";
+import { RewardItemsSection } from "./components/RewardItemsSection";
 
 // Import our new hooks
 import usePoolImage from "./hooks/usePoolImage";
@@ -47,12 +48,17 @@ function formatDateForInput(date: Date): string {
 }
 
 interface Tier {
-  id: string;
+  id: string; // Frontend-only ID for managing tiers
   name: string;
-  description: string;
   price: string;
-  maxSupply: string;
-  rewardItems: string[];
+  isActive: boolean;
+  nftMetadata: string;
+  isVariablePrice: boolean;
+  minPrice: string;
+  maxPrice: string;
+  maxPatrons: string;
+  description: string; // Frontend-only field for better UX
+  rewardItems: string[]; // Frontend-only field for managing rewards
 }
 
 interface RewardItem {
@@ -75,12 +81,8 @@ export default function CreatePoolPage() {
   const [location, setLocation] = useState("");
   const [showTokensModal, setShowTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const [name, setName] = useState("");
-  const [capAmount, setCapAmount] = useState("");
   const [tiers, setTiers] = useState<Tier[]>([]);
-  const [availableRewardItems, setAvailableRewardItems] = useState<
-    RewardItem[]
-  >([]);
+  const [rewardItems, setRewardItems] = useState<RewardItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,11 +97,9 @@ export default function CreatePoolPage() {
     uploadImage,
   } = usePoolImage(supabase);
 
-  const { poolName, ticker, patrons, setPoolName, setTicker, setPatrons } =
-    usePoolDetails();
+  const { poolName, ticker, setPoolName, setTicker } = usePoolDetails();
 
-  const { fundingGoal, minCommitment, setFundingGoal, setMinCommitment } =
-    useFunding();
+  const { fundingGoal, capAmount, setFundingGoal, setCapAmount } = useFunding();
 
   const { endDate, endDateInputValue, handleEndDateChange } = useEndTime();
 
@@ -114,6 +114,28 @@ export default function CreatePoolPage() {
   } = usePoolCreation();
 
   const { balance } = useNativeBalance();
+
+  // Fetch reward items when the authenticated client is ready
+  useEffect(() => {
+    const fetchRewardItems = async () => {
+      if (!supabase || isClientLoading) return;
+
+      try {
+        const { data, error } = await supabase
+          .from("reward_items")
+          .select("*")
+          .eq("is_active", true);
+
+        if (error) throw error;
+        setRewardItems(data || []);
+      } catch (error) {
+        console.error("Error fetching reward items:", error);
+        toast.error("Failed to load reward items");
+      }
+    };
+
+    fetchRewardItems();
+  }, [supabase, isClientLoading]);
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -133,8 +155,7 @@ export default function CreatePoolPage() {
         poolName ||
         ticker ||
         fundingGoal ||
-        minCommitment ||
-        patrons ||
+        capAmount ||
         description ||
         location ||
         imagePreview ||
@@ -152,8 +173,7 @@ export default function CreatePoolPage() {
     poolName,
     ticker,
     fundingGoal,
-    minCommitment,
-    patrons,
+    capAmount,
     description,
     location,
     imagePreview,
@@ -166,8 +186,7 @@ export default function CreatePoolPage() {
       poolName ||
       ticker ||
       fundingGoal ||
-      minCommitment ||
-      patrons ||
+      capAmount ||
       description ||
       location ||
       imagePreview ||
@@ -197,29 +216,6 @@ export default function CreatePoolPage() {
     }, 5000);
   };
 
-  useEffect(() => {
-    const fetchRewardItems = async () => {
-      if (!supabase) {
-        console.error("Supabase client is not initialized");
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("reward_items")
-        .select("*")
-        .eq("is_active", true);
-
-      if (error) {
-        console.error("Error fetching reward items:", error);
-        return;
-      }
-
-      setAvailableRewardItems(data || []);
-    };
-
-    fetchRewardItems();
-  }, []);
-
   // Handle form submission
   const onSubmit = async (
     e: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>
@@ -227,6 +223,12 @@ export default function CreatePoolPage() {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+
+    if (!supabase || isClientLoading) {
+      toast.error("Please wait for authentication to complete");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       // Validate funding goal and cap amount
@@ -243,75 +245,23 @@ export default function CreatePoolPage() {
 
       // Validate each tier
       for (const tier of tiers) {
-        if (!tier.name || !tier.price || !tier.maxSupply) {
-          throw new Error("All tier fields must be filled out");
+        if (!tier.name || !tier.price || !tier.maxPatrons) {
+          throw new Error("All tier fields are required");
         }
-        if (parseFloat(tier.price) < parseFloat(minCommitment)) {
-          throw new Error("Tier price cannot be less than minimum commitment");
+
+        // Validate tier price is greater than 0
+        const tierPrice = parseFloat(tier.price);
+        if (tierPrice <= 0) {
+          throw new Error(`Tier price must be greater than 0`);
         }
       }
-
-      // Create pool data object
-      const poolData = {
-        id: uniqueId,
-        name,
-        ticker: ticker,
-        description,
-        target_amount: goal,
-        min_commitment: parseFloat(minCommitment),
-        currency: "USDC",
-        token_amount: 100000,
-        token_symbol: ticker || "$PARTY",
-        location: location,
-        venue: "Convergence Station",
-        status: "Accepting patrons",
-        funding_stage: "Raising",
-        ends_at: endDate.toISOString(),
-        creator_id: dbUser?.id,
-        raised_amount: 0,
-        image_url: null as string | null, // Will be set after image upload
-        social_links: Object.keys(socialLinks).length > 0 ? socialLinks : null,
-        tiers: tiers.map((tier) => ({
-          name: tier.name,
-          description: tier.description,
-          price: parseFloat(tier.price),
-          maxSupply: parseInt(tier.maxSupply),
-          rewardItems: tier.rewardItems,
-        })),
-      };
-
-      // Upload image if selected
-      let imageUrl = null;
-      if (selectedImage) {
-        imageUrl = await uploadImage(selectedImage);
-        if (!imageUrl) {
-          return;
-        }
-        poolData.image_url = imageUrl;
-      }
-
-      // Convert end date to Unix timestamp
-      const endTimeUnix = Math.floor(endDate.getTime() / 1000);
 
       // Check if user has enough gas for deployment
       if (parseFloat(balance) < 0.5) {
-        // Show a toast notification instead of an alert
-        toast(
-          (t) => (
-            <div className="flex items-start">
-              <div className="bg-[#836EF9] bg-opacity-20 p-2 rounded-full mr-3 mt-1">
-                <FaExclamationTriangle className="text-[#836EF9]" size={16} />
-              </div>
-              <div>
-                <h3 className="font-bold text-white">Low MON Balance</h3>
-                <p className="text-sm text-gray-300">
-                  Your wallet has {parseFloat(balance).toFixed(4)} MON.
-                  Deploying a pool requires at least 0.5 MON to pay for gas. Use
-                  one of the options below to refill your wallet.
-                </p>
-              </div>
-            </div>
-          ),
+        toast.error(
+          `Your wallet has ${parseFloat(balance).toFixed(
+            4
+          )} MON. Deploying a pool requires at least 0.5 MON to pay for gas.`,
           {
             duration: 6000,
             style: {
@@ -322,14 +272,25 @@ export default function CreatePoolPage() {
             },
           }
         );
-
         return;
       }
 
-      // Submit the pool
-      await handleSubmit(poolData, endTimeUnix);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create pool");
+      // Call handleSubmit from usePoolCreation with all required parameters
+      await handleSubmit(
+        poolName,
+        ticker,
+        description,
+        parseFloat(fundingGoal),
+        parseFloat(capAmount),
+        imagePreview || "",
+        tiers,
+        location,
+        socialLinks,
+        Math.floor(endDate.getTime() / 1000)
+      );
+    } catch (error: any) {
+      console.error("Error creating pool:", error);
+      toast.error(error.message || "Failed to create pool");
     } finally {
       setIsLoading(false);
     }
@@ -412,46 +373,60 @@ export default function CreatePoolPage() {
 
         {/* Main content */}
         <div className="px-6" style={{ paddingBottom: "100px" }}>
-          {/* Pool Image */}
-          <div className="mt-8">
-            <h2 className="text-2xl font-bold mb-4">Pool Image</h2>
-            <PoolImageSection
-              imagePreview={imagePreview}
-              isUploadingImage={isUploadingImage}
-              showValidation={showValidation}
-              onImageSelect={handleImageSelect}
-              onRemoveImage={handleRemoveImage}
-            />
+          {/* Pool Details and Image Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+            {/* Pool Details */}
+            <div>
+              <h2 className="text-2xl font-bold mb-4">Pool Details</h2>
+              <PoolDetailsSection
+                poolName={poolName}
+                ticker={ticker}
+                onPoolNameChange={setPoolName}
+                onTickerChange={setTicker}
+              />
+            </div>
+
+            {/* Pool Image */}
+            <div>
+              <h2 className="text-2xl font-bold mb-4">Pool Image</h2>
+              <PoolImageSection
+                imagePreview={imagePreview}
+                isUploadingImage={isUploadingImage}
+                showValidation={showValidation}
+                onImageSelect={handleImageSelect}
+                onRemoveImage={handleRemoveImage}
+              />
+            </div>
           </div>
 
           {/* Form */}
           <form id="createPoolForm" onSubmit={onSubmit} className="mt-8">
-            {/* Pool Details */}
-            <PoolDetailsSection
-              poolName={name}
-              ticker={ticker}
-              patrons={patrons}
-              onPoolNameChange={(value) => setName(value)}
-              onTickerChange={(value) => setTicker(value)}
-              onPatronsChange={(value) => setPatrons(value)}
-            />
-
             {/* Funding Section */}
             <FundingSection
               fundingGoal={fundingGoal}
               capAmount={capAmount}
-              minCommitment={minCommitment}
-              onFundingGoalChange={(value) => setFundingGoal(value)}
-              onCapAmountChange={(value) => setCapAmount(value)}
-              onMinCommitmentChange={(value) => setMinCommitment(value)}
+              onFundingGoalChange={setFundingGoal}
+              onCapAmountChange={setCapAmount}
+            />
+
+            {/* Add RewardItemsSection before TiersSection */}
+            <RewardItemsSection
+              rewardItems={rewardItems}
+              onRewardItemsChange={setRewardItems}
             />
 
             {/* Tiers Section */}
-            <TiersSection
-              tiers={tiers}
-              onTiersChange={(value) => setTiers(value)}
-              availableRewardItems={availableRewardItems}
-            />
+            {supabase && (
+              <TiersSection
+                tiers={tiers}
+                onTiersChange={setTiers}
+                availableRewardItems={rewardItems}
+                supabase={supabase}
+                poolName={poolName}
+                fundingGoal={fundingGoal}
+                poolImage={imagePreview || undefined}
+              />
+            )}
 
             {/* Description */}
             <div className="mb-6">

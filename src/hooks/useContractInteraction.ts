@@ -45,6 +45,8 @@ interface PoolCreationData {
   raised_amount: number;
   image_url: string | null;
   social_links: any;
+  tiers?: any[];
+  cap_amount?: number;
 }
 
 interface BlockchainPoolResult {
@@ -298,108 +300,104 @@ export function useContractInteraction(): ContractInteractionHookResult {
           symbol,
           endTime,
           targetAmount: targetAmountBigInt.toString(),
-          minCommitment: minCommitmentBigInt.toString(),
+          signerAddress: await signer.getAddress(),
         });
 
-        // Call the contract directly - now anyone can create pools
-        console.log("Calling factory.createPool directly...");
-
-        try {
-          const tx = await factory.createPool(
-            name,
-            uniqueId,
-            symbol,
-            BigInt(endTime),
-            targetAmountBigInt,
-            minCommitmentBigInt,
-            {
-              gasLimit: 5000000, // Increase gas limit to ensure the transaction goes through
-            }
-          );
-
-          console.log("Transaction sent:", tx.hash);
-
-          // Wait for transaction to be mined
-          console.log("Waiting for transaction confirmation...");
-          const receipt = await tx.wait();
-          console.log("Pool creation transaction confirmed:", receipt);
-
-          if (!receipt) {
-            throw new Error("Transaction receipt not found");
+        // Call the contract directly
+        const tx = await factory.createPool(
+          name,
+          uniqueId,
+          symbol,
+          BigInt(endTime),
+          await signer.getAddress(), // owner
+          await signer.getAddress(), // creator
+          targetAmountBigInt,
+          targetAmountBigInt, // Using target amount as cap amount for now
+          {
+            gasLimit: 5000000, // Increase gas limit to ensure the transaction goes through
           }
+        );
 
-          // Check if the transaction was successful
-          if (!receipt.status) {
-            throw new Error("Transaction failed on chain");
-          }
+        console.log("Transaction sent:", tx.hash);
 
-          // Find the PoolCreated event in the logs
-          const event = receipt.logs
-            .map((log: ethers.Log) => {
-              try {
-                return factory.interface.parseLog({
-                  topics: log.topics as string[],
-                  data: log.data,
-                });
-              } catch (e) {
-                return null;
-              }
-            })
-            .find(
-              (event: ethers.LogDescription | null) =>
-                event && event.name === "PoolCreated"
-            );
+        // Wait for transaction to be mined
+        console.log("Waiting for transaction confirmation...");
+        const receipt = await tx.wait();
+        console.log("Pool creation transaction confirmed:", receipt);
 
-          if (!event) {
-            throw new Error("PoolCreated event not found in transaction logs");
-          }
-
-          // Extract pool address and LP token address from the event
-          const poolAddress = event.args.poolAddress;
-          const lpTokenAddress = event.args.lpTokenAddress;
-          const eventUniqueId = event.args.uniqueId;
-
-          console.log("Pool created successfully:", {
-            poolAddress,
-            lpTokenAddress,
-            eventUniqueId,
-            transactionHash: receipt.hash,
-          });
-
-          // Note: Database update is handled by the calling component (pools/create/page.tsx)
-          // We just return the necessary data here
-
-          return {
-            receipt,
-            poolAddress,
-            lpTokenAddress,
-            transactionHash: receipt.hash,
-          };
-        } catch (txError: any) {
-          console.error("Transaction error:", txError);
-
-          // Check for specific error messages related to gas
-          const errorMessage = txError.message || "";
-
-          if (
-            errorMessage.includes("insufficient funds") ||
-            errorMessage.includes("not enough funds") ||
-            errorMessage.includes("insufficient balance")
-          ) {
-            throw new Error(
-              "Insufficient MON for gas. Please add more MON to your wallet to deploy the contract."
-            );
-          } else if (errorMessage.includes("gas required exceeds allowance")) {
-            throw new Error(
-              "Gas required exceeds your MON balance. Please add more MON to your wallet."
-            );
-          } else if (errorMessage.includes("user rejected transaction")) {
-            throw new Error("Transaction was rejected. Please try again.");
-          }
-
-          // Re-throw the original error if it's not one we can provide a better message for
-          throw txError;
+        if (!receipt) {
+          throw new Error("Transaction receipt not found");
         }
+
+        // Check if the transaction was successful
+        if (!receipt.status) {
+          throw new Error("Transaction failed on chain");
+        }
+
+        // Get the pool address from the factory event
+        const factoryEvent = receipt.logs.find(
+          (log: ethers.Log) =>
+            log.address.toLowerCase() ===
+            contractAddresses.stageDotFunPoolFactory.toLowerCase()
+        );
+
+        if (!factoryEvent) {
+          throw new Error("No event found from factory contract");
+        }
+
+        // The pool address will be in the first topic after the event signature
+        const poolAddress = "0x" + factoryEvent.topics[1].slice(26);
+        console.log("Found pool address from event:", poolAddress);
+
+        // Create pool contract instance to get pool details
+        const poolContract = new ethers.Contract(
+          poolAddress,
+          StageDotFunPoolABI,
+          signer
+        );
+
+        // Get pool details
+        console.log("Getting pool details for address:", poolAddress);
+        const details = await poolContract.getPoolDetails();
+        console.log("Raw pool details:", details);
+
+        // Destructure the details array
+        const [
+          poolName, // string
+          poolUniqueId, // string
+          poolCreator, // address
+          poolTotalDeposits, // uint256
+          poolRevenue, // uint256
+          poolEndTime, // uint256
+          poolTargetAmount, // uint256
+          poolCapAmount, // uint256
+          poolStatus, // uint8
+          lpTokenAddress, // address
+          nftContractAddress, // address
+          tierCount, // uint256
+        ] = details;
+
+        console.log("Pool details:", {
+          name: poolName,
+          uniqueId: poolUniqueId,
+          creator: poolCreator,
+          totalDeposits: poolTotalDeposits.toString(),
+          revenueAccumulated: poolRevenue.toString(),
+          endTime: poolEndTime.toString(),
+          targetAmount: poolTargetAmount.toString(),
+          capAmount: poolCapAmount.toString(),
+          status: poolStatus,
+          lpTokenAddress,
+          nftContractAddress,
+          tierCount: tierCount.toString(),
+        });
+
+        return {
+          receipt,
+          poolAddress,
+          lpTokenAddress,
+          transactionHash: receipt.hash,
+        };
       } catch (err: any) {
         console.error("Error creating pool:", err);
         setError(err.message || "Error creating pool on chain");
@@ -408,7 +406,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
         setIsLoading(false);
       }
     },
-    [user, wallets]
+    [user, wallets, sendTransaction]
   );
 
   // Create a pool on the blockchain and then in the database
@@ -434,7 +432,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
             poolData.token_symbol,
             endTimeUnix, // Use Unix timestamp for blockchain
             poolData.target_amount, // Will be converted to base units in the hook
-            poolData.min_commitment || 0 // Will be converted to base units in the hook
+            poolData.cap_amount || 0 // Will be converted to base units in the hook
           );
 
           console.log(
@@ -462,17 +460,31 @@ export function useContractInteraction(): ContractInteractionHookResult {
           blockchain_status: "active",
           contract_address: blockchainResult.poolAddress,
           lp_token_address: blockchainResult.lpTokenAddress,
+          // Convert Unix timestamp to ISO string for Supabase
+          // Multiply by 1000 to convert seconds to milliseconds if it's a Unix timestamp
+          ends_at: new Date(Number(poolData.ends_at) * 1000).toISOString(),
         };
 
+        // Log the date conversion for debugging
+        console.log("Date conversion:", {
+          original: poolData.ends_at,
+          converted: poolDataWithBlockchain.ends_at,
+        });
+
+        // Remove tiers from pool data before inserting
+        const { tiers, ...poolDataForInsertion } = poolDataWithBlockchain;
+
+        console.log("Inserting pool data into database:", poolDataForInsertion);
+
         // Insert the pool using supabase
-        const { data, error } = await supabase
+        const { data: insertedPool, error: poolError } = await supabase
           .from("pools")
-          .insert(poolDataWithBlockchain)
+          .insert(poolDataForInsertion)
           .select()
           .single();
 
-        if (error) {
-          console.error("Error creating pool in database:", error);
+        if (poolError) {
+          console.error("Error creating pool in database:", poolError);
           return {
             success: false,
             error: "Pool was created on blockchain but database entry failed",
@@ -480,10 +492,90 @@ export function useContractInteraction(): ContractInteractionHookResult {
           };
         }
 
-        console.log("Pool created successfully in database:", data);
+        // Insert tiers if they exist
+        if (tiers && tiers.length > 0) {
+          const { error: tiersError } = await supabase.from("tiers").insert(
+            tiers.map((tier: any) => ({
+              pool_id: insertedPool.id,
+              name: tier.name,
+              description: tier.description,
+              price: tier.isVariablePrice ? 0 : tier.price,
+              is_variable_price: tier.isVariablePrice,
+              min_price: tier.isVariablePrice ? tier.minPrice : null,
+              max_price: tier.isVariablePrice ? tier.maxPrice : null,
+              max_supply: tier.maxPatrons,
+              current_supply: 0,
+              is_active: tier.isActive,
+            }))
+          );
+
+          if (tiersError) {
+            console.error("Error creating tiers in database:", tiersError);
+            return {
+              success: false,
+              error: "Pool was created but tiers failed to save",
+              txHash: blockchainResult.transactionHash,
+            };
+          }
+
+          // Insert reward items and tier_reward_items
+          for (const tier of tiers) {
+            if (tier.rewardItems && tier.rewardItems.length > 0) {
+              // Insert reward items
+              const { data: rewardItems, error: rewardItemsError } =
+                await supabase
+                  .from("reward_items")
+                  .insert(
+                    tier.rewardItems.map((item: any) => ({
+                      name: item.name,
+                      description: item.description,
+                      type: item.type,
+                      metadata: item.metadata,
+                      creator_id: insertedPool.creator_id,
+                      is_active: true,
+                    }))
+                  )
+                  .select();
+
+              if (rewardItemsError) {
+                console.error("Error creating reward items:", rewardItemsError);
+                return {
+                  success: false,
+                  error: "Failed to create reward items",
+                  txHash: blockchainResult.transactionHash,
+                };
+              }
+
+              // Insert tier_reward_items
+              const { error: tierRewardItemsError } = await supabase
+                .from("tier_reward_items")
+                .insert(
+                  rewardItems.map((item: any) => ({
+                    tier_id: tier.id,
+                    reward_item_id: item.id,
+                    quantity: 1,
+                  }))
+                );
+
+              if (tierRewardItemsError) {
+                console.error(
+                  "Error creating tier reward items:",
+                  tierRewardItemsError
+                );
+                return {
+                  success: false,
+                  error: "Failed to link tiers with reward items",
+                  txHash: blockchainResult.transactionHash,
+                };
+              }
+            }
+          }
+        }
+
+        console.log("Pool created successfully in database:", insertedPool);
         return {
           success: true,
-          data,
+          data: insertedPool,
           txHash: blockchainResult.transactionHash,
         };
       } catch (err: any) {
@@ -817,16 +909,24 @@ export function useContractInteraction(): ContractInteractionHookResult {
             throw new Error("Transaction receipt not found");
           }
 
-          // Add detailed logging of the transaction receipt
+          // Log the receipt and logs for examination
           console.log("Transaction receipt:", {
             hash: receipt.hash,
             blockNumber: receipt.blockNumber,
             status: receipt.status,
-            logs: receipt.logs.map((log) => ({
-              address: log.address,
-              topics: log.topics,
-              data: log.data,
-            })),
+            logs: receipt.logs,
+          });
+          console.log("Number of logs:", receipt.logs.length);
+          console.log("Detailed logs:");
+          receipt.logs.forEach((log: ethers.Log, index: number) => {
+            console.log(`\nLog ${index}:`);
+            console.log("Address:", log.address);
+            console.log("Topics:", log.topics);
+            console.log("Data:", log.data);
+            console.log("Block number:", log.blockNumber);
+            console.log("Transaction hash:", log.transactionHash);
+            console.log("Block hash:", log.blockHash);
+            console.log("Removed:", log.removed);
           });
 
           // Check if the transaction was successful
@@ -854,7 +954,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
             if (depositEventSignature) {
               const depositEvent = receipt.logs.find(
-                (log) => log.topics[0] === depositEventSignature
+                (log: ethers.Log) => log.topics[0] === depositEventSignature
               );
 
               if (!depositEvent) {
@@ -1462,6 +1562,10 @@ export function useContractInteraction(): ContractInteractionHookResult {
       try {
         console.log(`Preparing to distribute revenue for pool: ${poolAddress}`);
 
+        // Get the provider
+        const provider = await getProvider();
+        const signer = await provider.getSigner();
+
         // Create contract instance
         const poolContract = new ethers.Contract(
           poolAddress,
@@ -1479,6 +1583,43 @@ export function useContractInteraction(): ContractInteractionHookResult {
         // Wait for transaction to be mined
         const receipt = await tx.wait();
         console.log("Distribution transaction confirmed:", receipt);
+
+        // Add detailed logging of the transaction receipt
+        console.log("Transaction receipt:", {
+          hash: receipt.hash,
+          blockNumber: receipt.blockNumber,
+          status: receipt.status,
+          logs: receipt.logs.map((log: ethers.Log) => ({
+            address: log.address,
+            topics: log.topics,
+            data: log.data,
+          })),
+        });
+
+        // Debug log all events with detailed information
+        console.log("Number of logs:", receipt.logs.length);
+        console.log("Detailed logs:");
+        receipt.logs.forEach((log: ethers.Log, index: number) => {
+          console.log(`\nLog ${index}:`);
+          console.log("Address:", log.address);
+          console.log("Topics:", log.topics);
+          console.log("Data:", log.data);
+          console.log("Block number:", log.blockNumber);
+          console.log("Transaction hash:", log.transactionHash);
+          console.log("Block hash:", log.blockHash);
+          console.log("Removed:", log.removed);
+        });
+
+        // Check if the transaction was successful
+        if (!receipt.status) {
+          // Try to get the revert reason
+          const code = await provider.call({
+            ...tx,
+            blockTag: receipt.blockNumber,
+          });
+          console.error("Transaction failed with code:", code);
+          throw new Error("Transaction failed on chain");
+        }
 
         return {
           success: true,
@@ -1502,7 +1643,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
         return { success: false, error: errorMessage };
       }
     },
-    [signer]
+    [signer, getProvider]
   );
 
   // Update pool name
