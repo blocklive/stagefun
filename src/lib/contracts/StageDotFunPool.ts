@@ -141,6 +141,19 @@ export interface ContractPool {
   tierCount: bigint;
 }
 
+// Define a type for a tier
+export interface Tier {
+  name: string;
+  price: bigint;
+  isActive: boolean;
+  nftMetadata: string;
+  isVariablePrice: boolean;
+  minPrice: bigint;
+  maxPrice: bigint;
+  maxPatrons: bigint;
+  currentPatrons: bigint;
+}
+
 // Get the factory contract instance
 export function getStageDotFunPoolFactoryContract(
   signerOrProvider: ethers.Signer | ethers.Provider
@@ -419,4 +432,53 @@ export async function getLpHoldersWithBalances(
   }
 
   return lpHolders;
+}
+
+// Get tier details
+export async function getTier(
+  provider: ethers.Provider,
+  poolAddress: string,
+  tierId: number
+): Promise<Tier> {
+  const pool = getPoolContract(provider, poolAddress);
+  const tier = await pool.getTier(tierId);
+  return {
+    name: tier.name,
+    price: tier.price,
+    isActive: tier.isActive,
+    nftMetadata: tier.nftMetadata,
+    isVariablePrice: tier.isVariablePrice,
+    minPrice: tier.minPrice,
+    maxPrice: tier.maxPrice,
+    maxPatrons: tier.maxPatrons,
+    currentPatrons: tier.currentPatrons,
+  };
+}
+
+// Get all tiers for a pool
+export async function getAllTiers(
+  provider: ethers.Provider,
+  poolAddress: string
+): Promise<Tier[]> {
+  const pool = getPoolContract(provider, poolAddress);
+  const tierCount = await pool.getTierCount();
+
+  const tiers: Tier[] = [];
+  for (let i = 0; i < tierCount; i++) {
+    const tier = await getTier(provider, poolAddress, i);
+    tiers.push(tier);
+  }
+
+  return tiers;
+}
+
+// Commit to a tier
+export async function commitToTier(
+  provider: ethers.Signer | ethers.Provider,
+  poolAddress: string,
+  tierId: number,
+  amount: bigint
+): Promise<ethers.ContractTransactionResponse> {
+  const pool = getPoolContract(provider, poolAddress);
+  return await pool.commitToTier(tierId, amount);
 }

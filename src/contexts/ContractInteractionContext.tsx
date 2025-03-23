@@ -18,7 +18,6 @@ interface PoolCreationData {
   ticker: string;
   description: string;
   target_amount: number;
-  cap_amount: number;
   currency: string;
   token_amount: number;
   token_symbol: string;
@@ -31,18 +30,8 @@ interface PoolCreationData {
   raised_amount: number;
   image_url: string | null;
   social_links: any;
-  tiers: {
-    name: string;
-    price: number;
-    isActive: boolean;
-    nftMetadata: any;
-    isVariablePrice: boolean;
-    minPrice: number;
-    maxPrice: number;
-    maxPatrons: number;
-    description: string;
-    rewardItems: any[];
-  }[];
+  tiers?: any[];
+  cap_amount?: number;
 }
 
 // Update the ContractResult type to include data property
@@ -76,7 +65,8 @@ export interface ContractInteractionContextType {
   getPoolDetails: (poolAddress: string) => Promise<any>;
   depositToPool: (
     poolAddress: string,
-    amount: number
+    amount: number,
+    tierId: number
   ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
   withdrawFromPool: (
     poolAddress: string,

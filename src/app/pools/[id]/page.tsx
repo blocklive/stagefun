@@ -6,12 +6,19 @@ import { useEffect, useState, useCallback } from "react";
 import { FaArrowLeft } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import { useSupabase } from "../../../contexts/SupabaseContext";
+import { useContractInteraction as useContractInteractionHook } from "../../../hooks/useContractInteraction";
 import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
 import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
 import { usePoolDetails } from "../../../hooks/usePoolDetails";
 import { usePoolCommitments } from "../../../hooks/usePoolCommitments";
 import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
+import { usePoolTiers, type DBTier } from "../../../hooks/usePoolTiers";
 import AppHeader from "../../components/AppHeader";
+import {
+  getAllTiers,
+  Tier,
+  commitToTier,
+} from "../../../lib/contracts/StageDotFunPool";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -45,38 +52,18 @@ export default function PoolDetailsPage() {
     targetAmount,
     raisedAmount,
     percentage,
-    isLoading,
+    isLoading: isLoadingPool,
+    error: poolError,
     refresh: refreshPool,
   } = usePoolDetails(poolId);
 
-  // Check if we need to refresh the data (coming from edit page)
-  useEffect(() => {
-    // Check if the URL has a refresh parameter
-    const searchParams = new URLSearchParams(window.location.search);
-    const shouldRefresh = searchParams.get("refresh") === "true";
-
-    if (shouldRefresh) {
-      console.log("Refreshing pool data after edit...");
-      refreshPool();
-
-      // Clean up the URL by removing the refresh parameter
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, "", newUrl);
-    }
-  }, [refreshPool]);
-
-  // Always refresh the pool data when the component mounts
-  useEffect(() => {
-    console.log("Initial pool data refresh on mount");
-    refreshPool();
-  }, [refreshPool, poolId]);
+  // Use both hook and context for different functionalities
+  const { walletsReady, privyReady } = useContractInteractionHook();
 
   const {
-    depositToPool: commitToBlockchain,
     claimRefund,
+    depositToPool,
     isLoading: isBlockchainLoading,
-    walletsReady,
-    privyReady,
   } = useContractInteraction();
 
   const {
@@ -101,8 +88,17 @@ export default function PoolDetailsPage() {
     isLoading: isTimeLoading,
   } = usePoolTimeLeft(pool);
 
+  const {
+    tiers: fetchedTiers,
+    isLoading: isLoadingTiers,
+    isError: tiersError,
+  } = usePoolTiers(poolId);
+
+  // Convert undefined to null for the CommitModal
+  const tiers = fetchedTiers || null;
+
   // Add contract interaction
-  const { isLoading: isContractLoading } = useContractInteraction();
+  const { isLoading: isContractLoading } = useContractInteractionHook();
 
   // Calculate total committed and target amount from commitments
   const totalCommitted =
@@ -137,7 +133,7 @@ export default function PoolDetailsPage() {
   }, [contentTab]);
 
   // Add state for approving
-  const [isApproving, setIsApproving] = useState(false);
+  const [isCommitting, setIsCommitting] = useState(false);
 
   // Add state to control button visibility
   const [showCommitButton, setShowCommitButton] = useState(false);
@@ -156,100 +152,74 @@ export default function PoolDetailsPage() {
     setCommitAmount(usdcBalance);
   }, [usdcBalance]);
 
-  const handleCommit = async () => {
-    if (!pool || !dbUser) return;
+  // Update handleCommit to use tier-based commitment
+  const handleCommit = async (tierId: string, amount: number) => {
+    if (!pool?.contract_address) {
+      toast.error("Pool not found");
+      return;
+    }
 
+    if (!tiers) {
+      toast.error("Tiers not loaded");
+      return;
+    }
+
+    // Add detailed logging
+    console.log("Commit attempt details:", {
+      tierId,
+      amount,
+      contractAddress: pool.contract_address,
+      allTiers: tiers,
+      tierCount: tiers.length,
+    });
+
+    // Find the index of the tier in the array
+    const tierIndex = tiers.findIndex((t) => t.id === tierId);
+    console.log("Found tier index:", {
+      tierIndex,
+      matchingTier: tiers[tierIndex],
+      selectedTierId: tierId,
+    });
+
+    if (tierIndex === -1) {
+      toast.error("Tier not found");
+      return;
+    }
+
+    setIsCommitting(true);
     try {
-      setIsApproving(true);
-      const amount = parseFloat(commitAmount);
-
-      if (isNaN(amount) || amount <= 0) {
-        toast.error("Please enter a valid amount");
-        return;
-      }
-
-      // Show initial toast
-      const loadingToast = toast.loading("Preparing your commitment...");
-
-      console.log("Pool details in handleCommit:", {
-        id: pool.id,
-        name: pool.name,
+      // Log the values being passed to depositToPool
+      console.log("Calling depositToPool with:", {
         contractAddress: pool.contract_address,
-      });
-
-      // Convert to USDC base units (6 decimals)
-      const amountInBaseUnits = Math.floor(amount * 1_000_000).toString();
-
-      // We need to pass pool.id here, not pool.contract_address
-      console.log("Calling commitToBlockchain with:", {
-        firstArg: pool.id, // Changed to use pool.id
         amount,
+        tierIndex,
+        selectedTier: tiers[tierIndex],
       });
 
-      try {
-        // Update toast for USDC approval
-        toast.loading("Requesting approval for USDC transfer...", {
-          id: loadingToast,
-        });
+      const result = await depositToPool(
+        pool.contract_address,
+        amount,
+        tierIndex // Use the array index as the contract tier ID
+      );
 
-        // Since commitToBlockchain handles both approval and transaction,
-        // we'll add a toast for USDC approval before the actual transaction
+      console.log("depositToPool result:", result);
 
-        // Set up timeouts for toast updates
-        const approvalTimeout = setTimeout(() => {
-          toast.loading("✅ USDC approved! Initiating transaction...", {
-            id: loadingToast,
-          });
-        }, 3000); // Show after 3 seconds - this is just an estimate
-
-        const submissionTimeout = setTimeout(() => {
-          toast.loading("Transaction submitted to blockchain...", {
-            id: loadingToast,
-          });
-        }, 6000); // Show after 6 seconds - this is just an estimate
-
-        // This will handle both approval and transaction submission
-        await commitToBlockchain(pool.id, amount);
-
-        // Clear timeouts if transaction completes faster than expected
-        clearTimeout(approvalTimeout);
-        clearTimeout(submissionTimeout);
-
-        // After successful transaction submission
-        toast.loading(
-          "Transaction successful! Waiting for final confirmation...",
-          { id: loadingToast }
-        );
-
-        // Receipt received message
-        toast.loading("Receipt received! Finalizing your deposit...", {
-          id: loadingToast,
-        });
-
-        // Refresh data
+      if (result.success) {
+        toast.success("Successfully committed to tier!");
         refreshPool();
         refreshBalance();
-        refreshCommitments();
-
-        // Success toast with emoji
-        toast.success(
-          `🎉 Successfully committed ${amount} USDC to ${pool.name}!`,
-          { id: loadingToast }
-        );
+        setIsCommitModalOpen(false);
         setCommitAmount("");
-        setIsApproving(false);
-        setIsCommitModalOpen(false); // Close the modal on success
-      } catch (txError) {
-        console.error("Transaction error:", txError);
-        toast.error(`Transaction failed: ${String(txError)}`, {
-          id: loadingToast,
-        });
-        setIsApproving(false);
+      } else {
+        toast.error(result.error || "Failed to commit to tier");
       }
     } catch (error) {
-      console.error("Error committing to pool:", error);
-      toast.error("Failed to commit to pool. Please try again.");
-      setIsApproving(false);
+      console.error("Error in handleCommit:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to commit to tier"
+      );
+    } finally {
+      setIsCommitting(false);
     }
   };
 
@@ -414,9 +384,12 @@ export default function PoolDetailsPage() {
           commitmentsError={commitmentsError}
           usdcBalance={usdcBalance}
           commitAmount={commitAmount}
-          isApproving={isApproving}
+          isApproving={isCommitting}
           walletsReady={walletsReady}
-          handleCommit={handleCommit}
+          handleCommit={async () => {
+            setIsCommitModalOpen(true);
+            return Promise.resolve();
+          }}
           setCommitAmount={setCommitAmount}
           refreshBalance={refreshBalance}
           isUnfunded={isUnfunded}
@@ -461,7 +434,7 @@ export default function PoolDetailsPage() {
 
   // Render main content
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoadingPool) {
       return (
         <div className="flex items-center justify-center min-h-screen">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -665,21 +638,18 @@ export default function PoolDetailsPage() {
       />
 
       {/* Commit Modal */}
-      <CommitModal
-        isOpen={isCommitModalOpen}
-        onClose={() => setIsCommitModalOpen(false)}
-        pool={pool}
-        dbUser={dbUser}
-        usdcBalance={usdcBalance}
-        commitAmount={commitAmount}
-        isApproving={isApproving}
-        isUsingCache={isUsingCachedBalance}
-        walletsReady={walletsReady}
-        handleMaxClick={handleMaxClick}
-        handleCommit={handleCommit}
-        setCommitAmount={setCommitAmount}
-        refreshBalance={refreshBalance}
-      />
+      {isCommitModalOpen && (
+        <CommitModal
+          isOpen={isCommitModalOpen}
+          onClose={() => setIsCommitModalOpen(false)}
+          onCommit={handleCommit}
+          commitAmount={commitAmount}
+          setCommitAmount={setCommitAmount}
+          isApproving={isCommitting}
+          tiers={tiers}
+          isLoadingTiers={isLoadingTiers}
+        />
+      )}
 
       {/* Get Tokens Modal */}
       {showTokensModal && (

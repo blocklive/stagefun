@@ -82,7 +82,6 @@ contract StageDotFunPool is Ownable {
     
     // LP Token holders
     mapping(address => uint256) public lpBalances;
-    address[] public lpHolders;
     mapping(address => bool) public isLpHolder;
     
     // Track NFT claims
@@ -294,9 +293,8 @@ contract StageDotFunPool is Ownable {
         // Transfer USDC from user
         require(depositToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         
-        // Mint LP tokens to user
-        uint256 lpAmount = (amount * totalDeposits) / totalDeposits;
-        lpToken.mint(msg.sender, lpAmount);
+        // Mint LP tokens 1:1 with deposit
+        lpToken.mint(msg.sender, amount);
         
         // Update pool state
         totalDeposits += amount;
@@ -311,7 +309,7 @@ contract StageDotFunPool is Ownable {
         // Add to user's tier commitments
         userTierCommitments[msg.sender].push(tierId);
         
-        // Mint NFT for the tier
+        // Mint NFT for the tier if metadata exists
         if (bytes(tier.nftMetadata).length > 0) {
             nftContract.mintNFT(msg.sender, tier.nftMetadata);
         }
