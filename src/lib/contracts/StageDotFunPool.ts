@@ -139,6 +139,12 @@ export interface ContractPool {
   lpTokenAddress: string;
   nftContractAddress: string;
   tierCount: bigint;
+  minCommitment: bigint;
+  lpHolders: string[];
+  milestones: any[];
+  emergencyMode: boolean;
+  emergencyWithdrawalRequestTime: bigint;
+  authorizedWithdrawer: string;
 }
 
 // Define a type for a tier
@@ -290,6 +296,12 @@ export async function getPoolDetails(
       lpTokenAddress: details._lpTokenAddress,
       nftContractAddress: details._nftContractAddress,
       tierCount: details._tierCount,
+      minCommitment: BigInt(0), // Assuming default value, actual implementation needed
+      lpHolders: [], // Assuming default value, actual implementation needed
+      milestones: [], // Assuming default value, actual implementation needed
+      emergencyMode: false, // Assuming default value, actual implementation needed
+      emergencyWithdrawalRequestTime: BigInt(0), // Assuming default value, actual implementation needed
+      authorizedWithdrawer: ethers.ZeroAddress, // Assuming default value, actual implementation needed
     };
   } catch (error) {
     console.error(`Error getting pool details for ${poolAddress}:`, error);

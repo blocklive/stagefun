@@ -4,10 +4,10 @@
  */
 export const CONTRACT_ADDRESSES = {
   monadTestnet: {
-    stageDotFunPoolFactory: "0x427EBBb75c87C2BD85143c0575768479e0EC5Ca1",
-    poolImplementation: "0xc32C337be453BF3ca693a84fb7Eb288A23e82C98",
-    lpTokenImplementation: "0x8C5bc6392498756f6F691E02ab1854E2F3850253",
-    nftImplementation: "0xe97d3c253fc7a0BbEe6527D03bE8860Bb10c1f6E",
+    stageDotFunPoolFactory: "0x67624eD3C9AC601cE41Da9468Dff919BD91C977F",
+    stageDotFunPoolImplementation: "0x3Ed46120C8B1341E2828701151b57FCBCa179382",
+    stageDotFunLiquidityImplementation: "0x6f55e9E0C5f76a2Fd6094EbAf134e653341ddD13",
+    stageDotFunNFTImplementation: "0x329b3aE8f89782fEFaAd2C42B9C52844E9a609f8",
     usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
   },
 } as const;
@@ -17,8 +17,7 @@ export const CONTRACT_ADDRESSES = {
  */
 export const NETWORK = {
   chainId: 10143,
-  rpcUrl:
-    "https://falling-practical-rain.monad-testnet.quiknode.pro/a5d256e0fcaf1ff2574b5d13322cb315b0cec88f",
+  rpcUrl: "https://falling-practical-rain.monad-testnet.quiknode.pro/a5d256e0fcaf1ff2574b5d13322cb315b0cec88f",
   explorerUrl: "https://testnet.monadexplorer.com",
 } as const;
 

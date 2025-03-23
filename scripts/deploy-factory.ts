@@ -97,6 +97,9 @@ async function main() {
 export const CONTRACT_ADDRESSES = {
   monadTestnet: {
     stageDotFunPoolFactory: "${updatedAddresses.stageDotFunPoolFactory}",
+    stageDotFunPoolImplementation: "${updatedAddresses.poolImplementation}",
+    stageDotFunLiquidityImplementation: "${updatedAddresses.lpTokenImplementation}",
+    stageDotFunNFTImplementation: "${updatedAddresses.nftImplementation}",
     usdc: "${usdc}",
   },
 } as const;

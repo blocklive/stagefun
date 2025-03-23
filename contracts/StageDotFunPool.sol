@@ -147,13 +147,15 @@ contract StageDotFunPool is Ownable {
         lpToken.initialize(tokenName, symbol);
         
         // Deploy NFT contract for this pool with new naming convention
+        string memory nftName = string(abi.encodePacked(_name, " Patron"));
+        string memory nftSymbol = string(abi.encodePacked(symbol, "P"));
         nftContract = StageDotFunNFT(
             Clones.clone(_nftImplementation)
         );
         nftContract.initialize(
-            string(abi.encodePacked(_name, "Patron")),
-            string(abi.encodePacked(symbol, "P")),
-            _owner
+            nftName,
+            nftSymbol,
+            address(this)  // Set the pool contract as the owner
         );
         
         // Transfer ownership to the specified owner

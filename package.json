@@ -20,7 +20,8 @@
   "dependencies": {
     "@babel/runtime": "^7.26.10",
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "@openzeppelin/contracts": "^5.0.0",
+    "@openzeppelin/contracts": "^5.2.0",
+    "@openzeppelin/contracts-upgradeable": "^5.2.0",
     "@privy-io/react-auth": "^2.4.5",
     "@radix-ui/react-progress": "^1.1.2",
     "@supabase/supabase-js": "^2.39.0",
