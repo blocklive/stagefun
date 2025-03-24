@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useCallback, useState } from "react";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { useContractInteraction as useContractInteractionHook } from "../hooks/useContractInteraction";
+import { useDeposit } from "../hooks/useDeposit";
 import {
   ContractPool,
   StageDotFunPoolABI,
@@ -168,6 +169,7 @@ export const ContractInteractionProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   const contractInteraction = useContractInteractionHook();
+  const { depositToPool: depositToPoolHook } = useDeposit();
   const { ready: privyReady, user } = usePrivy();
   const { ready: walletsReady, wallets } = useWallets();
   const { sendTransaction } = useSendTransaction();
@@ -530,6 +532,15 @@ export const ContractInteractionProvider: React.FC<{
     []
   );
 
+  // Update depositToPool to use the new hook
+  const depositToPool = async (
+    poolAddress: string,
+    amount: number,
+    tierId: number
+  ): Promise<{ success: boolean; error?: string; txHash?: string }> => {
+    return depositToPoolHook(poolAddress, amount, tierId);
+  };
+
   const contextValue: ContractInteractionContextType = {
     ...contractInteraction,
     privyReady,
@@ -545,6 +556,7 @@ export const ContractInteractionProvider: React.FC<{
     isLoading,
     error,
     walletAddress: user?.wallet?.address || null,
+    depositToPool,
   };
 
   return (

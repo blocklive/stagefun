@@ -205,13 +205,12 @@ export default function PoolDetailsPage() {
       console.log("depositToPool result:", result);
 
       if (result.success) {
-        toast.success("Successfully committed to tier!");
         refreshPool();
         refreshBalance();
         setIsCommitModalOpen(false);
         setCommitAmount("");
       } else {
-        toast.error(result.error || "Failed to commit to tier");
+        console.error("Failed to commit to tier:", result.error);
       }
     } catch (error) {
       console.error("Error in handleCommit:", error);
