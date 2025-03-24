@@ -652,7 +652,158 @@ export function useContractInteraction(): ContractInteractionHookResult {
           };
         }
 
-        // Rest of the contract tier creation code...
+        // Get the provider and create contract instance
+        const provider = await embeddedWallet.getEthereumProvider();
+        const ethersProvider = new ethers.BrowserProvider(provider);
+        const poolContract = getPoolContract(
+          ethersProvider,
+          blockchainResult.poolAddress
+        );
+        const signer = await ethersProvider.getSigner();
+        const signerAddress = await signer.getAddress();
+
+        // Create tiers on-chain
+        if (tiers && tiers.length > 0) {
+          console.log("Creating tiers on-chain:", tiers);
+
+          for (const tier of tiers) {
+            // Handle NFT metadata
+            let nftMetadataUrl = "";
+            if (tier.nftMetadata) {
+              try {
+                // First upload the image to Supabase storage
+                const imageFileName = `${poolData.id}/${tier.name
+                  .toLowerCase()
+                  .replace(/\s+/g, "-")}-image.png`;
+                const { data: imageUploadData, error: imageUploadError } =
+                  await supabase.storage
+                    .from("pool-images")
+                    .upload(imageFileName, tier.nftMetadata, {
+                      contentType: "image/png",
+                      upsert: true,
+                    });
+
+                if (imageUploadError) {
+                  console.error("Error uploading NFT image:", imageUploadError);
+                  throw new Error("Failed to upload NFT image");
+                }
+
+                // Get the public URL for the image
+                const {
+                  data: { publicUrl: imageUrl },
+                } = supabase.storage
+                  .from("pool-images")
+                  .getPublicUrl(imageFileName);
+
+                // Generate metadata JSON with the image URL
+                const metadataJson = {
+                  name: tier.name,
+                  description: tier.description || `${tier.name} tier`,
+                  image: imageUrl,
+                  attributes: [
+                    {
+                      trait_type: "Tier",
+                      value: tier.name,
+                    },
+                  ],
+                };
+
+                // Upload the metadata JSON to Supabase storage
+                const metadataFileName = `${poolData.id}/${tier.name
+                  .toLowerCase()
+                  .replace(/\s+/g, "-")}-metadata.json`;
+                const { data: metadataUploadData, error: metadataUploadError } =
+                  await supabase.storage
+                    .from("tier-metadata")
+                    .upload(metadataFileName, JSON.stringify(metadataJson), {
+                      contentType: "application/json",
+                      upsert: true,
+                    });
+
+                if (metadataUploadError) {
+                  console.error(
+                    "Error uploading NFT metadata:",
+                    metadataUploadError
+                  );
+                  throw new Error("Failed to upload NFT metadata");
+                }
+
+                // Get the public URL for the metadata
+                const {
+                  data: { publicUrl: metadataUrl },
+                } = supabase.storage
+                  .from("tier-metadata")
+                  .getPublicUrl(metadataFileName);
+
+                nftMetadataUrl = metadataUrl;
+                console.log("NFT metadata and image uploaded successfully:", {
+                  imageUrl,
+                  metadataUrl,
+                });
+              } catch (error) {
+                console.error("Error processing NFT metadata:", error);
+                // Continue without NFT metadata if there's an error
+              }
+            }
+
+            // Convert tier price to base units
+            const tierPriceBigInt = ethers.parseUnits(
+              tier.price.toString(),
+              6 // USDC has 6 decimals
+            );
+
+            // Create contract interface for adding tier
+            const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+            const addTierData = poolInterface.encodeFunctionData("createTier", [
+              tier.name,
+              tierPriceBigInt,
+              nftMetadataUrl, // Use the uploaded metadata URL
+              tier.isVariablePrice,
+              tier.isVariablePrice ? BigInt(tier.minPrice) : BigInt(0),
+              tier.isVariablePrice ? BigInt(tier.maxPrice) : BigInt(0),
+              BigInt(tier.maxPatrons || 0),
+            ]);
+
+            // Prepare the add tier transaction request
+            const addTierRequest = {
+              to: blockchainResult.poolAddress,
+              data: addTierData,
+              value: "0",
+              from: signerAddress,
+              chainId: 10143, // Monad Testnet
+              gasLimit: 5000000,
+            };
+
+            // Set UI options for the add tier transaction
+            const addTierUiOptions = {
+              description: `Creating tier "${tier.name}" with price ${tier.price} USDC`,
+              buttonText: "Create Tier",
+              transactionInfo: {
+                title: "Create Tier",
+                action: "Add Tier",
+                contractInfo: {
+                  name: "StageDotFun Pool",
+                },
+              },
+            };
+
+            console.log("Sending create tier transaction for tier:", tier.name);
+            const addTierTx = await sendTransaction(addTierRequest, {
+              uiOptions: addTierUiOptions,
+            });
+
+            // Wait for transaction to be mined
+            const addTierReceipt = await ethersProvider.waitForTransaction(
+              addTierTx.hash as string
+            );
+
+            if (!addTierReceipt?.status) {
+              throw new Error(`Failed to create tier "${tier.name}" on-chain`);
+            }
+
+            console.log(`Tier "${tier.name}" created successfully on-chain`);
+          }
+        }
 
         console.log("Pool created successfully in database:", insertedPool);
         return {
@@ -751,40 +902,83 @@ export function useContractInteraction(): ContractInteractionHookResult {
         const poolDetails = await poolContract.getPoolDetails();
         console.log("Pool details:", poolDetails);
 
-        // Log raw pool status for debugging
-        console.log("Pool status details:", {
-          rawStatus: poolDetails._status,
-          statusType: typeof poolDetails._status,
-          isActive: Number(poolDetails._status) === 1,
-          statusNumber: Number(poolDetails._status),
-          statusString: PoolStatus[Number(poolDetails._status)],
-          poolDetails: {
-            name: poolDetails._name,
-            uniqueId: poolDetails._uniqueId,
-            creator: poolDetails._creator,
-            totalDeposits: ethers.formatUnits(
-              poolDetails._totalDeposits,
-              usdcDecimals
-            ),
-            revenueAccumulated: ethers.formatUnits(
-              poolDetails._revenueAccumulated,
-              usdcDecimals
-            ),
-            endTime: poolDetails._endTime.toString(),
-            targetAmount: ethers.formatUnits(
-              poolDetails._targetAmount,
-              usdcDecimals
-            ),
-            capAmount: ethers.formatUnits(poolDetails._capAmount, usdcDecimals),
-            status: poolDetails._status.toString(),
-          },
-        });
+        // Check if tier exists on-chain
+        const tierCount = Number(poolDetails._tierCount);
+        console.log("Current tier count on-chain:", tierCount);
+
+        if (tierCount === 0) {
+          console.log("No tiers exist on-chain, creating tier...");
+
+          // Convert tier price to base units
+          const tierPriceBigInt = ethers.parseUnits(
+            amount.toString(),
+            usdcDecimals
+          );
+
+          // Create contract interface for adding tier
+          const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+          const addTierData = poolInterface.encodeFunctionData("addTier", [
+            "GM", // name
+            "asdfasf", // description
+            tierPriceBigInt, // price
+            BigInt(100), // maxPatrons
+            true, // isActive
+            false, // isVariablePrice
+            BigInt(0), // minPrice
+            BigInt(0), // maxPrice
+          ]);
+
+          // Prepare the add tier transaction request
+          const addTierRequest = {
+            to: contractAddress,
+            data: addTierData,
+            value: "0",
+            from: signerAddress,
+            chainId: 10143, // Monad Testnet
+            gasLimit: 5000000,
+          };
+
+          // Set UI options for the add tier transaction
+          const addTierUiOptions = {
+            description: `Creating tier with price ${amount} USDC`,
+            buttonText: "Create Tier",
+            transactionInfo: {
+              title: "Create Tier",
+              action: "Add Tier",
+              contractInfo: {
+                name: "StageDotFun Pool",
+              },
+            },
+          };
+
+          console.log("Sending add tier transaction");
+          const addTierTx = await sendTransaction(addTierRequest, {
+            uiOptions: addTierUiOptions,
+          });
+
+          // Wait for transaction to be mined
+          const addTierReceipt = await ethersProvider.waitForTransaction(
+            addTierTx.hash as string
+          );
+
+          if (!addTierReceipt?.status) {
+            throw new Error("Failed to create tier on-chain");
+          }
+
+          console.log("Tier created successfully on-chain");
+        }
 
         // Get and log the target tier details
         const targetTier = await poolContract.getTier(tierId);
         console.log("Target tier details from contract:", {
           tierId,
           tierDetails: targetTier,
+          tierArray: Array.from(targetTier).map((v: any) => v.toString()),
+          tierPrice: targetTier[1].toString(),
+          tierPriceFormatted: ethers.formatUnits(targetTier[1], usdcDecimals),
+          isActive: targetTier[2].toString(),
+          maxPatrons: targetTier[7].toString(),
+          currentPatrons: targetTier[8].toString(),
         });
 
         // Get the exact tier price and use it for the commitment
@@ -792,6 +986,24 @@ export function useContractInteraction(): ContractInteractionHookResult {
         console.log("Using tier price for commitment:", {
           tierPrice: tierPrice.toString(),
           tierPriceFormatted: ethers.formatUnits(tierPrice, usdcDecimals),
+          tierPriceHex: tierPrice.toString(16),
+        });
+
+        // Create contract interface for pool commit
+        const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+        const commitData = poolInterface.encodeFunctionData("commitToTier", [
+          BigInt(tierId), // Use the actual tierId passed in
+          tierPrice,
+        ]);
+
+        console.log("Transaction data details:", {
+          commitData,
+          functionSelector: commitData.slice(0, 10),
+          tierIdParam: commitData.slice(10, 74),
+          tierPriceParam: commitData.slice(74),
+          tierId: tierId,
+          tierPrice: tierPrice.toString(),
+          tierPriceHex: tierPrice.toString(16),
         });
 
         // Check requirements
@@ -909,15 +1121,15 @@ export function useContractInteraction(): ContractInteractionHookResult {
           };
 
           console.log("Sending approval transaction", approvalRequest);
-          const approvalTxHash = await sendTransaction(approvalRequest, {
+          const approvalTx = await sendTransaction(approvalRequest, {
             uiOptions: approvalUiOptions,
           });
-          console.log("Approval transaction sent:", approvalTxHash);
+          console.log("Approval transaction sent:", approvalTx.hash);
 
           // Wait for approval to be mined
           console.log("Waiting for approval confirmation...");
           const approvalReceipt = await ethersProvider.waitForTransaction(
-            approvalTxHash.hash
+            approvalTx.hash as string
           );
           console.log("Approval confirmed:", approvalReceipt);
 
@@ -965,13 +1177,6 @@ export function useContractInteraction(): ContractInteractionHookResult {
           hasEnoughAllowance: finalAllowance >= tierPrice,
         });
 
-        // Create contract interface for pool commit
-        const poolInterface = new ethers.Interface(StageDotFunPoolABI);
-        const commitData = poolInterface.encodeFunctionData("commitToTier", [
-          tierId,
-          tierPrice,
-        ]);
-
         // Prepare the commit transaction request
         const commitRequest = {
           to: contractAddress,
@@ -1002,6 +1207,8 @@ export function useContractInteraction(): ContractInteractionHookResult {
           request: commitRequest,
           encodedData: commitData,
           functionSelector: commitData.slice(0, 10),
+          tierId,
+          tierPrice: tierPrice.toString(),
         });
 
         console.log("🔄 About to call Privy sendTransaction...");
@@ -1010,11 +1217,13 @@ export function useContractInteraction(): ContractInteractionHookResult {
             uiOptions: commitUiOptions,
           });
 
-          console.log("Transaction hash received:", txHash);
+          console.log("Transaction hash received:", txHash.hash);
 
           // Wait for transaction to be mined
           console.log("Waiting for transaction confirmation...");
-          const receipt = await ethersProvider.waitForTransaction(txHash.hash);
+          const receipt = await ethersProvider.waitForTransaction(
+            txHash.hash as string
+          );
 
           if (!receipt) {
             throw new Error("Transaction receipt not found");
@@ -1053,7 +1262,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
             if (commitEventSignature) {
               const commitEvent = receipt.logs.find(
-                (log) => log.topics[0] === commitEventSignature
+                (log: ethers.Log) => log.topics[0] === commitEventSignature
               );
 
               if (!commitEvent) {
@@ -1089,7 +1298,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
           return {
             success: true,
-            txHash: receipt.hash,
+            txHash: txHash.hash as string,
           };
         } catch (err) {
           console.error("Error in depositToPool transaction:", {
@@ -1182,13 +1391,13 @@ export function useContractInteraction(): ContractInteractionHookResult {
       };
 
       console.log("Sending transfer transaction");
-      const transferTxHash = await sendTransaction(transferRequest, {
+      const transferTx = await sendTransaction(transferRequest, {
         uiOptions: transferUiOptions,
       });
 
       // Wait for transaction to be mined
       const transferReceipt = await ethersProvider.waitForTransaction(
-        transferTxHash.hash
+        transferTx.hash as string
       );
 
       if (!transferReceipt?.status) {
@@ -1198,7 +1407,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
       console.log("Successfully transferred funds to destination address");
       return {
         success: true,
-        txHash: transferTxHash.hash,
+        txHash: transferTx.hash as string,
       };
     } catch (error: any) {
       console.error("Error transferring funds to destination:", error);
@@ -1326,11 +1535,11 @@ export function useContractInteraction(): ContractInteractionHookResult {
           };
 
           console.log("Sending authorization transaction");
-          const authTxHash = await sendTransaction(authRequest, {
+          const authTx = await sendTransaction(authRequest, {
             uiOptions: authUiOptions,
           });
 
-          lastTxHash = authTxHash.hash;
+          lastTxHash = authTx.hash as string;
 
           // Wait for transaction to be mined
           const authReceipt = await ethersProvider.waitForTransaction(
@@ -1411,191 +1620,387 @@ export function useContractInteraction(): ContractInteractionHookResult {
         };
 
         console.log("Sending withdraw transaction");
-        const withdrawTxHash = await sendTransaction(withdrawRequest, {
+        const withdrawTx = await sendTransaction(withdrawRequest, {
           uiOptions: withdrawUiOptions,
         });
 
-        lastTxHash = withdrawTxHash.hash;
-
         // Wait for transaction to be mined
         const withdrawReceipt = await ethersProvider.waitForTransaction(
-          lastTxHash
+          withdrawTx.hash as string
         );
 
         if (!withdrawReceipt?.status) {
-          throw new Error("Failed to withdraw milestone");
+          throw new Error("Failed to withdraw funds from pool");
         }
 
-        console.log(`Successfully withdrew milestone ${defaultMilestoneIndex}`);
-
-        // STEP 4: Transfer funds to destination if needed
-        if (destinationAddress.toLowerCase() !== signerAddress.toLowerCase()) {
-          return await transferFundsToDestination(
-            ethersProvider,
-            signer,
-            signerAddress,
-            destinationAddress,
-            amount,
-            lastTxHash
-          );
-        }
-
+        console.log("Successfully withdrew funds from pool");
         return {
           success: true,
-          txHash: lastTxHash,
+          txHash: withdrawTx.hash as string,
         };
-      } catch (err: any) {
-        console.error("Error in withdrawFromPool:", err);
-        setError(err.message || "Error withdrawing from pool");
+      } catch (error) {
+        console.error("Error in withdrawFromPool:", error);
         return {
           success: false,
-          error: err.message || "Unknown error in withdrawal process",
+          error:
+            error instanceof Error ? error.message : "Unknown error occurred",
         };
-      } finally {
-        setIsLoading(false);
       }
     },
     [user, getSigner, wallets, sendTransaction]
   );
 
-  // Get pool data from the blockchain
-  const getPool = async (poolId: string): Promise<ContractPool | null> => {
-    setIsLoading(true);
-    setError(null);
+  // Update pool name
+  const updatePoolName = useCallback(
+    async (
+      poolAddress: string,
+      newName: string
+    ): Promise<{
+      success: boolean;
+      txHash?: string;
+      error?: string;
+    }> => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const provider = await getProvider();
-      const poolAddress = await getPoolByName(provider, poolId);
+      try {
+        if (!walletsReady || !wallets.length) {
+          throw new Error("No wallets available - please connect your wallet");
+        }
 
-      if (!poolAddress) {
-        return null;
+        const ethersProvider = await getProvider();
+        const signer = await ethersProvider.getSigner();
+        const signerAddress = await signer.getAddress();
+
+        console.log("Updating pool name:", {
+          poolAddress,
+          newName,
+          signerAddress,
+        });
+
+        // Create contract interface for the pool
+        const poolContract = new ethers.Contract(
+          poolAddress,
+          StageDotFunPoolABI,
+          signer
+        );
+
+        // Encode the function call
+        const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+        const updateNameData = poolInterface.encodeFunctionData(
+          "updatePoolName",
+          [newName]
+        );
+
+        // Prepare the transaction request
+        const updateNameRequest = {
+          to: poolAddress,
+          data: updateNameData,
+          value: "0",
+          from: signerAddress,
+          chainId: 10143, // Monad Testnet
+        };
+
+        // Set UI options for the transaction
+        const updateNameUiOptions: SendTransactionModalUIOptions = {
+          description: `Updating pool name to "${newName}"`,
+          buttonText: "Update Name",
+          transactionInfo: {
+            title: "Update Pool Name",
+            action: "Update Name",
+            contractInfo: {
+              name: "StageDotFun Pool",
+            },
+          },
+        };
+
+        console.log("Sending update name transaction");
+        const txHash = await sendTransaction(updateNameRequest, {
+          uiOptions: updateNameUiOptions,
+        });
+
+        // Wait for transaction to be mined
+        const receipt = await ethersProvider.waitForTransaction(
+          txHash.hash as string
+        );
+
+        console.log("Pool name updated successfully:", {
+          txHash: txHash.hash as string,
+          receipt,
+        });
+
+        setIsLoading(false);
+        return {
+          success: true,
+          txHash: txHash.hash as string,
+        };
+      } catch (error) {
+        console.error("Error updating pool name:", error);
+        setError(error instanceof Error ? error.message : "Unknown error");
+        setIsLoading(false);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
       }
+    },
+    [walletsReady, wallets, getProvider, sendTransaction]
+  );
 
-      const poolContract = getPoolContract(provider, poolAddress);
-      const details = await poolContract.getPoolDetails();
+  // Update minimum commitment
+  const updateMinCommitment = useCallback(
+    async (
+      poolAddress: string,
+      newMinCommitment: number
+    ): Promise<{
+      success: boolean;
+      txHash?: string;
+      error?: string;
+    }> => {
+      setIsLoading(true);
+      setError(null);
 
-      // Add detailed logging for pool status
-      console.log("Pool status from chain:", {
-        poolId,
-        rawStatus: details._status,
-        isActive: details._status === 1,
-        poolDetails: details,
-      });
+      try {
+        if (!walletsReady || !wallets.length) {
+          throw new Error("No wallets available - please connect your wallet");
+        }
 
-      const pool: ContractPool = {
-        name: details._name,
-        uniqueId: details._uniqueId || "",
-        creator: details._creator || ethers.ZeroAddress,
-        totalDeposits: details._totalDeposits,
-        revenueAccumulated: details._revenueAccumulated,
-        endTime: details._endTime,
-        targetAmount: details._targetAmount,
-        capAmount: details._capAmount,
-        status: details._status,
-        lpTokenAddress: details._lpTokenAddress || ethers.ZeroAddress,
-        nftContractAddress: details._nftContractAddress || ethers.ZeroAddress,
-        tierCount: details._tierCount,
-        minCommitment: details._minCommitment || BigInt(0),
-        lpHolders: details._lpHolders || [],
-        milestones: details._milestones || [],
-        emergencyMode: details._emergencyMode || false,
-        emergencyWithdrawalRequestTime:
-          details._emergencyWithdrawalRequestTime || BigInt(0),
-        authorizedWithdrawer:
-          details._authorizedWithdrawer || ethers.ZeroAddress,
-      };
-      return pool;
-    } catch (err: any) {
-      setError(err.message || "Error getting pool from chain");
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        const ethersProvider = await getProvider();
+        const signer = await ethersProvider.getSigner();
+        const signerAddress = await signer.getAddress();
+
+        // Convert the min commitment to the correct format (USDC has 6 decimals)
+        const minCommitmentBigInt = ethers.parseUnits(
+          newMinCommitment.toString(),
+          6
+        );
+
+        console.log("Updating min commitment:", {
+          poolAddress,
+          newMinCommitment,
+          minCommitmentBigInt: minCommitmentBigInt.toString(),
+          signerAddress,
+        });
+
+        // Create contract interface for the pool
+        const poolContract = new ethers.Contract(
+          poolAddress,
+          StageDotFunPoolABI,
+          signer
+        );
+
+        // Encode the function call
+        const poolInterface = new ethers.Interface(StageDotFunPoolABI);
+        const updateMinCommitmentData = poolInterface.encodeFunctionData(
+          "updateMinCommitment",
+          [minCommitmentBigInt]
+        );
+
+        // Prepare the transaction request
+        const updateMinCommitmentRequest = {
+          to: poolAddress,
+          data: updateMinCommitmentData,
+          value: "0",
+          from: signerAddress,
+          chainId: 10143, // Monad Testnet
+        };
+
+        // Set UI options for the transaction
+        const updateMinCommitmentUiOptions: SendTransactionModalUIOptions = {
+          description: `Updating minimum commitment to ${newMinCommitment} USDC`,
+          buttonText: "Update Min Commitment",
+          transactionInfo: {
+            title: "Update Min Commitment",
+            action: "Update Min Commitment",
+            contractInfo: {
+              name: "StageDotFun Pool",
+            },
+          },
+        };
+
+        console.log("Sending update min commitment transaction");
+        const txHash = await sendTransaction(updateMinCommitmentRequest, {
+          uiOptions: updateMinCommitmentUiOptions,
+        });
+
+        // Wait for transaction to be mined
+        const receipt = await ethersProvider.waitForTransaction(
+          txHash.hash as string
+        );
+
+        console.log("Min commitment updated successfully:", {
+          txHash: txHash.hash as string,
+          receipt,
+        });
+
+        setIsLoading(false);
+        return {
+          success: true,
+          txHash: txHash.hash as string,
+        };
+      } catch (error) {
+        console.error("Error updating min commitment:", error);
+        setError(error instanceof Error ? error.message : "Unknown error");
+        setIsLoading(false);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    },
+    [walletsReady, wallets, getProvider, sendTransaction]
+  );
+
+  // Get pool data from the blockchain
+  const getPool = useCallback(
+    async (poolId: string): Promise<ContractPool | null> => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const provider = await getProvider();
+        const poolAddress = await getPoolByName(provider, poolId);
+
+        if (!poolAddress) {
+          return null;
+        }
+
+        const poolContract = getPoolContract(provider, poolAddress);
+        const details = await poolContract.getPoolDetails();
+
+        // Add detailed logging for pool status
+        console.log("Pool status from chain:", {
+          poolId,
+          rawStatus: details._status,
+          isActive: details._status === 1,
+          poolDetails: details,
+        });
+
+        const pool: ContractPool = {
+          name: details._name,
+          uniqueId: details._uniqueId || "",
+          creator: details._creator || ethers.ZeroAddress,
+          totalDeposits: details._totalDeposits,
+          revenueAccumulated: details._revenueAccumulated,
+          endTime: details._endTime,
+          targetAmount: details._targetAmount,
+          capAmount: details._capAmount,
+          status: details._status,
+          lpTokenAddress: details._lpTokenAddress || ethers.ZeroAddress,
+          nftContractAddress: details._nftContractAddress || ethers.ZeroAddress,
+          tierCount: details._tierCount,
+          minCommitment: details._minCommitment || BigInt(0),
+          lpHolders: details._lpHolders || [],
+          milestones: details._milestones || [],
+          emergencyMode: details._emergencyMode || false,
+          emergencyWithdrawalRequestTime:
+            details._emergencyWithdrawalRequestTime || BigInt(0),
+          authorizedWithdrawer:
+            details._authorizedWithdrawer || ethers.ZeroAddress,
+        };
+        return pool;
+      } catch (err: any) {
+        setError(err.message || "Error getting pool from chain");
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [getProvider]
+  );
 
   // Get pool LP token holders from the blockchain
-  const getPoolLpHolders = async (poolId: string): Promise<string[]> => {
-    setIsLoading(true);
-    setError(null);
+  const getPoolLpHolders = useCallback(
+    async (poolId: string): Promise<string[]> => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const provider = await getProvider();
-      return await getPoolLpHoldersFromChain(provider, poolId);
-    } catch (err: any) {
-      setError(err.message || "Error getting pool LP holders from chain");
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      try {
+        const provider = await getProvider();
+        return await getPoolLpHoldersFromChain(provider, poolId);
+      } catch (err: any) {
+        setError(err.message || "Error getting pool LP holders from chain");
+        return [];
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [getProvider]
+  );
 
   // Get user's LP token balance for a pool
-  const getUserPoolBalance = async (
-    userAddress: string,
-    poolId: string
-  ): Promise<string> => {
-    setIsLoading(true);
-    setError(null);
+  const getUserPoolBalance = useCallback(
+    async (userAddress: string, poolId: string): Promise<string> => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const provider = await getProvider();
-      return await getUserPoolBalanceFromChain(provider, userAddress, poolId);
-    } catch (err: any) {
-      setError(err.message || "Error getting user pool balance from chain");
-      return "0";
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      try {
+        const provider = await getProvider();
+        return await getUserPoolBalanceFromChain(provider, userAddress, poolId);
+      } catch (err: any) {
+        setError(err.message || "Error getting user pool balance from chain");
+        return "0";
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [getProvider]
+  );
 
   // Get user's USDC balance
-  const getBalance = async (userAddress: string): Promise<string> => {
-    setIsLoading(true);
-    setError(null);
+  const getBalance = useCallback(
+    async (userAddress: string): Promise<string> => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
-      if (!rpcUrl) {
-        throw new Error("RPC URL not configured");
+      try {
+        const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
+        if (!rpcUrl) {
+          throw new Error("RPC URL not configured");
+        }
+
+        // Create a direct RPC provider instead of using the embedded wallet
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const usdcContract = getUSDCContract(provider);
+        const balance = await usdcContract.balanceOf(userAddress);
+        return formatToken(balance);
+      } catch (err: any) {
+        console.error("Error getting USDC balance:", err);
+        setError(err.message || "Error getting USDC balance");
+        return "0";
+      } finally {
+        setIsLoading(false);
       }
-
-      // Create a direct RPC provider instead of using the embedded wallet
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
-      const usdcContract = getUSDCContract(provider);
-      const balance = await usdcContract.balanceOf(userAddress);
-      return formatToken(balance);
-    } catch (err: any) {
-      console.error("Error getting USDC balance:", err);
-      setError(err.message || "Error getting USDC balance");
-      return "0";
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    []
+  );
 
   // Get user's native MON balance
-  const getNativeBalance = async (userAddress: string): Promise<string> => {
-    setIsLoading(true);
-    setError(null);
+  const getNativeBalance = useCallback(
+    async (userAddress: string): Promise<string> => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
-      if (!rpcUrl) {
-        throw new Error("RPC URL not configured");
+      try {
+        const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
+        if (!rpcUrl) {
+          throw new Error("RPC URL not configured");
+        }
+
+        // Create a direct RPC provider instead of using the embedded wallet
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const balance = await provider.getBalance(userAddress);
+        return ethers.formatEther(balance);
+      } catch (err: any) {
+        console.error("Error getting native MON balance:", err);
+        setError(err.message || "Error getting native MON balance");
+        return "0";
+      } finally {
+        setIsLoading(false);
       }
-
-      // Create a direct RPC provider instead of using the embedded wallet
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
-      const balance = await provider.getBalance(userAddress);
-      return ethers.formatEther(balance);
-    } catch (err: any) {
-      console.error("Error getting native MON balance:", err);
-      setError(err.message || "Error getting native MON balance");
-      return "0";
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    []
+  );
 
   // Distribute revenue to LPs
   const distributeRevenue = useCallback(
@@ -1695,197 +2100,6 @@ export function useContractInteraction(): ContractInteractionHookResult {
     [signer, getProvider]
   );
 
-  // Update pool name
-  const updatePoolName = async (
-    poolAddress: string,
-    newName: string
-  ): Promise<{
-    success: boolean;
-    txHash?: string;
-    error?: string;
-  }> => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      if (!walletsReady || !wallets.length) {
-        throw new Error("No wallets available - please connect your wallet");
-      }
-
-      const ethersProvider = await getProvider();
-      const signer = await ethersProvider.getSigner();
-      const signerAddress = await signer.getAddress();
-
-      console.log("Updating pool name:", {
-        poolAddress,
-        newName,
-        signerAddress,
-      });
-
-      // Create contract interface for the pool
-      const poolContract = new ethers.Contract(
-        poolAddress,
-        StageDotFunPoolABI,
-        signer
-      );
-
-      // Encode the function call
-      const poolInterface = new ethers.Interface(StageDotFunPoolABI);
-      const updateNameData = poolInterface.encodeFunctionData(
-        "updatePoolName",
-        [newName]
-      );
-
-      // Prepare the transaction request
-      const updateNameRequest = {
-        to: poolAddress,
-        data: updateNameData,
-        value: "0",
-        from: signerAddress,
-        chainId: 10143, // Monad Testnet
-      };
-
-      // Set UI options for the transaction
-      const updateNameUiOptions: SendTransactionModalUIOptions = {
-        description: `Updating pool name to "${newName}"`,
-        buttonText: "Update Name",
-        transactionInfo: {
-          title: "Update Pool Name",
-          action: "Update Name",
-          contractInfo: {
-            name: "StageDotFun Pool",
-          },
-        },
-      };
-
-      console.log("Sending update name transaction");
-      const txHash = await sendTransaction(updateNameRequest, {
-        uiOptions: updateNameUiOptions,
-      });
-
-      // Wait for transaction to be mined
-      const receipt = await ethersProvider.waitForTransaction(txHash.hash);
-
-      console.log("Pool name updated successfully:", {
-        txHash: txHash.hash,
-        receipt,
-      });
-
-      setIsLoading(false);
-      return {
-        success: true,
-        txHash: txHash.hash,
-      };
-    } catch (error) {
-      console.error("Error updating pool name:", error);
-      setError(error instanceof Error ? error.message : "Unknown error");
-      setIsLoading(false);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
-  };
-
-  // Update minimum commitment
-  const updateMinCommitment = async (
-    poolAddress: string,
-    newMinCommitment: number
-  ): Promise<{
-    success: boolean;
-    txHash?: string;
-    error?: string;
-  }> => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      if (!walletsReady || !wallets.length) {
-        throw new Error("No wallets available - please connect your wallet");
-      }
-
-      const ethersProvider = await getProvider();
-      const signer = await ethersProvider.getSigner();
-      const signerAddress = await signer.getAddress();
-
-      // Convert the min commitment to the correct format (USDC has 6 decimals)
-      const minCommitmentBigInt = ethers.parseUnits(
-        newMinCommitment.toString(),
-        6
-      );
-
-      console.log("Updating min commitment:", {
-        poolAddress,
-        newMinCommitment,
-        minCommitmentBigInt: minCommitmentBigInt.toString(),
-        signerAddress,
-      });
-
-      // Create contract interface for the pool
-      const poolContract = new ethers.Contract(
-        poolAddress,
-        StageDotFunPoolABI,
-        signer
-      );
-
-      // Encode the function call
-      const poolInterface = new ethers.Interface(StageDotFunPoolABI);
-      const updateMinCommitmentData = poolInterface.encodeFunctionData(
-        "updateMinCommitment",
-        [minCommitmentBigInt]
-      );
-
-      // Prepare the transaction request
-      const updateMinCommitmentRequest = {
-        to: poolAddress,
-        data: updateMinCommitmentData,
-        value: "0",
-        from: signerAddress,
-        chainId: 10143, // Monad Testnet
-      };
-
-      // Set UI options for the transaction
-      const updateMinCommitmentUiOptions: SendTransactionModalUIOptions = {
-        description: `Updating minimum commitment to ${newMinCommitment} USDC`,
-        buttonText: "Update Min Commitment",
-        transactionInfo: {
-          title: "Update Min Commitment",
-          action: "Update Min Commitment",
-          contractInfo: {
-            name: "StageDotFun Pool",
-          },
-        },
-      };
-
-      console.log("Sending update min commitment transaction");
-      const txHash = await sendTransaction(updateMinCommitmentRequest, {
-        uiOptions: updateMinCommitmentUiOptions,
-      });
-
-      // Wait for transaction to be mined
-      const receipt = await ethersProvider.waitForTransaction(txHash.hash);
-
-      console.log("Min commitment updated successfully:", {
-        txHash: txHash.hash,
-        receipt,
-      });
-
-      setIsLoading(false);
-      return {
-        success: true,
-        txHash: txHash.hash,
-      };
-    } catch (error) {
-      console.error("Error updating min commitment:", error);
-      setError(error instanceof Error ? error.message : "Unknown error");
-      setIsLoading(false);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
-  };
-
   return {
     isLoading,
     error,
@@ -1900,7 +2114,8 @@ export function useContractInteraction(): ContractInteractionHookResult {
     getUserPoolBalance,
     getBalance,
     getNativeBalance,
-    walletAddress: user?.wallet?.address || null,
+    walletAddress:
+      wallets.find((w) => w.walletClientType === "privy")?.address || null,
     walletsReady,
     privyReady,
     getProvider,
