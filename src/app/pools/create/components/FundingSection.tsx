@@ -18,11 +18,17 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
 
   // Update cap amount when funding goal changes or when cap is toggled
   useEffect(() => {
-    if (hasCap && fundingGoal) {
-      const goal = parseFloat(fundingGoal);
-      if (!isNaN(goal)) {
-        const newCap = goal * 1.2;
-        onCapAmountChange(newCap.toString());
+    if (hasCap) {
+      if (fundingGoal && fundingGoal !== "") {
+        const goal = parseFloat(fundingGoal);
+        if (!isNaN(goal)) {
+          const newCap = goal * 1.2;
+          onCapAmountChange(newCap.toString());
+        } else {
+          onCapAmountChange("");
+        }
+      } else {
+        onCapAmountChange("");
       }
     }
   }, [fundingGoal, hasCap, onCapAmountChange]);
@@ -31,14 +37,18 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
   const handleCapToggle = (enabled: boolean) => {
     setHasCap(enabled);
     if (!enabled) {
-      onCapAmountChange("0"); // Set to 0 for no cap
+      onCapAmountChange(""); // Set to empty string instead of "0"
     } else if (fundingGoal) {
       // Set to 20% more than goal when enabling
       const goal = parseFloat(fundingGoal);
       if (!isNaN(goal)) {
         const newCap = goal * 1.2;
         onCapAmountChange(newCap.toString());
+      } else {
+        onCapAmountChange(""); // Set to empty string if goal is not a valid number
       }
+    } else {
+      onCapAmountChange(""); // Set to empty string if no funding goal
     }
   };
 
@@ -78,8 +88,12 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
                 type="button"
                 className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
                 onClick={() => {
-                  const currentValue = parseFloat(fundingGoal) || 0;
-                  onFundingGoalChange((currentValue + 1).toString());
+                  const currentValue = parseFloat(fundingGoal);
+                  if (!isNaN(currentValue)) {
+                    onFundingGoalChange((currentValue + 1).toString());
+                  } else {
+                    onFundingGoalChange("1");
+                  }
                 }}
               >
                 <svg
@@ -102,8 +116,8 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
                 type="button"
                 className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
                 onClick={() => {
-                  const currentValue = parseFloat(fundingGoal) || 0;
-                  if (currentValue > 0) {
+                  const currentValue = parseFloat(fundingGoal);
+                  if (!isNaN(currentValue) && currentValue > 0) {
                     onFundingGoalChange((currentValue - 1).toString());
                   }
                 }}
@@ -183,7 +197,7 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
               type="text"
               inputMode="decimal"
               pattern="[0-9]*\.?[0-9]*"
-              placeholder="Cap Amount"
+              placeholder="Funding Cap"
               value={capAmount}
               onChange={(e) => {
                 // Only allow numbers and a single decimal point
@@ -200,8 +214,12 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
                 type="button"
                 className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
                 onClick={() => {
-                  const currentValue = parseFloat(capAmount) || 0;
-                  onCapAmountChange((currentValue + 1).toString());
+                  const currentValue = parseFloat(capAmount);
+                  if (!isNaN(currentValue)) {
+                    onCapAmountChange((currentValue + 1).toString());
+                  } else {
+                    onCapAmountChange("1");
+                  }
                 }}
               >
                 <svg
@@ -224,8 +242,12 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
                 type="button"
                 className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
                 onClick={() => {
-                  const currentValue = parseFloat(capAmount) || 0;
-                  if (currentValue > parseFloat(fundingGoal)) {
+                  const currentValue = parseFloat(capAmount);
+                  const goalValue = parseFloat(fundingGoal || "");
+                  if (
+                    !isNaN(currentValue) &&
+                    (!goalValue || currentValue > goalValue)
+                  ) {
                     onCapAmountChange((currentValue - 1).toString());
                   }
                 }}

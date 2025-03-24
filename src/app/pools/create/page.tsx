@@ -94,28 +94,6 @@ export default function CreatePoolPage() {
 
   const { balance } = useNativeBalance();
 
-  // Fetch reward items when the authenticated client is ready
-  useEffect(() => {
-    const fetchRewardItems = async () => {
-      if (!supabase || isClientLoading) return;
-
-      try {
-        const { data, error } = await supabase
-          .from("reward_items")
-          .select("*")
-          .eq("is_active", true);
-
-        if (error) throw error;
-        setRewardItems(data || []);
-      } catch (error) {
-        console.error("Error fetching reward items:", error);
-        toast.error("Failed to load reward items");
-      }
-    };
-
-    fetchRewardItems();
-  }, [supabase, isClientLoading]);
-
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
     const updateHeight = () => {

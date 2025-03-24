@@ -135,7 +135,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       minPrice: "0",
       maxPrice: "0",
       maxPatrons: defaultMaxPatrons,
-      description: `${defaultName} tier for ${poolName || "this pool"}`,
+      description: "",
       rewardItems: [],
       imageUrl: poolImage,
       modifiedFields: new Set(),
@@ -165,7 +165,6 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       // Update name if not modified and pool name changes
       if (!tier.modifiedFields.has("name") && poolName) {
         updates.name = generateTierName(1);
-        updates.description = `${updates.name} tier for ${poolName}`;
       }
 
       // Update price and max patrons if not modified and funding goal changes
@@ -366,10 +365,12 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       </div>
 
       <div className="space-y-6">
-        {tiers.map((tier) => (
+        {tiers.map((tier, index) => (
           <div key={tier.id} className="bg-[#FFFFFF0A] p-6 rounded-lg relative">
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-semibold">Tier Details</h3>
+              <h3 className="text-xl font-semibold">
+                Tier {index + 1} Details
+              </h3>
               <button
                 type="button"
                 onClick={() => removeTier(tier.id)}
@@ -379,131 +380,185 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={tier.name}
-                  onChange={(e) => updateTier(tier.id, "name", e.target.value)}
-                  className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
-                  placeholder="e.g., VIP Access"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Tier Image
-                </label>
-                <div className="flex items-center space-x-4">
-                  {tier.imageUrl && (
-                    <div className="relative w-24 h-24 rounded-lg overflow-hidden">
-                      <Image
-                        src={tier.imageUrl}
-                        alt={`${tier.name} tier image`}
-                        fill
-                        className="object-cover"
-                        sizes="96px"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Variable Price
-                </label>
-                <div className="flex items-center mt-2">
-                  <input
-                    type="checkbox"
-                    checked={tier.isVariablePrice}
-                    onChange={(e) =>
-                      updateTier(tier.id, "isVariablePrice", e.target.checked)
-                    }
-                    className="w-4 h-4 text-[#836EF9] rounded focus:ring-[#836EF9]"
-                  />
-                  <span className="ml-2 text-sm text-gray-400">
-                    Allow custom amounts within a range
-                  </span>
-                </div>
-              </div>
-
-              {tier.isVariablePrice ? (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      Minimum Price (USDC)
-                    </label>
-                    <NumberInput
-                      value={tier.minPrice}
-                      onChange={(value) =>
-                        updateTier(tier.id, "minPrice", value)
-                      }
-                      placeholder="0"
-                      min={0}
-                      step={0.01}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      Maximum Price (USDC)
-                    </label>
-                    <NumberInput
-                      value={tier.maxPrice}
-                      onChange={(value) =>
-                        updateTier(tier.id, "maxPrice", value)
-                      }
-                      placeholder="0"
-                      min={0}
-                      step={0.01}
-                    />
-                  </div>
-                </>
-              ) : (
+            <div className="flex gap-6">
+              {/* Left side - Tier details grid */}
+              <div className="flex-1 grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Fixed Price (USDC)
+                    Name
                   </label>
-                  <NumberInput
-                    value={tier.price}
-                    onChange={(value) => updateTier(tier.id, "price", value)}
-                    placeholder="0"
-                    min={0}
-                    step={0.01}
+                  <input
+                    type="text"
+                    value={tier.name}
+                    onChange={(e) =>
+                      updateTier(tier.id, "name", e.target.value)
+                    }
+                    className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
+                    placeholder="e.g., VIP Access"
                   />
                 </div>
-              )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Max Patrons
-                </label>
-                <NumberInput
-                  value={tier.maxPatrons}
-                  onChange={(value) => updateTier(tier.id, "maxPatrons", value)}
-                  placeholder="0 for unlimited"
-                  min={0}
-                  step={1}
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    {tier.isVariablePrice
+                      ? "Price Range (USDC)"
+                      : "Fixed Price (USDC)"}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {tier.isVariablePrice ? (
+                      <>
+                        <NumberInput
+                          value={tier.minPrice}
+                          onChange={(value) =>
+                            updateTier(tier.id, "minPrice", value)
+                          }
+                          placeholder="Min"
+                          min={0}
+                          step={0.01}
+                        />
+                        <span className="text-gray-400">to</span>
+                        <NumberInput
+                          value={tier.maxPrice}
+                          onChange={(value) =>
+                            updateTier(tier.id, "maxPrice", value)
+                          }
+                          placeholder="Max"
+                          min={0}
+                          step={0.01}
+                        />
+                      </>
+                    ) : (
+                      <NumberInput
+                        value={tier.price}
+                        onChange={(value) =>
+                          updateTier(tier.id, "price", value)
+                        }
+                        placeholder="0"
+                        min={0}
+                        step={0.01}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Max Patrons
+                  </label>
+                  <NumberInput
+                    value={tier.maxPatrons}
+                    onChange={(value) =>
+                      updateTier(tier.id, "maxPatrons", value)
+                    }
+                    placeholder="0 for unlimited"
+                    min={0}
+                    step={1}
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={tier.isVariablePrice}
+                        onChange={(e) =>
+                          updateTier(
+                            tier.id,
+                            "isVariablePrice",
+                            e.target.checked
+                          )
+                        }
+                      />
+                      <div
+                        className={`w-10 h-6 rounded-full shadow-inner transition-colors ${
+                          tier.isVariablePrice ? "bg-[#836EF9]" : "bg-gray-600"
+                        }`}
+                      ></div>
+                      <div
+                        className={`absolute w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                          tier.isVariablePrice
+                            ? "translate-x-4"
+                            : "translate-x-1"
+                        } top-1`}
+                      ></div>
+                    </div>
+                    <span className="ml-3 text-sm text-gray-400">
+                      Allow custom amounts within a range
+                    </span>
+                  </label>
+                </div>
               </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={tier.description}
-                  onChange={(e) =>
-                    updateTier(tier.id, "description", e.target.value)
-                  }
-                  className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
-                  placeholder="Describe what this tier includes..."
-                  rows={3}
-                />
+              {/* Right side - Tier image */}
+              <div className="w-[200px] h-[200px]">
+                <div className="relative w-full h-full rounded-lg overflow-hidden bg-[#FFFFFF14] group">
+                  {tier.imageUrl ? (
+                    <Image
+                      src={tier.imageUrl}
+                      alt={`${tier.name} tier image`}
+                      fill
+                      className="object-cover"
+                      sizes="200px"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-center p-4">
+                      <div className="text-2xl font-bold text-[#836EF9] opacity-50">
+                        {tier.name || "TIER"} ACCESS
+                      </div>
+                    </div>
+                  )}
+                  <label
+                    htmlFor={`tier-image-${tier.id}`}
+                    className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    <input
+                      id={`tier-image-${tier.id}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(e, tier.id)}
+                      className="hidden"
+                    />
+                    <div className="flex flex-col items-center gap-2">
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                      </svg>
+                      <span className="text-white">
+                        {isUploadingImage[tier.id]
+                          ? "Uploading..."
+                          : tier.imageUrl
+                          ? "Change Image"
+                          : "Upload Image"}
+                      </span>
+                    </div>
+                  </label>
+                </div>
               </div>
+            </div>
+
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Description
+              </label>
+              <textarea
+                value={tier.description}
+                onChange={(e) =>
+                  updateTier(tier.id, "description", e.target.value)
+                }
+                className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
+                placeholder="Describe what this tier includes..."
+                rows={3}
+              />
             </div>
 
             <div className="mt-4">

@@ -61,9 +61,8 @@ export function useNativeBalance() {
       }
     },
     {
-      refreshInterval: 12000, // Refresh every ~1 block
-      revalidateOnFocus: true,
-      dedupingInterval: 5000, // Dedupe requests within 5 seconds
+      revalidateOnFocus: true, // Revalidate when window regains focus
+      dedupingInterval: 10000, // Dedupe requests within 10 seconds
       fallbackData: "0", // Default value while loading
     }
   );
