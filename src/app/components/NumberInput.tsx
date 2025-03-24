@@ -21,9 +21,15 @@ export default function NumberInput({
   label,
   className = "",
 }: NumberInputProps) {
+  const isInteger = step === 1;
+  const decimalPlaces = isInteger ? 0 : 2;
+
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (value === "" || /^\d*\.?\d*$/.test(value)) {
+    if (
+      value === "" ||
+      (isInteger ? /^\d*$/.test(value) : /^\d*\.?\d*$/.test(value))
+    ) {
       onChange(value);
     }
   };
@@ -32,7 +38,7 @@ export default function NumberInput({
     const currentValue = parseFloat(value) || 0;
     const newValue = currentValue + step;
     if (max === undefined || newValue <= max) {
-      onChange(newValue.toFixed(2));
+      onChange(newValue.toFixed(decimalPlaces));
     }
   };
 
@@ -40,7 +46,7 @@ export default function NumberInput({
     const currentValue = parseFloat(value) || 0;
     const newValue = currentValue - step;
     if (min === undefined || newValue >= min) {
-      onChange(newValue.toFixed(2));
+      onChange(newValue.toFixed(decimalPlaces));
     }
   };
 
@@ -52,8 +58,8 @@ export default function NumberInput({
       <div className="relative">
         <input
           type="text"
-          inputMode="decimal"
-          pattern="[0-9]*\.?[0-9]*"
+          inputMode={isInteger ? "numeric" : "decimal"}
+          pattern={isInteger ? "[0-9]*" : "[0-9]*\\.?[0-9]*"}
           value={value}
           onChange={handleChange}
           placeholder={placeholder}

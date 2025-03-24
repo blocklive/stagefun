@@ -503,7 +503,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
             tiers.map((tier: any) => ({
               pool_id: insertedPool.id,
               name: tier.name,
-              description: tier.description,
+              description: tier.description || `${tier.name} tier`,
               price: tier.isVariablePrice ? 0 : tier.price,
               is_variable_price: tier.isVariablePrice,
               min_price: tier.isVariablePrice ? tier.minPrice : null,

@@ -25,7 +25,6 @@ import PoolDetailsSection from "./components/PoolDetailsSection";
 import FundingSection from "./components/FundingSection";
 import EndTimeSection from "./components/EndTimeSection";
 import { TiersSection } from "./components/TiersSection";
-import { RewardItemsSection } from "./components/RewardItemsSection";
 
 // Import our new hooks
 import usePoolImage from "./hooks/usePoolImage";
@@ -246,7 +245,9 @@ export default function CreatePoolPage() {
       // Validate each tier
       for (const tier of tiers) {
         if (!tier.name || !tier.price || !tier.maxPatrons) {
-          throw new Error("All tier fields are required");
+          throw new Error(
+            "All required tier fields (name, price, max patrons) must be filled"
+          );
         }
 
         // Validate tier price is greater than 0
@@ -294,6 +295,14 @@ export default function CreatePoolPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleAddRewardItem = (reward: Omit<RewardItem, "id">) => {
+    const newItem: RewardItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      ...reward,
+    };
+    setRewardItems([...rewardItems, newItem]);
   };
 
   return (
@@ -397,18 +406,13 @@ export default function CreatePoolPage() {
 
           {/* Form */}
           <form id="createPoolForm" onSubmit={onSubmit} className="mt-8">
-            {/* Add RewardItemsSection before TiersSection */}
-            <RewardItemsSection
-              rewardItems={rewardItems}
-              onRewardItemsChange={setRewardItems}
-            />
-
             {/* Tiers Section */}
             {supabase && (
               <TiersSection
                 tiers={tiers}
                 onTiersChange={setTiers}
                 availableRewardItems={rewardItems}
+                onAddRewardItem={handleAddRewardItem}
                 supabase={supabase}
                 poolName={poolName}
                 fundingGoal={fundingGoal}

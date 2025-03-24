@@ -96,9 +96,16 @@ export const usePoolCreation = () => {
 
     // Validate each tier
     for (const tier of tiers) {
-      if (!tier.name?.trim()) {
-        toast.error("Please enter a name for all tiers");
-        return;
+      if (!tier.name || !tier.price || !tier.maxPatrons) {
+        throw new Error(
+          "All required tier fields (name, price, max patrons) must be filled"
+        );
+      }
+
+      // Validate tier price is greater than 0
+      const tierPrice = parseFloat(tier.price);
+      if (tierPrice <= 0) {
+        throw new Error(`Tier price must be greater than 0`);
       }
 
       if (tier.isVariablePrice) {
@@ -138,6 +145,8 @@ export const usePoolCreation = () => {
         toast.error(`Please upload an image for tier "${tier.name}"`);
         return;
       }
+
+      // Description is optional, so we don't validate it
     }
 
     // Check if user has enough gas for deployment
@@ -194,7 +203,7 @@ export const usePoolCreation = () => {
           minPrice: parseFloat(tier.minPrice),
           maxPrice: parseFloat(tier.maxPrice),
           maxPatrons: parseInt(tier.maxPatrons),
-          description: tier.description,
+          description: tier.description || `${tier.name} tier`,
           rewardItems: tier.rewardItems,
         })),
       };
