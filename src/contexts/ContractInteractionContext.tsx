@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useCallback } from "react";
+import React, { createContext, useContext, useCallback, useState } from "react";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { useContractInteraction as useContractInteractionHook } from "../hooks/useContractInteraction";
 import {
@@ -168,9 +168,11 @@ export const ContractInteractionProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   const contractInteraction = useContractInteractionHook();
-  const { ready: privyReady } = usePrivy();
+  const { ready: privyReady, user } = usePrivy();
   const { ready: walletsReady, wallets } = useWallets();
   const { sendTransaction } = useSendTransaction();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Distribute revenue function
   const distributeRevenue = async (
@@ -500,6 +502,34 @@ export const ContractInteractionProvider: React.FC<{
     }
   };
 
+  // Get user's native MON balance
+  const getNativeBalance = useCallback(
+    async (userAddress: string): Promise<string> => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(
+          `/api/zerion/balance?address=${userAddress}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch balance: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data.balance || "0";
+      } catch (err: any) {
+        console.error("Error getting native MON balance:", err);
+        setError(err.message || "Error getting native MON balance");
+        return "0";
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
   const contextValue: ContractInteractionContextType = {
     ...contractInteraction,
     privyReady,
@@ -511,6 +541,10 @@ export const ContractInteractionProvider: React.FC<{
       success: false,
       error: "Not implemented",
     }),
+    getNativeBalance,
+    isLoading,
+    error,
+    walletAddress: user?.wallet?.address || null,
   };
 
   return (

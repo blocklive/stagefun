@@ -25,6 +25,7 @@ import PoolDetailsSection from "./components/PoolDetailsSection";
 import FundingSection from "./components/FundingSection";
 import EndTimeSection from "./components/EndTimeSection";
 import { TiersSection } from "./components/TiersSection";
+import { Tier, RewardItem } from "./types";
 
 // Import our new hooks
 import usePoolImage from "./hooks/usePoolImage";
@@ -44,27 +45,6 @@ function formatDateForInput(date: Date): string {
     .substring(0, 16);
 
   return localISOString;
-}
-
-interface Tier {
-  id: string; // Frontend-only ID for managing tiers
-  name: string;
-  price: string;
-  isActive: boolean;
-  nftMetadata: string;
-  isVariablePrice: boolean;
-  minPrice: string;
-  maxPrice: string;
-  maxPatrons: string;
-  description: string; // Frontend-only field for better UX
-  rewardItems: string[]; // Frontend-only field for managing rewards
-}
-
-interface RewardItem {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
 }
 
 export default function CreatePoolPage() {

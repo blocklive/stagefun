@@ -396,6 +396,29 @@ export function useContractInteraction(): ContractInteractionHookResult {
           tierCount: tierCount.toString(),
         });
 
+        const pool: ContractPool = {
+          name: poolName,
+          uniqueId: poolUniqueId,
+          creator: poolCreator,
+          totalDeposits: poolTotalDeposits,
+          revenueAccumulated: poolRevenue,
+          endTime: poolEndTime,
+          targetAmount: poolTargetAmount,
+          capAmount: poolCapAmount,
+          status: poolStatus,
+          lpTokenAddress: lpTokenAddress,
+          nftContractAddress: nftContractAddress,
+          tierCount: tierCount,
+          minCommitment: details._minCommitment || BigInt(0),
+          lpHolders: [],
+          milestones: [],
+          emergencyMode: details._emergencyMode || false,
+          emergencyWithdrawalRequestTime:
+            details._emergencyWithdrawalRequestTime || BigInt(0),
+          authorizedWithdrawer:
+            details._authorizedWithdrawer || ethers.ZeroAddress,
+        };
+
         return {
           receipt,
           poolAddress,
@@ -646,54 +669,56 @@ export function useContractInteraction(): ContractInteractionHookResult {
         }
 
         // Insert reward items and tier_reward_items
-        for (const tier of tiers) {
-          if (tier.rewardItems && tier.rewardItems.length > 0) {
-            // Insert reward items
-            const { data: rewardItems, error: rewardItemsError } =
-              await supabase
-                .from("reward_items")
+        if (tiers && tiers.length > 0) {
+          for (const tier of tiers) {
+            if (tier.rewardItems && tier.rewardItems.length > 0) {
+              // Insert reward items
+              const { data: rewardItems, error: rewardItemsError } =
+                await supabase
+                  .from("reward_items")
+                  .insert(
+                    tier.rewardItems.map((item: any) => ({
+                      name: item.name,
+                      description: item.description,
+                      type: item.type,
+                      metadata: item.metadata,
+                      creator_id: insertedPool.creator_id,
+                      is_active: true,
+                    }))
+                  )
+                  .select();
+
+              if (rewardItemsError) {
+                console.error("Error creating reward items:", rewardItemsError);
+                return {
+                  success: false,
+                  error: "Failed to create reward items",
+                  txHash: blockchainResult.transactionHash,
+                };
+              }
+
+              // Insert tier_reward_items
+              const { error: tierRewardItemsError } = await supabase
+                .from("tier_reward_items")
                 .insert(
-                  tier.rewardItems.map((item: any) => ({
-                    name: item.name,
-                    description: item.description,
-                    type: item.type,
-                    metadata: item.metadata,
-                    creator_id: insertedPool.creator_id,
-                    is_active: true,
+                  rewardItems.map((item: any) => ({
+                    tier_id: tier.id,
+                    reward_item_id: item.id,
+                    quantity: 1,
                   }))
-                )
-                .select();
+                );
 
-            if (rewardItemsError) {
-              console.error("Error creating reward items:", rewardItemsError);
-              return {
-                success: false,
-                error: "Failed to create reward items",
-                txHash: blockchainResult.transactionHash,
-              };
-            }
-
-            // Insert tier_reward_items
-            const { error: tierRewardItemsError } = await supabase
-              .from("tier_reward_items")
-              .insert(
-                rewardItems.map((item: any) => ({
-                  tier_id: tier.id,
-                  reward_item_id: item.id,
-                  quantity: 1,
-                }))
-              );
-
-            if (tierRewardItemsError) {
-              console.error(
-                "Error creating tier reward items:",
-                tierRewardItemsError
-              );
-              return {
-                success: false,
-                error: "Failed to link tiers with reward items",
-                txHash: blockchainResult.transactionHash,
-              };
+              if (tierRewardItemsError) {
+                console.error(
+                  "Error creating tier reward items:",
+                  tierRewardItemsError
+                );
+                return {
+                  success: false,
+                  error: "Failed to link tiers with reward items",
+                  txHash: blockchainResult.transactionHash,
+                };
+              }
             }
           }
         }
@@ -1571,15 +1596,23 @@ export function useContractInteraction(): ContractInteractionHookResult {
         name: details._name,
         uniqueId: details._uniqueId || "",
         creator: details._creator || ethers.ZeroAddress,
-        totalDeposits: BigInt(details._totalDeposits),
-        revenueAccumulated: BigInt(details._revenueAccumulated),
-        endTime: BigInt(details._endTime),
-        targetAmount: BigInt(details._targetAmount),
-        capAmount: BigInt(details._capAmount),
-        status: Number(details._status),
-        lpTokenAddress: details._lpTokenAddress,
-        nftContractAddress: details._nftContractAddress,
-        tierCount: BigInt(details._tierCount),
+        totalDeposits: details._totalDeposits,
+        revenueAccumulated: details._revenueAccumulated,
+        endTime: details._endTime,
+        targetAmount: details._targetAmount,
+        capAmount: details._capAmount,
+        status: details._status,
+        lpTokenAddress: details._lpTokenAddress || ethers.ZeroAddress,
+        nftContractAddress: details._nftContractAddress || ethers.ZeroAddress,
+        tierCount: details._tierCount,
+        minCommitment: details._minCommitment || BigInt(0),
+        lpHolders: details._lpHolders || [],
+        milestones: details._milestones || [],
+        emergencyMode: details._emergencyMode || false,
+        emergencyWithdrawalRequestTime:
+          details._emergencyWithdrawalRequestTime || BigInt(0),
+        authorizedWithdrawer:
+          details._authorizedWithdrawer || ethers.ZeroAddress,
       };
       return pool;
     } catch (err: any) {

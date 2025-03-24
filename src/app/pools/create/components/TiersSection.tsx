@@ -9,40 +9,14 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { uploadTierImage } from "@/lib/utils/imageUpload";
 import { AddRewardModal } from "./AddRewardModal";
 import NumberInput from "@/app/components/NumberInput";
-
-interface RewardItem {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-}
-
-interface Tier {
-  id: string;
-  name: string;
-  price: string;
-  isActive: boolean;
-  nftMetadata: string;
-  isVariablePrice: boolean;
-  minPrice: string;
-  maxPrice: string;
-  maxPatrons: string;
-  description: string;
-  rewardItems: string[];
-  imageUrl?: string;
-  modifiedFields: Set<keyof Tier>;
-}
+import Image from "next/image";
+import { Tier, RewardItem } from "../types";
 
 interface TiersSectionProps {
   tiers: Tier[];
   onTiersChange: (tiers: Tier[]) => void;
-  availableRewardItems: Array<{
-    id: string;
-    name: string;
-    description: string;
-    type: string;
-  }>;
-  onAddRewardItem: (reward: Omit<RewardItem, "id">) => void;
+  availableRewardItems: RewardItem[];
+  onAddRewardItem: (item: Omit<RewardItem, "id">) => void;
   supabase: SupabaseClient;
   poolName?: string;
   fundingGoal?: string;
@@ -85,37 +59,103 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   }, []);
 
   // Function to generate a default tier name based on tier number
-  const generateTierName = (tierNumber: number): string => {
-    const tierNames = [
-      "GM",
-      "FOMO",
-      "APE",
-      "HODL",
-      "MOON",
-      "WEN",
-      "SER",
-      "BASED",
-      "GIGACHAD",
-    ];
+  const generateTierName = React.useCallback(
+    (tierNumber: number): string => {
+      const tierNames = [
+        "GM",
+        "FOMO",
+        "APE",
+        "HODL",
+        "MOON",
+        "WEN",
+        "SER",
+        "BASED",
+        "GIGACHAD",
+      ];
 
-    // If it's the first and only tier, give it a special name
-    if (tierNumber === 1 && tiers.length === 0) {
-      return "GM";
+      // If it's the first and only tier, give it a special name
+      if (tierNumber === 1 && tiers.length === 0) {
+        return "GM";
+      }
+
+      if (tierNumber <= tierNames.length) {
+        return tierNames[tierNumber - 1];
+      }
+
+      return `GM ${tierNumber}`;
+    },
+    [tiers.length]
+  );
+
+  const addTier = React.useCallback(() => {
+    const tierNumber = tiers.length + 1;
+    const defaultName = generateTierName(tierNumber);
+
+    // Calculate default price as 1% of funding goal
+    let defaultPrice = "0";
+    if (fundingGoal) {
+      const goalAmount = parseFloat(fundingGoal);
+      if (!isNaN(goalAmount)) {
+        defaultPrice = (goalAmount * 0.01).toString();
+      }
     }
 
-    if (tierNumber <= tierNames.length) {
-      return tierNames[tierNumber - 1];
+    // Calculate default max patrons based on funding goal and price
+    let defaultMaxPatrons = "0";
+    if (fundingGoal && defaultPrice) {
+      const goalAmount = parseFloat(fundingGoal);
+      const priceAmount = parseFloat(defaultPrice);
+      if (!isNaN(goalAmount) && !isNaN(priceAmount) && priceAmount > 0) {
+        defaultMaxPatrons = Math.ceil(goalAmount / priceAmount).toString();
+      }
     }
 
-    return `GM ${tierNumber}`;
-  };
+    // Create metadata JSON if we have a pool image
+    let metadataUrl = "";
+    if (poolImage) {
+      const metadata = {
+        name: defaultName,
+        description: `${defaultName} Tier NFT`,
+        image: poolImage,
+        tier: defaultName,
+        attributes: [{ trait_type: "Tier", value: defaultName }],
+      };
+      metadataUrl = `data:application/json;base64,${btoa(
+        JSON.stringify(metadata)
+      )}`;
+    }
+
+    const newTier: Tier = {
+      id: crypto.randomUUID(),
+      name: defaultName,
+      price: defaultPrice,
+      isActive: true,
+      nftMetadata: metadataUrl,
+      isVariablePrice: false,
+      minPrice: "0",
+      maxPrice: "0",
+      maxPatrons: defaultMaxPatrons,
+      description: `${defaultName} tier for ${poolName || "this pool"}`,
+      rewardItems: [],
+      imageUrl: poolImage,
+      modifiedFields: new Set(),
+    };
+    onTiersChange([...tiers, newTier]);
+  }, [
+    tiers,
+    generateTierName,
+    fundingGoal,
+    poolImage,
+    poolName,
+    onTiersChange,
+  ]);
 
   // Create first tier automatically
   useEffect(() => {
     if (tiers.length === 0) {
       addTier();
     }
-  }, []);
+  }, [tiers.length, addTier]);
 
   // Update unmodified fields when dependencies change
   useEffect(() => {
@@ -171,63 +211,14 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     if (JSON.stringify(updatedTiers) !== JSON.stringify(tiers)) {
       onTiersChange(updatedTiers);
     }
-  }, [poolName, fundingGoal, poolImage]);
-
-  const addTier = () => {
-    const tierNumber = tiers.length + 1;
-    const defaultName = generateTierName(tierNumber);
-
-    // Calculate default price as 1% of funding goal
-    let defaultPrice = "0";
-    if (fundingGoal) {
-      const goalAmount = parseFloat(fundingGoal);
-      if (!isNaN(goalAmount)) {
-        defaultPrice = (goalAmount * 0.01).toString();
-      }
-    }
-
-    // Calculate default max patrons based on funding goal and price
-    let defaultMaxPatrons = "0";
-    if (fundingGoal && defaultPrice) {
-      const goalAmount = parseFloat(fundingGoal);
-      const priceAmount = parseFloat(defaultPrice);
-      if (!isNaN(goalAmount) && !isNaN(priceAmount) && priceAmount > 0) {
-        defaultMaxPatrons = Math.ceil(goalAmount / priceAmount).toString();
-      }
-    }
-
-    // Create metadata JSON if we have a pool image
-    let metadataUrl = "";
-    if (poolImage) {
-      const metadata = {
-        name: defaultName,
-        description: `${defaultName} Tier NFT`,
-        image: poolImage,
-        tier: defaultName,
-        attributes: [{ trait_type: "Tier", value: defaultName }],
-      };
-      metadataUrl = `data:application/json;base64,${btoa(
-        JSON.stringify(metadata)
-      )}`;
-    }
-
-    const newTier: Tier = {
-      id: crypto.randomUUID(),
-      name: defaultName,
-      price: defaultPrice,
-      isActive: true,
-      nftMetadata: metadataUrl,
-      isVariablePrice: false,
-      minPrice: "0",
-      maxPrice: "0",
-      maxPatrons: defaultMaxPatrons,
-      description: `${defaultName} tier for ${poolName || "this pool"}`,
-      rewardItems: [],
-      imageUrl: poolImage,
-      modifiedFields: new Set(),
-    };
-    onTiersChange([...tiers, newTier]);
-  };
+  }, [
+    poolName,
+    fundingGoal,
+    poolImage,
+    tiers,
+    generateTierName,
+    onTiersChange,
+  ]);
 
   const removeTier = (id: string) => {
     onTiersChange(tiers.filter((tier) => tier.id !== id));
@@ -407,43 +398,15 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                   Tier Image
                 </label>
                 <div className="flex items-center space-x-4">
-                  {tier.imageUrl ? (
-                    <div className="relative w-24 h-24">
-                      <img
+                  {tier.imageUrl && (
+                    <div className="relative w-24 h-24 rounded-lg overflow-hidden">
+                      <Image
                         src={tier.imageUrl}
-                        alt={tier.name}
-                        className="w-full h-full object-cover rounded-lg"
+                        alt={`${tier.name} tier image`}
+                        fill
+                        className="object-cover"
+                        sizes="96px"
                       />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          updateTier(tier.id, "imageUrl", "");
-                          updateTier(tier.id, "nftMetadata", "");
-                        }}
-                        className="absolute -top-2 -right-2 p-1 bg-red-500 rounded-full text-white hover:bg-red-600"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleImageUpload(e, tier.id)}
-                        className="hidden"
-                        id={`tier-image-${tier.id}`}
-                      />
-                      <label
-                        htmlFor={`tier-image-${tier.id}`}
-                        className="cursor-pointer flex items-center justify-center w-24 h-24 border-2 border-dashed border-gray-400 rounded-lg hover:border-[#836EF9] transition-colors"
-                      >
-                        {isUploadingImage[tier.id] ? (
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#836EF9]"></div>
-                        ) : (
-                          <PlusIcon className="w-8 h-8 text-gray-400" />
-                        )}
-                      </label>
                     </div>
                   )}
                 </div>
