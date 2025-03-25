@@ -1,14 +1,16 @@
 "use client";
 
 import { Dialog } from "@headlessui/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DBTier } from "../../../../hooks/usePoolTiers";
 import { toast } from "react-hot-toast";
+import { ethers } from "ethers";
+import { toUSDCBaseUnits } from "@/lib/contracts/StageDotFunPool";
 
 interface CommitModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCommit: (tierId: string, amount: number) => Promise<void>;
+  onCommit: (tierId: string, amount: string) => Promise<void>;
   commitAmount: string;
   setCommitAmount: (value: string) => void;
   isApproving: boolean;
@@ -31,15 +33,6 @@ export default function CommitModal({
     ? tiers?.find((t) => t.id === selectedTierId)
     : null;
 
-  // Add logging for props and state
-  console.log("CommitModal render:", {
-    isOpen,
-    isLoadingTiers,
-    tiersData: tiers,
-    selectedTierId,
-    selectedTier,
-  });
-
   const handleCommitAndClose = async () => {
     if (!selectedTierId) return;
 
@@ -48,10 +41,11 @@ export default function CommitModal({
     console.log("Handling commit with tier:", { selectedTierId, selectedTier });
     if (!selectedTier) return;
 
-    // For fixed price tiers, use the tier's price
+    // For fixed price tiers, use the tier's price directly
+    // For variable price tiers, use the user input
     const amount = selectedTier.is_variable_price
-      ? parseFloat(commitAmount)
-      : selectedTier.price;
+      ? commitAmount
+      : selectedTier.price.toString();
 
     // Add logging for amount calculation
     console.log("Calculated commit amount:", {
@@ -62,20 +56,26 @@ export default function CommitModal({
     });
 
     // Validate amount
-    if (isNaN(amount) || amount <= 0) {
+    if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
 
     // Validate against tier constraints for variable price tiers
     if (selectedTier.is_variable_price) {
-      if (selectedTier.min_price && amount < selectedTier.min_price) {
+      if (
+        selectedTier.min_price &&
+        parseFloat(amount) < selectedTier.min_price
+      ) {
         toast.error(
           `Minimum commitment for this tier is ${selectedTier.min_price} USDC`
         );
         return;
       }
-      if (selectedTier.max_price && amount > selectedTier.max_price) {
+      if (
+        selectedTier.max_price &&
+        parseFloat(amount) > selectedTier.max_price
+      ) {
         toast.error(
           `Maximum commitment for this tier is ${selectedTier.max_price} USDC`
         );
@@ -83,6 +83,7 @@ export default function CommitModal({
       }
     }
 
+    // Pass the human-readable amount to onCommit
     await onCommit(selectedTierId, amount);
   };
 
@@ -103,7 +104,6 @@ export default function CommitModal({
             <div className="space-y-4">
               {tiers.map((tier) => {
                 // Add logging for each tier being rendered
-                console.log("Rendering tier:", tier);
                 return (
                   <div
                     key={tier.id}

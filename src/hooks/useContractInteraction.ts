@@ -13,7 +13,10 @@ import {
   getUserPoolBalanceFromChain,
   getUSDCBalance,
 } from "../lib/services/contract-service";
-import { ContractPool } from "../lib/contracts/StageDotFunPool";
+import {
+  ContractPool,
+  toUSDCBaseUnits,
+} from "../lib/contracts/StageDotFunPool";
 import {
   getUSDCContract,
   formatToken,
@@ -273,27 +276,17 @@ export function useContractInteraction(): ContractInteractionHookResult {
         console.log("Got signer for address:", await signer.getAddress());
 
         // Convert target amount to USDC base units (6 decimals)
-        const targetAmountBigInt = ethers.parseUnits(
-          targetAmount.toString(),
-          6
-        );
-        const capAmountBigInt = ethers.parseUnits(
-          targetAmount.toString(), // Using target amount as cap amount for now
-          6
-        );
+        const targetAmountBigInt = BigInt(targetAmount); // Already in USDC base units from createPoolWithDatabase
+        const capAmountBigInt = BigInt(targetAmount); // Already in USDC base units from createPoolWithDatabase
 
         // Convert tiers to the format expected by the contract
         const tierInitData = tiers.map((tier) => ({
           name: tier.name,
-          price: ethers.parseUnits(tier.price.toString(), 6),
+          price: BigInt(tier.price), // Already in USDC base units from createPoolWithDatabase
           nftMetadata: tier.nftMetadata || "",
           isVariablePrice: tier.isVariablePrice || false,
-          minPrice: tier.isVariablePrice
-            ? ethers.parseUnits(tier.minPrice.toString(), 6)
-            : BigInt(0),
-          maxPrice: tier.isVariablePrice
-            ? ethers.parseUnits(tier.maxPrice.toString(), 6)
-            : BigInt(0),
+          minPrice: tier.isVariablePrice ? BigInt(tier.minPrice) : BigInt(0),
+          maxPrice: tier.isVariablePrice ? BigInt(tier.maxPrice) : BigInt(0),
           maxPatrons: BigInt(tier.maxPatrons || 0),
         }));
 
@@ -484,35 +477,48 @@ export function useContractInteraction(): ContractInteractionHookResult {
         try {
           // Convert tiers to the format expected by the contract
           const tierInitData =
-            poolData.tiers?.map((tier) => ({
-              name: tier.name,
-              price: tier.price,
-              nftMetadata: tier.nftMetadata || "",
-              isVariablePrice: tier.isVariablePrice || false,
-              minPrice: tier.isVariablePrice ? tier.minPrice : 0,
-              maxPrice: tier.isVariablePrice ? tier.maxPrice : 0,
-              maxPatrons: tier.maxPatrons || 0,
-            })) || [];
+            poolData.tiers?.map((tier) => {
+              // Convert price to USDC base units (6 decimals)
+              const price = toUSDCBaseUnits(Number(tier.price));
+              console.log("Converting tier price:", {
+                original: tier.price,
+                converted: price.toString(),
+                expected: (Number(tier.price) * 1e6).toString(),
+                isVariablePrice: tier.isVariablePrice,
+                minPrice: tier.minPrice,
+                maxPrice: tier.maxPrice,
+              });
+
+              return {
+                name: tier.name,
+                price,
+                nftMetadata: tier.nftMetadata || "",
+                isVariablePrice: tier.isVariablePrice || false,
+                minPrice: tier.isVariablePrice
+                  ? toUSDCBaseUnits(Number(tier.minPrice))
+                  : BigInt(0),
+                maxPrice: tier.isVariablePrice
+                  ? toUSDCBaseUnits(Number(tier.maxPrice))
+                  : BigInt(0),
+                maxPatrons: BigInt(tier.maxPatrons || 0),
+              };
+            }) || [];
 
           blockchainResult = await createPool(
             poolData.name,
             poolData.id,
             poolData.token_symbol,
             endTimeUnix,
-            Number(ethers.parseUnits(poolData.target_amount.toString(), 6)), // Convert to USDC base units (6 decimals)
+            Number(toUSDCBaseUnits(poolData.target_amount)), // Convert to USDC base units (6 decimals)
             poolData.cap_amount
-              ? Number(ethers.parseUnits(poolData.cap_amount.toString(), 6))
-              : Number(ethers.parseUnits(poolData.target_amount.toString(), 6)), // Use target amount as cap if not specified
+              ? Number(toUSDCBaseUnits(poolData.cap_amount))
+              : Number(toUSDCBaseUnits(poolData.target_amount)), // Use target amount as cap if not specified
             tierInitData.map((tier) => ({
               ...tier,
-              price: Number(ethers.parseUnits(tier.price.toString(), 6)),
-              minPrice: tier.isVariablePrice
-                ? Number(ethers.parseUnits(tier.minPrice.toString(), 6))
-                : 0,
-              maxPrice: tier.isVariablePrice
-                ? Number(ethers.parseUnits(tier.maxPrice.toString(), 6))
-                : 0,
-              maxPatrons: Number(tier.maxPatrons || 0),
+              price: Number(tier.price), // Already in USDC base units
+              minPrice: tier.isVariablePrice ? Number(tier.minPrice) : 0,
+              maxPrice: tier.isVariablePrice ? Number(tier.maxPrice) : 0,
+              maxPatrons: Number(tier.maxPatrons),
             }))
           );
 

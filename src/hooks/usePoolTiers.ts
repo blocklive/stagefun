@@ -89,7 +89,32 @@ export function usePoolTiersWithPatrons(poolAddress: string | null) {
       if (!poolAddress) return null;
       try {
         const provider = await getProvider();
-        return await getAllTiers(provider, poolAddress);
+        const chainTiers = await getAllTiers(provider, poolAddress);
+
+        // Log the on-chain tier data
+        console.log("On-chain tier data loaded:", {
+          poolAddress,
+          tiersCount: chainTiers.length,
+          tiers: chainTiers.map((tier, index) => ({
+            index,
+            name: tier.name,
+            price: tier.price.toString(),
+            priceInUSDC: ethers.formatUnits(tier.price, 6),
+            isActive: tier.isActive,
+            isVariablePrice: tier.isVariablePrice,
+            minPrice: tier.isVariablePrice
+              ? ethers.formatUnits(tier.minPrice, 6)
+              : null,
+            maxPrice: tier.isVariablePrice
+              ? ethers.formatUnits(tier.maxPrice, 6)
+              : null,
+            maxPatrons: tier.maxPatrons.toString(),
+            currentPatrons: tier.currentPatrons.toString(),
+            nftMetadata: tier.nftMetadata,
+          })),
+        });
+
+        return chainTiers;
       } catch (error) {
         console.error("Error fetching tiers from chain:", error);
         throw error;

@@ -81,6 +81,14 @@ export function useDeposit(): UseDepositResult {
           error: tierError,
         } = await depositService.getTierDetails(poolAddress, tierId);
 
+        console.log("Tier details from contract:", {
+          tier,
+          tierPrice: tier?.price?.toString(),
+          isVariablePrice: tier?.isVariablePrice,
+          minPrice: tier?.minPrice?.toString(),
+          maxPrice: tier?.maxPrice?.toString(),
+        });
+
         if (!tierSuccess || !tier) {
           throw new Error(tierError || "Failed to get tier details");
         }
@@ -92,6 +100,11 @@ export function useDeposit(): UseDepositResult {
             tierId,
             tier.price
           );
+
+        console.log("Deposit requirements:", {
+          requirements,
+          tierPrice: tier.price.toString(),
+        });
 
         if (requirementsError) {
           throw new Error(requirementsError);
@@ -109,25 +122,43 @@ export function useDeposit(): UseDepositResult {
         }
 
         // Check USDC allowance
+        const commitAmount = ethers.parseUnits(amount.toString(), 6);
+        console.log("Commit amount calculation:", {
+          inputAmount: amount,
+          commitAmount: commitAmount.toString(),
+          tierPrice: tier.price.toString(),
+        });
+
         const { hasEnoughAllowance, currentAllowance } =
           await depositService.checkUSDCAllowance(
             await signer.getAddress(),
             poolAddress,
-            tier.price
+            commitAmount
           );
+
+        console.log("USDC allowance check:", {
+          hasEnoughAllowance,
+          currentAllowance: currentAllowance.toString(),
+          requiredAmount: commitAmount.toString(),
+        });
 
         // Approve USDC if needed
         if (!hasEnoughAllowance) {
           toast.loading("Approving USDC...", { id: loadingToast });
+          console.log("Approving USDC:", {
+            poolAddress,
+            commitAmount: commitAmount.toString(),
+          });
           const approvalResult = await depositService.approveUSDC(
             poolAddress,
-            tier.price
+            commitAmount
           );
 
           if (!approvalResult.success) {
             throw new Error(approvalResult.error || "Failed to approve USDC");
           }
 
+          console.log("USDC approval result:", approvalResult);
           // Wait for approval transaction to be mined
           await provider.waitForTransaction(approvalResult.txHash as string);
         }
@@ -136,11 +167,18 @@ export function useDeposit(): UseDepositResult {
         toast.loading("Initiating deposit transaction...", {
           id: loadingToast,
         });
+        console.log("Committing to tier:", {
+          poolAddress,
+          tierId,
+          commitAmount: commitAmount.toString(),
+        });
         const commitResult = await depositService.commitToTier(
           poolAddress,
           tierId,
-          tier.price
+          commitAmount
         );
+
+        console.log("Commit result:", commitResult);
 
         if (!commitResult.success) {
           throw new Error(commitResult.error || "Failed to commit to tier");

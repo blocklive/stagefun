@@ -62,12 +62,6 @@ export default function PoolDetailsPage() {
     refresh: refreshPool,
   } = usePoolDetails(poolId);
 
-  // Single focused log for pool data
-  console.log("[Pool] Critical data:", {
-    id: pool?.id,
-    contractAddress: pool?.contract_address,
-  });
-
   // Use both hook and context for different functionalities
   const { walletsReady, privyReady } = useContractInteractionHook();
 
