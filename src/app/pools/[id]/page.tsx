@@ -12,7 +12,11 @@ import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
 import { usePoolDetails } from "../../../hooks/usePoolDetails";
 import { usePoolCommitments } from "../../../hooks/usePoolCommitments";
 import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
-import { usePoolTiers, type DBTier } from "../../../hooks/usePoolTiers";
+import {
+  usePoolTiers,
+  usePoolTiersWithPatrons,
+  type DBTier,
+} from "../../../hooks/usePoolTiers";
 import AppHeader from "../../components/AppHeader";
 import {
   getAllTiers,
@@ -89,13 +93,36 @@ export default function PoolDetailsPage() {
   } = usePoolTimeLeft(pool);
 
   const {
-    tiers: fetchedTiers,
-    isLoading: isLoadingTiers,
-    isError: tiersError,
+    tiers: dbTiers,
+    isLoading: isLoadingDbTiers,
+    isError: dbTiersError,
   } = usePoolTiers(poolId);
 
-  // Convert undefined to null for the CommitModal
-  const tiers = fetchedTiers || null;
+  const {
+    tiers: chainTiers,
+    isLoading: isLoadingChainTiers,
+    isError: chainTiersError,
+  } = usePoolTiersWithPatrons(pool?.contract_address || null);
+
+  // Combine DB and chain tier data
+  const tiers =
+    dbTiers && chainTiers
+      ? dbTiers.map((dbTier, index) => {
+          const chainTier = chainTiers[index];
+          if (chainTier) {
+            return {
+              ...dbTier,
+              currentPatrons: Number(chainTier.currentPatrons),
+              maxPatrons: Number(chainTier.maxPatrons),
+              isActive: chainTier.isActive,
+            };
+          }
+          return dbTier;
+        })
+      : null;
+
+  const isLoadingTiers = isLoadingDbTiers || isLoadingChainTiers;
+  const tiersError = dbTiersError || chainTiersError;
 
   // Add contract interaction
   const { isLoading: isContractLoading } = useContractInteractionHook();
@@ -135,8 +162,8 @@ export default function PoolDetailsPage() {
   // Add state for approving
   const [isCommitting, setIsCommitting] = useState(false);
 
-  // Add state to control button visibility
-  const [showCommitButton, setShowCommitButton] = useState(false);
+  // Add state to control button visibility - always true now
+  const [showCommitButton, setShowCommitButton] = useState(true);
 
   // Add state for getting tokens
   const [showTokensModal, setShowTokensModal] = useState(false);
@@ -267,107 +294,8 @@ export default function PoolDetailsPage() {
   const isFunded = displayStatus === PoolStatus.FUNDED;
   const isUnfunded = displayStatus === PoolStatus.FAILED;
 
-  // Always show the button for open pools, regardless of whether user has committed
-  const shouldShowCommitButton =
-    !!pool &&
-    pool.blockchain_status === PoolStatus.ACTIVE &&
-    !isFunded &&
-    !isUnfunded;
+  // Remove the complex visibility logic
   const commitButtonText = "Commit";
-
-  // Effect to determine if commit button should be shown - simplified to avoid flickering
-  useEffect(() => {
-    if (shouldShowCommitButton !== showCommitButton) {
-      setShowCommitButton(shouldShowCommitButton);
-    }
-  }, [pool, showCommitButton, shouldShowCommitButton]);
-
-  // Handle refund functionality
-  const handleRefund = async () => {
-    if (!pool || !pool.contract_address) {
-      toast.error("Pool contract address not found");
-      return;
-    }
-
-    setIsRefunding(true);
-    const loadingToast = toast.loading("Preparing refund...");
-
-    try {
-      // Log pool status for debugging
-      console.log("Pool status:", {
-        blockchain_status: pool.blockchain_status,
-        isUnfunded,
-        hasEnded,
-        raisedAmount: pool.raised_amount,
-        targetAmount: pool.target_amount,
-      });
-
-      // Get user's LP token balance first to check if they have tokens to refund
-      const userCommitment = getUserCommitment();
-      console.log("User commitment:", userCommitment);
-
-      if (!userCommitment || userCommitment.amount <= 0) {
-        throw new Error("You don't have any tokens to refund in this pool");
-      }
-
-      // Call the claimRefund function from the contract
-      console.log(
-        "Attempting to claim refund for contract:",
-        pool.contract_address
-      );
-
-      // Update toast message to indicate we're checking pool status
-      toast.loading("Checking pool eligibility for refund...", {
-        id: loadingToast,
-      });
-
-      const result = await claimRefund(pool.contract_address);
-
-      if (!result.success) {
-        // If the refund fails, provide more detailed error information
-        console.error("Refund failed with result:", result);
-
-        // Check if the error is related to eligibility
-        if (result.error && result.error.includes("not eligible for refunds")) {
-          throw new Error(
-            "This pool is not eligible for refunds yet. The end time must have passed without meeting the target amount."
-          );
-        } else if (
-          result.error &&
-          result.error.includes("No LP tokens to refund")
-        ) {
-          throw new Error(
-            "You don't have any LP tokens to refund in this pool."
-          );
-        } else if (
-          result.error &&
-          result.error.includes("doesn't have enough USDC")
-        ) {
-          throw new Error(
-            "The pool doesn't have enough USDC to process your refund. Please contact support."
-          );
-        } else {
-          throw new Error(result.error || "Failed to claim refund");
-        }
-      }
-
-      toast.success("Refund claimed successfully!", { id: loadingToast });
-      console.log("Refund result:", result);
-
-      // Refresh data after successful refund
-      refreshPool();
-      refreshBalance();
-      refreshCommitments();
-    } catch (error) {
-      console.error("Error claiming refund:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to claim refund",
-        { id: loadingToast }
-      );
-    } finally {
-      setIsRefunding(false);
-    }
-  };
 
   // Render user commitment section
   const renderUserCommitment = () => {
@@ -614,6 +542,93 @@ export default function PoolDetailsPage() {
     );
   };
 
+  // Handle refund functionality
+  const handleRefund = async () => {
+    if (!pool || !pool.contract_address) {
+      toast.error("Pool contract address not found");
+      return;
+    }
+
+    setIsRefunding(true);
+    const loadingToast = toast.loading("Preparing refund...");
+
+    try {
+      // Log pool status for debugging
+      console.log("Pool status:", {
+        blockchain_status: pool.blockchain_status,
+        isUnfunded,
+        hasEnded,
+        raisedAmount: pool.raised_amount,
+        targetAmount: pool.target_amount,
+      });
+
+      // Get user's LP token balance first to check if they have tokens to refund
+      const userCommitment = getUserCommitment();
+      console.log("User commitment:", userCommitment);
+
+      if (!userCommitment || userCommitment.amount <= 0) {
+        throw new Error("You don't have any tokens to refund in this pool");
+      }
+
+      // Call the claimRefund function from the contract
+      console.log(
+        "Attempting to claim refund for contract:",
+        pool.contract_address
+      );
+
+      // Update toast message to indicate we're checking pool status
+      toast.loading("Checking pool eligibility for refund...", {
+        id: loadingToast,
+      });
+
+      const result = await claimRefund(pool.contract_address);
+
+      if (!result.success) {
+        // If the refund fails, provide more detailed error information
+        console.error("Refund failed with result:", result);
+
+        // Check if the error is related to eligibility
+        if (result.error && result.error.includes("not eligible for refunds")) {
+          throw new Error(
+            "This pool is not eligible for refunds yet. The end time must have passed without meeting the target amount."
+          );
+        } else if (
+          result.error &&
+          result.error.includes("No LP tokens to refund")
+        ) {
+          throw new Error(
+            "You don't have any LP tokens to refund in this pool."
+          );
+        } else if (
+          result.error &&
+          result.error.includes("doesn't have enough USDC")
+        ) {
+          throw new Error(
+            "The pool doesn't have enough USDC to process your refund. Please contact support."
+          );
+        } else {
+          throw new Error(result.error || "Failed to claim refund");
+        }
+      }
+
+      toast.success("Refund claimed successfully!", { id: loadingToast });
+      console.log("Refund result:", result);
+
+      // Refresh data after successful refund
+      refreshPool();
+      refreshBalance();
+      refreshCommitments();
+    } catch (error) {
+      console.error("Error claiming refund:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to claim refund",
+        { id: loadingToast }
+      );
+    } finally {
+      setIsRefunding(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#15161a] text-white flex flex-col">
       <AppHeader
@@ -621,6 +636,7 @@ export default function PoolDetailsPage() {
         showTitle={false}
         backgroundColor="#15161a"
         showGetTokensButton={true}
+        showCreateButton={true}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
         onBackClick={handleBackClick}
@@ -631,7 +647,7 @@ export default function PoolDetailsPage() {
 
       {/* Fixed bottom elements */}
       <FixedBottomBar
-        showCommitButton={showCommitButton}
+        showCommitButton={true}
         onCommitClick={() => setIsCommitModalOpen(true)}
         commitButtonText={commitButtonText}
       />

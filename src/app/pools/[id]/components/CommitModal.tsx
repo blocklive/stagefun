@@ -106,11 +106,10 @@ export default function CommitModal({
                       {tier.description}
                     </p>
                   )}
-                  {tier.max_supply && (
-                    <div className="text-sm text-gray-400 mt-1">
-                      {tier.current_supply} / {tier.max_supply} spots taken
-                    </div>
-                  )}
+                  <div className="text-sm text-gray-400 mt-1">
+                    {(tier as any).currentPatrons} / {(tier as any).maxPatrons}{" "}
+                    spots taken
+                  </div>
                 </div>
               ))}
 
