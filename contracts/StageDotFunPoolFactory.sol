@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./StageDotFunPool.sol";
+import "./interfaces/IStageDotFunPool.sol";
 
 contract StageDotFunPoolFactory is Ownable {
     // Implementation contracts
@@ -54,7 +55,8 @@ contract StageDotFunPoolFactory is Ownable {
         address owner,
         address creator,
         uint256 targetAmount,
-        uint256 capAmount
+        uint256 capAmount,
+        IStageDotFunPool.TierInitData[] memory tiers
     ) external returns (address) {
         require(bytes(name).length > 0, "Name cannot be empty");
         require(bytes(uniqueId).length > 0, "Unique ID cannot be empty");
@@ -79,7 +81,8 @@ contract StageDotFunPoolFactory is Ownable {
             targetAmount,
             capAmount,
             lpTokenImplementation,
-            nftImplementation
+            nftImplementation,
+            tiers
         );
         
         deployedPools.push(pool);

@@ -96,16 +96,17 @@ export function usePoolTiersWithPatrons(poolAddress: string | null) {
       }
     },
     {
-      refreshInterval: 10000, // Refresh every 10 seconds
+      refreshInterval: 30000, // Refresh every 30 seconds instead of 10
       revalidateOnFocus: false,
-      dedupingInterval: 5000,
+      dedupingInterval: 15000, // Increase deduping interval
       shouldRetryOnError: true,
+      keepPreviousData: true, // Keep showing previous data while loading new data
     }
   );
 
   return {
     tiers,
-    isLoading: !error && !tiers,
+    isLoading: !tiers, // Only show loading if we have no data at all
     isError: error,
     mutate,
   };

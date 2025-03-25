@@ -6,11 +6,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./StageDotFunLiquidity.sol";
 import "./StageDotFunNFT.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
+import "./interfaces/IStageDotFunPool.sol";
 
 contract StageDotFunPool is Ownable {
     // Constants
     uint256 public constant MAX_TIERS = 10;
-    uint256 public constant REVENUE_UPDATE_INTERVAL = 1 days;
     
     // State variables
     IERC20 public depositToken;
@@ -31,6 +31,8 @@ contract StageDotFunPool is Ownable {
     // Revenue tracking
     uint256 public totalRevenue;
     uint256 public lastRevenueUpdate;
+    uint256 public totalDistributed;
+    uint256 public lastDistributionTime;
     
     // Revenue distribution tracking
     mapping(address => uint256) public lastRevenueClaim;
@@ -43,7 +45,10 @@ contract StageDotFunPool is Ownable {
         CLOSED,
         FUNDED,  // When target is reached
         FULLY_FUNDED, // When cap is reached
-        FAILED   // When end time is reached without meeting target
+        FAILED,   // When end time is reached without meeting target
+        CAPPED,   // When cap is reached
+        COMPLETED,
+        CANCELLED
     }
     
     PoolStatus public status;
@@ -69,11 +74,12 @@ contract StageDotFunPool is Ownable {
         bool isClaimed; // Track if this reward has been claimed
     }
     
-    // Mapping from tier ID to Tier struct
-    mapping(uint256 => Tier) public tiers;
+    // Change from dynamic array to fixed-size array
+    Tier[MAX_TIERS] public tiers;
     uint256 public tierCount;
     
     // Mapping from user to their tier commitments
+    mapping(address => mapping(uint256 => bool)) public tierCommitments;
     mapping(address => uint256[]) public userTierCommitments;
     
     // Track all users who have committed to any tier
@@ -89,6 +95,7 @@ contract StageDotFunPool is Ownable {
     mapping(uint256 => uint256) public tierNFTSupply; // tierId => current supply
     
     // Events
+    event PoolCreated(string name, string uniqueId, uint256 endTime);
     event TierCreated(uint256 indexed tierId, string name, uint256 price);
     event TierUpdated(uint256 indexed tierId, string name, uint256 price);
     event TierDeactivated(uint256 indexed tierId);
@@ -106,6 +113,13 @@ contract StageDotFunPool is Ownable {
     event NFTClaimed(address indexed user, uint256 indexed tierId, uint256 tokenId);
     event NFTsMintedForTier(uint256 indexed tierId, uint256 count);
     event LPTransfer(address indexed from, address indexed to, uint256 amount);
+    event FundsWithdrawn(address indexed recipient, uint256 amount);
+    event RefundIssued(address indexed user, uint256 amount);
+    
+    // Get user's tier commitments
+    function getUserTierCommitments(address user) external view returns (uint256[] memory) {
+        return userTierCommitments[user];
+    }
     
     // Add initializer modifier
     modifier initializer() {
@@ -129,7 +143,8 @@ contract StageDotFunPool is Ownable {
         uint256 _targetAmount,
         uint256 _capAmount,
         address _lpTokenImplementation,
-        address _nftImplementation
+        address _nftImplementation,
+        IStageDotFunPool.TierInitData[] memory _tiers
     ) external initializer {
         name = _name;
         uniqueId = _uniqueId;
@@ -157,6 +172,40 @@ contract StageDotFunPool is Ownable {
             nftSymbol,
             address(this)  // Set the pool contract as the owner
         );
+        
+        // Create initial tiers if provided
+        if (_tiers.length > 0) {
+            for (uint256 i = 0; i < _tiers.length; i++) {
+                require(tierCount < MAX_TIERS, "Max tiers reached");
+                require(bytes(_tiers[i].name).length > 0, "Name required");
+                // Allow price to be 0 for free tiers
+                require(_tiers[i].price >= 0, "Price cannot be negative");
+                
+                if (_tiers[i].isVariablePrice) {
+                    // Allow min price to be 0 for free variable price tiers
+                    require(_tiers[i].minPrice >= 0, "Min price cannot be negative");
+                    require(_tiers[i].maxPrice >= _tiers[i].minPrice, "Max price must be >= min price");
+                }
+                
+                // Allow 0 for unlimited patrons
+                require(_tiers[i].maxPatrons >= 0, "Max patrons cannot be negative");
+                
+                tiers[tierCount] = Tier({
+                    name: _tiers[i].name,
+                    price: _tiers[i].price,
+                    isActive: true,
+                    nftMetadata: _tiers[i].nftMetadata,
+                    isVariablePrice: _tiers[i].isVariablePrice,
+                    minPrice: _tiers[i].minPrice,
+                    maxPrice: _tiers[i].maxPrice,
+                    maxPatrons: _tiers[i].maxPatrons,
+                    currentPatrons: 0
+                });
+                
+                emit TierCreated(tierCount, _tiers[i].name, _tiers[i].price);
+                tierCount++;
+            }
+        }
         
         // Transfer ownership to the specified owner
         _transferOwnership(_owner);
@@ -199,10 +248,12 @@ contract StageDotFunPool is Ownable {
     ) external onlyOwner {
         require(tierCount < MAX_TIERS, "Max tiers reached");
         require(bytes(_name).length > 0, "Name required");
-        require(_price > 0, "Price must be greater than 0");
+        // Allow price to be 0 for free tiers
+        require(_price >= 0, "Price cannot be negative");
         
         if (_isVariablePrice) {
-            require(_minPrice > 0, "Min price must be greater than 0");
+            // Allow min price to be 0 for free variable price tiers
+            require(_minPrice >= 0, "Min price cannot be negative");
             require(_maxPrice >= _minPrice, "Max price must be >= min price");
         }
         
@@ -238,10 +289,12 @@ contract StageDotFunPool is Ownable {
     ) external onlyOwner {
         require(tierId < tierCount, "Invalid tier");
         require(bytes(_name).length > 0, "Name required");
-        require(_price > 0, "Price must be greater than 0");
+        // Allow price to be 0 for free tiers
+        require(_price >= 0, "Price cannot be negative");
         
         if (_isVariablePrice) {
-            require(_minPrice > 0, "Min price must be greater than 0");
+            // Allow min price to be 0 for free variable price tiers
+            require(_minPrice >= 0, "Min price cannot be negative");
             require(_maxPrice >= _minPrice, "Max price must be >= min price");
         }
         
@@ -276,8 +329,7 @@ contract StageDotFunPool is Ownable {
     function commitToTier(uint256 tierId, uint256 amount) external {
         require(tierId < tierCount, "Invalid tier");
         require(tiers[tierId].isActive, "Tier not active");
-        require(status == PoolStatus.ACTIVE, "Pool not active");
-        require(!targetReached, "Pool already funded");
+        require(status == PoolStatus.ACTIVE || status == PoolStatus.FUNDED, "Pool not active");
         require(block.timestamp <= endTime, "Pool ended");
         require(totalDeposits + amount <= capAmount, "Exceeds cap");
         
@@ -309,6 +361,7 @@ contract StageDotFunPool is Ownable {
         }
         
         // Add to user's tier commitments
+        tierCommitments[msg.sender][tierId] = true;
         userTierCommitments[msg.sender].push(tierId);
         
         // Mint NFT for the tier if metadata exists
@@ -323,48 +376,45 @@ contract StageDotFunPool is Ownable {
     }
     
     function receiveRevenue(uint256 amount) external {
-        require(status == PoolStatus.FUNDED || status == PoolStatus.ACTIVE, "Pool not in valid state for revenue");
-        require(
-            depositToken.transferFrom(msg.sender, address(this), amount),
-            "Revenue transfer failed"
-        );
-        revenueAccumulated += amount;
+        require(amount > 0, "Amount must be greater than 0");
+        require(depositToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         
+        revenueAccumulated += amount;
         emit RevenueReceived(amount);
     }
     
-    function distributeRevenue() external onlyOwner {
+    function distributeRevenue() external {
         require(revenueAccumulated > 0, "No revenue to distribute");
-        require(status != PoolStatus.INACTIVE, "Pool not yet started");
         
-        uint256 totalPoolTokens = totalDeposits;
-        require(totalPoolTokens > 0, "No LP tokens in pool");
+        uint256 totalSupply = lpToken.totalSupply();
+        require(totalSupply > 0, "No LP tokens issued");
         
-        // Get all holders from the LP token contract
+        uint256 revenue = revenueAccumulated;
+        revenueAccumulated = 0; // Reset before distribution to prevent reentrancy
+        
+        // Get all LP token holders
         address[] memory holders = lpToken.getHolders();
         
-        // Distribute revenue to holders
+        // Distribute revenue to all LP holders proportionally
         for (uint256 i = 0; i < holders.length; i++) {
             address holder = holders[i];
-            uint256 lpBalance = lpToken.balanceOf(holder);
-            if (lpBalance > 0) {
-                uint256 share = (lpBalance * revenueAccumulated) / totalPoolTokens;
-                require(depositToken.transfer(holder, share), "Distribution failed");
+            uint256 balance = lpToken.balanceOf(holder);
+            
+            if (balance > 0) {
+                uint256 share = (revenue * balance) / totalSupply;
+                if (share > 0) {
+                    require(depositToken.transfer(holder, share), "Transfer failed");
+                }
             }
         }
         
-        emit RevenueDistributed(revenueAccumulated);
-        revenueAccumulated = 0;
+        emit RevenueDistributed(revenue);
     }
     
     // View functions
     function getTier(uint256 tierId) external view returns (Tier memory) {
         require(tierId < tierCount, "Tier does not exist");
         return tiers[tierId];
-    }
-    
-    function getUserTierCommitments(address user) external view returns (uint256[] memory) {
-        return userTierCommitments[user];
     }
     
     function getTierCount() external view returns (uint256) {
@@ -475,6 +525,7 @@ contract StageDotFunPool is Ownable {
     function _checkPoolStatus() internal {
         // Check if target has been reached
         if (!targetReached && totalDeposits >= targetAmount) {
+            targetReached = true;
             status = PoolStatus.FUNDED;
             emit TargetReached(totalDeposits);
             emit PoolStatusUpdated(PoolStatus.FUNDED);
@@ -488,6 +539,7 @@ contract StageDotFunPool is Ownable {
         
         // Check if cap reached
         if (totalDeposits >= capAmount) {
+            targetReached = true;
             status = PoolStatus.FUNDED;
             emit CapReached(totalDeposits);
             emit PoolStatusUpdated(PoolStatus.FUNDED);
@@ -519,6 +571,21 @@ contract StageDotFunPool is Ownable {
         require(depositToken.transfer(msg.sender, lpBalance), "Refund transfer failed");
         
         emit FundsReturned(msg.sender, lpBalance);
+    }
+
+    // Withdraw funds after target is met
+    function withdrawFunds(uint256 amount) external onlyOwner targetMet {
+        uint256 balance = depositToken.balanceOf(address(this));
+        require(balance > 0, "No funds to withdraw");
+        
+        // If amount is 0, withdraw full balance
+        uint256 withdrawAmount = amount == 0 ? balance : amount;
+        require(withdrawAmount <= balance, "Insufficient funds");
+        
+        // Transfer funds to owner
+        require(depositToken.transfer(owner(), withdrawAmount), "Transfer failed");
+        
+        emit FundsWithdrawn(owner(), withdrawAmount);
     }
 
     // Remove the constructor since we're using initialize

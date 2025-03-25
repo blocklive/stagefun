@@ -24,6 +24,7 @@ import {
   getPoolByName,
   getPoolContract,
   getStageDotFunPoolFactoryContract,
+  getPoolDetails,
 } from "../lib/contracts/StageDotFunPool";
 import { supabase } from "../lib/supabase";
 import { PoolStatus } from "../lib/contracts/types";
@@ -66,7 +67,16 @@ interface ContractInteractionHookResult {
     symbol: string,
     endTime: number,
     targetAmount: number,
-    minCommitment: number
+    minCommitment: number,
+    tiers: {
+      name: string;
+      price: number;
+      nftMetadata: string;
+      isVariablePrice: boolean;
+      minPrice: number;
+      maxPrice: number;
+      maxPatrons: number;
+    }[]
   ) => Promise<any>;
   createPoolWithDatabase: (
     poolData: PoolCreationData,
@@ -190,10 +200,19 @@ export function useContractInteraction(): ContractInteractionHookResult {
       symbol: string,
       endTime: number,
       targetAmount: number,
-      minCommitment: number
+      minCommitment: number,
+      tiers: {
+        name: string;
+        price: number;
+        nftMetadata: string;
+        isVariablePrice: boolean;
+        minPrice: number;
+        maxPrice: number;
+        maxPatrons: number;
+      }[]
     ) => {
-      setIsLoading(true);
       setError(null);
+      setIsLoading(true);
 
       try {
         if (!user) {
@@ -212,7 +231,9 @@ export function useContractInteraction(): ContractInteractionHookResult {
           "targetAmount:",
           targetAmount,
           "minCommitment:",
-          minCommitment
+          minCommitment,
+          "tiers:",
+          tiers
         );
 
         // Get the embedded wallet
@@ -251,48 +272,30 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
         console.log("Got signer for address:", await signer.getAddress());
 
-        // Check native balance before proceeding
-        try {
-          const address = await signer.getAddress();
-          const balance = await ethersProvider.getBalance(address);
-          const balanceInEther = ethers.formatEther(balance);
-          console.log("Current MON balance:", balanceInEther);
-
-          // Warn if balance is very low (less than 0.005 MON)
-          if (parseFloat(balanceInEther) < 0.005) {
-            console.warn(
-              "WARNING: Very low MON balance detected:",
-              balanceInEther
-            );
-          }
-        } catch (balanceError) {
-          console.error("Error checking MON balance:", balanceError);
-          // Continue anyway, we'll catch any gas-related errors later
-        }
-
-        // Convert amounts to BigInt with proper units
+        // Convert target amount to USDC base units (6 decimals)
         const targetAmountBigInt = ethers.parseUnits(
           targetAmount.toString(),
-          6 // USDC has 6 decimals
+          6
         );
-        const minCommitmentBigInt = ethers.parseUnits(
-          minCommitment.toString(),
-          6 // USDC has 6 decimals
-        );
-
-        // Get contract addresses
-        const contractAddresses = getContractAddresses();
-        console.log(
-          "Factory contract address:",
-          contractAddresses.stageDotFunPoolFactory
+        const capAmountBigInt = ethers.parseUnits(
+          targetAmount.toString(), // Using target amount as cap amount for now
+          6
         );
 
-        // Get the factory contract with signer
-        const factory = new ethers.Contract(
-          contractAddresses.stageDotFunPoolFactory,
-          StageDotFunPoolFactoryABI,
-          signer
-        );
+        // Convert tiers to the format expected by the contract
+        const tierInitData = tiers.map((tier) => ({
+          name: tier.name,
+          price: ethers.parseUnits(tier.price.toString(), 6),
+          nftMetadata: tier.nftMetadata || "",
+          isVariablePrice: tier.isVariablePrice || false,
+          minPrice: tier.isVariablePrice
+            ? ethers.parseUnits(tier.minPrice.toString(), 6)
+            : BigInt(0),
+          maxPrice: tier.isVariablePrice
+            ? ethers.parseUnits(tier.maxPrice.toString(), 6)
+            : BigInt(0),
+          maxPatrons: BigInt(tier.maxPatrons || 0),
+        }));
 
         console.log("Creating pool with parameters:", {
           name,
@@ -301,125 +304,74 @@ export function useContractInteraction(): ContractInteractionHookResult {
           endTime,
           targetAmount: targetAmountBigInt.toString(),
           signerAddress: await signer.getAddress(),
+          tiers: tierInitData.map((t) => ({
+            ...t,
+            price: t.price.toString(),
+            minPrice: t.minPrice.toString(),
+            maxPrice: t.maxPrice.toString(),
+            maxPatrons: t.maxPatrons.toString(),
+          })),
         });
 
-        // Call the contract directly
-        const tx = await factory.createPool(
+        // Use createPoolOnChain from the contract service
+        const result = await createPoolOnChain(
+          signer,
           name,
           uniqueId,
           symbol,
           BigInt(endTime),
-          await signer.getAddress(), // owner
-          await signer.getAddress(), // creator
           targetAmountBigInt,
-          targetAmountBigInt, // Using target amount as cap amount for now
-          {
-            gasLimit: 5000000, // Increase gas limit to ensure the transaction goes through
-          }
+          capAmountBigInt,
+          tierInitData
         );
 
-        console.log("Transaction sent:", tx.hash);
+        console.log("Pool creation transaction confirmed:", result.receipt);
 
-        // Wait for transaction to be mined
-        console.log("Waiting for transaction confirmation...");
-        const receipt = await tx.wait();
-        console.log("Pool creation transaction confirmed:", receipt);
-
-        if (!receipt) {
-          throw new Error("Transaction receipt not found");
+        if (!result.receipt) {
+          throw new Error("Transaction failed");
         }
 
-        // Check if the transaction was successful
-        if (!receipt.status) {
-          throw new Error("Transaction failed on chain");
-        }
-
-        // Get the pool address from the factory event
-        const factoryEvent = receipt.logs.find(
-          (log: ethers.Log) =>
-            log.address.toLowerCase() ===
-            contractAddresses.stageDotFunPoolFactory.toLowerCase()
-        );
-
-        if (!factoryEvent) {
-          throw new Error("No event found from factory contract");
-        }
-
-        // The pool address will be in the first topic after the event signature
-        const poolAddress = "0x" + factoryEvent.topics[1].slice(26);
-        console.log("Found pool address from event:", poolAddress);
-
-        // Create pool contract instance to get pool details
-        const poolContract = new ethers.Contract(
-          poolAddress,
-          StageDotFunPoolABI,
-          signer
-        );
-
-        // Get pool details
-        console.log("Getting pool details for address:", poolAddress);
-        const details = await poolContract.getPoolDetails();
-        console.log("Raw pool details:", details);
-
-        // Destructure the details array
-        const [
-          poolName, // string
-          poolUniqueId, // string
-          poolCreator, // address
-          poolTotalDeposits, // uint256
-          poolRevenue, // uint256
-          poolEndTime, // uint256
-          poolTargetAmount, // uint256
-          poolCapAmount, // uint256
-          poolStatus, // uint8
-          lpTokenAddress, // address
-          nftContractAddress, // address
-          tierCount, // uint256
-        ] = details;
-
-        console.log("Pool details:", {
-          name: poolName,
-          uniqueId: poolUniqueId,
-          creator: poolCreator,
-          totalDeposits: poolTotalDeposits.toString(),
-          revenueAccumulated: poolRevenue.toString(),
-          endTime: poolEndTime.toString(),
-          targetAmount: poolTargetAmount.toString(),
-          capAmount: poolCapAmount.toString(),
-          status: poolStatus,
-          lpTokenAddress,
-          nftContractAddress,
-          tierCount: tierCount.toString(),
-        });
-
+        // Create the pool object from the result
         const pool: ContractPool = {
-          name: poolName,
-          uniqueId: poolUniqueId,
-          creator: poolCreator,
-          totalDeposits: poolTotalDeposits,
-          revenueAccumulated: poolRevenue,
-          endTime: poolEndTime,
-          targetAmount: poolTargetAmount,
-          capAmount: poolCapAmount,
-          status: poolStatus,
-          lpTokenAddress: lpTokenAddress,
-          nftContractAddress: nftContractAddress,
-          tierCount: tierCount,
-          minCommitment: details._minCommitment || BigInt(0),
+          name,
+          uniqueId,
+          creator: await signer.getAddress(),
+          totalDeposits: BigInt(0),
+          revenueAccumulated: BigInt(0),
+          endTime: BigInt(endTime),
+          targetAmount: targetAmountBigInt,
+          capAmount: capAmountBigInt,
+          status: 1, // ACTIVE status
+          lpTokenAddress: result.lpTokenAddress,
+          nftContractAddress: ethers.ZeroAddress, // Will be set when NFT contract is deployed
+          tierCount: BigInt(tiers.length),
+          minCommitment: BigInt(0),
           lpHolders: [],
           milestones: [],
-          emergencyMode: details._emergencyMode || false,
-          emergencyWithdrawalRequestTime:
-            details._emergencyWithdrawalRequestTime || BigInt(0),
-          authorizedWithdrawer:
-            details._authorizedWithdrawer || ethers.ZeroAddress,
+          emergencyMode: false,
+          emergencyWithdrawalRequestTime: BigInt(0),
+          authorizedWithdrawer: ethers.ZeroAddress,
         };
 
+        console.log("Pool details:", {
+          name: pool.name,
+          uniqueId: pool.uniqueId,
+          creator: pool.creator,
+          totalDeposits: pool.totalDeposits.toString(),
+          revenueAccumulated: pool.revenueAccumulated.toString(),
+          endTime: pool.endTime.toString(),
+          targetAmount: pool.targetAmount.toString(),
+          capAmount: pool.capAmount.toString(),
+          status: pool.status,
+          lpTokenAddress: pool.lpTokenAddress,
+          tierCount: pool.tierCount.toString(),
+        });
+
         return {
-          receipt,
-          poolAddress,
-          lpTokenAddress,
-          transactionHash: receipt.hash,
+          receipt: result.receipt,
+          poolAddress: result.poolId,
+          lpTokenAddress: result.lpTokenAddress,
+          transactionHash: result.receipt.hash,
         };
       } catch (err: any) {
         console.error("Error creating pool:", err);
@@ -429,7 +381,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
         setIsLoading(false);
       }
     },
-    [user, wallets, sendTransaction]
+    [user, wallets]
   );
 
   // Helper function to create and link reward items
@@ -530,13 +482,38 @@ export function useContractInteraction(): ContractInteractionHookResult {
         // STEP 1: First create the pool on the blockchain
         let blockchainResult: BlockchainPoolResult;
         try {
+          // Convert tiers to the format expected by the contract
+          const tierInitData =
+            poolData.tiers?.map((tier) => ({
+              name: tier.name,
+              price: tier.price,
+              nftMetadata: tier.nftMetadata || "",
+              isVariablePrice: tier.isVariablePrice || false,
+              minPrice: tier.isVariablePrice ? tier.minPrice : 0,
+              maxPrice: tier.isVariablePrice ? tier.maxPrice : 0,
+              maxPatrons: tier.maxPatrons || 0,
+            })) || [];
+
           blockchainResult = await createPool(
             poolData.name,
             poolData.id,
             poolData.token_symbol,
             endTimeUnix,
-            poolData.target_amount,
-            poolData.cap_amount || 0
+            Number(ethers.parseUnits(poolData.target_amount.toString(), 6)), // Convert to USDC base units (6 decimals)
+            poolData.cap_amount
+              ? Number(ethers.parseUnits(poolData.cap_amount.toString(), 6))
+              : Number(ethers.parseUnits(poolData.target_amount.toString(), 6)), // Use target amount as cap if not specified
+            tierInitData.map((tier) => ({
+              ...tier,
+              price: Number(ethers.parseUnits(tier.price.toString(), 6)),
+              minPrice: tier.isVariablePrice
+                ? Number(ethers.parseUnits(tier.minPrice.toString(), 6))
+                : 0,
+              maxPrice: tier.isVariablePrice
+                ? Number(ethers.parseUnits(tier.maxPrice.toString(), 6))
+                : 0,
+              maxPatrons: Number(tier.maxPatrons || 0),
+            }))
           );
 
           console.log(
@@ -651,173 +628,6 @@ export function useContractInteraction(): ContractInteractionHookResult {
               error: rewardResult.error || "Failed to process rewards",
               txHash: blockchainResult.transactionHash,
             };
-          }
-        }
-
-        // Create tiers on the contract
-        const embeddedWallet = wallets.find(
-          (wallet) => wallet.walletClientType === "privy"
-        );
-
-        if (!embeddedWallet) {
-          console.error("No embedded wallet found for creating tiers");
-          return {
-            success: false,
-            error: "No embedded wallet found for creating tiers",
-            txHash: blockchainResult.transactionHash,
-          };
-        }
-
-        // Get the provider and create contract instance
-        const provider = await embeddedWallet.getEthereumProvider();
-        const ethersProvider = new ethers.BrowserProvider(provider);
-        const poolContract = getPoolContract(
-          ethersProvider,
-          blockchainResult.poolAddress
-        );
-        const signer = await ethersProvider.getSigner();
-        const signerAddress = await signer.getAddress();
-
-        // Create tiers on-chain
-        if (tiers && tiers.length > 0) {
-          console.log("Creating tiers on-chain:", tiers);
-
-          for (const tier of tiers) {
-            // Handle NFT metadata
-            let nftMetadataUrl = "";
-            if (tier.nftMetadata) {
-              try {
-                // First upload the image to Supabase storage
-                const imageFileName = `${poolData.id}/${tier.name
-                  .toLowerCase()
-                  .replace(/\s+/g, "-")}-image.png`;
-                const { data: imageUploadData, error: imageUploadError } =
-                  await supabase.storage
-                    .from("pool-images")
-                    .upload(imageFileName, tier.nftMetadata, {
-                      contentType: "image/png",
-                      upsert: true,
-                    });
-
-                if (imageUploadError) {
-                  console.error("Error uploading NFT image:", imageUploadError);
-                  throw new Error("Failed to upload NFT image");
-                }
-
-                // Get the public URL for the image
-                const {
-                  data: { publicUrl: imageUrl },
-                } = supabase.storage
-                  .from("pool-images")
-                  .getPublicUrl(imageFileName);
-
-                // Generate metadata JSON with the image URL
-                const metadataJson = {
-                  name: tier.name,
-                  description: tier.description || `${tier.name} tier`,
-                  image: imageUrl,
-                  attributes: [
-                    {
-                      trait_type: "Tier",
-                      value: tier.name,
-                    },
-                  ],
-                };
-
-                // Upload the metadata JSON to Supabase storage
-                const metadataFileName = `${poolData.id}/${tier.name
-                  .toLowerCase()
-                  .replace(/\s+/g, "-")}-metadata.json`;
-                const { data: metadataUploadData, error: metadataUploadError } =
-                  await supabase.storage
-                    .from("tier-metadata")
-                    .upload(metadataFileName, JSON.stringify(metadataJson), {
-                      contentType: "application/json",
-                      upsert: true,
-                    });
-
-                if (metadataUploadError) {
-                  console.error(
-                    "Error uploading NFT metadata:",
-                    metadataUploadError
-                  );
-                  throw new Error("Failed to upload NFT metadata");
-                }
-
-                // Get the public URL for the metadata
-                const {
-                  data: { publicUrl: metadataUrl },
-                } = supabase.storage
-                  .from("tier-metadata")
-                  .getPublicUrl(metadataFileName);
-
-                nftMetadataUrl = metadataUrl;
-                console.log("NFT metadata and image uploaded successfully:", {
-                  imageUrl,
-                  metadataUrl,
-                });
-              } catch (error) {
-                console.error("Error processing NFT metadata:", error);
-                // Continue without NFT metadata if there's an error
-              }
-            }
-
-            // Convert tier price to base units
-            const tierPriceBigInt = ethers.parseUnits(
-              tier.price.toString(),
-              6 // USDC has 6 decimals
-            );
-
-            // Create contract interface for adding tier
-            const poolInterface = new ethers.Interface(StageDotFunPoolABI);
-            const addTierData = poolInterface.encodeFunctionData("createTier", [
-              tier.name,
-              tierPriceBigInt,
-              nftMetadataUrl, // Use the uploaded metadata URL
-              tier.isVariablePrice,
-              tier.isVariablePrice ? BigInt(tier.minPrice) : BigInt(0),
-              tier.isVariablePrice ? BigInt(tier.maxPrice) : BigInt(0),
-              BigInt(tier.maxPatrons || 0),
-            ]);
-
-            // Prepare the add tier transaction request
-            const addTierRequest = {
-              to: blockchainResult.poolAddress,
-              data: addTierData,
-              value: "0",
-              from: signerAddress,
-              chainId: 10143, // Monad Testnet
-              gasLimit: 5000000,
-            };
-
-            // Set UI options for the add tier transaction
-            const addTierUiOptions = {
-              description: `Creating tier "${tier.name}" with price ${tier.price} USDC`,
-              buttonText: "Create Tier",
-              transactionInfo: {
-                title: "Create Tier",
-                action: "Add Tier",
-                contractInfo: {
-                  name: "StageDotFun Pool",
-                },
-              },
-            };
-
-            console.log("Sending create tier transaction for tier:", tier.name);
-            const addTierTx = await sendTransaction(addTierRequest, {
-              uiOptions: addTierUiOptions,
-            });
-
-            // Wait for transaction to be mined
-            const addTierReceipt = await ethersProvider.waitForTransaction(
-              addTierTx.hash as string
-            );
-
-            if (!addTierReceipt?.status) {
-              throw new Error(`Failed to create tier "${tier.name}" on-chain`);
-            }
-
-            console.log(`Tier "${tier.name}" created successfully on-chain`);
           }
         }
 

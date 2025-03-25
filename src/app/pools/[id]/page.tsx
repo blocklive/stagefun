@@ -41,6 +41,7 @@ import PoolLocation from "./components/PoolLocation";
 import FixedBottomBar from "./components/FixedBottomBar";
 import InfoModal from "../../components/InfoModal";
 import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
+import { ethers } from "ethers";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -60,6 +61,12 @@ export default function PoolDetailsPage() {
     error: poolError,
     refresh: refreshPool,
   } = usePoolDetails(poolId);
+
+  // Single focused log for pool data
+  console.log("[Pool] Critical data:", {
+    id: pool?.id,
+    contractAddress: pool?.contract_address,
+  });
 
   // Use both hook and context for different functionalities
   const { walletsReady, privyReady } = useContractInteractionHook();
@@ -104,24 +111,42 @@ export default function PoolDetailsPage() {
     isError: chainTiersError,
   } = usePoolTiersWithPatrons(pool?.contract_address || null);
 
-  // Combine DB and chain tier data
-  const tiers =
-    dbTiers && chainTiers
-      ? dbTiers.map((dbTier, index) => {
-          const chainTier = chainTiers[index];
-          if (chainTier) {
-            return {
-              ...dbTier,
-              currentPatrons: Number(chainTier.currentPatrons),
-              maxPatrons: Number(chainTier.maxPatrons),
-              isActive: chainTier.isActive,
-            };
-          }
-          return dbTier;
-        })
-      : null;
+  // Remove the tier state logging
+  const tiers = dbTiers
+    ? dbTiers.map((dbTier, index) => {
+        const chainTier = chainTiers?.[index];
+        if (chainTier) {
+          return {
+            ...dbTier,
+            currentPatrons: Number(chainTier.currentPatrons),
+            maxPatrons: Number(chainTier.maxPatrons),
+            isActive: chainTier.isActive,
+            price: Number(ethers.formatUnits(chainTier.price, 6)),
+            minPrice: chainTier.isVariablePrice
+              ? Number(ethers.formatUnits(chainTier.minPrice, 6))
+              : null,
+            maxPrice: chainTier.isVariablePrice
+              ? Number(ethers.formatUnits(chainTier.maxPrice, 6))
+              : null,
+            isVariablePrice: chainTier.isVariablePrice,
+            nftMetadata: chainTier.nftMetadata,
+          };
+        }
+        return {
+          ...dbTier,
+          currentPatrons: 0,
+          maxPatrons: dbTier.max_supply || 0,
+          isActive: dbTier.is_active,
+          price: dbTier.price,
+          minPrice: dbTier.min_price,
+          maxPrice: dbTier.max_price,
+          isVariablePrice: dbTier.is_variable_price,
+          nftMetadata: "",
+        };
+      })
+    : null;
 
-  const isLoadingTiers = isLoadingDbTiers || isLoadingChainTiers;
+  const isLoadingTiers = isLoadingDbTiers;
   const tiersError = dbTiersError || chainTiersError;
 
   // Add contract interaction

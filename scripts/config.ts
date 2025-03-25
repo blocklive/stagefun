@@ -16,20 +16,20 @@ const NETWORK_CONFIG = {
       nftImplementation: null, // Will be populated after deployment
     },
   },
-} as const;
+};
 
 // Helper to get the current network's configuration
-export function getCurrentNetworkConfig() {
+function getCurrentNetworkConfig() {
   return NETWORK_CONFIG.monadTestnet;
 }
 
 // Helper to get contract addresses for current network
-export function getContractAddresses() {
+function getContractAddresses() {
   return getCurrentNetworkConfig().contracts;
 }
 
 // Helper to update contract addresses after deployment
-export function updateContractAddresses(addresses: {
+function updateContractAddresses(addresses: {
   stageDotFunPoolFactory?: string;
   poolImplementation?: string;
   lpTokenImplementation?: string;
@@ -40,4 +40,9 @@ export function updateContractAddresses(addresses: {
   return config.contracts;
 }
 
-export { NETWORK_CONFIG };
+module.exports = {
+  NETWORK_CONFIG,
+  getCurrentNetworkConfig,
+  getContractAddresses,
+  updateContractAddresses,
+};

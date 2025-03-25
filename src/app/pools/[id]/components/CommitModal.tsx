@@ -31,17 +31,35 @@ export default function CommitModal({
     ? tiers?.find((t) => t.id === selectedTierId)
     : null;
 
+  // Add logging for props and state
+  console.log("CommitModal render:", {
+    isOpen,
+    isLoadingTiers,
+    tiersData: tiers,
+    selectedTierId,
+    selectedTier,
+  });
+
   const handleCommitAndClose = async () => {
     if (!selectedTierId) return;
 
     // Get the selected tier
     const selectedTier = tiers?.find((t) => t.id === selectedTierId);
+    console.log("Handling commit with tier:", { selectedTierId, selectedTier });
     if (!selectedTier) return;
 
     // For fixed price tiers, use the tier's price
     const amount = selectedTier.is_variable_price
       ? parseFloat(commitAmount)
       : selectedTier.price;
+
+    // Add logging for amount calculation
+    console.log("Calculated commit amount:", {
+      isVariablePrice: selectedTier.is_variable_price,
+      inputAmount: commitAmount,
+      tierPrice: selectedTier.price,
+      finalAmount: amount,
+    });
 
     // Validate amount
     if (isNaN(amount) || amount <= 0) {
@@ -81,37 +99,41 @@ export default function CommitModal({
             <div className="flex justify-center items-center h-32">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#836EF9]"></div>
             </div>
-          ) : (
+          ) : tiers ? (
             <div className="space-y-4">
-              {tiers?.map((tier) => (
-                <div
-                  key={tier.id}
-                  className={`p-4 rounded-xl border cursor-pointer transition-colors ${
-                    selectedTierId === tier.id
-                      ? "border-[#836EF9] bg-[#836EF914]"
-                      : "border-[#FFFFFF1A] hover:border-[#836EF9] hover:bg-[#836EF90A]"
-                  }`}
-                  onClick={() => setSelectedTierId(tier.id)}
-                >
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-medium">{tier.name}</h3>
-                    <span className="text-[#836EF9]">
-                      {tier.is_variable_price
-                        ? `${tier.min_price}-${tier.max_price} USDC`
-                        : `${tier.price} USDC`}
-                    </span>
+              {tiers.map((tier) => {
+                // Add logging for each tier being rendered
+                console.log("Rendering tier:", tier);
+                return (
+                  <div
+                    key={tier.id}
+                    className={`p-4 rounded-xl border cursor-pointer transition-colors ${
+                      selectedTierId === tier.id
+                        ? "border-[#836EF9] bg-[#836EF914]"
+                        : "border-[#FFFFFF1A] hover:border-[#836EF9] hover:bg-[#836EF90A]"
+                    }`}
+                    onClick={() => setSelectedTierId(tier.id)}
+                  >
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-medium">{tier.name}</h3>
+                      <span className="text-[#836EF9]">
+                        {tier.is_variable_price
+                          ? `${tier.min_price}-${tier.max_price} USDC`
+                          : `${tier.price} USDC`}
+                      </span>
+                    </div>
+                    {tier.description && (
+                      <p className="text-sm text-gray-400 mt-1">
+                        {tier.description}
+                      </p>
+                    )}
+                    <div className="text-sm text-gray-400 mt-1">
+                      {(tier as any).currentPatrons} /{" "}
+                      {(tier as any).maxPatrons} spots taken
+                    </div>
                   </div>
-                  {tier.description && (
-                    <p className="text-sm text-gray-400 mt-1">
-                      {tier.description}
-                    </p>
-                  )}
-                  <div className="text-sm text-gray-400 mt-1">
-                    {(tier as any).currentPatrons} / {(tier as any).maxPatrons}{" "}
-                    spots taken
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* Only show amount input for variable price tiers */}
               {selectedTier?.is_variable_price && (
@@ -160,6 +182,10 @@ export default function CommitModal({
                   )}
                 </button>
               </div>
+            </div>
+          ) : (
+            <div className="flex justify-center items-center h-32">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#836EF9]"></div>
             </div>
           )}
         </Dialog.Panel>

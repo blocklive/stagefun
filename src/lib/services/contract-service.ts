@@ -22,6 +22,7 @@ import { StageDotFunPoolABI } from "../contracts/StageDotFunPool";
  * @param endTime The end time of the pool
  * @param targetAmount The target amount of the pool
  * @param capAmount The maximum amount that can be raised
+ * @param tiers The tiers data for the pool
  * @returns The transaction receipt and pool ID
  */
 export async function createPoolOnChain(
@@ -31,7 +32,16 @@ export async function createPoolOnChain(
   symbol: string,
   endTime: bigint,
   targetAmount: bigint,
-  capAmount: bigint
+  capAmount: bigint,
+  tiers: {
+    name: string;
+    price: bigint;
+    nftMetadata: string;
+    isVariablePrice: boolean;
+    minPrice: bigint;
+    maxPrice: bigint;
+    maxPatrons: bigint;
+  }[]
 ): Promise<{
   receipt: ethers.TransactionReceipt;
   poolId: string;
@@ -47,16 +57,33 @@ export async function createPoolOnChain(
     signerAddress, // owner
     signerAddress, // creator
     targetAmount,
-    capAmount
+    capAmount,
+    tiers
   );
   const receipt = await tx.wait();
 
   // Get pool address from event
   const event = receipt.logs.find(
-    (log: any) => log.eventName === "PoolCreated"
+    (log: any) => log.fragment?.name === "PoolCreated"
   );
-  const poolAddress = event.args.poolAddress;
-  const lpTokenAddress = event.args.lpTokenAddress;
+  if (!event) {
+    throw new Error("PoolCreated event not found in transaction receipt");
+  }
+
+  // Get pool address from first argument
+  const poolAddress = event.args[0];
+
+  // Get pool contract to get LP token address
+  const pool = new ethers.Contract(poolAddress, StageDotFunPoolABI, signer);
+  const poolDetails = await pool.getPoolDetails();
+  const lpTokenAddress = poolDetails[9]; // LP token address is the 10th return value from getPoolDetails()
+
+  // Log the event data for debugging
+  console.log("Pool creation details:", {
+    poolAddress,
+    lpTokenAddress,
+    eventArgs: event.args,
+  });
 
   return {
     receipt,

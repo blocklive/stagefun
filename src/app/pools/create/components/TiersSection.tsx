@@ -11,6 +11,8 @@ import { AddRewardModal } from "./AddRewardModal";
 import NumberInput from "@/app/components/NumberInput";
 import Image from "next/image";
 import { Tier, RewardItem } from "../types";
+import { toast } from "react-hot-toast";
+import { supabase } from "@/lib/supabase";
 
 interface TiersSectionProps {
   tiers: Tier[];
@@ -89,7 +91,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     [tiers]
   );
 
-  const addTier = React.useCallback(() => {
+  const addTier = React.useCallback(async () => {
     const tierNumber = tiers.length + 1;
     const defaultName = generateTierName(tierNumber);
 
@@ -112,19 +114,26 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       }
     }
 
-    // Create metadata JSON if we have a pool image
+    // Create metadata and upload to Supabase if we have a pool image
     let metadataUrl = "";
     if (poolImage) {
-      const metadata = {
-        name: defaultName,
-        description: `${defaultName} Tier NFT`,
-        image: poolImage,
-        tier: defaultName,
-        attributes: [{ trait_type: "Tier", value: defaultName }],
-      };
-      metadataUrl = `data:application/json;base64,${btoa(
-        JSON.stringify(metadata)
-      )}`;
+      try {
+        // Convert the pool image URL to a File object
+        const response = await fetch(poolImage);
+        const blob = await response.blob();
+        const file = new File([blob], "tier-image.jpg", { type: "image/jpeg" });
+
+        // Upload the image and metadata
+        const { metadataUrl: uploadedMetadataUrl } = await uploadTierImage(
+          file,
+          defaultName,
+          supabase
+        );
+        metadataUrl = uploadedMetadataUrl || "";
+      } catch (error) {
+        console.error("Error uploading tier image and metadata:", error);
+        toast.error("Failed to upload tier image and metadata");
+      }
     }
 
     const newTier: Tier = {
@@ -161,73 +170,128 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
   // Update unmodified fields when dependencies change
   useEffect(() => {
-    const updatedTiers = tiers.map((tier, index) => {
-      const updates: Partial<Tier> = {};
+    const updateTierMetadata = async (tier: Tier) => {
+      if (!tier.modifiedFields.has("imageUrl") && poolImage && !tier.imageUrl) {
+        try {
+          console.log("Starting tier metadata update for tier:", tier.name);
+          console.log("Pool image:", poolImage);
 
-      // Only update name if it's the first tier and hasn't been modified
-      if (index === 0 && !tier.modifiedFields.has("name") && !tier.name) {
-        updates.name = generateTierName(1);
+          // Create metadata JSON
+          const metadata = {
+            name: tier.name,
+            description: `${tier.name} Tier NFT`,
+            image: poolImage,
+            tier: tier.name,
+            attributes: [{ trait_type: "Tier", value: tier.name }],
+          };
+
+          // Upload metadata to Supabase storage
+          const metadataFileName = `${Math.random()
+            .toString(36)
+            .substring(2)}_${Date.now()}_metadata.json`;
+          const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
+            type: "application/json",
+          });
+
+          const { data: metadataData, error: metadataError } =
+            await supabase.storage
+              .from("pool-images")
+              .upload(metadataFileName, metadataBlob, {
+                cacheControl: "3600",
+                upsert: false,
+              });
+
+          if (metadataError) {
+            throw new Error(
+              `Failed to upload metadata: ${metadataError.message}`
+            );
+          }
+
+          // Get the public URL for the metadata
+          const {
+            data: { publicUrl: metadataUrl },
+          } = supabase.storage
+            .from("pool-images")
+            .getPublicUrl(metadataFileName);
+
+          console.log("Upload successful, metadata URL:", metadataUrl);
+          return {
+            imageUrl: poolImage,
+            nftMetadata: metadataUrl,
+          };
+        } catch (error) {
+          console.error("Detailed error in updateTierMetadata:", error);
+          toast.error("Failed to upload tier metadata");
+          return null;
+        }
       }
+      return null;
+    };
 
-      // Update price and max patrons if not modified and funding goal changes
-      if (
-        !tier.modifiedFields.has("price") &&
-        fundingGoal &&
-        (!tier.price || tier.price === "0")
-      ) {
-        const goalAmount = parseFloat(fundingGoal);
-        if (!isNaN(goalAmount)) {
-          updates.price = (goalAmount * 0.01).toString();
+    const updateTiers = async () => {
+      const updatedTiers = await Promise.all(
+        tiers.map(async (tier, index) => {
+          const updates: Partial<Tier> = {};
 
+          // Only update name if it's the first tier and hasn't been modified
+          if (index === 0 && !tier.modifiedFields.has("name") && !tier.name) {
+            updates.name = generateTierName(1);
+          }
+
+          // Update price and max patrons if not modified and funding goal changes
           if (
-            !tier.modifiedFields.has("maxPatrons") &&
-            (!tier.maxPatrons || tier.maxPatrons === "0")
+            !tier.modifiedFields.has("price") &&
+            fundingGoal &&
+            (!tier.price || tier.price === "0")
           ) {
-            const priceAmount = parseFloat(updates.price);
-            if (!isNaN(priceAmount) && priceAmount > 0) {
-              updates.maxPatrons = Math.ceil(
-                goalAmount / priceAmount
-              ).toString();
+            const goalAmount = parseFloat(fundingGoal);
+            if (!isNaN(goalAmount)) {
+              updates.price = (goalAmount * 0.01).toString();
+
+              if (
+                !tier.modifiedFields.has("maxPatrons") &&
+                (!tier.maxPatrons || tier.maxPatrons === "0")
+              ) {
+                const priceAmount = parseFloat(updates.price);
+                if (!isNaN(priceAmount) && priceAmount > 0) {
+                  updates.maxPatrons = Math.ceil(
+                    goalAmount / priceAmount
+                  ).toString();
+                }
+              }
             }
           }
-        }
+
+          // Update image and metadata if not modified and pool image changes
+          const metadataUpdates = await updateTierMetadata(tier);
+          if (metadataUpdates) {
+            updates.imageUrl = metadataUpdates.imageUrl;
+            updates.nftMetadata = metadataUpdates.nftMetadata;
+          }
+
+          // Only update if we have changes and they're different from current values
+          if (Object.keys(updates).length > 0) {
+            const updatedTier = { ...tier, ...updates };
+            if (JSON.stringify(updatedTier) !== JSON.stringify(tier)) {
+              return updatedTier;
+            }
+          }
+          return tier;
+        })
+      );
+
+      // Only update if there are actual changes
+      const hasChanges = updatedTiers.some(
+        (updatedTier, index) =>
+          JSON.stringify(updatedTier) !== JSON.stringify(tiers[index])
+      );
+
+      if (hasChanges) {
+        onTiersChange(updatedTiers);
       }
+    };
 
-      // Update image and metadata if not modified and pool image changes
-      if (!tier.modifiedFields.has("imageUrl") && poolImage && !tier.imageUrl) {
-        updates.imageUrl = poolImage;
-
-        const metadata = {
-          name: tier.name,
-          description: `${tier.name} Tier NFT`,
-          image: poolImage,
-          tier: tier.name,
-          attributes: [{ trait_type: "Tier", value: tier.name }],
-        };
-        updates.nftMetadata = `data:application/json;base64,${btoa(
-          JSON.stringify(metadata)
-        )}`;
-      }
-
-      // Only update if we have changes and they're different from current values
-      if (Object.keys(updates).length > 0) {
-        const updatedTier = { ...tier, ...updates };
-        if (JSON.stringify(updatedTier) !== JSON.stringify(tier)) {
-          return updatedTier;
-        }
-      }
-      return tier;
-    });
-
-    // Only update if there are actual changes
-    const hasChanges = updatedTiers.some(
-      (updatedTier, index) =>
-        JSON.stringify(updatedTier) !== JSON.stringify(tiers[index])
-    );
-
-    if (hasChanges) {
-      onTiersChange(updatedTiers);
-    }
+    updateTiers();
   }, [
     poolName,
     fundingGoal,
