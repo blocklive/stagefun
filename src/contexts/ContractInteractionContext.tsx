@@ -44,14 +44,25 @@ interface ContractResult {
 }
 
 // Define the context type
-export interface ContractInteractionContextType {
+export type ContractInteractionContextType = {
+  privyReady: boolean;
+  walletsReady: boolean;
   createPool: (
     name: string,
     uniqueId: string,
     symbol: string,
     endTime: number,
     targetAmount: number,
-    minCommitment: number
+    minCommitment: number,
+    tiers: {
+      name: string;
+      price: number;
+      nftMetadata: string;
+      isVariablePrice: boolean;
+      minPrice: number;
+      maxPrice: number;
+      maxPatrons: number;
+    }[]
   ) => Promise<any>;
   createPoolWithDatabase: (
     poolData: PoolCreationData,
@@ -104,9 +115,7 @@ export interface ContractInteractionContextType {
   getBalance: (userAddress: string) => Promise<string>;
   getNativeBalance: (userAddress: string) => Promise<string>;
   walletAddress: string | null;
-  walletsReady: boolean;
-  privyReady: boolean;
-}
+};
 
 // Create the context
 export const ContractInteractionContext =
@@ -119,7 +128,8 @@ export const ContractInteractionContext =
       symbol: string,
       endTime: number,
       targetAmount: number,
-      minCommitment: number
+      minCommitment: number,
+      tiers: []
     ) => {
       throw new Error("ContractInteractionContext not initialized");
     },

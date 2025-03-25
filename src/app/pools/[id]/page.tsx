@@ -18,11 +18,7 @@ import {
   type DBTier,
 } from "../../../hooks/usePoolTiers";
 import AppHeader from "../../components/AppHeader";
-import {
-  getAllTiers,
-  Tier,
-  commitToTier,
-} from "../../../lib/contracts/StageDotFunPool";
+import { getAllTiers, Tier } from "../../../lib/contracts/StageDotFunPool";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -199,70 +195,35 @@ export default function PoolDetailsPage() {
   }, [usdcBalance]);
 
   // Update handleCommit to use tier-based commitment
-  const handleCommit = async (tierId: string, amount: number) => {
-    if (!pool?.contract_address) {
-      toast.error("Pool not found");
-      return;
-    }
-
-    if (!tiers) {
-      toast.error("Tiers not loaded");
-      return;
-    }
-
-    // Add detailed logging
-    console.log("Commit attempt details:", {
-      tierId,
-      amount,
-      contractAddress: pool.contract_address,
-      allTiers: tiers,
-      tierCount: tiers.length,
-    });
-
-    // Find the index of the tier in the array
-    const tierIndex = tiers.findIndex((t) => t.id === tierId);
-    console.log("Found tier index:", {
-      tierIndex,
-      matchingTier: tiers[tierIndex],
-      selectedTierId: tierId,
-    });
-
-    if (tierIndex === -1) {
-      toast.error("Tier not found");
-      return;
-    }
-
-    setIsCommitting(true);
+  const handleCommit = async (tierId: string, amount: string) => {
     try {
-      // Log the values being passed to depositToPool
-      console.log("Calling depositToPool with:", {
-        contractAddress: pool.contract_address,
-        amount,
-        tierIndex,
-        selectedTier: tiers[tierIndex],
-      });
-
-      const result = await depositToPool(
-        pool.contract_address,
-        amount,
-        tierIndex // Use the array index as the contract tier ID
-      );
-
-      console.log("depositToPool result:", result);
-
-      if (result.success) {
-        refreshPool();
-        refreshBalance();
-        setIsCommitModalOpen(false);
-        setCommitAmount("");
-      } else {
-        console.error("Failed to commit to tier:", result.error);
+      setIsCommitting(true);
+      const numericAmount = parseFloat(amount);
+      if (isNaN(numericAmount)) {
+        throw new Error("Invalid amount");
       }
-    } catch (error) {
-      console.error("Error in handleCommit:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to commit to tier"
-      );
+
+      if (!pool?.contract_address) {
+        throw new Error("Pool not found");
+      }
+
+      if (!tiers) {
+        throw new Error("Tiers not loaded");
+      }
+
+      // Find the index of the tier in the array
+      const tierIndex = tiers.findIndex((t) => t.id === tierId);
+      if (tierIndex === -1) {
+        throw new Error("Tier not found");
+      }
+
+      await depositToPool(pool.contract_address, numericAmount, tierIndex);
+      toast.success("Successfully committed to pool");
+      setIsCommitModalOpen(false);
+      router.refresh();
+    } catch (error: any) {
+      console.error("Error committing to pool:", error);
+      toast.error(error.message || "Failed to commit to pool");
     } finally {
       setIsCommitting(false);
     }

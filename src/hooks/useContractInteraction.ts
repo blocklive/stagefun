@@ -660,86 +660,34 @@ export function useContractInteraction(): ContractInteractionHookResult {
   );
 
   // Helper function to transfer funds to destination address
-  const transferFundsToDestination = async (
-    ethersProvider: ethers.BrowserProvider,
-    signer: ethers.Signer,
-    signerAddress: string,
-    destinationAddress: string,
-    amount: number,
-    previousTxHash: string
-  ): Promise<{
-    success: boolean;
-    txHash?: string;
-    error?: string;
-  }> => {
-    try {
-      console.log(
-        `Transferring funds to destination address: ${destinationAddress}`
-      );
-
-      // Get the USDC token address
-      const usdcAddress = getContractAddresses().usdc;
-
-      // Create contract interface for USDC transfer
-      const usdcInterface = new ethers.Interface([
-        "function transfer(address to, uint256 value) returns (bool)",
-      ]);
-
-      const transferData = usdcInterface.encodeFunctionData("transfer", [
-        destinationAddress,
-        ethers.parseUnits(amount.toString(), 6),
-      ]);
-
-      // Prepare the transaction request
-      const transferRequest = {
-        to: usdcAddress,
-        data: transferData,
-        value: "0",
-        from: signerAddress,
-        chainId: 10143, // Monad Testnet
-      };
-
-      // Set UI options for the transaction
-      const transferUiOptions = {
-        description: `Transferring ${amount} USDC to ${destinationAddress}`,
-        buttonText: "Transfer USDC",
-        transactionInfo: {
-          title: "Transfer USDC",
-          action: "Transfer Funds",
-          contractInfo: {
-            name: "USDC Token",
-          },
-        },
-      };
-
-      console.log("Sending transfer transaction");
-      const transferTx = await sendTransaction(transferRequest, {
-        uiOptions: transferUiOptions,
-      });
-
-      // Wait for transaction to be mined
-      const transferReceipt = await ethersProvider.waitForTransaction(
-        transferTx.hash as string
-      );
-
-      if (!transferReceipt?.status) {
-        throw new Error("Failed to transfer funds to destination address");
+  const transferFundsToDestination = useCallback(
+    async (
+      poolAddress: string,
+      destinationAddress: string,
+      amount: bigint,
+      tokenAddress: string,
+      tokenType: string,
+      tokenId: string
+    ) => {
+      try {
+        const signer = await getSigner();
+        const pool = getPoolContract(signer, poolAddress);
+        const tx = await pool.transferFundsToDestination(
+          destinationAddress,
+          amount,
+          tokenAddress,
+          tokenType,
+          tokenId
+        );
+        await tx.wait();
+        return true;
+      } catch (error) {
+        console.error("Error in transferFundsToDestination:", error);
+        throw error;
       }
-
-      console.log("Successfully transferred funds to destination address");
-      return {
-        success: true,
-        txHash: transferTx.hash as string,
-      };
-    } catch (error: any) {
-      console.error("Error transferring funds to destination:", error);
-      return {
-        success: false,
-        error: error.message || "Failed to transfer funds to destination",
-        txHash: previousTxHash, // Return the previous transaction hash since the withdrawal itself succeeded
-      };
-    }
-  };
+    },
+    [getSigner]
+  );
 
   // Withdraw from a pool on the blockchain
   const withdrawFromPool = useCallback(
@@ -864,19 +812,20 @@ export function useContractInteraction(): ContractInteractionHookResult {
         // If the destination address is different from the owner, transfer the funds
         if (destinationAddress.toLowerCase() !== signerAddress.toLowerCase()) {
           const result = await transferFundsToDestination(
-            ethersProvider,
-            signer,
-            signerAddress,
+            poolAddress,
             destinationAddress,
-            amount,
-            withdrawTx.hash as string
+            amountInWei,
+            getContractAddresses().usdc,
+            "USDC",
+            "0"
           );
-          if (!result.success) {
-            throw new Error(
-              result.error || "Failed to transfer funds to destination"
-            );
+          if (!result) {
+            throw new Error("Failed to transfer funds to destination");
           }
-          return result;
+          return {
+            success: true,
+            txHash: withdrawTx.hash as string,
+          };
         }
 
         console.log("Successfully withdrew funds from pool");

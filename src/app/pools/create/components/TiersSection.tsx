@@ -224,8 +224,8 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     generateTierName,
     fundingGoal,
     poolImage,
-    poolName,
     onTiersChange,
+    supabase,
   ]);
 
   // Create first tier automatically
@@ -366,6 +366,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     tiers,
     generateTierName,
     onTiersChange,
+    supabase,
   ]);
 
   const removeTier = (id: string) => {
