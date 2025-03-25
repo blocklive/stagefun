@@ -73,18 +73,20 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
         "GIGACHAD",
       ];
 
-      // If it's the first and only tier, give it a special name
-      if (tierNumber === 1 && tiers.length === 0) {
-        return "GM";
+      // Get list of already used names
+      const usedNames = tiers.map((tier) => tier.name);
+
+      // Find the first unused name from the list
+      const availableName = tierNames.find((name) => !usedNames.includes(name));
+      if (availableName) {
+        return availableName;
       }
 
-      if (tierNumber <= tierNames.length) {
-        return tierNames[tierNumber - 1];
-      }
-
-      return `GM ${tierNumber}`;
+      // If all names are used, append a number to "GM"
+      const gmCount = usedNames.filter((name) => name.startsWith("GM")).length;
+      return `GM ${gmCount + 1}`;
     },
-    [tiers.length]
+    [tiers]
   );
 
   const addTier = React.useCallback(() => {
@@ -159,21 +161,28 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
   // Update unmodified fields when dependencies change
   useEffect(() => {
-    const updatedTiers = tiers.map((tier) => {
+    const updatedTiers = tiers.map((tier, index) => {
       const updates: Partial<Tier> = {};
 
-      // Update name if not modified and pool name changes
-      if (!tier.modifiedFields.has("name") && poolName) {
+      // Only update name if it's the first tier and hasn't been modified
+      if (index === 0 && !tier.modifiedFields.has("name") && !tier.name) {
         updates.name = generateTierName(1);
       }
 
       // Update price and max patrons if not modified and funding goal changes
-      if (!tier.modifiedFields.has("price") && fundingGoal) {
+      if (
+        !tier.modifiedFields.has("price") &&
+        fundingGoal &&
+        (!tier.price || tier.price === "0")
+      ) {
         const goalAmount = parseFloat(fundingGoal);
         if (!isNaN(goalAmount)) {
           updates.price = (goalAmount * 0.01).toString();
 
-          if (!tier.modifiedFields.has("maxPatrons")) {
+          if (
+            !tier.modifiedFields.has("maxPatrons") &&
+            (!tier.maxPatrons || tier.maxPatrons === "0")
+          ) {
             const priceAmount = parseFloat(updates.price);
             if (!isNaN(priceAmount) && priceAmount > 0) {
               updates.maxPatrons = Math.ceil(
@@ -185,7 +194,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       }
 
       // Update image and metadata if not modified and pool image changes
-      if (!tier.modifiedFields.has("imageUrl") && poolImage) {
+      if (!tier.modifiedFields.has("imageUrl") && poolImage && !tier.imageUrl) {
         updates.imageUrl = poolImage;
 
         const metadata = {
@@ -200,14 +209,23 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
         )}`;
       }
 
-      // Only update if we have changes
+      // Only update if we have changes and they're different from current values
       if (Object.keys(updates).length > 0) {
-        return { ...tier, ...updates };
+        const updatedTier = { ...tier, ...updates };
+        if (JSON.stringify(updatedTier) !== JSON.stringify(tier)) {
+          return updatedTier;
+        }
       }
       return tier;
     });
 
-    if (JSON.stringify(updatedTiers) !== JSON.stringify(tiers)) {
+    // Only update if there are actual changes
+    const hasChanges = updatedTiers.some(
+      (updatedTier, index) =>
+        JSON.stringify(updatedTier) !== JSON.stringify(tiers[index])
+    );
+
+    if (hasChanges) {
       onTiersChange(updatedTiers);
     }
   }, [

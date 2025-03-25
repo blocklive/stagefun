@@ -5,6 +5,7 @@ import type {
   SendTransactionModalUIOptions,
 } from "@privy-io/react-auth";
 import { ethers } from "ethers";
+import { toast } from "react-hot-toast";
 import {
   createPoolOnChain,
   getPoolFromChain,
@@ -514,6 +515,11 @@ export function useContractInteraction(): ContractInteractionHookResult {
       setIsLoading(true);
       setError(null);
 
+      // Initialize loading toast
+      const loadingToast = toast.loading(
+        "Creating your pool on the blockchain..."
+      );
+
       try {
         if (!user) {
           throw new Error("User not logged in");
@@ -539,6 +545,9 @@ export function useContractInteraction(): ContractInteractionHookResult {
           );
         } catch (blockchainError: any) {
           console.error("Error creating pool on blockchain:", blockchainError);
+          toast.error(blockchainError.message || "Unknown blockchain error", {
+            id: loadingToast,
+          });
           return {
             success: false,
             error: blockchainError.message || "Unknown blockchain error",
@@ -546,6 +555,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
         }
 
         // STEP 2: Now that blockchain creation succeeded, add to database
+        toast.loading("Synchronizing pool data...", { id: loadingToast });
         console.log(
           "Adding pool to database with blockchain details:",
           blockchainResult
@@ -575,6 +585,10 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
         if (poolError) {
           console.error("Error creating pool in database:", poolError);
+          toast.error(
+            "Pool was created on blockchain but database entry failed",
+            { id: loadingToast }
+          );
           return {
             success: false,
             error: "Pool was created on blockchain but database entry failed",
@@ -584,6 +598,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
         // Create tiers in database first
         if (tiers && tiers.length > 0) {
+          toast.loading("Preparing tiers and rewards...", { id: loadingToast });
           const { data: insertedTiers, error: tiersError } = await supabase
             .from("tiers")
             .insert(
@@ -604,6 +619,9 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
           if (tiersError) {
             console.error("Error creating tiers in database:", tiersError);
+            toast.error("Pool was created but tiers failed to save", {
+              id: loadingToast,
+            });
             return {
               success: false,
               error: "Pool was created but tiers failed to save",
@@ -625,6 +643,9 @@ export function useContractInteraction(): ContractInteractionHookResult {
           );
 
           if (!rewardResult.success) {
+            toast.error(rewardResult.error || "Failed to process rewards", {
+              id: loadingToast,
+            });
             return {
               success: false,
               error: rewardResult.error || "Failed to process rewards",
@@ -801,6 +822,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
         }
 
         console.log("Pool created successfully in database:", insertedPool);
+        toast.success("Pool created successfully! 🎉", { id: loadingToast });
         return {
           success: true,
           data: insertedPool,
@@ -809,6 +831,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
       } catch (err: any) {
         console.error("Error in createPoolWithDatabase:", err);
         setError(err.message || "Error creating pool");
+        toast.error(err.message || "Error creating pool", { id: loadingToast });
         return {
           success: false,
           error: err.message || "Unknown error in pool creation process",

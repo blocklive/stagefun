@@ -215,7 +215,6 @@ export const usePoolCreation = () => {
       );
 
       if (result.success) {
-        toast.success("Pool created successfully!");
         router.push(`/pools/${result.data.id}`);
       } else {
         setError(result.error || "Failed to create pool");
