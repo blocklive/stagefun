@@ -80,6 +80,7 @@ export const StageDotFunPoolABI = [
   "function updatePoolName(string _newName) external",
   "function claimRefund() external",
   "function checkPoolStatus() external",
+  "function withdrawFunds(uint256 amount) external returns (bool)",
 ];
 
 // ABI for the StageDotFunLiquidity token

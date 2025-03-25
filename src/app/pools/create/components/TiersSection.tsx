@@ -116,23 +116,90 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
     // Create metadata and upload to Supabase if we have a pool image
     let metadataUrl = "";
+    let imageUrl = "";
     if (poolImage) {
       try {
-        // Convert the pool image URL to a File object
-        const response = await fetch(poolImage);
-        const blob = await response.blob();
-        const file = new File([blob], "tier-image.jpg", { type: "image/jpeg" });
+        console.log("Starting tier image creation with pool image:", poolImage);
 
-        // Upload the image and metadata
-        const { metadataUrl: uploadedMetadataUrl } = await uploadTierImage(
-          file,
+        // Check if poolImage is already a blob URL
+        if (poolImage.startsWith("blob:")) {
+          console.log("Pool image is a blob URL, creating file directly");
+          const response = await fetch(poolImage);
+          if (!response.ok) {
+            throw new Error("Failed to fetch pool image blob");
+          }
+          const blob = await response.blob();
+          const file = new File([blob], "tier-image.jpg", { type: blob.type });
+
+          // Upload the image and metadata
+          const result = await uploadTierImage(
+            file,
+            defaultName,
+            supabase,
+            (isUploading) =>
+              setIsUploadingImage((prev) => ({ ...prev, new: isUploading }))
+          );
+
+          if (!result.imageUrl || !result.metadataUrl) {
+            throw new Error("Failed to get URLs after upload");
+          }
+
+          imageUrl = result.imageUrl;
+          metadataUrl = result.metadataUrl;
+        } else {
+          // If it's a regular URL (e.g., from Supabase storage)
+          console.log("Using pool image directly:", poolImage);
+          imageUrl = poolImage;
+
+          // Create and upload only the metadata
+          const metadata = {
+            name: defaultName,
+            description: `${defaultName} Tier NFT`,
+            image: poolImage,
+            tier: defaultName,
+            attributes: [{ trait_type: "Tier", value: defaultName }],
+          };
+
+          const metadataFileName = `${Math.random()
+            .toString(36)
+            .substring(2)}_${Date.now()}_metadata.json`;
+          const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
+            type: "application/json",
+          });
+
+          const { data: metadataData, error: metadataError } =
+            await supabase.storage
+              .from("pool-images")
+              .upload(metadataFileName, metadataBlob, {
+                cacheControl: "3600",
+                upsert: false,
+                contentType: "application/json",
+              });
+
+          if (metadataError) {
+            throw new Error(
+              `Failed to upload metadata: ${metadataError.message}`
+            );
+          }
+
+          const {
+            data: { publicUrl: uploadedMetadataUrl },
+          } = supabase.storage
+            .from("pool-images")
+            .getPublicUrl(metadataFileName);
+
+          metadataUrl = uploadedMetadataUrl;
+        }
+
+        console.log("Successfully created tier with:", {
+          imageUrl,
+          metadataUrl,
           defaultName,
-          supabase
-        );
-        metadataUrl = uploadedMetadataUrl || "";
+        });
       } catch (error) {
-        console.error("Error uploading tier image and metadata:", error);
+        console.error("Detailed error creating tier:", error);
         toast.error("Failed to upload tier image and metadata");
+        return; // Don't create the tier if image upload fails
       }
     }
 
@@ -148,7 +215,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       maxPatrons: defaultMaxPatrons,
       description: "",
       rewardItems: [],
-      imageUrl: poolImage,
+      imageUrl: imageUrl || poolImage,
       modifiedFields: new Set(),
     };
     onTiersChange([...tiers, newTier]);

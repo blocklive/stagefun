@@ -792,9 +792,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
           creator: poolDetails._creator,
           totalDeposits: poolDetails._totalDeposits.toString(),
           revenueAccumulated: poolDetails._revenueAccumulated.toString(),
-          authorizedWithdrawer: poolDetails._authorizedWithdrawer,
           status: poolDetails._status,
-          milestones: poolDetails._milestones.length,
         });
 
         // Check if the pool has reached its target (FUNDED status)
@@ -823,103 +821,11 @@ export function useContractInteraction(): ContractInteractionHookResult {
         const usdcDecimals = 6;
         const amountInWei = ethers.parseUnits(amount.toString(), usdcDecimals);
 
-        // Create a transaction tracker to avoid duplicate transactions
-        let lastTxHash = "";
-
-        // STEP 1: Set authorized withdrawer if needed
-        if (poolDetails._authorizedWithdrawer !== signerAddress) {
-          console.log("Setting authorized withdrawer to user's wallet");
-
-          const poolInterface = new ethers.Interface(StageDotFunPoolABI);
-          const authData = poolInterface.encodeFunctionData(
-            "setAuthorizedWithdrawer",
-            [signerAddress]
-          );
-
-          const authRequest = {
-            to: poolAddress,
-            data: authData,
-            value: "0",
-            from: signerAddress,
-            chainId: 10143, // Monad Testnet
-          };
-
-          const authUiOptions = {
-            description: `Setting your wallet as the authorized withdrawer`,
-            buttonText: "Authorize Withdrawal",
-            transactionInfo: {
-              title: "Authorize Withdrawal",
-              action: "Set Authorized Withdrawer",
-              contractInfo: {
-                name: "StageDotFun Pool",
-              },
-            },
-          };
-
-          console.log("Sending authorization transaction");
-          const authTx = await sendTransaction(authRequest, {
-            uiOptions: authUiOptions,
-          });
-
-          lastTxHash = authTx.hash as string;
-
-          // Wait for transaction to be mined
-          const authReceipt = await ethersProvider.waitForTransaction(
-            lastTxHash
-          );
-
-          if (!authReceipt?.status) {
-            throw new Error("Failed to set authorized withdrawer");
-          }
-
-          console.log("Successfully set authorized withdrawer");
-        }
-
-        // STEP 2: Check if the default milestone exists
-        const milestones = poolDetails._milestones;
-
-        if (milestones.length === 0) {
-          throw new Error("No milestones found in the pool");
-        }
-
-        console.log(`Found ${milestones.length} milestones in the pool`);
-
-        // Use the default milestone (index 0)
-        const defaultMilestoneIndex = 0;
-        const defaultMilestone = milestones[defaultMilestoneIndex];
-
-        console.log("Default milestone:", {
-          description: defaultMilestone.description,
-          amount: defaultMilestone.amount.toString(),
-          unlockTime: defaultMilestone.unlockTime.toString(),
-          released: defaultMilestone.released,
-        });
-
-        // Check if the milestone is already released
-        if (defaultMilestone.released) {
-          throw new Error("Default milestone has already been released");
-        }
-
-        // Check if the requested amount matches the milestone amount
-        if (defaultMilestone.amount.toString() !== amountInWei.toString()) {
-          throw new Error(
-            `Withdrawal amount (${amount}) must match the default milestone amount (${ethers.formatUnits(
-              defaultMilestone.amount,
-              usdcDecimals
-            )})`
-          );
-        }
-
-        // STEP 3: Withdraw the milestone
-        console.log(
-          `Withdrawing default milestone (index ${defaultMilestoneIndex})`
-        );
-
+        // Call withdrawFunds function
         const poolInterface = new ethers.Interface(StageDotFunPoolABI);
-        const withdrawData = poolInterface.encodeFunctionData(
-          "withdrawMilestone",
-          [defaultMilestoneIndex]
-        );
+        const withdrawData = poolInterface.encodeFunctionData("withdrawFunds", [
+          amountInWei,
+        ]);
 
         const withdrawRequest = {
           to: poolAddress,
@@ -934,7 +840,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
           buttonText: "Withdraw Funds",
           transactionInfo: {
             title: "Withdraw Funds",
-            action: "Withdraw Milestone",
+            action: "Withdraw from Pool",
             contractInfo: {
               name: "StageDotFun Pool",
             },
@@ -955,6 +861,24 @@ export function useContractInteraction(): ContractInteractionHookResult {
           throw new Error("Failed to withdraw funds from pool");
         }
 
+        // If the destination address is different from the owner, transfer the funds
+        if (destinationAddress.toLowerCase() !== signerAddress.toLowerCase()) {
+          const result = await transferFundsToDestination(
+            ethersProvider,
+            signer,
+            signerAddress,
+            destinationAddress,
+            amount,
+            withdrawTx.hash as string
+          );
+          if (!result.success) {
+            throw new Error(
+              result.error || "Failed to transfer funds to destination"
+            );
+          }
+          return result;
+        }
+
         console.log("Successfully withdrew funds from pool");
         return {
           success: true,
@@ -969,7 +893,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
         };
       }
     },
-    [user, getSigner, wallets, sendTransaction]
+    [user, getSigner, wallets, sendTransaction, transferFundsToDestination]
   );
 
   // Update pool name
