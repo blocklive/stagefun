@@ -24,6 +24,8 @@ import PoolImageSection from "./components/PoolImageSection";
 import PoolDetailsSection from "./components/PoolDetailsSection";
 import FundingSection from "./components/FundingSection";
 import EndTimeSection from "./components/EndTimeSection";
+import { TiersSection } from "./components/TiersSection";
+import { Tier, RewardItem } from "./types";
 
 // Import our new hooks
 import usePoolImage from "./hooks/usePoolImage";
@@ -31,6 +33,7 @@ import usePoolDetails from "./hooks/usePoolDetails";
 import useFunding from "./hooks/useFunding";
 import useEndTime from "./hooks/useEndTime";
 import usePoolCreation from "./hooks/usePoolCreation";
+import { supabase } from "@/lib/supabase";
 
 // Helper function to format a date for datetime-local input
 function formatDateForInput(date: Date): string {
@@ -57,6 +60,10 @@ export default function CreatePoolPage() {
   const [location, setLocation] = useState("");
   const [showTokensModal, setShowTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [tiers, setTiers] = useState<Tier[]>([]);
+  const [rewardItems, setRewardItems] = useState<RewardItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Use our custom hooks
   const {
@@ -69,11 +76,9 @@ export default function CreatePoolPage() {
     uploadImage,
   } = usePoolImage(supabase);
 
-  const { poolName, ticker, patrons, setPoolName, setTicker, setPatrons } =
-    usePoolDetails();
+  const { poolName, ticker, setPoolName, setTicker } = usePoolDetails();
 
-  const { fundingGoal, minCommitment, setFundingGoal, setMinCommitment } =
-    useFunding();
+  const { fundingGoal, capAmount, setFundingGoal, setCapAmount } = useFunding();
 
   const { endDate, endDateInputValue, handleEndDateChange } = useEndTime();
 
@@ -107,8 +112,7 @@ export default function CreatePoolPage() {
         poolName ||
         ticker ||
         fundingGoal ||
-        minCommitment ||
-        patrons ||
+        capAmount ||
         description ||
         location ||
         imagePreview ||
@@ -126,8 +130,7 @@ export default function CreatePoolPage() {
     poolName,
     ticker,
     fundingGoal,
-    minCommitment,
-    patrons,
+    capAmount,
     description,
     location,
     imagePreview,
@@ -140,8 +143,7 @@ export default function CreatePoolPage() {
       poolName ||
       ticker ||
       fundingGoal ||
-      minCommitment ||
-      patrons ||
+      capAmount ||
       description ||
       location ||
       imagePreview ||
@@ -176,102 +178,105 @@ export default function CreatePoolPage() {
     e: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>
   ) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
-    // Create pool data object
-    const poolData = {
-      id: uniqueId,
-      name: poolName,
-      ticker: ticker,
-      description: description,
-      target_amount: parseFloat(fundingGoal),
-      min_commitment: parseFloat(minCommitment),
-      currency: "USDC",
-      token_amount: 100000,
-      token_symbol: ticker || "$PARTY",
-      location: location,
-      venue: "Convergence Station",
-      status: "Accepting patrons",
-      funding_stage: "Raising",
-      ends_at: endDate.toISOString(),
-      creator_id: dbUser?.id,
-      raised_amount: 0,
-      image_url: null as string | null, // Will be set after image upload
-      social_links: Object.keys(socialLinks).length > 0 ? socialLinks : null,
-    };
-
-    // Upload image if selected
-    let imageUrl = null;
-    if (selectedImage) {
-      imageUrl = await uploadImage(selectedImage);
-      if (!imageUrl) {
-        return;
-      }
-      poolData.image_url = imageUrl;
-    }
-
-    // Convert end date to Unix timestamp
-    const endTimeUnix = Math.floor(endDate.getTime() / 1000);
-
-    // Check if user has enough gas for deployment
-    if (parseFloat(balance) < 0.5) {
-      // Show a toast notification instead of an alert
-      toast(
-        (t) => (
-          <div className="flex items-start">
-            <div className="bg-[#836EF9] bg-opacity-20 p-2 rounded-full mr-3 mt-1">
-              <FaExclamationTriangle className="text-[#836EF9]" size={16} />
-            </div>
-            <div>
-              <h3 className="font-bold text-white">Low MON Balance</h3>
-              <p className="text-sm text-gray-300">
-                Your wallet has {parseFloat(balance).toFixed(4)} MON. Deploying
-                a pool requires at least 0.5 MON to pay for gas. Use one of the
-                options below to refill your wallet.
-              </p>
-            </div>
-          </div>
-        ),
-        {
-          duration: 6000,
-          style: {
-            background: "#1E1F25",
-            color: "white",
-            border: "1px solid rgba(131, 110, 249, 0.3)",
-            maxWidth: "400px",
-          },
-        }
-      );
-
+    if (!supabase || isClientLoading) {
+      toast.error("Please wait for authentication to complete");
+      setIsLoading(false);
       return;
     }
 
-    // Submit the pool
-    await handleSubmit(poolData, endTimeUnix);
+    try {
+      // Validate funding goal and cap amount
+      const goal = parseFloat(fundingGoal);
+      const cap = parseFloat(capAmount);
+      if (cap <= goal) {
+        throw new Error("Cap amount must be greater than funding goal");
+      }
+
+      // Validate tiers
+      if (tiers.length === 0) {
+        throw new Error("At least one tier is required");
+      }
+
+      // Validate each tier
+      for (const tier of tiers) {
+        if (!tier.name || !tier.price || !tier.maxPatrons) {
+          throw new Error(
+            "All required tier fields (name, price, max patrons) must be filled"
+          );
+        }
+
+        // Validate tier price is greater than 0
+        const tierPrice = parseFloat(tier.price);
+        if (tierPrice <= 0) {
+          throw new Error(`Tier price must be greater than 0`);
+        }
+      }
+
+      // Check if user has enough gas for deployment
+      if (parseFloat(balance) < 0.5) {
+        toast.error(
+          `Your wallet has ${parseFloat(balance).toFixed(
+            4
+          )} MON. Deploying a pool requires at least 0.5 MON to pay for gas.`,
+          {
+            duration: 6000,
+            style: {
+              background: "#1E1F25",
+              color: "white",
+              border: "1px solid rgba(131, 110, 249, 0.3)",
+              maxWidth: "400px",
+            },
+          }
+        );
+        return;
+      }
+
+      // Call handleSubmit from usePoolCreation with all required parameters
+      await handleSubmit(
+        poolName,
+        ticker,
+        description,
+        parseFloat(fundingGoal),
+        parseFloat(capAmount),
+        imagePreview || "",
+        tiers,
+        location,
+        socialLinks,
+        Math.floor(endDate.getTime() / 1000)
+      );
+    } catch (error: any) {
+      console.error("Error creating pool:", error);
+      toast.error(error.message || "Failed to create pool");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddRewardItem = (reward: Omit<RewardItem, "id">) => {
+    const newItem: RewardItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      ...reward,
+    };
+    setRewardItems([...rewardItems, newItem]);
   };
 
   return (
     <>
       <AppHeader
-        showBackButton={false}
+        showBackButton={true}
         showTitle={false}
         backgroundColor="#15161a"
         showGetTokensButton={true}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
+        onBackClick={handleBackClick}
       />
 
       {/* Main Content */}
       <div className="px-4 pb-24 md:pb-8">
-        {/* Back button below header */}
-        <div className="py-2">
-          <button
-            onClick={handleBackClick}
-            className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
-          >
-            <FaArrowLeft />
-          </button>
-        </div>
-
         {/* Page Title */}
         <div className="px-2 mt-4">
           <h1 className="text-5xl font-bold">CREATE PARTY ROUND</h1>
@@ -326,44 +331,59 @@ export default function CreatePoolPage() {
 
         {/* Main content */}
         <div className="px-6" style={{ paddingBottom: "100px" }}>
-          {/* Pool Image */}
-          <div className="mt-8">
-            <h2 className="text-2xl font-bold mb-4">Pool Image</h2>
-            <PoolImageSection
-              imagePreview={imagePreview}
-              isUploadingImage={isUploadingImage}
-              showValidation={showValidation}
-              onImageSelect={handleImageSelect}
-              onRemoveImage={handleRemoveImage}
-            />
+          {/* Pool Details, Funding, and Image Section */}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] gap-x-8 gap-y-6 md:gap-y-0 mt-8">
+            {/* Left Column: Pool Details and Funding */}
+            <div className="space-y-6 order-2 md:order-1">
+              <PoolDetailsSection
+                poolName={poolName}
+                ticker={ticker}
+                onPoolNameChange={setPoolName}
+                onTickerChange={setTicker}
+              />
+
+              <FundingSection
+                fundingGoal={fundingGoal}
+                capAmount={capAmount}
+                onFundingGoalChange={setFundingGoal}
+                onCapAmountChange={setCapAmount}
+              />
+            </div>
+
+            {/* Right Column: Pool Image */}
+            <div className="w-full md:w-[400px] order-1 md:order-2">
+              <PoolImageSection
+                imagePreview={imagePreview}
+                isUploadingImage={isUploadingImage}
+                showValidation={showValidation}
+                onImageSelect={handleImageSelect}
+                onRemoveImage={handleRemoveImage}
+              />
+            </div>
           </div>
 
           {/* Form */}
           <form id="createPoolForm" onSubmit={onSubmit} className="mt-8">
-            {/* Pool Details */}
-            <PoolDetailsSection
-              poolName={poolName}
-              ticker={ticker}
-              patrons={patrons}
-              onPoolNameChange={setPoolName}
-              onTickerChange={setTicker}
-              onPatronsChange={setPatrons}
-            />
-
-            {/* Funding Section */}
-            <FundingSection
-              fundingGoal={fundingGoal}
-              minCommitment={minCommitment}
-              onFundingGoalChange={setFundingGoal}
-              onMinCommitmentChange={setMinCommitment}
-            />
+            {/* Tiers Section */}
+            {supabase && (
+              <TiersSection
+                tiers={tiers}
+                onTiersChange={setTiers}
+                availableRewardItems={rewardItems}
+                onAddRewardItem={handleAddRewardItem}
+                supabase={supabase}
+                poolName={poolName}
+                fundingGoal={fundingGoal}
+                poolImage={imagePreview || undefined}
+              />
+            )}
 
             {/* Description */}
             <div className="mb-6">
               <h2 className="text-2xl font-bold mb-4">Description</h2>
               <RichTextEditor
                 content={description}
-                onChange={setDescription}
+                onChange={(value) => setDescription(value)}
                 placeholder="Write your story..."
               />
             </div>
@@ -405,9 +425,9 @@ export default function CreatePoolPage() {
           <button
             onClick={onSubmit}
             className="w-full py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors"
-            disabled={isSubmitting}
+            disabled={isLoading}
           >
-            {isSubmitting ? "Creating..." : "Launch Party Round"}
+            {isLoading ? "Creating..." : "Launch Party Round"}
           </button>
         </div>
       </div>

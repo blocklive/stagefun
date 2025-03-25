@@ -2,11 +2,12 @@ import { supabase } from "../supabase";
 import {
   getDeployedPools,
   getPoolDetails,
-  ContractPool,
   fromUSDCBaseUnits,
+  ContractPool,
 } from "../contracts/StageDotFunPool";
 import { createPoolOnChain } from "./contract-service";
 import { ethers } from "ethers";
+import { getPoolStatusString } from "@/lib/contracts/types";
 
 export interface Pool {
   id: string;
@@ -92,7 +93,7 @@ export async function getAllPools(): Promise<Pool[]> {
           chainDataMap.set(pool.contract_address.toLowerCase(), {
             totalDeposits: fromUSDCBaseUnits(chainData.totalDeposits), // Convert using utility function
             revenueAccumulated: fromUSDCBaseUnits(chainData.revenueAccumulated), // Convert using utility function
-            status: chainData.status === 1 ? "active" : "inactive",
+            status: chainData.status, // Keep the raw status number
             endTime: Number(chainData.endTime),
             lpTokenAddress: chainData.lpTokenAddress,
           });
@@ -114,7 +115,7 @@ export async function getAllPools(): Promise<Pool[]> {
       creator_avatar_url: dbPool.creator?.avatar_url || null,
       raised_amount: chainData?.totalDeposits || 0,
       revenue_accumulated: chainData?.revenueAccumulated || 0,
-      status: chainData?.status || dbPool.status,
+      status: getPoolStatusString(chainData?.status || 0), // Use the proper status string conversion
       end_time: chainData?.endTime || 0,
       lp_token_address: chainData?.lpTokenAddress || null,
     };
@@ -178,9 +179,12 @@ export async function getPoolById(id: string): Promise<Pool | null> {
     revenueAccumulated: BigInt(0),
     endTime: BigInt(0),
     targetAmount: BigInt(0),
-    minCommitment: BigInt(0),
+    capAmount: BigInt(0),
     status: 0,
     lpTokenAddress: ethers.ZeroAddress,
+    nftContractAddress: "",
+    tierCount: BigInt(0),
+    minCommitment: BigInt(0),
     lpHolders: [],
     milestones: [],
     emergencyMode: false,
@@ -194,27 +198,28 @@ export async function getPoolById(id: string): Promise<Pool | null> {
       const provider = new ethers.JsonRpcProvider(
         process.env.NEXT_PUBLIC_RPC_URL
       );
-      chainData = await getPoolDetails(provider, dbPool.contract_address);
 
-      // Add detailed logging for pool status
-      console.log("Chain data for pool:", {
-        poolId: id,
-        contractAddress: dbPool.contract_address,
-        rawStatus: chainData.status,
-        isActive: chainData.status === 1,
-        chainData,
+      // Single critical log for contract address
+      console.log("[Pool Details] Contract:", {
+        address: dbPool.contract_address,
+        rpcUrl: process.env.NEXT_PUBLIC_RPC_URL?.substring(0, 20) + "...",
       });
+
+      chainData = await getPoolDetails(provider, dbPool.contract_address);
     } catch (error) {
-      console.error("Error fetching chain data:", error);
-      // Continue with default values if blockchain fetch fails
+      // Only log actual errors
+      console.error("[Pool Details] Chain data error:", {
+        address: dbPool.contract_address,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   }
 
   // Convert BigInt values to numbers and handle division by 1_000_000 for USDC amounts
-  const totalDeposits = fromUSDCBaseUnits(chainData.totalDeposits); // Convert using utility function
-  const revenueAccumulated = fromUSDCBaseUnits(chainData.revenueAccumulated); // Convert using utility function
-  const targetAmount = fromUSDCBaseUnits(chainData.targetAmount); // Convert using utility function
-  const minCommitment = fromUSDCBaseUnits(chainData.minCommitment); // Convert using utility function
+  const totalDeposits = fromUSDCBaseUnits(chainData.totalDeposits);
+  const revenueAccumulated = fromUSDCBaseUnits(chainData.revenueAccumulated);
+  const targetAmount = fromUSDCBaseUnits(chainData.targetAmount);
+  const minCommitment = fromUSDCBaseUnits(chainData.minCommitment);
 
   return {
     ...dbPool,
@@ -225,7 +230,7 @@ export async function getPoolById(id: string): Promise<Pool | null> {
     raised_amount: totalDeposits || 0,
     revenue_accumulated: revenueAccumulated || 0,
     blockchain_status: Number(chainData.status || 0),
-    status: chainData.status === 1 ? "active" : "inactive",
+    status: getPoolStatusString(chainData.status),
     end_time: Number(chainData.endTime) || 0,
     lp_token_address: chainData.lpTokenAddress || null,
     lp_holders: chainData.lpHolders || [],

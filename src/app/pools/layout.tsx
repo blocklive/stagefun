@@ -29,7 +29,7 @@ export default function PoolsLayout({ children }: PoolsLayoutProps) {
   return (
     <div className="min-h-screen bg-[#15161a] text-white">
       <SideNavbar activeTab="party" />
-      <div className="md:pl-64">{children}</div>
+      <div className="md:pl-64 min-h-screen">{children}</div>
       <BottomNavbar activeTab="party" />
     </div>
   );

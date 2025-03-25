@@ -2,15 +2,15 @@ import { useState } from "react";
 
 export const useFunding = () => {
   const [fundingGoal, setFundingGoal] = useState("");
-  const [minCommitment, setMinCommitment] = useState("");
+  const [capAmount, setCapAmount] = useState("0"); // Default to 0 for no cap
   const [currency] = useState("USDC");
 
   return {
     fundingGoal,
-    minCommitment,
+    capAmount,
     currency,
     setFundingGoal,
-    setMinCommitment,
+    setCapAmount,
   };
 };
 

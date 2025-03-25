@@ -39,20 +39,12 @@ export function usePoolCommitments(poolAddress: string | null) {
         const provider = new ethers.JsonRpcProvider(rpcUrl);
         const pool = getPoolContract(provider, poolAddress!);
 
-        // Get the LP token address from the pool
-        const lpTokenAddress = await pool.lpToken();
-
-        // Get the LP token contract
-        const lpToken = getStageDotFunLiquidityContract(
-          provider,
-          lpTokenAddress
-        );
-
         // We'll still return an array of commitments for compatibility
         const commitmentsData: PoolCommitment[] = [];
 
         try {
-          const balance = await lpToken.balanceOf(walletAddress);
+          // Use pool contract's getLpBalance function instead of LP token contract
+          const balance = await pool.getLpBalance(walletAddress);
 
           if (balance > BigInt(0)) {
             commitmentsData.push({

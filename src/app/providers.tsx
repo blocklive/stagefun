@@ -12,12 +12,12 @@ const MONAD_TESTNET = {
   rpcUrls: {
     default: {
       http: [
-        "https://falling-practical-rain.monad-testnet.quiknode.pro/a5d256e0fcaf1ff2574b5d13322cb315b0cec88f",
+        process.env.NEXT_PUBLIC_RPC_URL || "https://testnet-rpc.monad.xyz",
       ],
     },
     public: {
       http: [
-        "https://falling-practical-rain.monad-testnet.quiknode.pro/a5d256e0fcaf1ff2574b5d13322cb315b0cec88f",
+        process.env.NEXT_PUBLIC_RPC_URL || "https://testnet-rpc.monad.xyz",
       ],
     },
   },

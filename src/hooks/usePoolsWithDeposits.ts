@@ -108,7 +108,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
 
           return {
             id: item.uniqueId, // Use uniqueId as the primary identifier
-            contract_address: item.address,
+            contract_address: item.lpTokenAddress,
             name: item.name,
             creator_address: item.creator,
             raised_amount: fromUSDCBaseUnits(item.totalDeposits),

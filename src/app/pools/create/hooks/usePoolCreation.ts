@@ -24,6 +24,7 @@ export const usePoolCreation = () => {
   const [showGasWarning, setShowGasWarning] = useState(false);
   const [balanceChecked, setBalanceChecked] = useState(false);
   const [uniqueId] = useState<string>(uuidv4());
+  const [error, setError] = useState<string | null>(null);
 
   // Minimum recommended balance in MON (0.5 MON should be enough for deployment)
   const MIN_GAS_BALANCE = 0.5;
@@ -40,35 +41,112 @@ export const usePoolCreation = () => {
     }
   }, [nativeBalance, isBalanceLoading]);
 
-  const handleSubmit = async (poolData: any, endTimeUnix: number) => {
-    // Set validation visibility to true when submit is attempted
-    setShowValidation(true);
-
-    if (!dbUser) {
-      toast.error("Please wait for authentication to complete");
-      return;
-    }
-
+  const handleSubmit = async (
+    poolName: string,
+    ticker: string,
+    description: string,
+    fundingGoal: number,
+    capAmount: number,
+    imagePreview: string,
+    tiers: any[],
+    location: string,
+    socialLinks: any,
+    endTimeUnix: number
+  ) => {
     // Validate required fields
-    if (!poolData.name) {
+    if (!poolName || !poolName.trim()) {
       toast.error("Please enter a pool name");
       return;
     }
 
-    if (!poolData.target_amount || poolData.target_amount <= 0) {
+    if (!ticker || !ticker.trim()) {
+      toast.error("Please enter a ticker symbol");
+      return;
+    }
+
+    if (!description || !description.trim()) {
+      toast.error("Please enter a description");
+      return;
+    }
+
+    if (!fundingGoal || fundingGoal <= 0) {
       toast.error("Please enter a valid funding goal");
       return;
     }
 
-    if (!poolData.min_commitment || poolData.min_commitment <= 0) {
-      toast.error("Please enter a valid minimum commitment");
+    if (!capAmount || capAmount <= 0) {
+      toast.error("Please enter a valid cap amount");
       return;
     }
 
-    // Validate required image
-    if (!poolData.image_url) {
-      toast.error("Please select an image for your pool");
+    if (capAmount < fundingGoal) {
+      toast.error("Cap amount must be greater than or equal to funding goal");
       return;
+    }
+
+    if (!imagePreview) {
+      toast.error("Please upload a pool image");
+      return;
+    }
+
+    if (!tiers || tiers.length === 0) {
+      toast.error("Please add at least one tier");
+      return;
+    }
+
+    // Validate each tier
+    for (const tier of tiers) {
+      if (!tier.name || !tier.price || !tier.maxPatrons) {
+        throw new Error(
+          "All required tier fields (name, price, max patrons) must be filled"
+        );
+      }
+
+      // Validate tier price is greater than 0
+      const tierPrice = parseFloat(tier.price);
+      if (tierPrice <= 0) {
+        throw new Error(`Tier price must be greater than 0`);
+      }
+
+      if (tier.isVariablePrice) {
+        if (!tier.minPrice || tier.minPrice <= 0) {
+          toast.error(
+            `Please enter a valid minimum price for tier "${tier.name}"`
+          );
+          return;
+        }
+        if (!tier.maxPrice || tier.maxPrice <= 0) {
+          toast.error(
+            `Please enter a valid maximum price for tier "${tier.name}"`
+          );
+          return;
+        }
+        if (tier.maxPrice <= tier.minPrice) {
+          toast.error(
+            `Maximum price must be greater than minimum price for tier "${tier.name}"`
+          );
+          return;
+        }
+      } else {
+        if (!tier.price || tier.price <= 0) {
+          toast.error(`Please enter a valid price for tier "${tier.name}"`);
+          return;
+        }
+      }
+
+      if (!tier.maxPatrons || tier.maxPatrons < 0) {
+        toast.error(
+          `Please enter a valid maximum number of patrons for tier "${tier.name}"`
+        );
+        return;
+      }
+
+      if (!tier.nftMetadata && !tier.imageUrl) {
+        toast.error(`Please upload an image for tier "${tier.name}"`);
+        return;
+      }
+
+      // Description is optional, so we don't validate it
     }
 
     // Check if user has enough gas for deployment
@@ -90,41 +168,62 @@ export const usePoolCreation = () => {
       return;
     }
 
+    setIsSubmitting(true);
+    setError(null);
+
     try {
-      setIsSubmitting(true);
+      // Format the pool data
+      const formattedPoolData = {
+        id: uniqueId,
+        name: poolName,
+        ticker,
+        description,
+        target_amount: fundingGoal,
+        cap_amount: capAmount,
+        currency: "USDC",
+        token_amount: 0,
+        token_symbol: "USDC",
+        location,
+        venue: "",
+        status: "ACTIVE",
+        funding_stage: "ACTIVE",
+        ends_at: endTimeUnix.toString(),
+        creator_id: dbUser?.id || "",
+        raised_amount: 0,
+        image_url: imagePreview,
+        social_links: socialLinks,
+        tiers: tiers.map((tier) => ({
+          name: tier.name,
+          price: tier.isVariablePrice
+            ? parseFloat(tier.minPrice)
+            : parseFloat(tier.price),
+          isActive: tier.isActive,
+          nftMetadata: tier.nftMetadata,
+          isVariablePrice: tier.isVariablePrice,
+          minPrice: parseFloat(tier.minPrice),
+          maxPrice: parseFloat(tier.maxPrice),
+          maxPatrons: parseInt(tier.maxPatrons),
+          description: tier.description || `${tier.name} tier`,
+          rewardItems: tier.rewardItems,
+        })),
+      };
 
-      // Use the new createPoolWithDatabase function that handles both blockchain and database operations
-      const result = await createPoolWithDatabase(poolData, endTimeUnix);
+      // Create pool on blockchain and database
+      const result = await createPoolWithDatabase(
+        formattedPoolData,
+        endTimeUnix
+      );
 
-      if (!result.success) {
-        console.error("Error creating pool:", result.error);
+      if (result.success) {
+        router.push(`/pools/${result.data.id}`);
+      } else {
+        setError(result.error || "Failed to create pool");
         toast.error(result.error || "Failed to create pool");
-
-        // If we have a transaction hash but database failed, show special message
-        if (result.txHash) {
-          toast.error(
-            `Warning: Pool was created on blockchain but database entry failed. Please contact support with your transaction hash: ${result.txHash}`,
-            {
-              duration: 10000,
-              style: {
-                background: "#1E1F25",
-                color: "white",
-                border: "1px solid rgba(255, 100, 100, 0.3)",
-              },
-            }
-          );
-          router.push("/");
-        }
-
-        return;
       }
-
-      console.log("Pool created successfully:", result.data);
-      toast.success("Pool created successfully!");
-      router.push(`/pools/${result.data.id}`);
-    } catch (error) {
-      console.error("Error:", error);
-      toast.error("An error occurred");
+    } catch (error: any) {
+      console.error("Error creating pool:", error);
+      setError(error.message || "Failed to create pool");
+      toast.error(error.message || "Failed to create pool");
     } finally {
       setIsSubmitting(false);
     }
@@ -136,6 +235,7 @@ export const usePoolCreation = () => {
     showGasWarning,
     balanceChecked,
     uniqueId,
+    error,
     handleSubmit,
     refreshNativeBalance,
   };

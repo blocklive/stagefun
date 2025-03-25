@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-ethers");
 require("dotenv").config({ path: ".env.local" });
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -8,7 +9,14 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 200,
+        runs: 1000,
+        details: {
+          yul: true,
+          yulDetails: {
+            stackAllocation: true,
+            optimizerSteps: "dhfoDgvulfnTUtnIf",
+          },
+        },
       },
       viaIR: true,
     },

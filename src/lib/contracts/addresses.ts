@@ -3,12 +3,11 @@
  * Update these addresses when deploying new contracts
  */
 export const CONTRACT_ADDRESSES = {
-  baseSepolia: {
-    stageDotFunPoolFactory: "0x...", // We'll fill this after deployment
-    usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
-  },
   monadTestnet: {
-    stageDotFunPoolFactory: "0x0eF5CBDBF207f27bC3Ffded0759fC05c6d8E2a9a",
+    stageDotFunPoolFactory: "0x68965BebA7357C4f224eE9D4e85721d2FAF27aeB",
+    stageDotFunPoolImplementation: "0xcE410075C805e81558376b082DFDdCcC2986F313",
+    stageDotFunLiquidityImplementation: "0xdd6d5bB97cD195335eaB08Ee95f133776A131A8E",
+    stageDotFunNFTImplementation: "0x9876e7a435a4DD38d0dFd07f20A384967cE22747",
     usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
   },
 } as const;
@@ -17,7 +16,7 @@ export const CONTRACT_ADDRESSES = {
  * Network configuration
  */
 export const NETWORK = {
-  chainId: 10143, // Monad Testnet
+  chainId: 10143,
   rpcUrl: "https://falling-practical-rain.monad-testnet.quiknode.pro/a5d256e0fcaf1ff2574b5d13322cb315b0cec88f",
   explorerUrl: "https://testnet.monadexplorer.com",
 } as const;

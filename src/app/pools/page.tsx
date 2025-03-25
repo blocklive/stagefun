@@ -298,12 +298,13 @@ export default function PoolsPage() {
   };
 
   return (
-    <>
+    <div className="min-h-screen bg-[#15161a] text-white">
       <AppHeader
         showBackButton={false}
         showTitle={false}
         backgroundColor="#15161a"
         showGetTokensButton={true}
+        showCreateButton={true}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
       />
@@ -313,17 +314,17 @@ export default function PoolsPage() {
         {/* Tabs */}
         <div className="flex justify-center gap-2 px-4">
           <button
-            className={`px-6 py-3 rounded-full text-lg ${
+            className={`w-[110px] py-3 rounded-full text-lg ${
               activeTab === "open"
                 ? "bg-white text-black font-medium"
                 : "bg-transparent text-white border border-gray-700"
             }`}
             onClick={() => handleTabChange("open")}
           >
-            Open rounds
+            Open
           </button>
           <button
-            className={`px-6 py-3 rounded-full text-lg ${
+            className={`w-[110px] py-3 rounded-full text-lg ${
               activeTab === "funded"
                 ? "bg-white text-black font-medium"
                 : "bg-transparent text-white border border-gray-700"
@@ -333,7 +334,7 @@ export default function PoolsPage() {
             Funded
           </button>
           <button
-            className={`px-6 py-3 rounded-full text-lg ${
+            className={`w-[110px] py-3 rounded-full text-lg ${
               activeTab === "unfunded"
                 ? "bg-white text-black font-medium"
                 : "bg-transparent text-white border border-gray-700"
@@ -393,9 +394,7 @@ export default function PoolsPage() {
                   {activeTab !== "funded" && activeTab !== "unfunded" ? (
                     <>
                       <li
-                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                          sortBy === "recent" ? "" : ""
-                        }`}
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
                         style={{
                           color: sortBy === "recent" ? "#836EF9" : "",
                         }}
@@ -404,9 +403,7 @@ export default function PoolsPage() {
                         Recent
                       </li>
                       <li
-                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                          sortBy === "amount" ? "" : ""
-                        }`}
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
                         style={{
                           color: sortBy === "amount" ? "#836EF9" : "",
                         }}
@@ -415,9 +412,7 @@ export default function PoolsPage() {
                         Amount
                       </li>
                       <li
-                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                          sortBy === "alphabetical" ? "" : ""
-                        }`}
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
                         style={{
                           color: sortBy === "alphabetical" ? "#836EF9" : "",
                         }}
@@ -429,9 +424,7 @@ export default function PoolsPage() {
                   ) : (
                     <>
                       <li
-                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                          sortBy === "volume" ? "" : ""
-                        }`}
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
                         style={{
                           color: sortBy === "volume" ? "#836EF9" : "",
                         }}
@@ -440,9 +433,7 @@ export default function PoolsPage() {
                         Volume
                       </li>
                       <li
-                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm ${
-                          sortBy === "alphabetical" ? "" : ""
-                        }`}
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
                         style={{
                           color: sortBy === "alphabetical" ? "#836EF9" : "",
                         }}
@@ -464,10 +455,8 @@ export default function PoolsPage() {
           style={{ paddingBottom: "128px" }}
         >
           {loading && pools.length === 0 ? (
-            // Show skeleton loading UI when loading and no cached data
             renderSkeletonList()
           ) : error && !isRpcError ? (
-            // Show error state for non-RPC errors
             <div className="p-8 text-center text-red-400">
               <p>Error loading pools. Please try again later.</p>
               <button
@@ -585,11 +574,10 @@ export default function PoolsPage() {
           onClose={() => setShowTokensModal(false)}
         />
       )}
-
       <InfoModal
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}
       />
-    </>
+    </div>
   );
 }

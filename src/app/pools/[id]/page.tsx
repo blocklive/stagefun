@@ -6,12 +6,19 @@ import { useEffect, useState, useCallback } from "react";
 import { FaArrowLeft } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import { useSupabase } from "../../../contexts/SupabaseContext";
+import { useContractInteraction as useContractInteractionHook } from "../../../hooks/useContractInteraction";
 import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
 import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
 import { usePoolDetails } from "../../../hooks/usePoolDetails";
 import { usePoolCommitments } from "../../../hooks/usePoolCommitments";
 import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
+import {
+  usePoolTiers,
+  usePoolTiersWithPatrons,
+  type DBTier,
+} from "../../../hooks/usePoolTiers";
 import AppHeader from "../../components/AppHeader";
+import { getAllTiers, Tier } from "../../../lib/contracts/StageDotFunPool";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -30,6 +37,7 @@ import PoolLocation from "./components/PoolLocation";
 import FixedBottomBar from "./components/FixedBottomBar";
 import InfoModal from "../../components/InfoModal";
 import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
+import { ethers } from "ethers";
 
 export default function PoolDetailsPage() {
   const { user: privyUser } = usePrivy();
@@ -45,38 +53,18 @@ export default function PoolDetailsPage() {
     targetAmount,
     raisedAmount,
     percentage,
-    isLoading,
+    isLoading: isLoadingPool,
+    error: poolError,
     refresh: refreshPool,
   } = usePoolDetails(poolId);
 
-  // Check if we need to refresh the data (coming from edit page)
-  useEffect(() => {
-    // Check if the URL has a refresh parameter
-    const searchParams = new URLSearchParams(window.location.search);
-    const shouldRefresh = searchParams.get("refresh") === "true";
-
-    if (shouldRefresh) {
-      console.log("Refreshing pool data after edit...");
-      refreshPool();
-
-      // Clean up the URL by removing the refresh parameter
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, "", newUrl);
-    }
-  }, [refreshPool]);
-
-  // Always refresh the pool data when the component mounts
-  useEffect(() => {
-    console.log("Initial pool data refresh on mount");
-    refreshPool();
-  }, [refreshPool, poolId]);
+  // Use both hook and context for different functionalities
+  const { walletsReady, privyReady } = useContractInteractionHook();
 
   const {
-    depositToPool: commitToBlockchain,
     claimRefund,
+    depositToPool,
     isLoading: isBlockchainLoading,
-    walletsReady,
-    privyReady,
   } = useContractInteraction();
 
   const {
@@ -101,8 +89,58 @@ export default function PoolDetailsPage() {
     isLoading: isTimeLoading,
   } = usePoolTimeLeft(pool);
 
+  const {
+    tiers: dbTiers,
+    isLoading: isLoadingDbTiers,
+    isError: dbTiersError,
+  } = usePoolTiers(poolId);
+
+  const {
+    tiers: chainTiers,
+    isLoading: isLoadingChainTiers,
+    isError: chainTiersError,
+  } = usePoolTiersWithPatrons(pool?.contract_address || null);
+
+  // Remove the tier state logging
+  const tiers = dbTiers
+    ? dbTiers.map((dbTier, index) => {
+        const chainTier = chainTiers?.[index];
+        if (chainTier) {
+          return {
+            ...dbTier,
+            currentPatrons: Number(chainTier.currentPatrons),
+            maxPatrons: Number(chainTier.maxPatrons),
+            isActive: chainTier.isActive,
+            price: Number(ethers.formatUnits(chainTier.price, 6)),
+            minPrice: chainTier.isVariablePrice
+              ? Number(ethers.formatUnits(chainTier.minPrice, 6))
+              : null,
+            maxPrice: chainTier.isVariablePrice
+              ? Number(ethers.formatUnits(chainTier.maxPrice, 6))
+              : null,
+            isVariablePrice: chainTier.isVariablePrice,
+            nftMetadata: chainTier.nftMetadata,
+          };
+        }
+        return {
+          ...dbTier,
+          currentPatrons: 0,
+          maxPatrons: dbTier.max_supply || 0,
+          isActive: dbTier.is_active,
+          price: dbTier.price,
+          minPrice: dbTier.min_price,
+          maxPrice: dbTier.max_price,
+          isVariablePrice: dbTier.is_variable_price,
+          nftMetadata: "",
+        };
+      })
+    : null;
+
+  const isLoadingTiers = isLoadingDbTiers;
+  const tiersError = dbTiersError || chainTiersError;
+
   // Add contract interaction
-  const { isLoading: isContractLoading } = useContractInteraction();
+  const { isLoading: isContractLoading } = useContractInteractionHook();
 
   // Calculate total committed and target amount from commitments
   const totalCommitted =
@@ -137,10 +175,10 @@ export default function PoolDetailsPage() {
   }, [contentTab]);
 
   // Add state for approving
-  const [isApproving, setIsApproving] = useState(false);
+  const [isCommitting, setIsCommitting] = useState(false);
 
-  // Add state to control button visibility
-  const [showCommitButton, setShowCommitButton] = useState(false);
+  // Add state to control button visibility - always true now
+  const [showCommitButton, setShowCommitButton] = useState(true);
 
   // Add state for getting tokens
   const [showTokensModal, setShowTokensModal] = useState(false);
@@ -156,100 +194,38 @@ export default function PoolDetailsPage() {
     setCommitAmount(usdcBalance);
   }, [usdcBalance]);
 
-  const handleCommit = async () => {
-    if (!pool || !dbUser) return;
-
+  // Update handleCommit to use tier-based commitment
+  const handleCommit = async (tierId: string, amount: string) => {
     try {
-      setIsApproving(true);
-      const amount = parseFloat(commitAmount);
-
-      if (isNaN(amount) || amount <= 0) {
-        toast.error("Please enter a valid amount");
-        return;
+      setIsCommitting(true);
+      const numericAmount = parseFloat(amount);
+      if (isNaN(numericAmount)) {
+        throw new Error("Invalid amount");
       }
 
-      // Show initial toast
-      const loadingToast = toast.loading("Preparing your commitment...");
-
-      console.log("Pool details in handleCommit:", {
-        id: pool.id,
-        name: pool.name,
-        contractAddress: pool.contract_address,
-      });
-
-      // Convert to USDC base units (6 decimals)
-      const amountInBaseUnits = Math.floor(amount * 1_000_000).toString();
-
-      // We need to pass pool.id here, not pool.contract_address
-      console.log("Calling commitToBlockchain with:", {
-        firstArg: pool.id, // Changed to use pool.id
-        amount,
-      });
-
-      try {
-        // Update toast for USDC approval
-        toast.loading("Requesting approval for USDC transfer...", {
-          id: loadingToast,
-        });
-
-        // Since commitToBlockchain handles both approval and transaction,
-        // we'll add a toast for USDC approval before the actual transaction
-
-        // Set up timeouts for toast updates
-        const approvalTimeout = setTimeout(() => {
-          toast.loading("✅ USDC approved! Initiating transaction...", {
-            id: loadingToast,
-          });
-        }, 3000); // Show after 3 seconds - this is just an estimate
-
-        const submissionTimeout = setTimeout(() => {
-          toast.loading("Transaction submitted to blockchain...", {
-            id: loadingToast,
-          });
-        }, 6000); // Show after 6 seconds - this is just an estimate
-
-        // This will handle both approval and transaction submission
-        await commitToBlockchain(pool.id, amount);
-
-        // Clear timeouts if transaction completes faster than expected
-        clearTimeout(approvalTimeout);
-        clearTimeout(submissionTimeout);
-
-        // After successful transaction submission
-        toast.loading(
-          "Transaction successful! Waiting for final confirmation...",
-          { id: loadingToast }
-        );
-
-        // Receipt received message
-        toast.loading("Receipt received! Finalizing your deposit...", {
-          id: loadingToast,
-        });
-
-        // Refresh data
-        refreshPool();
-        refreshBalance();
-        refreshCommitments();
-
-        // Success toast with emoji
-        toast.success(
-          `🎉 Successfully committed ${amount} USDC to ${pool.name}!`,
-          { id: loadingToast }
-        );
-        setCommitAmount("");
-        setIsApproving(false);
-        setIsCommitModalOpen(false); // Close the modal on success
-      } catch (txError) {
-        console.error("Transaction error:", txError);
-        toast.error(`Transaction failed: ${String(txError)}`, {
-          id: loadingToast,
-        });
-        setIsApproving(false);
+      if (!pool?.contract_address) {
+        throw new Error("Pool not found");
       }
-    } catch (error) {
+
+      if (!tiers) {
+        throw new Error("Tiers not loaded");
+      }
+
+      // Find the index of the tier in the array
+      const tierIndex = tiers.findIndex((t) => t.id === tierId);
+      if (tierIndex === -1) {
+        throw new Error("Tier not found");
+      }
+
+      await depositToPool(pool.contract_address, numericAmount, tierIndex);
+      toast.success("Successfully committed to pool");
+      setIsCommitModalOpen(false);
+      router.refresh();
+    } catch (error: any) {
       console.error("Error committing to pool:", error);
-      toast.error("Failed to commit to pool. Please try again.");
-      setIsApproving(false);
+      toast.error(error.message || "Failed to commit to pool");
+    } finally {
+      setIsCommitting(false);
     }
   };
 
@@ -298,107 +274,8 @@ export default function PoolDetailsPage() {
   const isFunded = displayStatus === PoolStatus.FUNDED;
   const isUnfunded = displayStatus === PoolStatus.FAILED;
 
-  // Always show the button for open pools, regardless of whether user has committed
-  const shouldShowCommitButton =
-    !!pool &&
-    pool.blockchain_status === PoolStatus.ACTIVE &&
-    !isFunded &&
-    !isUnfunded;
+  // Remove the complex visibility logic
   const commitButtonText = "Commit";
-
-  // Effect to determine if commit button should be shown - simplified to avoid flickering
-  useEffect(() => {
-    if (shouldShowCommitButton !== showCommitButton) {
-      setShowCommitButton(shouldShowCommitButton);
-    }
-  }, [pool, showCommitButton, shouldShowCommitButton]);
-
-  // Handle refund functionality
-  const handleRefund = async () => {
-    if (!pool || !pool.contract_address) {
-      toast.error("Pool contract address not found");
-      return;
-    }
-
-    setIsRefunding(true);
-    const loadingToast = toast.loading("Preparing refund...");
-
-    try {
-      // Log pool status for debugging
-      console.log("Pool status:", {
-        blockchain_status: pool.blockchain_status,
-        isUnfunded,
-        hasEnded,
-        raisedAmount: pool.raised_amount,
-        targetAmount: pool.target_amount,
-      });
-
-      // Get user's LP token balance first to check if they have tokens to refund
-      const userCommitment = getUserCommitment();
-      console.log("User commitment:", userCommitment);
-
-      if (!userCommitment || userCommitment.amount <= 0) {
-        throw new Error("You don't have any tokens to refund in this pool");
-      }
-
-      // Call the claimRefund function from the contract
-      console.log(
-        "Attempting to claim refund for contract:",
-        pool.contract_address
-      );
-
-      // Update toast message to indicate we're checking pool status
-      toast.loading("Checking pool eligibility for refund...", {
-        id: loadingToast,
-      });
-
-      const result = await claimRefund(pool.contract_address);
-
-      if (!result.success) {
-        // If the refund fails, provide more detailed error information
-        console.error("Refund failed with result:", result);
-
-        // Check if the error is related to eligibility
-        if (result.error && result.error.includes("not eligible for refunds")) {
-          throw new Error(
-            "This pool is not eligible for refunds yet. The end time must have passed without meeting the target amount."
-          );
-        } else if (
-          result.error &&
-          result.error.includes("No LP tokens to refund")
-        ) {
-          throw new Error(
-            "You don't have any LP tokens to refund in this pool."
-          );
-        } else if (
-          result.error &&
-          result.error.includes("doesn't have enough USDC")
-        ) {
-          throw new Error(
-            "The pool doesn't have enough USDC to process your refund. Please contact support."
-          );
-        } else {
-          throw new Error(result.error || "Failed to claim refund");
-        }
-      }
-
-      toast.success("Refund claimed successfully!", { id: loadingToast });
-      console.log("Refund result:", result);
-
-      // Refresh data after successful refund
-      refreshPool();
-      refreshBalance();
-      refreshCommitments();
-    } catch (error) {
-      console.error("Error claiming refund:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to claim refund",
-        { id: loadingToast }
-      );
-    } finally {
-      setIsRefunding(false);
-    }
-  };
 
   // Render user commitment section
   const renderUserCommitment = () => {
@@ -414,9 +291,12 @@ export default function PoolDetailsPage() {
           commitmentsError={commitmentsError}
           usdcBalance={usdcBalance}
           commitAmount={commitAmount}
-          isApproving={isApproving}
+          isApproving={isCommitting}
           walletsReady={walletsReady}
-          handleCommit={handleCommit}
+          handleCommit={async () => {
+            setIsCommitModalOpen(true);
+            return Promise.resolve();
+          }}
           setCommitAmount={setCommitAmount}
           refreshBalance={refreshBalance}
           isUnfunded={isUnfunded}
@@ -461,7 +341,7 @@ export default function PoolDetailsPage() {
 
   // Render main content
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoadingPool) {
       return (
         <div className="flex items-center justify-center min-h-screen">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -642,6 +522,93 @@ export default function PoolDetailsPage() {
     );
   };
 
+  // Handle refund functionality
+  const handleRefund = async () => {
+    if (!pool || !pool.contract_address) {
+      toast.error("Pool contract address not found");
+      return;
+    }
+
+    setIsRefunding(true);
+    const loadingToast = toast.loading("Preparing refund...");
+
+    try {
+      // Log pool status for debugging
+      console.log("Pool status:", {
+        blockchain_status: pool.blockchain_status,
+        isUnfunded,
+        hasEnded,
+        raisedAmount: pool.raised_amount,
+        targetAmount: pool.target_amount,
+      });
+
+      // Get user's LP token balance first to check if they have tokens to refund
+      const userCommitment = getUserCommitment();
+      console.log("User commitment:", userCommitment);
+
+      if (!userCommitment || userCommitment.amount <= 0) {
+        throw new Error("You don't have any tokens to refund in this pool");
+      }
+
+      // Call the claimRefund function from the contract
+      console.log(
+        "Attempting to claim refund for contract:",
+        pool.contract_address
+      );
+
+      // Update toast message to indicate we're checking pool status
+      toast.loading("Checking pool eligibility for refund...", {
+        id: loadingToast,
+      });
+
+      const result = await claimRefund(pool.contract_address);
+
+      if (!result.success) {
+        // If the refund fails, provide more detailed error information
+        console.error("Refund failed with result:", result);
+
+        // Check if the error is related to eligibility
+        if (result.error && result.error.includes("not eligible for refunds")) {
+          throw new Error(
+            "This pool is not eligible for refunds yet. The end time must have passed without meeting the target amount."
+          );
+        } else if (
+          result.error &&
+          result.error.includes("No LP tokens to refund")
+        ) {
+          throw new Error(
+            "You don't have any LP tokens to refund in this pool."
+          );
+        } else if (
+          result.error &&
+          result.error.includes("doesn't have enough USDC")
+        ) {
+          throw new Error(
+            "The pool doesn't have enough USDC to process your refund. Please contact support."
+          );
+        } else {
+          throw new Error(result.error || "Failed to claim refund");
+        }
+      }
+
+      toast.success("Refund claimed successfully!", { id: loadingToast });
+      console.log("Refund result:", result);
+
+      // Refresh data after successful refund
+      refreshPool();
+      refreshBalance();
+      refreshCommitments();
+    } catch (error) {
+      console.error("Error claiming refund:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to claim refund",
+        { id: loadingToast }
+      );
+    } finally {
+      setIsRefunding(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#15161a] text-white flex flex-col">
       <AppHeader
@@ -649,6 +616,7 @@ export default function PoolDetailsPage() {
         showTitle={false}
         backgroundColor="#15161a"
         showGetTokensButton={true}
+        showCreateButton={true}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
         onBackClick={handleBackClick}
@@ -659,27 +627,24 @@ export default function PoolDetailsPage() {
 
       {/* Fixed bottom elements */}
       <FixedBottomBar
-        showCommitButton={showCommitButton}
+        showCommitButton={true}
         onCommitClick={() => setIsCommitModalOpen(true)}
         commitButtonText={commitButtonText}
       />
 
       {/* Commit Modal */}
-      <CommitModal
-        isOpen={isCommitModalOpen}
-        onClose={() => setIsCommitModalOpen(false)}
-        pool={pool}
-        dbUser={dbUser}
-        usdcBalance={usdcBalance}
-        commitAmount={commitAmount}
-        isApproving={isApproving}
-        isUsingCache={isUsingCachedBalance}
-        walletsReady={walletsReady}
-        handleMaxClick={handleMaxClick}
-        handleCommit={handleCommit}
-        setCommitAmount={setCommitAmount}
-        refreshBalance={refreshBalance}
-      />
+      {isCommitModalOpen && (
+        <CommitModal
+          isOpen={isCommitModalOpen}
+          onClose={() => setIsCommitModalOpen(false)}
+          onCommit={handleCommit}
+          commitAmount={commitAmount}
+          setCommitAmount={setCommitAmount}
+          isApproving={isCommitting}
+          tiers={tiers}
+          isLoadingTiers={isLoadingTiers}
+        />
+      )}
 
       {/* Get Tokens Modal */}
       {showTokensModal && (

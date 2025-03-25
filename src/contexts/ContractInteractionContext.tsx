@@ -1,8 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useCallback } from "react";
+import React, { createContext, useContext, useCallback, useState } from "react";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { useContractInteraction as useContractInteractionHook } from "../hooks/useContractInteraction";
+import { useDeposit } from "../hooks/useDeposit";
 import {
   ContractPool,
   StageDotFunPoolABI,
@@ -18,7 +19,6 @@ interface PoolCreationData {
   ticker: string;
   description: string;
   target_amount: number;
-  min_commitment: number;
   currency: string;
   token_amount: number;
   token_symbol: string;
@@ -31,6 +31,8 @@ interface PoolCreationData {
   raised_amount: number;
   image_url: string | null;
   social_links: any;
+  tiers?: any[];
+  cap_amount?: number;
 }
 
 // Update the ContractResult type to include data property
@@ -42,14 +44,25 @@ interface ContractResult {
 }
 
 // Define the context type
-export interface ContractInteractionContextType {
+export type ContractInteractionContextType = {
+  privyReady: boolean;
+  walletsReady: boolean;
   createPool: (
     name: string,
     uniqueId: string,
     symbol: string,
     endTime: number,
     targetAmount: number,
-    minCommitment: number
+    minCommitment: number,
+    tiers: {
+      name: string;
+      price: number;
+      nftMetadata: string;
+      isVariablePrice: boolean;
+      minPrice: number;
+      maxPrice: number;
+      maxPatrons: number;
+    }[]
   ) => Promise<any>;
   createPoolWithDatabase: (
     poolData: PoolCreationData,
@@ -64,7 +77,8 @@ export interface ContractInteractionContextType {
   getPoolDetails: (poolAddress: string) => Promise<any>;
   depositToPool: (
     poolAddress: string,
-    amount: number
+    amount: number,
+    tierId: number
   ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
   withdrawFromPool: (
     poolAddress: string,
@@ -101,9 +115,7 @@ export interface ContractInteractionContextType {
   getBalance: (userAddress: string) => Promise<string>;
   getNativeBalance: (userAddress: string) => Promise<string>;
   walletAddress: string | null;
-  walletsReady: boolean;
-  privyReady: boolean;
-}
+};
 
 // Create the context
 export const ContractInteractionContext =
@@ -116,7 +128,8 @@ export const ContractInteractionContext =
       symbol: string,
       endTime: number,
       targetAmount: number,
-      minCommitment: number
+      minCommitment: number,
+      tiers: []
     ) => {
       throw new Error("ContractInteractionContext not initialized");
     },
@@ -166,9 +179,12 @@ export const ContractInteractionProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   const contractInteraction = useContractInteractionHook();
-  const { ready: privyReady } = usePrivy();
+  const { depositToPool: depositToPoolHook } = useDeposit();
+  const { ready: privyReady, user } = usePrivy();
   const { ready: walletsReady, wallets } = useWallets();
   const { sendTransaction } = useSendTransaction();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Distribute revenue function
   const distributeRevenue = async (
@@ -498,6 +514,43 @@ export const ContractInteractionProvider: React.FC<{
     }
   };
 
+  // Get user's native MON balance
+  const getNativeBalance = useCallback(
+    async (userAddress: string): Promise<string> => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(
+          `/api/zerion/balance?address=${userAddress}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch balance: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data.balance || "0";
+      } catch (err: any) {
+        console.error("Error getting native MON balance:", err);
+        setError(err.message || "Error getting native MON balance");
+        return "0";
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  // Update depositToPool to use the new hook
+  const depositToPool = async (
+    poolAddress: string,
+    amount: number,
+    tierId: number
+  ): Promise<{ success: boolean; error?: string; txHash?: string }> => {
+    return depositToPoolHook(poolAddress, amount, tierId);
+  };
+
   const contextValue: ContractInteractionContextType = {
     ...contractInteraction,
     privyReady,
@@ -509,6 +562,11 @@ export const ContractInteractionProvider: React.FC<{
       success: false,
       error: "Not implemented",
     }),
+    getNativeBalance,
+    isLoading,
+    error,
+    walletAddress: user?.wallet?.address || null,
+    depositToPool,
   };
 
   return (
