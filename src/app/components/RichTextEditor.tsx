@@ -12,7 +12,7 @@ import {
   FaYoutube,
   FaImage,
 } from "react-icons/fa";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuthenticatedSupabase } from "@/hooks/useAuthenticatedSupabase";
 import { uploadPoolImage } from "@/lib/utils/imageUpload";
 
@@ -55,6 +55,13 @@ export default function RichTextEditor({
       onChange(editor.getHTML());
     },
   });
+
+  // Update editor content when content prop changes
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content);
+    }
+  }, [content, editor]);
 
   if (!editor) {
     return null;

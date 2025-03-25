@@ -31,6 +31,7 @@ export type Pool = {
   funding_stage: string;
   ends_at: string;
   target_amount: number;
+  cap_amount?: number; // Optional cap amount for the pool
   raised_amount: number;
   currency: string;
   token_amount: number;

@@ -40,11 +40,13 @@ export default function UnfundedPoolView({
               {formatCurrency(raisedAmount)}
             </div>
             <div className="flex items-center">
-              <span className="text-xl text-gray-400">
-                Ended {new Date(pool.ends_at).toLocaleDateString()} - Target not
-                reached
-              </span>
+              <span className="text-xl text-gray-400">Target not reached</span>
             </div>
+            {pool.cap_amount && pool.cap_amount > 0 && (
+              <div className="text-sm text-gray-400 mt-1">
+                Cap: ${pool.cap_amount.toLocaleString()}
+              </div>
+            )}
           </div>
 
           {/* User's Commitment - with refund option */}

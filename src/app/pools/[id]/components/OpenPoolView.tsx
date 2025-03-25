@@ -61,12 +61,11 @@ export default function OpenPoolView({
           </div>
 
           {/* Progress Bar */}
-          <div className="w-full h-2 bg-gray-800 rounded-full mb-6">
+          <div className="w-full h-4 bg-gray-800 rounded-full mb-6">
             <div
-              className="h-full rounded-full"
+              className="h-full rounded-full bg-[#836EF9]"
               style={{
                 width: `${Math.min(percentage, 100)}%`,
-                backgroundColor: "#836EF9",
               }}
             ></div>
           </div>
