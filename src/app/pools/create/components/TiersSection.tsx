@@ -501,7 +501,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   };
 
   return (
-    <div className="bg-[#FFFFFF0A] p-6 rounded-[16px] mb-6">
+    <div className="mb-12">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Tiers</h2>
         <button
@@ -516,7 +516,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
       <div className="space-y-6">
         {tiers.map((tier, index) => (
-          <div key={tier.id} className="bg-[#FFFFFF0A] p-6 rounded-lg relative">
+          <div key={tier.id}>
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-xl font-semibold">
                 Tier {index + 1} Details
@@ -530,9 +530,63 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
               </button>
             </div>
 
-            <div className="flex gap-6">
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Right side - Tier image - Moved up and reordered for mobile */}
+              <div className="order-first md:order-last w-full md:w-[200px] h-[200px]">
+                <div className="relative w-full h-full rounded-lg overflow-hidden bg-[#FFFFFF14] group">
+                  {tier.imageUrl ? (
+                    <Image
+                      src={tier.imageUrl}
+                      alt={`${tier.name} tier image`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 200px"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-center p-4">
+                      <div className="text-2xl font-bold text-[#836EF9] opacity-50">
+                        {tier.name || "TIER"} ACCESS
+                      </div>
+                    </div>
+                  )}
+                  <label
+                    htmlFor={`tier-image-${tier.id}`}
+                    className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    <input
+                      id={`tier-image-${tier.id}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(e, tier.id)}
+                      className="hidden"
+                    />
+                    <div className="flex flex-col items-center gap-2">
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                      </svg>
+                      <span className="text-white">
+                        {isUploadingImage[tier.id]
+                          ? "Uploading..."
+                          : tier.imageUrl
+                          ? "Change Image"
+                          : "Upload Image"}
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
               {/* Left side - Tier details grid */}
-              <div className="flex-1 grid grid-cols-1 gap-4">
+              <div className="order-last md:order-first flex-1 grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Name
@@ -640,66 +694,9 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                   </label>
                 </div>
               </div>
-
-              {/* Right side - Tier image */}
-              <div className="w-[200px] h-[200px]">
-                <div className="relative w-full h-full rounded-lg overflow-hidden bg-[#FFFFFF14] group">
-                  {tier.imageUrl ? (
-                    <Image
-                      src={tier.imageUrl}
-                      alt={`${tier.name} tier image`}
-                      fill
-                      className="object-cover"
-                      sizes="200px"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-center p-4">
-                      <div className="text-2xl font-bold text-[#836EF9] opacity-50">
-                        {tier.name || "TIER"} ACCESS
-                      </div>
-                    </div>
-                  )}
-                  <label
-                    htmlFor={`tier-image-${tier.id}`}
-                    className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                  >
-                    <input
-                      id={`tier-image-${tier.id}`}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleImageUpload(e, tier.id)}
-                      className="hidden"
-                    />
-                    <div className="flex flex-col items-center gap-2">
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="white"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                      </svg>
-                      <span className="text-white">
-                        {isUploadingImage[tier.id]
-                          ? "Uploading..."
-                          : tier.imageUrl
-                          ? "Change Image"
-                          : "Upload Image"}
-                      </span>
-                    </div>
-                  </label>
-                </div>
-              </div>
             </div>
 
             <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Description
-              </label>
               <textarea
                 value={tier.description}
                 onChange={(e) =>
@@ -717,7 +714,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
               </label>
               <div className="space-y-2">
                 {/* Default NFT reward */}
-                <div className="flex items-center justify-between p-3 bg-[#FFFFFF1A] rounded-lg">
+                <div className="flex items-center justify-between p-2 rounded-lg">
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 flex items-center justify-center">
                       <CheckIcon className="w-4 h-4 text-[#836EF9]" />
@@ -742,7 +739,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                   .map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between p-3 bg-[#FFFFFF1A] rounded-lg"
+                      className="flex items-center justify-between p-2 rounded-lg"
                     >
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-5 flex items-center justify-center">

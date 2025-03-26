@@ -140,19 +140,6 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
               </button>
             </div>
           </div>
-
-          {/* Currency Selector */}
-          <div className="relative">
-            <div className="h-full px-4 bg-[#FFFFFF14] rounded-lg flex items-center gap-2">
-              <Image
-                src="/images/usdc-logo.svg"
-                alt="USDC"
-                width={24}
-                height={24}
-              />
-              <span>USDC</span>
-            </div>
-          </div>
         </div>
       </div>
 
