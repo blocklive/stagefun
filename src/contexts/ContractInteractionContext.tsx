@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useCallback, useState } from "react";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { useContractInteraction as useContractInteractionHook } from "../hooks/useContractInteraction";
+import { usePoolCreationContract } from "../hooks/usePoolCreationContract";
 import { useDeposit } from "../hooks/useDeposit";
 import {
   ContractPool,
@@ -179,6 +180,7 @@ export const ContractInteractionProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   const contractInteraction = useContractInteractionHook();
+  const poolCreationContract = usePoolCreationContract();
   const { depositToPool: depositToPoolHook } = useDeposit();
   const { ready: privyReady, user } = usePrivy();
   const { ready: walletsReady, wallets } = useWallets();
@@ -553,6 +555,7 @@ export const ContractInteractionProvider: React.FC<{
 
   const contextValue: ContractInteractionContextType = {
     ...contractInteraction,
+    ...poolCreationContract,
     privyReady,
     walletsReady,
     distributeRevenue,
@@ -563,9 +566,12 @@ export const ContractInteractionProvider: React.FC<{
       error: "Not implemented",
     }),
     getNativeBalance,
-    isLoading,
-    error,
-    walletAddress: user?.wallet?.address || null,
+    isLoading:
+      contractInteraction.isLoading ||
+      poolCreationContract.isLoading ||
+      isLoading,
+    error: contractInteraction.error || poolCreationContract.error || error,
+    walletAddress: contractInteraction.walletAddress,
     depositToPool,
   };
 
