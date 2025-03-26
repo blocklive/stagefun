@@ -218,7 +218,6 @@ export default function PoolDetailsPage() {
       }
 
       await depositToPool(pool.contract_address, numericAmount, tierIndex);
-      toast.success("Successfully committed to pool");
       setIsCommitModalOpen(false);
       router.refresh();
     } catch (error: any) {

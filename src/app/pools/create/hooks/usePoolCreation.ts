@@ -215,6 +215,9 @@ export const usePoolCreation = () => {
       );
 
       if (result.success) {
+        // Replace current history entry with pools home so back doesn't return to create form
+        router.replace("/pools");
+        // Then navigate to the new pool details
         router.push(`/pools/${result.data.id}`);
       } else {
         setError(result.error || "Failed to create pool");

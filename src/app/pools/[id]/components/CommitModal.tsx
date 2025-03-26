@@ -123,9 +123,10 @@ export default function CommitModal({
                       </span>
                     </div>
                     {tier.description && (
-                      <p className="text-sm text-gray-400 mt-1">
-                        {tier.description}
-                      </p>
+                      <div
+                        className="text-sm text-gray-400 mt-1"
+                        dangerouslySetInnerHTML={{ __html: tier.description }}
+                      />
                     )}
                     <div className="text-sm text-gray-400 mt-1">
                       {(tier as any).currentPatrons} /{" "}

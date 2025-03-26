@@ -5,6 +5,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract StageDotFunLiquidity is ERC20, Ownable {
+    // Add storage for name and symbol since we're initializing after construction
+    string private _tokenName;
+    string private _tokenSymbol;
+    
     // Add initializer modifier
     modifier initializer() {
         require(!initialized, "Already initialized");
@@ -17,8 +21,21 @@ contract StageDotFunLiquidity is ERC20, Ownable {
     
     // Add initialize function
     function initialize(string memory name, string memory symbol) external initializer {
+        // Store the name and symbol
+        _tokenName = name;
+        _tokenSymbol = symbol;
+        
         // Transfer ownership to the factory
         _transferOwnership(msg.sender);
+    }
+    
+    // Override ERC20 name() and symbol() functions to use our storage variables
+    function name() public view virtual override returns (string memory) {
+        return _tokenName;
+    }
+    
+    function symbol() public view virtual override returns (string memory) {
+        return _tokenSymbol;
     }
     
     // Track all holders
