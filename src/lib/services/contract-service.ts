@@ -12,6 +12,7 @@ import {
 import { supabase } from "../supabase";
 import { POOL_ABI } from "../abi/pool-abi";
 import { StageDotFunPoolABI } from "../contracts/StageDotFunPool";
+import { getRecommendedGasParams } from "../contracts/gas-utils";
 
 /**
  * Creates a pool in the smart contract
@@ -49,6 +50,8 @@ export async function createPoolOnChain(
 }> {
   const factory = getStageDotFunPoolFactoryContract(signer);
   const signerAddress = await signer.getAddress();
+
+  // Create the transaction object with gas parameters
   const tx = await factory.createPool(
     name,
     uniqueId,
@@ -58,8 +61,12 @@ export async function createPoolOnChain(
     signerAddress, // creator
     targetAmount,
     capAmount,
-    tiers
+    tiers,
+    {
+      ...getRecommendedGasParams(),
+    }
   );
+
   const receipt = await tx.wait();
 
   // Get pool address from event

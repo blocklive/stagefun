@@ -5,6 +5,7 @@ import {
   getContractAddresses,
 } from "../../contracts/StageDotFunPool";
 import { StageDotFunPoolABI } from "../../contracts/StageDotFunPool";
+import { getRecommendedGasParams } from "../../contracts/gas-utils";
 
 export interface DepositRequirements {
   tierIdValid: boolean;
@@ -112,6 +113,7 @@ export class DepositService {
         value: "0",
         from: signerAddress,
         chainId: 10143, // Monad Testnet
+        ...getRecommendedGasParams(),
       });
 
       const receipt = await tx.wait();
@@ -149,7 +151,7 @@ export class DepositService {
         value: "0",
         from: signerAddress,
         chainId: 10143, // Monad Testnet
-        gasLimit: 5000000,
+        ...getRecommendedGasParams(),
       });
 
       const receipt = await tx.wait();

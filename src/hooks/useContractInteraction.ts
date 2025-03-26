@@ -15,6 +15,10 @@ import {
   getPoolByName,
   getPoolContract,
 } from "../lib/contracts/StageDotFunPool";
+import {
+  getRecommendedGasParams,
+  getRecommendedGasParamsAsStrings,
+} from "../lib/contracts/gas-utils";
 
 interface ContractInteractionHookResult {
   isLoading: boolean;
@@ -142,7 +146,10 @@ export function useContractInteraction(): ContractInteractionHookResult {
           amount,
           tokenAddress,
           tokenType,
-          tokenId
+          tokenId,
+          {
+            ...getRecommendedGasParams(),
+          }
         );
         await tx.wait();
         return true;
@@ -240,12 +247,14 @@ export function useContractInteraction(): ContractInteractionHookResult {
           amountInWei,
         ]);
 
+        // Prepare the transaction request
         const withdrawRequest = {
           to: poolAddress,
           data: withdrawData,
           value: "0",
           from: signerAddress,
           chainId: 10143, // Monad Testnet
+          ...getRecommendedGasParamsAsStrings(),
         };
 
         const withdrawUiOptions = {
@@ -359,6 +368,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
           value: "0",
           from: signerAddress,
           chainId: 10143, // Monad Testnet
+          ...getRecommendedGasParamsAsStrings(),
         };
 
         // Set UI options for the transaction
@@ -463,6 +473,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
           value: "0",
           from: signerAddress,
           chainId: 10143, // Monad Testnet
+          ...getRecommendedGasParamsAsStrings(),
         };
 
         // Set UI options for the transaction
@@ -689,7 +700,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
 
         // Call the distributeRevenue function - note that it doesn't take any parameters
         const tx = await poolContract.distributeRevenue({
-          gasLimit: 3000000, // Increased gas limit for safety
+          ...getRecommendedGasParams(),
         });
 
         console.log("Distribution transaction submitted:", tx.hash);
