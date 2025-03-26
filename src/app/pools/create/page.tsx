@@ -330,7 +330,7 @@ export default function CreatePoolPage() {
         )}
 
         {/* Main content */}
-        <div className="px-6" style={{ paddingBottom: "100px" }}>
+        <div className="px-6" style={{ paddingBottom: "40px" }}>
           {/* Pool Details, Funding, and Image Section */}
           <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] gap-x-8 gap-y-6 md:gap-y-0 mt-8">
             {/* Left Column: Pool Details and Funding */}
@@ -380,7 +380,7 @@ export default function CreatePoolPage() {
 
             {/* Description */}
             <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-4">Description</h2>
+              <h2 className="text-2xl font-bold mb-4">Pool Description</h2>
               <RichTextEditor
                 content={description}
                 onChange={(value) => setDescription(value)}
@@ -421,7 +421,7 @@ export default function CreatePoolPage() {
         </div>
 
         {/* Launch Button */}
-        <div className="fixed bottom-0 left-0 right-0 md:static md:mt-8 px-6 py-6 bg-[#15161a] md:px-0 md:py-0 z-10">
+        <div className="fixed bottom-0 left-0 right-0 md:static md:mt-4 px-6 py-6 bg-[#15161a] md:px-0 md:py-0 z-10">
           <button
             onClick={onSubmit}
             className="w-full py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors"

@@ -80,11 +80,8 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      console.log("Fetching user with wallet address:", walletAddress);
-
       // Try to get the user from the database
       const user = await getUserByWalletAddress(walletAddress);
-      console.log("User from database:", user);
 
       // If the user doesn't exist, create a new one
       if (!user) {

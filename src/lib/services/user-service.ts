@@ -73,7 +73,6 @@ export async function getUserByWalletAddress(
       throw error;
     }
 
-    console.log("User found:", data);
     return data as User;
   } catch (error) {
     console.error("Error in getUserByWalletAddress:", error);

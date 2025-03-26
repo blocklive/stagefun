@@ -9,6 +9,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { uploadTierImage } from "@/lib/utils/imageUpload";
 import { AddRewardModal } from "./AddRewardModal";
 import NumberInput from "@/app/components/NumberInput";
+import RichTextEditor from "@/app/components/RichTextEditor";
 import Image from "next/image";
 import { Tier, RewardItem } from "../types";
 import { toast } from "react-hot-toast";
@@ -697,14 +698,13 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
             </div>
 
             <div className="mt-6">
-              <textarea
-                value={tier.description}
-                onChange={(e) =>
-                  updateTier(tier.id, "description", e.target.value)
-                }
-                className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Tier Description
+              </label>
+              <RichTextEditor
+                content={tier.description}
+                onChange={(value) => updateTier(tier.id, "description", value)}
                 placeholder="Describe what this tier includes..."
-                rows={3}
               />
             </div>
 
