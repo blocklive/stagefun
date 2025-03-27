@@ -6,9 +6,15 @@ import type {
 } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import { toast } from "react-hot-toast";
-import { createPoolOnChain } from "../lib/services/contract-service";
-import { toUSDCBaseUnits } from "../lib/contracts/StageDotFunPool";
+import { createPoolWithSmartWallet } from "../lib/services/contract-service";
+import {
+  toUSDCBaseUnits,
+  StageDotFunPoolFactoryABI,
+  StageDotFunPoolABI,
+} from "../lib/contracts/StageDotFunPool";
 import { supabase } from "../lib/supabase";
+import { CONTRACT_ADDRESSES } from "../lib/contracts/addresses";
+import { useSmartWallet } from "./useSmartWallet";
 
 // Define the interface for pool creation data
 interface PoolCreationData {
@@ -40,7 +46,7 @@ interface BlockchainPoolResult {
   transactionHash: string;
 }
 
-interface PoolCreationHookResult {
+export interface PoolCreationHookResult {
   isLoading: boolean;
   error: string | null;
   createPool: (
@@ -49,7 +55,7 @@ interface PoolCreationHookResult {
     symbol: string,
     endTime: number,
     targetAmount: number,
-    minCommitment: number,
+    capAmount: number,
     tiers: {
       name: string;
       price: number;
@@ -59,14 +65,19 @@ interface PoolCreationHookResult {
       maxPrice: number;
       maxPatrons: number;
     }[]
-  ) => Promise<any>;
+  ) => Promise<{
+    receipt: ethers.TransactionReceipt;
+    poolAddress: string;
+    lpTokenAddress: string;
+    transactionHash: string;
+  }>;
   createPoolWithDatabase: (
-    poolData: PoolCreationData,
+    poolData: any,
     endTimeUnix: number
   ) => Promise<{
     success: boolean;
-    data?: any;
     error?: string;
+    poolAddress?: string;
     txHash?: string;
   }>;
 }
@@ -75,6 +86,11 @@ export function usePoolCreationContract(): PoolCreationHookResult {
   const { user, ready: privyReady } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
   const { sendTransaction } = useSendTransaction();
+  const {
+    callContractFunction,
+    smartWalletAddress,
+    isLoading: smartWalletIsLoading,
+  } = useSmartWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,7 +159,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
       symbol: string,
       endTime: number,
       targetAmount: number,
-      minCommitment: number,
+      capAmount: number,
       tiers: {
         name: string;
         price: number;
@@ -162,67 +178,21 @@ export function usePoolCreationContract(): PoolCreationHookResult {
           throw new Error("User not logged in");
         }
 
-        console.log(
-          "***Starting pool creation process for:",
-          name,
-          "uniqueId:",
-          uniqueId,
-          "symbol:",
-          symbol,
-          "endTime:",
-          endTime,
-          "targetAmount:",
-          targetAmount,
-          "minCommitment:",
-          minCommitment,
-          "tiers:",
-          tiers
-        );
-
-        // Get the embedded wallet
-        console.log(
-          "Available wallets for pool creation:",
-          wallets.map((w) => ({
-            address: w.address,
-            type: w.walletClientType,
-            chainId: w.chainId,
-          }))
-        );
-
-        const embeddedWallet = wallets.find(
-          (wallet) => wallet.walletClientType === "privy"
-        );
-
-        if (!embeddedWallet) {
-          console.error(
-            "No embedded wallet found for pool creation. Available wallets:",
-            wallets.map((w) => w.walletClientType)
-          );
+        if (!smartWalletAddress) {
           throw new Error(
-            "No embedded wallet found. Please try logging out and logging in again."
+            "Smart wallet not available. Please contact support."
           );
         }
 
         console.log(
-          "Using embedded wallet for pool creation:",
-          embeddedWallet.address
+          "Starting pool creation process with smart wallet for:",
+          name
         );
 
-        // Get the provider and signer
-        const provider = await embeddedWallet.getEthereumProvider();
-        const ethersProvider = new ethers.BrowserProvider(provider);
-        const signer = await ethersProvider.getSigner();
-
-        console.log("Got signer for address:", await signer.getAddress());
-
-        // Convert target amount to USDC base units (6 decimals)
-        const targetAmountBigInt = BigInt(targetAmount); // Already in USDC base units from createPoolWithDatabase
-        const capAmountBigInt = BigInt(targetAmount); // Already in USDC base units from createPoolWithDatabase
-
-        // Convert tiers to the format expected by the contract
+        // Prepare tier data for the contract
         const tierInitData = tiers.map((tier) => ({
           name: tier.name,
-          price: BigInt(tier.price), // Already in USDC base units from createPoolWithDatabase
+          price: BigInt(tier.price), // Already in USDC base units
           nftMetadata: tier.nftMetadata || "",
           isVariablePrice: tier.isVariablePrice || false,
           minPrice: tier.isVariablePrice ? BigInt(tier.minPrice) : BigInt(0),
@@ -230,81 +200,27 @@ export function usePoolCreationContract(): PoolCreationHookResult {
           maxPatrons: BigInt(tier.maxPatrons || 0),
         }));
 
-        console.log("Creating pool with parameters:", {
-          name,
-          uniqueId,
-          symbol,
-          endTime,
-          targetAmount: targetAmountBigInt.toString(),
-          signerAddress: await signer.getAddress(),
-          tiers: tierInitData.map((t) => ({
-            ...t,
-            price: t.price.toString(),
-            minPrice: t.minPrice.toString(),
-            maxPrice: t.maxPrice.toString(),
-            maxPatrons: t.maxPatrons.toString(),
-          })),
-        });
-
-        // Use createPoolOnChain from the contract service
-        const result = await createPoolOnChain(
-          signer,
+        // Use the contract service's smart wallet implementation with type assertions
+        const result = await createPoolWithSmartWallet(
+          callContractFunction as any,
+          getProvider as any,
+          smartWalletAddress as `0x${string}`,
           name,
           uniqueId,
           symbol,
           BigInt(endTime),
-          targetAmountBigInt,
-          capAmountBigInt,
+          BigInt(targetAmount),
+          BigInt(capAmount),
           tierInitData
         );
 
-        console.log("Pool creation transaction confirmed:", result.receipt);
-
-        if (!result.receipt) {
-          throw new Error("Transaction failed");
-        }
-
-        // Create the pool object from the result
-        const pool = {
-          name,
-          uniqueId,
-          creator: await signer.getAddress(),
-          totalDeposits: BigInt(0),
-          revenueAccumulated: BigInt(0),
-          endTime: BigInt(endTime),
-          targetAmount: targetAmountBigInt,
-          capAmount: capAmountBigInt,
-          status: 1, // ACTIVE status
-          lpTokenAddress: result.lpTokenAddress,
-          nftContractAddress: ethers.ZeroAddress, // Will be set when NFT contract is deployed
-          tierCount: BigInt(tiers.length),
-          minCommitment: BigInt(0),
-          lpHolders: [],
-          milestones: [],
-          emergencyMode: false,
-          emergencyWithdrawalRequestTime: BigInt(0),
-          authorizedWithdrawer: ethers.ZeroAddress,
-        };
-
-        console.log("Pool details:", {
-          name: pool.name,
-          uniqueId: pool.uniqueId,
-          creator: pool.creator,
-          totalDeposits: pool.totalDeposits.toString(),
-          revenueAccumulated: pool.revenueAccumulated.toString(),
-          endTime: pool.endTime.toString(),
-          targetAmount: pool.targetAmount.toString(),
-          capAmount: pool.capAmount.toString(),
-          status: pool.status,
-          lpTokenAddress: pool.lpTokenAddress,
-          tierCount: pool.tierCount.toString(),
-        });
+        console.log("Pool creation completed successfully:", result);
 
         return {
           receipt: result.receipt,
-          poolAddress: result.poolId,
+          poolAddress: result.poolAddress,
           lpTokenAddress: result.lpTokenAddress,
-          transactionHash: result.receipt.hash,
+          transactionHash: result.transactionHash,
         };
       } catch (err: any) {
         console.error("Error creating pool:", err);
@@ -314,7 +230,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         setIsLoading(false);
       }
     },
-    [user, wallets]
+    [user, smartWalletAddress, callContractFunction, getProvider]
   );
 
   // Helper function to create and link reward items
@@ -408,6 +324,12 @@ export function usePoolCreationContract(): PoolCreationHookResult {
       try {
         if (!user) {
           throw new Error("User not logged in");
+        }
+
+        if (!smartWalletAddress) {
+          throw new Error(
+            "Smart wallet not available. Please contact support."
+          );
         }
 
         console.log("Starting pool creation process with data:", poolData);
@@ -582,6 +504,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         return {
           success: true,
           data: insertedPool,
+          poolAddress: blockchainResult.poolAddress,
           txHash: blockchainResult.transactionHash,
         };
       } catch (err: any) {
@@ -596,11 +519,11 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         setIsLoading(false);
       }
     },
-    [user, createPool]
+    [user, createPool, smartWalletAddress]
   );
 
   return {
-    isLoading,
+    isLoading: isLoading || smartWalletIsLoading,
     error,
     createPool,
     createPoolWithDatabase,

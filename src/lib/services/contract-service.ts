@@ -13,6 +13,8 @@ import { supabase } from "../supabase";
 import { POOL_ABI } from "../abi/pool-abi";
 import { StageDotFunPoolABI } from "../contracts/StageDotFunPool";
 import { getRecommendedGasParams } from "../contracts/gas-utils";
+import { CONTRACT_ADDRESSES } from "../contracts/StageDotFunPool";
+import { StageDotFunPoolFactoryABI } from "../contracts/StageDotFunPool";
 
 /**
  * Creates a pool in the smart contract
@@ -96,6 +98,167 @@ export async function createPoolOnChain(
     receipt,
     poolId: poolAddress,
     lpTokenAddress,
+  };
+}
+
+/**
+ * Creates a pool using a smart wallet with paymaster for gas sponsorship
+ * @param callContractFunction Function from SmartWallet hook to call contract functions
+ * @param getProvider Function to get a provider for querying the blockchain
+ * @param smartWalletAddress The address of the smart wallet
+ * @param name The name of the pool
+ * @param uniqueId The unique ID of the pool
+ * @param symbol The symbol of the pool
+ * @param endTime The end time of the pool
+ * @param targetAmount The target amount of the pool
+ * @param capAmount The maximum amount that can be raised
+ * @param tiers The tiers data for the pool
+ * @returns The transaction receipt, pool address and LP token address
+ */
+export async function createPoolWithSmartWallet(
+  callContractFunction: (
+    contractAddress: string,
+    abi: any,
+    functionName: string,
+    args: any[],
+    description: string
+  ) => Promise<{ success: boolean; error?: string; txHash?: string }>,
+  getProvider: () => Promise<ethers.Provider>,
+  smartWalletAddress: string,
+  name: string,
+  uniqueId: string,
+  symbol: string,
+  endTime: bigint,
+  targetAmount: bigint,
+  capAmount: bigint,
+  tiers: {
+    name: string;
+    price: bigint;
+    nftMetadata: string;
+    isVariablePrice: boolean;
+    minPrice: bigint;
+    maxPrice: bigint;
+    maxPatrons: bigint;
+  }[]
+): Promise<{
+  receipt: ethers.TransactionReceipt;
+  poolAddress: string;
+  lpTokenAddress: string;
+  transactionHash: string;
+}> {
+  console.log(
+    "Starting pool creation process with smart wallet for:",
+    name,
+    "uniqueId:",
+    uniqueId,
+    "symbol:",
+    symbol,
+    "endTime:",
+    endTime,
+    "targetAmount:",
+    targetAmount,
+    "capAmount:",
+    capAmount,
+    "tiers:",
+    tiers.map((t) => ({
+      ...t,
+      price: t.price.toString(),
+      minPrice: t.minPrice.toString(),
+      maxPrice: t.maxPrice.toString(),
+      maxPatrons: t.maxPatrons.toString(),
+    }))
+  );
+
+  const factoryAddress = CONTRACT_ADDRESSES.monadTestnet
+    .stageDotFunPoolFactory as `0x${string}`;
+
+  // Set up arguments for the createPool function
+  const args = [
+    name,
+    uniqueId,
+    symbol,
+    endTime,
+    smartWalletAddress, // owner
+    smartWalletAddress, // creator
+    targetAmount,
+    capAmount,
+    tiers,
+  ];
+
+  // Call createPool on the factory contract using smart wallet
+  const result = await callContractFunction(
+    factoryAddress,
+    StageDotFunPoolFactoryABI,
+    "createPool",
+    args,
+    "Create New Funding Pool"
+  );
+
+  if (!result.success || !result.txHash) {
+    throw new Error(result.error || "Failed to create pool");
+  }
+
+  console.log("Pool creation transaction sent:", result.txHash);
+
+  // Get a provider to query the blockchain
+  const provider = await getProvider();
+
+  // Wait for transaction to be mined to get the receipt
+  const receipt = await provider.waitForTransaction(result.txHash);
+  console.log("Pool creation transaction confirmed:", receipt);
+
+  if (!receipt) {
+    throw new Error("Transaction failed");
+  }
+
+  // Find the PoolCreated event to get the pool address
+  const iface = new ethers.Interface(StageDotFunPoolFactoryABI);
+  let poolAddress = "";
+
+  for (const log of receipt.logs) {
+    try {
+      const parsedLog = iface.parseLog({
+        topics: log.topics as string[],
+        data: log.data,
+      });
+
+      if (parsedLog?.name === "PoolCreated") {
+        poolAddress = parsedLog.args[0];
+        break;
+      }
+    } catch (e) {
+      // Not the event we're looking for
+      continue;
+    }
+  }
+
+  if (!poolAddress) {
+    throw new Error("Could not find pool address in transaction logs");
+  }
+
+  // Get LP token address by querying the pool contract
+  console.log("Retrieving LP token address for pool:", poolAddress);
+  const poolContract = new ethers.Contract(
+    poolAddress,
+    StageDotFunPoolABI,
+    provider
+  );
+
+  // Call getPoolDetails() to get the LP token address
+  const poolDetails = await poolContract.getPoolDetails();
+  const lpTokenAddress = poolDetails[9]; // LP token address is the 10th return value (index 9)
+
+  console.log("Pool creation completed successfully:", {
+    poolAddress,
+    lpTokenAddress,
+    transactionHash: receipt.hash,
+  });
+
+  return {
+    receipt,
+    poolAddress,
+    lpTokenAddress,
+    transactionHash: receipt.hash,
   };
 }
 
