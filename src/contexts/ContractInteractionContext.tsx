@@ -1,10 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useCallback } from "react";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { useContractInteraction as useContractInteractionHook } from "../hooks/useContractInteraction";
 import { usePoolCreationContract } from "../hooks/usePoolCreationContract";
 import { useDeposit } from "../hooks/useDeposit";
+import { useSmartWallet } from "../hooks/useSmartWallet";
 import {
   ContractPool,
   StageDotFunPoolABI,
@@ -109,10 +110,49 @@ export const ContractInteractionProvider: React.FC<{
   const { ready: privyReady } = usePrivy();
   const { ready: walletsReady, wallets } = useWallets();
   const { sendTransaction } = useSendTransaction();
+  const { smartWalletAddress, callContractFunction } = useSmartWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Claim refund from a pool - this is specific to the context and not in the hook
+  // Function to get a provider for read operations
+  const getProvider = useCallback(async () => {
+    if (!walletsReady || !wallets.length) {
+      throw new Error("No wallets available - please connect your wallet");
+    }
+
+    try {
+      console.log(
+        "Available wallets:",
+        wallets.map((w) => ({
+          address: w.address,
+          type: w.walletClientType,
+          chainId: w.chainId,
+        }))
+      );
+
+      const embeddedWallet = wallets.find(
+        (wallet) => wallet.walletClientType === "privy"
+      );
+
+      if (!embeddedWallet) {
+        console.error(
+          "No embedded wallet found. Available wallets:",
+          wallets.map((w) => w.walletClientType)
+        );
+        throw new Error(
+          "No embedded wallet found. Please try logging out and logging in again."
+        );
+      }
+
+      const provider = await embeddedWallet.getEthereumProvider();
+      return new ethers.BrowserProvider(provider);
+    } catch (error) {
+      console.error("Error creating provider:", error);
+      throw error;
+    }
+  }, [walletsReady, wallets]);
+
+  // Claim refund from a pool - updated to use smart wallet
   const claimRefund = async (
     contractAddress: string
   ): Promise<{
@@ -121,36 +161,23 @@ export const ContractInteractionProvider: React.FC<{
     txHash?: string;
     data?: any;
   }> => {
-    if (!wallets || wallets.length === 0) {
-      return {
-        success: false,
-        error: "No wallet connected",
-      };
-    }
-
     try {
-      const embeddedWallet = wallets.find(
-        (wallet: any) => wallet.walletClientType === "privy"
-      );
-
-      if (!embeddedWallet) {
+      // Check if smart wallet is available
+      if (!smartWalletAddress) {
         return {
           success: false,
-          error:
-            "No embedded wallet found. Please try logging out and logging in again.",
+          error: "Smart wallet not available. Please log in again.",
         };
       }
 
-      const provider = await embeddedWallet.getEthereumProvider();
-      const ethersProvider = new ethers.BrowserProvider(provider);
-      const signer = await ethersProvider.getSigner();
-      const userAddress = await signer.getAddress();
+      // First, get a provider to check eligibility and pool details
+      const ethersProvider = await getProvider();
 
-      // Get the pool contract
+      // Create a read-only contract instance to check pool status
       const poolContract = new ethers.Contract(
         contractAddress,
         StageDotFunPoolABI,
-        signer
+        ethersProvider
       );
 
       // Get pool details to check status
@@ -175,7 +202,7 @@ export const ContractInteractionProvider: React.FC<{
 
       const isEligibleForRefund =
         poolDetails._status === 5 || // Already in FAILED state
-        (currentTime > endTime && totalDeposits < targetAmount); // End time passed and target not met
+        (currentTime > endTime && totalDeposits < targetAmount);
 
       if (!isEligibleForRefund) {
         console.log(
@@ -195,38 +222,19 @@ export const ContractInteractionProvider: React.FC<{
         };
       }
 
-      // Try to update the pool status if it's not already in FAILED state
-      if (poolDetails._status !== 5) {
-        console.log(
-          "Pool is eligible for refunds but status is not FAILED. Updating status..."
-        );
-        try {
-          const checkStatusTx = await poolContract.checkPoolStatus();
-          await checkStatusTx.wait();
-          console.log("Pool status check completed");
-
-          // Check status again
-          const updatedDetails = await poolContract.getPoolDetails();
-          console.log("Updated pool status:", updatedDetails._status);
-        } catch (statusError) {
-          console.error("Error updating pool status:", statusError);
-          // Continue anyway since we'll try a direct refund
-        }
-      }
-
       // Get LP token address from pool
       const lpTokenAddress = poolDetails._lpTokenAddress;
       console.log("LP Token address:", lpTokenAddress);
 
-      // Get LP token contract
+      // Get LP token contract to check balance
       const lpTokenContract = new ethers.Contract(
         lpTokenAddress,
         StageDotFunLiquidityABI,
-        signer
+        ethersProvider
       );
 
-      // Check LP token balance
-      const lpBalance = await lpTokenContract.balanceOf(userAddress);
+      // Check LP token balance for the smart wallet
+      const lpBalance = await lpTokenContract.balanceOf(smartWalletAddress);
       console.log("LP token balance:", lpBalance.toString());
 
       if (lpBalance <= BigInt(0)) {
@@ -239,7 +247,11 @@ export const ContractInteractionProvider: React.FC<{
 
       // Check USDC balance of the pool contract
       const usdcAddress = await poolContract.depositToken();
-      const usdcContract = new ethers.Contract(usdcAddress, ERC20_ABI, signer);
+      const usdcContract = new ethers.Contract(
+        usdcAddress,
+        ERC20_ABI,
+        ethersProvider
+      );
       const poolUsdcBalance = await usdcContract.balanceOf(contractAddress);
       console.log("Pool USDC balance:", poolUsdcBalance.toString());
 
@@ -254,70 +266,63 @@ export const ContractInteractionProvider: React.FC<{
         };
       }
 
-      // Try to call claimRefund directly
-      console.log("Attempting to claim refund...");
-      try {
-        // Create a direct transaction to call claimRefund
-        const poolInterface = new ethers.Interface(StageDotFunPoolABI);
-        const refundData = poolInterface.encodeFunctionData("claimRefund", []);
+      // Try to update the pool status if it's not already in FAILED state
+      if (poolDetails._status !== 5) {
+        console.log(
+          "Pool is eligible for refunds but status is not FAILED. Attempting to update status..."
+        );
+        try {
+          // Use smart wallet to call checkPoolStatus
+          const statusResult = await callContractFunction(
+            contractAddress as `0x${string}`,
+            StageDotFunPoolABI,
+            "checkPoolStatus",
+            [],
+            "Update pool status before refund"
+          );
 
-        const refundRequest = {
-          to: contractAddress,
-          data: refundData,
-          value: "0",
-        };
-
-        const uiOptions = {
-          description: `Claiming refund from pool`,
-          buttonText: "Claim Refund",
-          transactionInfo: {
-            title: "Claim Refund",
-            action: "Claim Refund from Pool",
-            contractInfo: {
-              name: "StageDotFun Pool",
-            },
-          },
-        };
-
-        const txHash = await sendTransaction(refundRequest, {
-          uiOptions,
-        });
-
-        console.log("Refund transaction sent:", txHash);
-        const receipt = await ethersProvider.waitForTransaction(txHash.hash);
-        console.log("Refund transaction receipt:", receipt);
-
-        if (!receipt?.status) {
-          return {
-            success: false,
-            error: "Transaction failed on chain",
-            data: {
-              receipt,
-              poolStatus: poolDetails._status,
-            },
-          };
+          if (!statusResult.success) {
+            console.warn(
+              "Failed to update pool status, but continuing with refund attempt"
+            );
+          } else {
+            console.log("Pool status check completed");
+          }
+        } catch (statusError) {
+          console.error("Error updating pool status:", statusError);
+          // Continue anyway since we'll try a direct refund
         }
+      }
 
-        return {
-          success: true,
-          txHash: txHash.hash,
-          data: {
-            lpBalance: lpBalance.toString(),
-            poolStatus: poolDetails._status,
-          },
-        };
-      } catch (directRefundError) {
-        console.error("Direct refund attempt failed:", directRefundError);
+      // Use smart wallet to claim refund
+      console.log("Attempting to claim refund with smart wallet...");
+      const result = await callContractFunction(
+        contractAddress as `0x${string}`,
+        StageDotFunPoolABI,
+        "claimRefund",
+        [],
+        "Claim refund from pool"
+      );
+
+      if (!result.success) {
         return {
           success: false,
-          error:
-            "Failed to claim refund. The transaction was rejected by the blockchain.",
+          error: result.error || "Failed to claim refund",
           data: {
-            error: directRefundError,
             poolStatus: poolDetails._status,
           },
         };
       }
+
+      console.log("Refund claimed successfully:", result.txHash);
+      return {
+        success: true,
+        txHash: result.txHash,
+        data: {
+          lpBalance: lpBalance.toString(),
+          poolStatus: poolDetails._status,
+        },
+      };
     } catch (error) {
       console.error("Error claiming refund:", error);
       return {
