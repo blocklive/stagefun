@@ -25,9 +25,9 @@ export interface DepositResult {
 
 export class DepositService {
   private provider: ethers.Provider;
-  private signer: ethers.Signer;
+  private signer?: ethers.Signer;
 
-  constructor(provider: ethers.Provider, signer: ethers.Signer) {
+  constructor(provider: ethers.Provider, signer?: ethers.Signer) {
     this.provider = provider;
     this.signer = signer;
   }
@@ -97,6 +97,13 @@ export class DepositService {
     poolAddress: string,
     amount: bigint
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    if (!this.signer) {
+      return {
+        success: false,
+        error: "Signer not available. Use smart wallet methods instead.",
+      };
+    }
+
     try {
       const usdcContract = getUSDCContract(this.provider);
       const usdcInterface = new ethers.Interface([
@@ -138,6 +145,13 @@ export class DepositService {
     tierId: number,
     tierPrice: bigint
   ): Promise<DepositResult> {
+    if (!this.signer) {
+      return {
+        success: false,
+        error: "Signer not available. Use smart wallet methods instead.",
+      };
+    }
+
     try {
       const poolContract = getPoolContract(this.provider, poolAddress);
       const poolInterface = new ethers.Interface(StageDotFunPoolABI);
@@ -189,6 +203,116 @@ export class DepositService {
         success: false,
         error:
           error instanceof Error ? error.message : "Failed to get tier details",
+      };
+    }
+  }
+
+  async approveUSDCWithSmartWallet(
+    callContractFunction: (
+      contractAddress: `0x${string}`,
+      abi: any,
+      functionName: string,
+      args: any[],
+      description: string
+    ) => Promise<{ success: boolean; error?: string; txHash?: string }>,
+    poolAddress: string,
+    amount: bigint
+  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    try {
+      const usdcAddress = getContractAddresses().usdc as `0x${string}`;
+      const usdcABI = [
+        "function approve(address spender, uint256 value) returns (bool)",
+      ];
+
+      // Call approve function on USDC contract using smart wallet
+      const result = await callContractFunction(
+        usdcAddress,
+        usdcABI,
+        "approve",
+        [poolAddress, amount],
+        "Approve USDC for Pool Deposit"
+      );
+
+      if (!result.success || !result.txHash) {
+        throw new Error(result.error || "Failed to approve USDC");
+      }
+
+      return { success: true, txHash: result.txHash };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to approve USDC",
+      };
+    }
+  }
+
+  async commitToTierWithSmartWallet(
+    callContractFunction: (
+      contractAddress: `0x${string}`,
+      abi: any,
+      functionName: string,
+      args: any[],
+      description: string
+    ) => Promise<{ success: boolean; error?: string; txHash?: string }>,
+    poolAddress: string,
+    tierId: number,
+    tierPrice: bigint
+  ): Promise<DepositResult> {
+    try {
+      // Call commitToTier function on pool contract using smart wallet
+      const result = await callContractFunction(
+        poolAddress as `0x${string}`,
+        StageDotFunPoolABI,
+        "commitToTier",
+        [BigInt(tierId), tierPrice],
+        "Commit to Pool Tier"
+      );
+
+      if (!result.success || !result.txHash) {
+        throw new Error(result.error || "Failed to commit to tier");
+      }
+
+      return { success: true, txHash: result.txHash };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to commit to tier",
+      };
+    }
+  }
+
+  // Add a new method to check user tier commitments
+  async getUserTierCommitments(
+    poolAddress: string,
+    userAddress: string
+  ): Promise<{ success: boolean; commitments?: number[]; error?: string }> {
+    try {
+      const poolContract = getPoolContract(this.provider, poolAddress);
+
+      // Call the getUserTierCommitments function from the smart contract
+      const tierCommitments = await poolContract.getUserTierCommitments(
+        userAddress
+      );
+
+      console.log("User tier commitments:", {
+        user: userAddress,
+        commitments: tierCommitments.map((tier: bigint) => tier.toString()),
+      });
+
+      return {
+        success: true,
+        commitments: tierCommitments.map((tier: bigint) => Number(tier)),
+      };
+    } catch (error) {
+      console.error("Error getting user tier commitments:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to get user tier commitments",
       };
     }
   }

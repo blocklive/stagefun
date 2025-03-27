@@ -1,8 +1,8 @@
-import { useUSDCBalance } from "./useUSDCBalance";
-import { useNativeBalance } from "./useNativeBalance";
 import { useUserHostedPools } from "./useUserHostedPools";
+import { useSmartWalletBalance } from "./useSmartWalletBalance";
 import { useMemo } from "react";
 import { useSupabase } from "../contexts/SupabaseContext";
+import { useSmartWallet } from "./useSmartWallet";
 
 interface Asset {
   name: string;
@@ -16,13 +16,15 @@ interface Asset {
 
 export function useUserAssets() {
   const { dbUser } = useSupabase();
+  const { smartWalletAddress } = useSmartWallet();
+
+  // Get USDC balance from smart wallet
   const {
-    balance: usdcBalance,
-    isLoading: isLoadingUsdc,
-    isUsingCache: isUsingCachedBalance,
-    refresh: refreshUsdcBalance,
-  } = useUSDCBalance();
-  const { balance: monBalance, isLoading: isLoadingMon } = useNativeBalance();
+    balance: smartWalletUsdcBalance,
+    isLoading: isLoadingSmartWalletUsdc,
+    isUsingCache: isUsingCachedSmartWalletBalance,
+    refresh: refreshSmartWalletUsdcBalance,
+  } = useSmartWalletBalance();
 
   // Pass the user ID directly - the hook will handle filtering internally
   const { pools: userPools, isLoading: isLoadingPools } = useUserHostedPools(
@@ -32,26 +34,19 @@ export function useUserAssets() {
   const assets = useMemo(() => {
     const result: Asset[] = [];
 
-    // Add MON (native token)
-    if (monBalance && parseFloat(monBalance) > 0) {
+    // Add USDC from smart wallet (if available)
+    if (
+      smartWalletAddress &&
+      smartWalletUsdcBalance &&
+      parseFloat(smartWalletUsdcBalance) > 0
+    ) {
       result.push({
-        name: "Monad",
-        symbol: "MON",
-        balance: monBalance,
-        value: parseFloat(monBalance), // 1 MON = 1 USDC
-        type: "native",
-      });
-    }
-
-    // Add USDC
-    if (usdcBalance && parseFloat(usdcBalance) > 0) {
-      result.push({
-        name: "Testnet USDC",
+        name: "USDC",
         symbol: "USDC",
-        balance: usdcBalance,
-        value: parseFloat(usdcBalance), // USDC is pegged to USD
+        balance: smartWalletUsdcBalance,
+        value: parseFloat(smartWalletUsdcBalance), // USDC is pegged to USD
         type: "token",
-        isUsingCache: isUsingCachedBalance,
+        isUsingCache: isUsingCachedSmartWalletBalance,
       });
     }
 
@@ -59,7 +54,11 @@ export function useUserAssets() {
     // Will be implemented properly in the future
 
     return result;
-  }, [usdcBalance, monBalance, isUsingCachedBalance]);
+  }, [
+    smartWalletUsdcBalance,
+    smartWalletAddress,
+    isUsingCachedSmartWalletBalance,
+  ]);
 
   const totalBalance = useMemo(() => {
     return assets.reduce((total, asset) => total + asset.value, 0).toFixed(2);
@@ -68,8 +67,8 @@ export function useUserAssets() {
   return {
     assets,
     totalBalance,
-    isLoading: isLoadingUsdc || isLoadingMon || isLoadingPools,
-    isUsingCachedBalance,
-    refreshUsdcBalance,
+    isLoading: isLoadingSmartWalletUsdc || isLoadingPools,
+    isUsingCachedSmartWalletBalance,
+    refreshUsdcBalance: refreshSmartWalletUsdcBalance,
   };
 }

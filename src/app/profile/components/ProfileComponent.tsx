@@ -14,7 +14,10 @@ import {
   FaKey,
   FaCheck,
   FaSync,
+  FaDollarSign,
+  FaUsers,
 } from "react-icons/fa";
+import { IoFlash } from "react-icons/io5";
 import Image from "next/image";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { getUserPools } from "../../../lib/services/pool-service";
@@ -29,6 +32,7 @@ import { useUserHostedPools } from "../../../hooks/useUserHostedPools";
 import GetTokensModal from "../../components/GetTokensModal";
 import InfoModal from "../../components/InfoModal";
 import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
+import { useSmartWallet } from "../../../hooks/useSmartWallet";
 
 export default function ProfileComponent() {
   const router = useRouter();
@@ -45,7 +49,7 @@ export default function ProfileComponent() {
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [isLoadingPools, setIsLoadingPools] = useState(true);
   const [copied, setCopied] = useState(false);
-  const walletAddress = privyUser?.wallet?.address;
+  const { smartWalletAddress } = useSmartWallet();
 
   // Avatar upload state
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -81,7 +85,7 @@ export default function ProfileComponent() {
     assets,
     totalBalance,
     isLoading: isLoadingAssets,
-    isUsingCachedBalance,
+    isUsingCachedSmartWalletBalance,
     refreshUsdcBalance,
   } = useUserAssets();
 
@@ -414,10 +418,14 @@ export default function ProfileComponent() {
     }
   };
 
-  // Function to handle export wallet
+  // Function to handle export wallet - fix to export the embedded wallet
   const handleExportWallet = () => {
+    // For smart wallets, you need to export the embedded wallet that controls it
     if (privyUser?.wallet?.address) {
+      // Export the embedded wallet that acts as the signer for the smart wallet
       exportWallet({ address: privyUser.wallet.address });
+    } else {
+      console.error("No embedded wallet available to export");
     }
   };
 
@@ -553,15 +561,15 @@ export default function ProfileComponent() {
           )}
 
           {/* Only show Wallet Action Buttons if viewing own profile */}
-          {isOwnProfile && walletAddress && (
+          {isOwnProfile && smartWalletAddress && (
             <>
               {/* Wallet Action Buttons */}
               <div className="mt-4 flex items-center space-x-8 justify-center">
-                {/* Receive Funds Button */}
+                {/* Receive Funds Button - use smartWalletAddress instead of walletAddress */}
                 <button
                   onClick={() => {
-                    if (walletAddress) {
-                      fundWallet(walletAddress, {
+                    if (smartWalletAddress) {
+                      fundWallet(smartWalletAddress, {
                         chain: {
                           id: 10143,
                         },
@@ -609,7 +617,7 @@ export default function ProfileComponent() {
                   <span className="text-xs text-gray-400">Receive</span>
                 </button>
 
-                {/* Export Keys Button */}
+                {/* Export Keys Button - use smart wallet */}
                 <button
                   onClick={handleExportWallet}
                   className="flex flex-col items-center"
@@ -618,10 +626,10 @@ export default function ProfileComponent() {
                   <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
                     <FaKey className="text-xl" />
                   </div>
-                  <span className="text-xs text-gray-400">Export</span>
+                  <span className="text-xs text-gray-400">Export Keys</span>
                 </button>
 
-                {/* Logout Button */}
+                {/* Sign Out Button */}
                 <button
                   onClick={logout}
                   className="flex flex-col items-center"
@@ -643,7 +651,7 @@ export default function ProfileComponent() {
             <h2 className="text-xl text-gray-400 mb-2">Balance</h2>
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-5xl font-bold">${totalBalance}</h1>
-              {isUsingCachedBalance && (
+              {isUsingCachedSmartWalletBalance && (
                 <div className="flex items-center">
                   <span className="text-xs text-amber-300 mr-2">
                     (using cached data)
@@ -660,40 +668,32 @@ export default function ProfileComponent() {
             </div>
 
             <h2 className="text-2xl font-bold mt-8 mb-4">My assets</h2>
-
-            {isLoadingAssets ? (
-              <div className="flex justify-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500"></div>
-              </div>
-            ) : assets.length > 0 ? (
+            {assets.length > 0 ? (
               <div className="space-y-4">
                 {assets.map((asset, index) => (
                   <div
                     key={index}
-                    className="bg-[#1C1B1F] rounded-xl p-4 flex items-center justify-between"
+                    className="flex justify-between items-center py-4 px-4 bg-[#1D1C2A] rounded-lg"
                   >
                     <div className="flex items-center">
                       <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                          asset.type === "native"
-                            ? "bg-purple-600"
-                            : asset.type === "token"
-                            ? "bg-blue-500"
-                            : "bg-purple-500"
+                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          asset.type === "token"
+                            ? "bg-blue-800"
+                            : asset.type === "pool"
+                            ? "bg-purple-800"
+                            : "bg-green-800"
                         }`}
                       >
-                        {asset.type === "native" && (
-                          <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center">
-                            <div className="w-4 h-4 bg-purple-600 rounded-sm"></div>
-                          </div>
-                        )}
-                        {asset.type === "token" && (
-                          <div className="text-2xl font-bold text-white">$</div>
-                        )}
-                        {asset.type === "pool" && (
-                          <div className="text-xl font-bold text-white">⚒️</div>
+                        {asset.type === "token" ? (
+                          <FaDollarSign className="text-white" />
+                        ) : asset.type === "pool" ? (
+                          <FaUsers className="text-white" />
+                        ) : (
+                          <IoFlash className="text-white" />
                         )}
                       </div>
+
                       <div className="ml-3">
                         <div className="flex items-center">
                           <h3 className="font-semibold">{asset.name}</h3>
@@ -721,7 +721,7 @@ export default function ProfileComponent() {
               </div>
             ) : (
               <div className="text-center py-4 text-gray-400">
-                No assets found. Get some testnet tokens to get started!
+                No assets found. Add USDC to your smart wallet to get started!
               </div>
             )}
           </div>

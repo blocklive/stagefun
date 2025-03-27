@@ -3,7 +3,7 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
-import { FaArrowLeft } from "react-icons/fa";
+import { FaArrowLeft, FaWallet } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { useContractInteraction as useContractInteractionHook } from "../../../hooks/useContractInteraction";
@@ -19,6 +19,7 @@ import {
 } from "../../../hooks/usePoolTiers";
 import AppHeader from "../../components/AppHeader";
 import { getAllTiers, Tier } from "../../../lib/contracts/StageDotFunPool";
+import { useSmartWallet } from "../../../hooks/useSmartWallet";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -45,6 +46,7 @@ export default function PoolDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const poolId = params.id as string;
+  const { smartWalletAddress } = useSmartWallet();
 
   const {
     pool,
@@ -232,15 +234,26 @@ export default function PoolDetailsPage() {
   const getUserCommitment = useCallback(() => {
     if (!dbUser || !commitments) return null;
 
-    // Only check for on-chain commitments - this is the source of truth
-    const walletAddress = privyUser?.wallet?.address;
-    if (!walletAddress) return null;
+    // Check for on-chain commitments from both wallet addresses
+    const embeddedWalletAddress = privyUser?.wallet?.address;
+
+    // Try all possible wallet addresses
+    const userAddresses: string[] = [];
+
+    if (embeddedWalletAddress) {
+      userAddresses.push(embeddedWalletAddress.toLowerCase());
+    }
+
+    if (smartWalletAddress) {
+      userAddresses.push(smartWalletAddress.toLowerCase());
+    }
+
+    if (userAddresses.length === 0) return null;
 
     try {
-      // Find the user's commitment in the on-chain data
-      const userCommitment = commitments.find(
-        (commitment) =>
-          commitment.user.toLowerCase() === walletAddress.toLowerCase()
+      // Find the user's commitment in the on-chain data from any of their wallets
+      const userCommitment = commitments.find((commitment) =>
+        userAddresses.includes(commitment.user.toLowerCase())
       );
 
       if (!userCommitment) return null;
@@ -258,7 +271,7 @@ export default function PoolDetailsPage() {
       console.error("Error getting user commitment:", error);
       return null;
     }
-  }, [dbUser, commitments, privyUser, poolId]);
+  }, [dbUser, commitments, privyUser, poolId, smartWalletAddress]);
 
   // Update the logic to check if a pool is funded or unfunded using the shared function
   const displayStatus = pool
