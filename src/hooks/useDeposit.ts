@@ -74,6 +74,26 @@ export function useDeposit(): UseDepositResult {
         const signer = await provider.getSigner();
         const depositService = new DepositService(provider, signer);
 
+        // Check if the pool is unfunded (status = 2)
+        // Get the pool contract
+        const poolContract = new ethers.Contract(
+          poolAddress,
+          [
+            "function getPoolDetails() view returns (tuple(string,string,address,uint256,uint256,uint256,uint256,uint256,uint8,address,address,uint256,uint256,address[],tuple(string,uint256,uint256,bool,bool)[],bool,uint256,address))",
+          ],
+          provider
+        );
+
+        const poolDetails = await poolContract.getPoolDetails();
+        const poolStatus = Number(poolDetails[8]); // Status is at index 8
+
+        if (poolStatus === 2) {
+          // 2 = FAILED status
+          throw new Error(
+            "This pool did not reach its funding target and is no longer accepting deposits"
+          );
+        }
+
         // Get tier details
         const {
           success: tierSuccess,
