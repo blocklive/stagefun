@@ -107,7 +107,7 @@ export default function GetTokensModal({
           {smartWalletAddress && (
             <div className="mt-4 text-sm text-gray-400 border border-gray-800 rounded-lg p-3 w-full">
               <div className="font-semibold text-gray-300 mb-1">
-                Smart Wallet Address:
+                Wallet Address:
               </div>
               <div className="font-mono truncate">{smartWalletAddress}</div>
             </div>
