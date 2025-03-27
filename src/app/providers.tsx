@@ -79,6 +79,12 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
                 version: "1.0.0",
               },
             },
+            bundlerProvider: process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID
+              ? `https://rpc.zerodev.app/api/v2/bundler/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}`
+              : undefined,
+            paymasterProvider: process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID
+              ? `https://rpc.zerodev.app/api/v2/paymaster/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}`
+              : undefined,
           },
         }}
       >

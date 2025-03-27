@@ -481,8 +481,15 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   };
 
   const handleSelectReward = (tierId: string, rewardId: string) => {
+    // Log what's happening
+    console.log("Selecting reward", rewardId, "for tier", tierId);
+    console.log("Current tiers:", tiers);
+
+    // Create a new copy of tiers to avoid reference issues
     const updatedTiers = tiers.map((tier) => {
       if (tier.id === tierId) {
+        console.log("Adding reward to tier", tier.name);
+        // Create a new tier object with updated rewardItems
         return {
           ...tier,
           rewardItems: [...tier.rewardItems, rewardId],
@@ -490,7 +497,13 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       }
       return tier;
     });
+
+    console.log("Updated tiers:", updatedTiers);
+
+    // Update the tiers state
     onTiersChange(updatedTiers);
+
+    // Close the dropdown
     setShowRewardDropdown(null);
   };
 
@@ -815,9 +828,8 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                             <button
                               key={item.id}
                               type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
+                              onClick={() => {
+                                // Simplified click handler to reduce possible issues
                                 handleSelectReward(tier.id, item.id);
                               }}
                               className="w-full flex items-center gap-2 p-3 hover:bg-[#FFFFFF0A] text-white transition-colors"
