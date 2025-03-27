@@ -73,6 +73,22 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
+      // Get smart wallet address if available
+      let smartWalletAddress: string | undefined = undefined;
+      if ((privyUser as any).linkedAccounts) {
+        const smartWalletAccount = (privyUser as any).linkedAccounts.find(
+          (account: any) => account.type === "smart_wallet"
+        );
+
+        if (smartWalletAccount) {
+          smartWalletAddress = smartWalletAccount.address;
+          console.log(
+            "Found smart wallet address from linkedAccounts:",
+            smartWalletAddress
+          );
+        }
+      }
+
       if (!walletAddress) {
         console.log("No wallet address available for user:", privyUser);
         console.log("User details:", JSON.stringify(privyUser, null, 2));
@@ -88,6 +104,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         console.log("Creating new user...");
         const newUser = {
           wallet_address: walletAddress,
+          smart_wallet_address: smartWalletAddress,
           name:
             (privyUser as any).twitter?.username ||
             (privyUser as any).name?.first ||
@@ -111,6 +128,15 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         const privyEmail = (privyUser as any).email?.address;
         const privyTwitter = (privyUser as any).twitter?.username;
         const privyAvatar = (privyUser as any).avatar;
+
+        // Update smart wallet address if it exists and has changed
+        if (
+          smartWalletAddress &&
+          smartWalletAddress !== user.smart_wallet_address
+        ) {
+          updatedFields.smart_wallet_address = smartWalletAddress;
+          needsUpdate = true;
+        }
 
         // Prioritize Twitter username for the name field
         if (privyTwitter && privyTwitter !== user.name) {

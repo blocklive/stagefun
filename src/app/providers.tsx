@@ -1,6 +1,7 @@
 "use client";
 
 import { PrivyProvider } from "@privy-io/react-auth";
+import { SmartWalletsProvider } from "@privy-io/react-auth/smart-wallets";
 import { SupabaseProvider } from "../contexts/SupabaseContext";
 import { ContractInteractionProvider } from "../contexts/ContractInteractionContext";
 
@@ -63,9 +64,28 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
         },
       }}
     >
-      <SupabaseProvider>
-        <ContractInteractionProvider>{children}</ContractInteractionProvider>
-      </SupabaseProvider>
+      <SmartWalletsProvider
+        config={{
+          paymasterContext: {
+            mode: "SPONSORED",
+            calculateGasLimits: true,
+            expiryDuration: 300,
+            sponsorshipInfo: {
+              webhookData: {
+                projectId: process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID,
+              },
+              smartAccountInfo: {
+                name: "KERNEL",
+                version: "1.0.0",
+              },
+            },
+          },
+        }}
+      >
+        <SupabaseProvider>
+          <ContractInteractionProvider>{children}</ContractInteractionProvider>
+        </SupabaseProvider>
+      </SmartWalletsProvider>
     </PrivyProvider>
   );
 }

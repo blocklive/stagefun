@@ -15,6 +15,7 @@ export async function getAuthenticatedSupabaseClient() {
 export interface User {
   id: string;
   wallet_address: string;
+  smart_wallet_address?: string;
   name: string;
   email?: string;
   twitter_username?: string;

@@ -3,7 +3,7 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
-import { FaArrowLeft } from "react-icons/fa";
+import { FaArrowLeft, FaWallet } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { useContractInteraction as useContractInteractionHook } from "../../../hooks/useContractInteraction";
@@ -19,6 +19,7 @@ import {
 } from "../../../hooks/usePoolTiers";
 import AppHeader from "../../components/AppHeader";
 import { getAllTiers, Tier } from "../../../lib/contracts/StageDotFunPool";
+import { useSmartWallet } from "../../../hooks/useSmartWallet";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -45,6 +46,7 @@ export default function PoolDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const poolId = params.id as string;
+  const { smartWalletAddress } = useSmartWallet();
 
   const {
     pool,
@@ -177,8 +179,8 @@ export default function PoolDetailsPage() {
   // Add state for approving
   const [isCommitting, setIsCommitting] = useState(false);
 
-  // Add state to control button visibility - always true now
-  const [showCommitButton, setShowCommitButton] = useState(true);
+  // Add state to control button visibility based on pool status
+  const [showCommitButton, setShowCommitButton] = useState(false);
 
   // Add state for getting tokens
   const [showTokensModal, setShowTokensModal] = useState(false);
@@ -232,15 +234,26 @@ export default function PoolDetailsPage() {
   const getUserCommitment = useCallback(() => {
     if (!dbUser || !commitments) return null;
 
-    // Only check for on-chain commitments - this is the source of truth
-    const walletAddress = privyUser?.wallet?.address;
-    if (!walletAddress) return null;
+    // Check for on-chain commitments from both wallet addresses
+    const embeddedWalletAddress = privyUser?.wallet?.address;
+
+    // Try all possible wallet addresses
+    const userAddresses: string[] = [];
+
+    if (embeddedWalletAddress) {
+      userAddresses.push(embeddedWalletAddress.toLowerCase());
+    }
+
+    if (smartWalletAddress) {
+      userAddresses.push(smartWalletAddress.toLowerCase());
+    }
+
+    if (userAddresses.length === 0) return null;
 
     try {
-      // Find the user's commitment in the on-chain data
-      const userCommitment = commitments.find(
-        (commitment) =>
-          commitment.user.toLowerCase() === walletAddress.toLowerCase()
+      // Find the user's commitment in the on-chain data from any of their wallets
+      const userCommitment = commitments.find((commitment) =>
+        userAddresses.includes(commitment.user.toLowerCase())
       );
 
       if (!userCommitment) return null;
@@ -258,7 +271,7 @@ export default function PoolDetailsPage() {
       console.error("Error getting user commitment:", error);
       return null;
     }
-  }, [dbUser, commitments, privyUser, poolId]);
+  }, [dbUser, commitments, privyUser, poolId, smartWalletAddress]);
 
   // Update the logic to check if a pool is funded or unfunded using the shared function
   const displayStatus = pool
@@ -272,6 +285,17 @@ export default function PoolDetailsPage() {
 
   const isFunded = displayStatus === PoolStatus.FUNDED;
   const isUnfunded = displayStatus === PoolStatus.FAILED;
+
+  // Update showCommitButton based on pool status
+  useEffect(() => {
+    if (isUnfunded) {
+      // For unfunded pools, never show the commit button
+      setShowCommitButton(false);
+    } else {
+      // For other pool states (open, funded), show the commit button
+      setShowCommitButton(true);
+    }
+  }, [isUnfunded]);
 
   // Remove the complex visibility logic
   const commitButtonText = "Commit";
@@ -335,6 +359,36 @@ export default function PoolDetailsPage() {
       router.push(`/pools?tab=${fromTab}`);
     } else {
       router.back();
+    }
+  };
+
+  // Handle refund claim for unfunded pools
+  const handleRefund = async () => {
+    try {
+      setIsRefunding(true);
+      if (!pool?.contract_address) {
+        throw new Error("Pool not found");
+      }
+
+      if (!isUnfunded) {
+        throw new Error("This pool is not eligible for refunds");
+      }
+
+      // Call claimRefund from the context
+      const result = await claimRefund(pool.contract_address);
+
+      if (result.success) {
+        toast.success("Refund claimed successfully");
+        refreshCommitments();
+        refreshBalance?.();
+      } else {
+        toast.error(result.error || "Failed to claim refund");
+      }
+    } catch (error: any) {
+      console.error("Error claiming refund:", error);
+      toast.error(error.message || "Failed to claim refund");
+    } finally {
+      setIsRefunding(false);
     }
   };
 
@@ -428,6 +482,7 @@ export default function PoolDetailsPage() {
               activeTab={contentTab}
               onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
               raisedAmount={raisedAmount}
+              targetAmount={targetAmount}
             />
 
             {/* Tab Content */}
@@ -521,93 +576,6 @@ export default function PoolDetailsPage() {
     );
   };
 
-  // Handle refund functionality
-  const handleRefund = async () => {
-    if (!pool || !pool.contract_address) {
-      toast.error("Pool contract address not found");
-      return;
-    }
-
-    setIsRefunding(true);
-    const loadingToast = toast.loading("Preparing refund...");
-
-    try {
-      // Log pool status for debugging
-      console.log("Pool status:", {
-        blockchain_status: pool.blockchain_status,
-        isUnfunded,
-        hasEnded,
-        raisedAmount: pool.raised_amount,
-        targetAmount: pool.target_amount,
-      });
-
-      // Get user's LP token balance first to check if they have tokens to refund
-      const userCommitment = getUserCommitment();
-      console.log("User commitment:", userCommitment);
-
-      if (!userCommitment || userCommitment.amount <= 0) {
-        throw new Error("You don't have any tokens to refund in this pool");
-      }
-
-      // Call the claimRefund function from the contract
-      console.log(
-        "Attempting to claim refund for contract:",
-        pool.contract_address
-      );
-
-      // Update toast message to indicate we're checking pool status
-      toast.loading("Checking pool eligibility for refund...", {
-        id: loadingToast,
-      });
-
-      const result = await claimRefund(pool.contract_address);
-
-      if (!result.success) {
-        // If the refund fails, provide more detailed error information
-        console.error("Refund failed with result:", result);
-
-        // Check if the error is related to eligibility
-        if (result.error && result.error.includes("not eligible for refunds")) {
-          throw new Error(
-            "This pool is not eligible for refunds yet. The end time must have passed without meeting the target amount."
-          );
-        } else if (
-          result.error &&
-          result.error.includes("No LP tokens to refund")
-        ) {
-          throw new Error(
-            "You don't have any LP tokens to refund in this pool."
-          );
-        } else if (
-          result.error &&
-          result.error.includes("doesn't have enough USDC")
-        ) {
-          throw new Error(
-            "The pool doesn't have enough USDC to process your refund. Please contact support."
-          );
-        } else {
-          throw new Error(result.error || "Failed to claim refund");
-        }
-      }
-
-      toast.success("Refund claimed successfully!", { id: loadingToast });
-      console.log("Refund result:", result);
-
-      // Refresh data after successful refund
-      refreshPool();
-      refreshBalance();
-      refreshCommitments();
-    } catch (error) {
-      console.error("Error claiming refund:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to claim refund",
-        { id: loadingToast }
-      );
-    } finally {
-      setIsRefunding(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#15161a] text-white flex flex-col">
       <AppHeader
@@ -626,7 +594,7 @@ export default function PoolDetailsPage() {
 
       {/* Fixed bottom elements */}
       <FixedBottomBar
-        showCommitButton={true}
+        showCommitButton={showCommitButton}
         onCommitClick={() => setIsCommitModalOpen(true)}
         commitButtonText={commitButtonText}
       />

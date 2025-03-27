@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useContractInteraction } from "../../hooks/useContractInteraction";
+import { useSmartWallet } from "../../hooks/useSmartWallet";
 
 interface GetTokensModalProps {
   isOpen: boolean;
@@ -14,11 +14,11 @@ export default function GetTokensModal({
   const [error, setError] = useState<string | null>(null);
   const [waitTime, setWaitTime] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const { walletAddress } = useContractInteraction();
+  const { smartWalletAddress } = useSmartWallet();
 
   const handleGetTokens = async () => {
-    if (!walletAddress) {
-      setError("Wallet not connected");
+    if (!smartWalletAddress) {
+      setError("Smart wallet not ready");
       return;
     }
 
@@ -33,7 +33,7 @@ export default function GetTokensModal({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ walletAddress }),
+        body: JSON.stringify({ walletAddress: smartWalletAddress }),
       });
 
       const data = await response.json();
@@ -104,6 +104,14 @@ export default function GetTokensModal({
           <p className="text-gray-500 text-sm text-center mt-2">
             Limited to one request every 24 hours per wallet.
           </p>
+          {smartWalletAddress && (
+            <div className="mt-4 text-sm text-gray-400 border border-gray-800 rounded-lg p-3 w-full">
+              <div className="font-semibold text-gray-300 mb-1">
+                Smart Wallet Address:
+              </div>
+              <div className="font-mono truncate">{smartWalletAddress}</div>
+            </div>
+          )}
         </div>
 
         {error && (
@@ -115,19 +123,18 @@ export default function GetTokensModal({
 
         {success && (
           <div className="bg-green-900 bg-opacity-30 border border-green-700 text-green-200 p-3 rounded-lg mb-4">
-            <p>Successfully received:</p>
+            <p>Successfully sent:</p>
             <ul className="list-disc list-inside mt-1">
-              <li>0.1 USDC</li>
-              <li>0.5 MON (native currency)</li>
+              <li>0.1 USDC to your smart wallet</li>
             </ul>
           </div>
         )}
 
         <button
           onClick={handleGetTokens}
-          disabled={isLoading || !!waitTime}
+          disabled={isLoading || !!waitTime || !smartWalletAddress}
           className={`w-full py-3 ${
-            isLoading || waitTime
+            isLoading || waitTime || !smartWalletAddress
               ? "bg-gray-700 text-gray-400"
               : "bg-white text-black"
           } font-medium rounded-lg flex items-center justify-center`}
@@ -155,6 +162,8 @@ export default function GetTokensModal({
             </svg>
           ) : waitTime ? (
             "Rate Limited"
+          ) : !smartWalletAddress ? (
+            "Wallet Not Ready"
           ) : (
             "Get Tokens"
           )}

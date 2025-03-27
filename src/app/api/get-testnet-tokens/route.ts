@@ -6,9 +6,6 @@ import { supabase } from "../../../lib/supabase";
 // Amount of USDC to send (0.1 USDC = 100000 in USDC's 6 decimal format)
 const USDC_AMOUNT = BigInt(100000);
 
-// Amount of MON to send (0.5 MON = 0.5 * 10^18)
-const MON_AMOUNT = ethers.parseEther("0.5");
-
 // Rate limit: 24 hours in milliseconds
 const RATE_LIMIT_MS = 24 * 60 * 60 * 1000;
 
@@ -110,7 +107,6 @@ export async function POST(request: NextRequest) {
 
     // Check the faucet wallet's balance
     const faucetUsdcBalance = await usdcContract.balanceOf(wallet.address);
-    const faucetMonBalance = await provider.getBalance(wallet.address);
 
     if (faucetUsdcBalance < USDC_AMOUNT) {
       console.error("Faucet has insufficient USDC funds", {
@@ -121,19 +117,6 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         { error: "Faucet has insufficient USDC funds" },
-        { status: 500 }
-      );
-    }
-
-    if (faucetMonBalance < MON_AMOUNT) {
-      console.error("Faucet has insufficient MON funds", {
-        faucetAddress: wallet.address,
-        faucetBalance: faucetMonBalance.toString(),
-        requestedAmount: MON_AMOUNT.toString(),
-      });
-
-      return NextResponse.json(
-        { error: "Faucet has insufficient MON funds" },
         { status: 500 }
       );
     }
@@ -154,25 +137,6 @@ export async function POST(request: NextRequest) {
       amount: USDC_AMOUNT.toString(),
     });
 
-    // Transfer MON (native currency) to the user's wallet
-    const monTx = await wallet.sendTransaction({
-      to: walletAddress,
-      value: MON_AMOUNT,
-    });
-
-    // Wait for the MON transaction to be mined
-    const monReceipt = await monTx.wait();
-
-    if (!monReceipt) {
-      throw new Error("Failed to get MON transaction receipt");
-    }
-
-    console.log("MON transfer successful", {
-      txHash: monReceipt.hash,
-      recipient: walletAddress,
-      amount: ethers.formatEther(MON_AMOUNT),
-    });
-
     // Record this request in the database
     try {
       const { error: insertError } = await supabase
@@ -182,49 +146,20 @@ export async function POST(request: NextRequest) {
           ip_address: ip,
           tx_hash: usdcReceipt.hash,
           amount: USDC_AMOUNT.toString(),
-          mon_tx_hash: monReceipt.hash,
-          mon_amount: MON_AMOUNT.toString(),
         });
 
       if (insertError) {
         console.error("Error recording faucet request:", insertError);
-
-        // If the error is due to missing columns, try inserting without the MON fields
-        if (
-          insertError.message.includes("column") &&
-          insertError.message.includes("does not exist")
-        ) {
-          console.log(
-            "Trying to insert without MON fields (schema might not be updated yet)"
-          );
-          const { error: fallbackInsertError } = await supabase
-            .from("faucet_requests")
-            .insert({
-              wallet_address: walletAddress.toLowerCase(),
-              ip_address: ip,
-              tx_hash: usdcReceipt.hash,
-              amount: USDC_AMOUNT.toString(),
-            });
-
-          if (fallbackInsertError) {
-            console.error(
-              "Error recording faucet request (fallback):",
-              fallbackInsertError
-            );
-          }
-        }
       }
     } catch (dbError) {
       console.error("Database error when recording faucet request:", dbError);
-      // Continue anyway, the transfers were successful
+      // Continue anyway, the transfer was successful
     }
 
     return NextResponse.json({
       success: true,
       usdcTxHash: usdcReceipt.hash,
       usdcAmount: USDC_AMOUNT.toString(),
-      monTxHash: monReceipt.hash,
-      monAmount: ethers.formatEther(MON_AMOUNT),
     });
   } catch (error) {
     console.error("Error sending tokens:", error);

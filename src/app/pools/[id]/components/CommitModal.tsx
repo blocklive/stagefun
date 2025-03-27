@@ -6,6 +6,8 @@ import { DBTier } from "../../../../hooks/usePoolTiers";
 import { toast } from "react-hot-toast";
 import { ethers } from "ethers";
 import { toUSDCBaseUnits } from "@/lib/contracts/StageDotFunPool";
+import { useSmartWallet } from "@/hooks/useSmartWallet";
+import { useSmartWalletBalance } from "@/hooks/useSmartWalletBalance";
 
 interface CommitModalProps {
   isOpen: boolean;
@@ -32,6 +34,25 @@ export default function CommitModal({
   const selectedTier = selectedTierId
     ? tiers?.find((t) => t.id === selectedTierId)
     : null;
+
+  const { smartWalletAddress } = useSmartWallet();
+  const {
+    balance: smartWalletBalance,
+    isLoading: isLoadingBalance,
+    isUsingCache: isUsingCachedBalance,
+    refresh: refreshBalance,
+  } = useSmartWalletBalance();
+
+  const walletToUse = smartWalletAddress
+    ? "Smart Wallet (Gas Free)"
+    : "Embedded Wallet";
+
+  // Refresh balance when modal opens
+  useEffect(() => {
+    if (isOpen && smartWalletAddress) {
+      refreshBalance();
+    }
+  }, [isOpen, smartWalletAddress, refreshBalance]);
 
   const handleCommitAndClose = async () => {
     if (!selectedTierId) return;
@@ -85,6 +106,21 @@ export default function CommitModal({
 
     // Pass the human-readable amount to onCommit
     await onCommit(selectedTierId, amount);
+  };
+
+  // Add a function to check if the user has sufficient funds
+  const hasSufficientFunds = () => {
+    if (!selectedTier || !smartWalletBalance) return false;
+
+    const userBalance = parseFloat(smartWalletBalance || "0");
+
+    if (selectedTier.is_variable_price) {
+      // For variable price tiers, check against the entered amount
+      return !commitAmount || userBalance >= parseFloat(commitAmount);
+    } else {
+      // For fixed price tiers, check against the tier price
+      return userBalance >= selectedTier.price;
+    }
   };
 
   return (
@@ -155,6 +191,47 @@ export default function CommitModal({
                 </div>
               )}
 
+              {/* Balance always shown */}
+              <div className="mt-4 p-3 bg-[#FFFFFF08] rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-gray-400">Your balance:</div>
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium">
+                      {isLoadingBalance ? (
+                        <span className="inline-block w-16 h-4 bg-gray-700 animate-pulse rounded"></span>
+                      ) : (
+                        `${smartWalletBalance || "0"} USDC`
+                      )}
+                    </span>
+                    {isUsingCachedBalance && (
+                      <span className="ml-2 text-xs text-amber-400">
+                        (cached)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {selectedTier &&
+                  !selectedTier.is_variable_price &&
+                  parseFloat(smartWalletBalance || "0") <
+                    selectedTier.price && (
+                    <div className="mt-2 text-xs text-amber-400">
+                      Your balance is less than the required amount for this
+                      tier ({selectedTier.price} USDC)
+                    </div>
+                  )}
+
+                {selectedTier &&
+                  selectedTier.is_variable_price &&
+                  commitAmount &&
+                  parseFloat(smartWalletBalance || "0") <
+                    parseFloat(commitAmount) && (
+                    <div className="mt-2 text-xs text-amber-400">
+                      Your balance is less than the amount you entered
+                    </div>
+                  )}
+              </div>
+
               <div className="mt-6 flex justify-end space-x-3">
                 <button
                   type="button"
@@ -169,7 +246,8 @@ export default function CommitModal({
                   disabled={
                     !selectedTierId ||
                     (selectedTier?.is_variable_price && !commitAmount) ||
-                    isApproving
+                    isApproving ||
+                    !hasSufficientFunds()
                   }
                   className="px-6 py-3 rounded-xl bg-[#836EF9] text-white hover:bg-[#6B4EF9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
@@ -178,6 +256,8 @@ export default function CommitModal({
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       <span>Committing...</span>
                     </>
+                  ) : !hasSufficientFunds() ? (
+                    "Insufficient Balance"
                   ) : (
                     "Commit"
                   )}
