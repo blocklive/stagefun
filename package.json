@@ -22,7 +22,7 @@
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "@openzeppelin/contracts": "^5.2.0",
     "@openzeppelin/contracts-upgradeable": "^5.2.0",
-    "@privy-io/react-auth": "^2.4.5",
+    "@privy-io/react-auth": "2.7.0",
     "@radix-ui/react-progress": "^1.1.2",
     "@supabase/supabase-js": "^2.39.0",
     "@tiptap/extension-image": "^2.11.5",

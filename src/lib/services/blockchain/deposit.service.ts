@@ -38,6 +38,7 @@ export class DepositService {
     tierPrice: bigint
   ): Promise<{ requirements: DepositRequirements; error?: string }> {
     try {
+      // Use the pre-defined ABI instead of custom one
       const poolContract = getPoolContract(this.provider, poolAddress);
       const poolDetails = await poolContract.getPoolDetails();
       const targetTier = await poolContract.getTier(tierId);
@@ -45,14 +46,15 @@ export class DepositService {
 
       const requirements: DepositRequirements = {
         tierIdValid: tierId < poolDetails._tierCount,
-        tierActive: targetTier[2], // isActive is the third element
+        tierActive: targetTier.isActive, // Using named property instead of array index
         poolActive: Number(poolDetails._status) === 1,
         notFunded: poolDetails._totalDeposits < poolDetails._targetAmount,
         notEnded: now <= poolDetails._endTime,
         withinCap:
           poolDetails._totalDeposits + tierPrice <= poolDetails._capAmount,
         patronsCheck:
-          targetTier[7] === BigInt(0) || targetTier[8] < targetTier[7],
+          targetTier.maxPatrons === BigInt(0) ||
+          targetTier.currentPatrons < targetTier.maxPatrons,
       };
 
       return { requirements };
@@ -178,6 +180,7 @@ export class DepositService {
     error?: string;
   }> {
     try {
+      // Use the pre-defined ABI instead of custom one
       const poolContract = getPoolContract(this.provider, poolAddress);
       const tier = await poolContract.getTier(tierId);
       return { success: true, tier };

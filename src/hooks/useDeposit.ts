@@ -6,6 +6,7 @@ import {
   DepositService,
   DepositResult,
 } from "../lib/services/blockchain/deposit.service";
+import { StageDotFunPoolABI } from "../lib/contracts/StageDotFunPool";
 
 export interface UseDepositResult {
   isLoading: boolean;
@@ -78,14 +79,12 @@ export function useDeposit(): UseDepositResult {
         // Get the pool contract
         const poolContract = new ethers.Contract(
           poolAddress,
-          [
-            "function getPoolDetails() view returns (tuple(string,string,address,uint256,uint256,uint256,uint256,uint256,uint8,address,address,uint256,uint256,address[],tuple(string,uint256,uint256,bool,bool)[],bool,uint256,address))",
-          ],
+          StageDotFunPoolABI,
           provider
         );
 
         const poolDetails = await poolContract.getPoolDetails();
-        const poolStatus = Number(poolDetails[8]); // Status is at index 8
+        const poolStatus = Number(poolDetails._status);
 
         if (poolStatus === 2) {
           // 2 = FAILED status
