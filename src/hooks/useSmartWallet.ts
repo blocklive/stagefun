@@ -23,9 +23,6 @@ export function useSmartWallet() {
         );
 
         if (smartWalletAccount) {
-          console.log("Smart wallet found:", smartWalletAccount);
-          console.log("Smart wallet address:", smartWalletAccount.address);
-          console.log("Smart wallet type:", smartWalletAccount.type);
           setSmartWalletAddress(smartWalletAccount.address);
         } else {
           console.log("No smart wallet found for user");

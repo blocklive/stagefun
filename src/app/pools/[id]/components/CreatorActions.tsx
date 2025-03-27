@@ -1,7 +1,7 @@
 import { FaPlus, FaArrowUp, FaDollarSign } from "react-icons/fa";
 
 interface CreatorActionsProps {
-  isReceiving: boolean;
+  isDepositLoading: boolean;
   isWithdrawing: boolean;
   isDistributing: boolean;
   rawTotalFunds: number;
@@ -12,7 +12,7 @@ interface CreatorActionsProps {
 }
 
 export default function CreatorActions({
-  isReceiving,
+  isDepositLoading,
   isWithdrawing,
   isDistributing,
   rawTotalFunds,
@@ -32,10 +32,10 @@ export default function CreatorActions({
             justifyContent: "center",
           }}
           onClick={onReceiveClick}
-          disabled={isReceiving}
+          disabled={isDepositLoading}
           title="Deposit"
         >
-          {isReceiving ? (
+          {isDepositLoading ? (
             <svg
               className="animate-spin h-5 w-5 text-white"
               xmlns="http://www.w3.org/2000/svg"

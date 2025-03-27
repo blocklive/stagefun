@@ -39,13 +39,6 @@ const MONAD_TESTNET = {
   chainName: "Monad Testnet",
 };
 
-// ZeroDev configuration for the smart wallet
-const zeroDevConfig = {
-  projectId: process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID,
-  bundlerUrl: process.env.NEXT_PUBLIC_ZERODEV_BUNDLER_RPC,
-  paymasterUrl: process.env.NEXT_PUBLIC_ZERODEV_PAYMASTER_RPC,
-};
-
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <PrivyProvider

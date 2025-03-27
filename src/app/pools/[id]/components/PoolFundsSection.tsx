@@ -9,6 +9,7 @@ import { useSendTransaction, useWallets } from "@privy-io/react-auth";
 import {
   StageDotFunPoolABI,
   getUSDCContract,
+  getContractAddresses,
 } from "../../../../lib/contracts/StageDotFunPool";
 import {
   FaArrowUp,
@@ -26,6 +27,9 @@ import {
 } from "../../../../lib/contracts/types";
 import CreatorActions from "./CreatorActions";
 import NumberInput from "../../../components/NumberInput";
+import { useSmartWallet } from "../../../../hooks/useSmartWallet";
+import { useSmartWalletBalance } from "../../../../hooks/useSmartWalletBalance";
+import { useRevenueDeposit } from "../../../../hooks/useRevenueDeposit";
 
 interface PoolFundsSectionProps {
   pool: Pool & {
@@ -98,7 +102,6 @@ export default function PoolFundsSection({
   isCreator,
 }: PoolFundsSectionProps) {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
-  const [isReceiving, setIsReceiving] = useState(false);
   const [isDistributing, setIsDistributing] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
   const [showDepositInput, setShowDepositInput] = useState(false);
@@ -112,6 +115,11 @@ export default function PoolFundsSection({
   const [distributeAmount, setDistributeAmount] = useState("");
   const { sendTransaction } = useSendTransaction();
   const { wallets } = useWallets();
+  const { smartWalletAddress } = useSmartWallet();
+  const { balance: smartWalletBalance, refresh: refreshSmartWalletBalance } =
+    useSmartWalletBalance();
+  const { isLoading: isRevenueDepositLoading, depositRevenue } =
+    useRevenueDeposit();
   const modalRef = useRef<HTMLDivElement>(null);
   const receiveModalRef = useRef<HTMLDivElement>(null);
   const distributeModalRef = useRef<HTMLDivElement>(null);
@@ -187,12 +195,14 @@ export default function PoolFundsSection({
     return "Loading...";
   }, [onChainData]);
 
-  // Set default withdraw address to user's wallet if available
+  // Set default withdraw address to smart wallet if available, otherwise user's wallet
   useEffect(() => {
-    if (wallets && wallets.length > 0 && wallets[0].address) {
+    if (smartWalletAddress) {
+      setWithdrawAddress(smartWalletAddress);
+    } else if (wallets && wallets.length > 0 && wallets[0].address) {
       setWithdrawAddress(wallets[0].address);
     }
-  }, [wallets]);
+  }, [wallets, smartWalletAddress]);
 
   // Handle click outside modal to close it
   useEffect(() => {
@@ -254,177 +264,22 @@ export default function PoolFundsSection({
       return;
     }
 
-    setIsReceiving(true);
     try {
-      // Get the embedded wallet
-      const embeddedWallet = wallets.find(
-        (wallet) => wallet.walletClientType === "privy"
-      );
+      // Use the new depositRevenue function from the hook
+      const result = await depositRevenue(pool.contract_address, amount);
 
-      if (!embeddedWallet) {
-        toast.error(
-          "No embedded wallet found. Please try logging out and logging in again."
-        );
-        return;
+      if (result.success) {
+        setStatusMessage("Revenue deposit successful!");
+        setReceiveAmount("");
+        setShowReceiveModal(false);
+
+        // Refresh on-chain data after transaction
+        setTimeout(() => refreshOnChainData(), 5000);
+      } else {
+        console.error("Error depositing revenue:", result.error);
       }
-
-      // Get the provider and create contract instances
-      const provider = await embeddedWallet.getEthereumProvider();
-      const ethersProvider = new ethers.BrowserProvider(provider);
-      const signer = await ethersProvider.getSigner();
-      const signerAddress = await signer.getAddress();
-
-      // Get USDC contract using the helper function
-      const usdcContract = getUSDCContract(ethersProvider);
-
-      // Get USDC details
-      const usdcDecimals = 6; // USDC always has 6 decimals
-      const usdcSymbol = await usdcContract.symbol();
-      const amountBigInt = ethers.parseUnits(receiveAmount, usdcDecimals);
-      const amountFormatted = ethers.formatUnits(amountBigInt, usdcDecimals);
-
-      // Check USDC balance
-      const usdcBalance = await usdcContract.balanceOf(signerAddress);
-      console.log("USDC Balance check:", {
-        balance: ethers.formatUnits(usdcBalance, usdcDecimals),
-        required: amountFormatted,
-        hasEnough: usdcBalance >= amountBigInt,
-      });
-
-      if (usdcBalance < amountBigInt) {
-        toast.error(
-          `Insufficient USDC balance. You have ${ethers.formatUnits(
-            usdcBalance,
-            usdcDecimals
-          )} USDC but trying to deposit ${amountFormatted} USDC`
-        );
-        return;
-      }
-
-      // Check allowance
-      const currentAllowance = await usdcContract.allowance(
-        signerAddress,
-        pool.contract_address
-      );
-
-      console.log("Current allowance:", {
-        allowance: currentAllowance.toString(),
-        required: amountBigInt.toString(),
-        needsApproval: currentAllowance < amountBigInt,
-      });
-
-      // Handle approval if needed
-      if (currentAllowance < amountBigInt) {
-        // Create contract interface for USDC
-        const usdcInterface = new ethers.Interface([
-          "function approve(address spender, uint256 value) returns (bool)",
-        ]);
-
-        const approvalData = usdcInterface.encodeFunctionData("approve", [
-          pool.contract_address,
-          amountBigInt,
-        ]);
-
-        // Get the USDC contract address from the helper function
-        const usdcAddress = String(usdcContract.target);
-
-        // Prepare the approval transaction request
-        const approvalRequest = {
-          to: usdcAddress,
-          data: approvalData,
-          value: "0",
-        };
-
-        // Set UI options for the approval transaction
-        const approvalUiOptions = {
-          description: `Approving ${amountFormatted} ${usdcSymbol} for deposit`,
-          buttonText: "Approve USDC",
-          transactionInfo: {
-            title: "USDC Approval",
-            action: "Approve USDC",
-            contractInfo: {
-              name: "USDC Token",
-            },
-          },
-        };
-
-        console.log("Sending approval transaction", approvalRequest);
-        const approvalTxHash = await sendTransaction(approvalRequest, {
-          uiOptions: approvalUiOptions,
-        });
-        console.log("Approval transaction sent:", approvalTxHash);
-
-        // Wait for approval to be mined
-        toast.success(
-          "USDC approval initiated. Please wait for confirmation..."
-        );
-        const approvalReceipt = await ethersProvider.waitForTransaction(
-          approvalTxHash.hash
-        );
-        console.log("Approval confirmed:", approvalReceipt);
-
-        if (!approvalReceipt?.status) {
-          throw new Error("USDC approval failed");
-        }
-        toast.success("USDC approval confirmed!");
-      }
-
-      // Create contract interface for pool
-      const poolInterface = new ethers.Interface(StageDotFunPoolABI);
-      const depositData = poolInterface.encodeFunctionData("receiveRevenue", [
-        amountBigInt,
-      ]);
-
-      // Prepare the transaction request
-      const depositRequest = {
-        to: pool.contract_address,
-        data: depositData,
-        value: "0",
-      };
-
-      // Set UI options for the transaction
-      const uiOptions = {
-        description: `Depositing ${receiveAmount} USDC as revenue to the pool`,
-        buttonText: "Deposit Revenue",
-        transactionInfo: {
-          title: "Deposit Revenue",
-          action: "Deposit Revenue to Pool",
-          contractInfo: {
-            name: "StageDotFun Pool",
-          },
-        },
-      };
-
-      // Send the transaction
-      console.log("Sending deposit transaction", depositRequest);
-      const txHash = await sendTransaction(depositRequest, {
-        uiOptions,
-      });
-
-      toast.success("Revenue deposit initiated");
-      console.log("Transaction hash:", txHash);
-
-      // Wait for transaction to be mined
-      const receipt = await ethersProvider.waitForTransaction(txHash.hash);
-      console.log("Transaction receipt:", receipt);
-
-      if (!receipt?.status) {
-        throw new Error("Transaction failed on chain");
-      }
-
-      setStatusMessage("Revenue deposit successful!");
-      setReceiveAmount("");
-      setShowReceiveModal(false);
-
-      // Refresh on-chain data after transaction
-      setTimeout(() => refreshOnChainData(), 5000);
     } catch (error) {
-      console.error("Error depositing revenue:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to deposit revenue"
-      );
-    } finally {
-      setIsReceiving(false);
+      console.error("Unexpected error depositing revenue:", error);
     }
   };
 
@@ -457,14 +312,35 @@ export default function PoolFundsSection({
       // If we get here, the on-chain status is FUNDED, so we can proceed
       console.log("Pool is FUNDED on-chain, proceeding with withdrawal");
 
-      // Set the withdrawal amount to the target amount (default milestone)
+      // Set the withdrawal amount to the total available funds (total deposits + revenue)
       if (onChainData) {
-        const targetAmount = parseFloat(
+        // Include both deposits and revenue in the total
+        const totalDeposits = parseFloat(
           ethers.formatUnits(onChainData.totalDeposits, 6)
         );
-        setWithdrawAmount(targetAmount.toString());
+        const revenueAccumulated = parseFloat(
+          ethers.formatUnits(onChainData.revenueAccumulated, 6)
+        );
+        const totalAvailable = totalDeposits + revenueAccumulated;
+
+        // Format to 6 decimal places to avoid floating-point precision issues
+        const formattedTotalAvailable = Number(totalAvailable.toFixed(6));
+
+        console.log("Setting withdraw amount to total available:", {
+          totalDeposits,
+          revenueAccumulated,
+          totalAvailable,
+          formattedTotalAvailable,
+        });
+
+        setWithdrawAmount(formattedTotalAvailable.toString());
       } else {
-        setWithdrawAmount(pool.target_amount?.toString() || "");
+        // If on-chain data isn't available, use pool data from database
+        const totalAvailable =
+          (pool.raised_amount || 0) + (pool.revenue_accumulated || 0);
+        // Also format database values to be safe
+        const formattedTotalAvailable = Number(totalAvailable.toFixed(6));
+        setWithdrawAmount(formattedTotalAvailable.toString());
       }
       setShowWithdrawModal(true);
     } catch (error) {
@@ -539,12 +415,17 @@ export default function PoolFundsSection({
       return;
     }
 
-    // Ensure the withdrawal amount matches the target amount
-    const targetAmount = pool.target_amount || 0;
-    if (Math.abs(amount - targetAmount) > 0.01) {
-      // Allow small rounding differences
+    // Validate that the amount doesn't exceed the total available
+    const totalAvailable = onChainData
+      ? parseFloat(ethers.formatUnits(onChainData.totalDeposits, 6)) +
+        parseFloat(ethers.formatUnits(onChainData.revenueAccumulated, 6))
+      : (pool.raised_amount || 0) + (pool.revenue_accumulated || 0);
+
+    if (amount > totalAvailable) {
       toast.error(
-        `Withdrawal amount must be the full target amount: ${targetAmount}`
+        `Withdrawal amount (${amount.toFixed(
+          2
+        )}) exceeds available funds (${totalAvailable.toFixed(2)})`
       );
       return;
     }
@@ -553,10 +434,19 @@ export default function PoolFundsSection({
     const loadingToast = toast.loading("Preparing withdrawal...");
 
     try {
+      // Fix precision issues by rounding to 6 decimals (USDC standard)
+      // This avoids the "too many decimals for format" error
+      const formattedAmount = Number(amount.toFixed(6));
+
+      console.log("Withdrawing formatted amount:", {
+        originalAmount: amount,
+        formattedAmount: formattedAmount,
+      });
+
       // Use the new withdrawFromPool function from the hook
       const result = await withdrawFromPool(
         pool.contract_address,
-        amount,
+        formattedAmount,
         withdrawAddress
       );
 
@@ -659,7 +549,7 @@ export default function PoolFundsSection({
         {/* Only show action buttons for pool creator */}
         {isCreator && (
           <CreatorActions
-            isReceiving={isReceiving}
+            isDepositLoading={isRevenueDepositLoading}
             isWithdrawing={isWithdrawing}
             isDistributing={isDistributing}
             rawTotalFunds={rawTotalFunds}
@@ -731,15 +621,24 @@ export default function PoolFundsSection({
               {/* Info Text */}
               <div className="mb-6 text-gray-400 text-sm">
                 <p>
-                  You are withdrawing the full milestone amount. This is only
-                  available once the pool has reached its funding target.
+                  You are withdrawing the full pool amount, including deposits
+                  and revenue. This is only available to the pool owner once the
+                  pool has reached its funding target.
+                </p>
+                <p className="mt-2">
+                  <strong>Note:</strong> Funds will be sent directly to the pool
+                  owner's address according to the contract rules, regardless of
+                  the address entered below.
                 </p>
               </div>
 
               {/* Wallet Address Input */}
               <div className="mb-6">
-                <label className="block text-gray-400 text-sm mb-2">
-                  Enter wallet address (on Monad)
+                <label className="block text-gray-400 text-sm mb-2 flex items-center">
+                  <span>Enter pool owner's wallet address</span>
+                  <span className="ml-2 text-xs text-yellow-500">
+                    (For verification only)
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -831,6 +730,16 @@ export default function PoolFundsSection({
                 </div>
               </div>
 
+              {/* Smart Wallet Balance */}
+              <div className="mb-6 p-4 bg-[#FFFFFF0A] rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div className="text-gray-400 text-sm">Your balance</div>
+                  <div className="text-white font-semibold">
+                    {parseFloat(smartWalletBalance || "0").toFixed(2)} USDC
+                  </div>
+                </div>
+              </div>
+
               {/* Amount Input */}
               <div className="mb-6">
                 <NumberInput
@@ -843,25 +752,48 @@ export default function PoolFundsSection({
                 />
               </div>
 
+              {/* Insufficient Balance Warning */}
+              {receiveAmount &&
+                parseFloat(receiveAmount) > 0 &&
+                parseFloat(receiveAmount) >
+                  parseFloat(smartWalletBalance || "0") && (
+                  <div className="mb-6 p-3 bg-red-800 bg-opacity-30 text-red-500 rounded-lg text-sm">
+                    Insufficient balance. Please add more USDC or enter a
+                    smaller amount.
+                  </div>
+                )}
+
               {/* Info Text */}
               <div className="mb-6 text-gray-400 text-sm">
                 <p>
                   This will deposit USDC from your wallet to the pool as
-                  revenue. Make sure you have sufficient USDC in your wallet.
+                  revenue.
                 </p>
               </div>
+
+              {/* Smart Wallet Required Warning */}
+              {!smartWalletAddress && (
+                <div className="mb-6 p-3 bg-yellow-800 bg-opacity-30 text-yellow-500 rounded-lg text-sm">
+                  Wallet not configured. Please complete wallet setup to deposit
+                  revenue.
+                </div>
+              )}
 
               {/* Deposit Button */}
               <button
                 onClick={handleReceiveRevenue}
                 disabled={
-                  isReceiving ||
+                  isRevenueDepositLoading ||
                   !receiveAmount ||
-                  parseFloat(receiveAmount) <= 0
+                  parseFloat(receiveAmount) <= 0 ||
+                  !smartWalletAddress ||
+                  (!!receiveAmount &&
+                    parseFloat(receiveAmount) >
+                      parseFloat(smartWalletBalance || "0"))
                 }
                 className="w-full bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-3 px-4 rounded-full font-semibold transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed"
               >
-                {isReceiving ? (
+                {isRevenueDepositLoading ? (
                   <span className="flex items-center justify-center">
                     <svg
                       className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"

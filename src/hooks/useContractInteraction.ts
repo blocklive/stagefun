@@ -19,6 +19,7 @@ import {
   getRecommendedGasParams,
   getRecommendedGasParamsAsStrings,
 } from "../lib/contracts/gas-utils";
+import { useSmartWallet } from "./useSmartWallet";
 
 interface ContractInteractionHookResult {
   isLoading: boolean;
@@ -67,6 +68,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
   const { user, ready: privyReady } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
   const { sendTransaction } = useSendTransaction();
+  const { smartWalletAddress, callContractFunction } = useSmartWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
@@ -128,39 +130,6 @@ export function useContractInteraction(): ContractInteractionHookResult {
     }
   }, [user, getProvider]);
 
-  // Helper function to transfer funds to destination address
-  const transferFundsToDestination = useCallback(
-    async (
-      poolAddress: string,
-      destinationAddress: string,
-      amount: bigint,
-      tokenAddress: string,
-      tokenType: string,
-      tokenId: string
-    ) => {
-      try {
-        const signer = await getSigner();
-        const pool = getPoolContract(signer, poolAddress);
-        const tx = await pool.transferFundsToDestination(
-          destinationAddress,
-          amount,
-          tokenAddress,
-          tokenType,
-          tokenId,
-          {
-            ...getRecommendedGasParams(),
-          }
-        );
-        await tx.wait();
-        return true;
-      } catch (error) {
-        console.error("Error in transferFundsToDestination:", error);
-        throw error;
-      }
-    },
-    [getSigner]
-  );
-
   // Withdraw from a pool on the blockchain
   const withdrawFromPool = useCallback(
     async (
@@ -177,32 +146,28 @@ export function useContractInteraction(): ContractInteractionHookResult {
           throw new Error("User not logged in");
         }
 
+        if (!smartWalletAddress) {
+          throw new Error(
+            "Smart wallet not available. Please ensure you have a smart wallet configured."
+          );
+        }
+
         console.log(
           `Starting withdrawal process for pool: ${poolAddress}, amount: ${amount}, destination: ${destinationAddress}`
         );
 
-        const signer = await getSigner();
-        const signerAddress = await signer.getAddress();
-        console.log("Got signer for address:", signerAddress);
+        console.log("Using smart wallet for withdrawal:", smartWalletAddress);
 
-        // Get the embedded wallet
-        const embeddedWallet = wallets.find(
-          (wallet) => wallet.walletClientType === "privy"
+        // Get provider directly for checks
+        const provider = new ethers.JsonRpcProvider(
+          process.env.NEXT_PUBLIC_RPC_URL
         );
 
-        if (!embeddedWallet) {
-          throw new Error("No embedded wallet found for withdrawal");
-        }
-
-        // Get the provider and create contract instances
-        const provider = await embeddedWallet.getEthereumProvider();
-        const ethersProvider = new ethers.BrowserProvider(provider);
-
-        // Get the pool contract
+        // Get the pool contract (readonly)
         const poolContract = new ethers.Contract(
           poolAddress,
           StageDotFunPoolABI,
-          signer
+          provider
         );
 
         // Get pool details and verify status
@@ -219,6 +184,25 @@ export function useContractInteraction(): ContractInteractionHookResult {
         if (Number(poolDetails._status) !== 4) {
           // 4 is FUNDED status
           throw new Error("Pool must be in FUNDED status to withdraw funds");
+        }
+
+        // Get the owner of the pool
+        const owner = await poolContract.owner();
+        console.log("Pool owner:", owner);
+
+        // Check if the smart wallet is the owner
+        if (smartWalletAddress.toLowerCase() !== owner.toLowerCase()) {
+          throw new Error(
+            `Only the pool owner can withdraw funds. Your smart wallet (${smartWalletAddress}) is not the owner (${owner}). Please use the pool owner's wallet to withdraw.`
+          );
+        }
+
+        // Important note: Even if destinationAddress is specified, funds will be sent to the owner address
+        // due to how the contract function is implemented
+        if (destinationAddress.toLowerCase() !== owner.toLowerCase()) {
+          console.warn(
+            `Note: Specified destination address (${destinationAddress}) will be ignored. Funds will be sent to the pool owner (${owner}) as per contract implementation.`
+          );
         }
 
         // Calculate the total available funds
@@ -241,71 +225,25 @@ export function useContractInteraction(): ContractInteractionHookResult {
         const usdcDecimals = 6;
         const amountInWei = ethers.parseUnits(amount.toString(), usdcDecimals);
 
-        // Call withdrawFunds function
-        const poolInterface = new ethers.Interface(StageDotFunPoolABI);
-        const withdrawData = poolInterface.encodeFunctionData("withdrawFunds", [
-          amountInWei,
-        ]);
-
-        // Prepare the transaction request
-        const withdrawRequest = {
-          to: poolAddress,
-          data: withdrawData,
-          value: "0",
-          from: signerAddress,
-          chainId: 10143, // Monad Testnet
-          ...getRecommendedGasParamsAsStrings(),
-        };
-
-        const withdrawUiOptions = {
-          description: `Withdrawing funds from pool`,
-          buttonText: "Withdraw Funds",
-          transactionInfo: {
-            title: "Withdraw Funds",
-            action: "Withdraw from Pool",
-            contractInfo: {
-              name: "StageDotFun Pool",
-            },
-          },
-        };
-
-        console.log("Sending withdraw transaction");
-        const withdrawTx = await sendTransaction(withdrawRequest, {
-          uiOptions: withdrawUiOptions,
-        });
-
-        // Wait for transaction to be mined
-        const withdrawReceipt = await ethersProvider.waitForTransaction(
-          withdrawTx.hash as string
+        // Use smart wallet to call the contract
+        const result = await callContractFunction(
+          poolAddress as `0x${string}`,
+          StageDotFunPoolABI,
+          "withdrawFunds",
+          [amountInWei],
+          `Withdrawing ${amount} USDC from pool to owner address (${owner})`
         );
 
-        if (!withdrawReceipt?.status) {
-          throw new Error("Failed to withdraw funds from pool");
+        if (!result.success) {
+          throw new Error(result.error || "Failed to withdraw funds from pool");
         }
 
-        // If the destination address is different from the owner, transfer the funds
-        if (destinationAddress.toLowerCase() !== signerAddress.toLowerCase()) {
-          const result = await transferFundsToDestination(
-            poolAddress,
-            destinationAddress,
-            amountInWei,
-            getContractAddresses().usdc,
-            "USDC",
-            "0"
-          );
-          if (!result) {
-            throw new Error("Failed to transfer funds to destination");
-          }
-          return {
-            success: true,
-            txHash: withdrawTx.hash as string,
-          };
-        }
-
-        console.log("Successfully withdrew funds from pool");
+        console.log(
+          `Successfully withdrew funds from pool to owner address (${owner})`
+        );
         return {
           success: true,
-          txHash: withdrawTx.hash as string,
+          txHash: result.txHash,
         };
       } catch (error) {
         console.error("Error in withdrawFromPool:", error);
@@ -316,7 +254,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
         };
       }
     },
-    [user, getSigner, wallets, sendTransaction, transferFundsToDestination]
+    [user, smartWalletAddress, callContractFunction]
   );
 
   // Update pool name
@@ -679,76 +617,43 @@ export function useContractInteraction(): ContractInteractionHookResult {
       poolAddress: string,
       amount: number // This parameter is kept for interface consistency but not used
     ): Promise<{ success: boolean; error?: string; txHash?: string }> => {
-      if (!signer) {
-        console.error("No signer available");
-        return { success: false, error: "No wallet connected" };
-      }
-
       try {
-        console.log(`Preparing to distribute revenue for pool: ${poolAddress}`);
-
-        // Get the provider
-        const provider = await getProvider();
-        const signer = await provider.getSigner();
-
-        // Create contract instance
-        const poolContract = new ethers.Contract(
-          poolAddress,
-          StageDotFunPoolABI,
-          signer
-        );
-
-        // Call the distributeRevenue function - note that it doesn't take any parameters
-        const tx = await poolContract.distributeRevenue({
-          ...getRecommendedGasParams(),
-        });
-
-        console.log("Distribution transaction submitted:", tx.hash);
-
-        // Wait for transaction to be mined
-        const receipt = await tx.wait();
-        console.log("Distribution transaction confirmed:", receipt);
-
-        // Add detailed logging of the transaction receipt
-        console.log("Transaction receipt:", {
-          hash: receipt.hash,
-          blockNumber: receipt.blockNumber,
-          status: receipt.status,
-          logs: receipt.logs.map((log: ethers.Log) => ({
-            address: log.address,
-            topics: log.topics,
-            data: log.data,
-          })),
-        });
-
-        // Debug log all events with detailed information
-        console.log("Number of logs:", receipt.logs.length);
-        console.log("Detailed logs:");
-        receipt.logs.forEach((log: ethers.Log, index: number) => {
-          console.log(`\nLog ${index}:`);
-          console.log("Address:", log.address);
-          console.log("Topics:", log.topics);
-          console.log("Data:", log.data);
-          console.log("Block number:", log.blockNumber);
-          console.log("Transaction hash:", log.transactionHash);
-          console.log("Block hash:", log.blockHash);
-          console.log("Removed:", log.removed);
-        });
-
-        // Check if the transaction was successful
-        if (!receipt.status) {
-          // Try to get the revert reason
-          const code = await provider.call({
-            ...tx,
-            blockTag: receipt.blockNumber,
-          });
-          console.error("Transaction failed with code:", code);
-          throw new Error("Transaction failed on chain");
+        if (!user) {
+          console.error("No user logged in");
+          return { success: false, error: "No user logged in" };
         }
 
+        if (!smartWalletAddress) {
+          return {
+            success: false,
+            error:
+              "Smart wallet not available. Please ensure you have a smart wallet configured.",
+          };
+        }
+
+        console.log(`Preparing to distribute revenue for pool: ${poolAddress}`);
+        console.log(
+          "Using smart wallet for revenue distribution:",
+          smartWalletAddress
+        );
+
+        // Use smart wallet to call the contract
+        const result = await callContractFunction(
+          poolAddress as `0x${string}`,
+          StageDotFunPoolABI,
+          "distributeRevenue",
+          [], // No parameters for distribute revenue
+          `Distributing revenue for pool ${poolAddress}`
+        );
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to distribute revenue");
+        }
+
+        console.log("Successfully distributed revenue using smart wallet");
         return {
           success: true,
-          txHash: tx.hash,
+          txHash: result.txHash,
         };
       } catch (error) {
         console.error("Error in distributeRevenue:", error);
@@ -763,12 +668,17 @@ export function useContractInteraction(): ContractInteractionHookResult {
             success: false,
             error: "Insufficient funds for transaction",
           };
+        } else if (errorMessage.includes("No revenue to distribute")) {
+          return {
+            success: false,
+            error: "No revenue available to distribute",
+          };
         }
 
         return { success: false, error: errorMessage };
       }
     },
-    [signer, getProvider]
+    [user, smartWalletAddress, callContractFunction]
   );
 
   return {
