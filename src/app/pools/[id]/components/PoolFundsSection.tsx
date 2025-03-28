@@ -30,6 +30,7 @@ import NumberInput from "../../../components/NumberInput";
 import { useSmartWallet } from "../../../../hooks/useSmartWallet";
 import { useSmartWalletBalance } from "../../../../hooks/useSmartWalletBalance";
 import { useRevenueDeposit } from "../../../../hooks/useRevenueDeposit";
+import WithdrawModal from "./WithdrawModal";
 
 interface PoolFundsSectionProps {
   pool: Pool & {
@@ -312,35 +313,57 @@ export default function PoolFundsSection({
       // If we get here, the on-chain status is FUNDED, so we can proceed
       console.log("Pool is FUNDED on-chain, proceeding with withdrawal");
 
-      // Set the withdrawal amount to the total available funds (total deposits + revenue)
+      // Set the withdrawal amount to the actual contract balance instead of total available funds
       if (onChainData) {
-        // Include both deposits and revenue in the total
-        const totalDeposits = parseFloat(
-          ethers.formatUnits(onChainData.totalDeposits, 6)
+        // Use actual contract balance which represents what can actually be withdrawn
+        const actualBalance = parseFloat(
+          ethers.formatUnits(onChainData.contractBalance, 6)
         );
-        const revenueAccumulated = parseFloat(
-          ethers.formatUnits(onChainData.revenueAccumulated, 6)
-        );
-        const totalAvailable = totalDeposits + revenueAccumulated;
 
         // Format to 6 decimal places to avoid floating-point precision issues
-        const formattedTotalAvailable = Number(totalAvailable.toFixed(6));
+        const formattedBalance = Number(actualBalance.toFixed(6));
 
-        console.log("Setting withdraw amount to total available:", {
-          totalDeposits,
-          revenueAccumulated,
-          totalAvailable,
-          formattedTotalAvailable,
+        console.log("Setting withdraw amount to actual contract balance:", {
+          actualBalance,
+          formattedBalance,
         });
 
-        setWithdrawAmount(formattedTotalAvailable.toString());
+        setWithdrawAmount(formattedBalance.toString());
+
+        // If contract balance is zero, show a message and don't open the modal
+        if (formattedBalance <= 0) {
+          toast.error("No funds available to withdraw");
+          return;
+        }
       } else {
-        // If on-chain data isn't available, use pool data from database
-        const totalAvailable =
-          (pool.raised_amount || 0) + (pool.revenue_accumulated || 0);
-        // Also format database values to be safe
-        const formattedTotalAvailable = Number(totalAvailable.toFixed(6));
-        setWithdrawAmount(formattedTotalAvailable.toString());
+        // Try to fetch fresh on-chain data before proceeding
+        try {
+          const provider = new ethers.JsonRpcProvider(
+            process.env.NEXT_PUBLIC_RPC_URL
+          );
+          const usdcContract = getUSDCContract(provider);
+          const balance = await usdcContract.balanceOf(pool.contract_address);
+          const actualBalance = parseFloat(ethers.formatUnits(balance, 6));
+          const formattedBalance = Number(actualBalance.toFixed(6));
+
+          setWithdrawAmount(formattedBalance.toString());
+
+          // If contract balance is zero, show a message and don't open the modal
+          if (formattedBalance <= 0) {
+            toast.error("No funds available to withdraw");
+            return;
+          }
+        } catch (error) {
+          console.error("Error fetching fresh balance:", error);
+
+          // If on-chain data isn't available, use pool data from database as fallback
+          // This is just a fallback and might not be accurate
+          const totalAvailable =
+            (pool.raised_amount || 0) + (pool.revenue_accumulated || 0);
+          // Also format database values to be safe
+          const formattedTotalAvailable = Number(totalAvailable.toFixed(6));
+          setWithdrawAmount(formattedTotalAvailable.toString());
+        }
       }
       setShowWithdrawModal(true);
     } catch (error) {
@@ -359,11 +382,7 @@ export default function PoolFundsSection({
       return;
     }
 
-    if (!ethers.isAddress(withdrawAddress)) {
-      toast.error("Please enter a valid wallet address");
-      return;
-    }
-
+    // No need to check address validity since it's hardcoded to the smart wallet
     // Check if the pool is in FUNDED status using the enum
     console.log(
       "Pool status before conversion (withdraw):",
@@ -417,8 +436,7 @@ export default function PoolFundsSection({
 
     // Validate that the amount doesn't exceed the total available
     const totalAvailable = onChainData
-      ? parseFloat(ethers.formatUnits(onChainData.totalDeposits, 6)) +
-        parseFloat(ethers.formatUnits(onChainData.revenueAccumulated, 6))
+      ? parseFloat(ethers.formatUnits(onChainData.contractBalance, 6))
       : (pool.raised_amount || 0) + (pool.revenue_accumulated || 0);
 
     if (amount > totalAvailable) {
@@ -552,7 +570,11 @@ export default function PoolFundsSection({
             isDepositLoading={isRevenueDepositLoading}
             isWithdrawing={isWithdrawing}
             isDistributing={isDistributing}
-            rawTotalFunds={rawTotalFunds}
+            rawTotalFunds={
+              onChainData
+                ? parseFloat(ethers.formatUnits(onChainData.contractBalance, 6))
+                : rawTotalFunds
+            }
             onReceiveClick={openReceiveModal}
             onWithdrawClick={openWithdrawModal}
             onDistributeClick={openDistributeModal}
@@ -575,118 +597,15 @@ export default function PoolFundsSection({
       </div>
 
       {/* Withdraw Modal */}
-      {showWithdrawModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div
-            ref={modalRef}
-            className="bg-[#000000] rounded-[16px] w-full max-w-md overflow-hidden"
-          >
-            {/* Modal Header */}
-            <div className="p-4 flex items-center">
-              <button
-                onClick={() => setShowWithdrawModal(false)}
-                className="p-2 rounded-full bg-[#FFFFFF14] mr-4"
-              >
-                <FaChevronLeft className="text-white" />
-              </button>
-              <h2 className="text-xl font-bold text-white text-center flex-grow">
-                Withdraw
-              </h2>
-              <div className="w-10"></div> {/* Spacer for centering */}
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6">
-              {/* Pool Icon and Amount */}
-              <div className="flex justify-center mb-6">
-                <div className="flex items-center">
-                  <div className="bg-[#FFFFFF14] rounded-full p-2 mr-2">
-                    <svg
-                      className="w-6 h-6 text-white"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12z" />
-                      <path d="M10 4a1 1 0 100 2 1 1 0 000-2zm0 10a1 1 0 100-2 1 1 0 000 2z" />
-                    </svg>
-                  </div>
-                  <div className="text-4xl font-bold text-white">
-                    {withdrawAmount
-                      ? parseFloat(withdrawAmount).toFixed(2)
-                      : "0.00"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Info Text */}
-              <div className="mb-6 text-gray-400 text-sm">
-                <p>
-                  You are withdrawing the full pool amount, including deposits
-                  and revenue. This is only available to the pool owner once the
-                  pool has reached its funding target.
-                </p>
-              </div>
-
-              {/* Wallet Address Input */}
-              <div className="mb-6">
-                <label className="block text-gray-400 text-sm mb-2 flex items-center">
-                  <span>Enter pool owner's wallet address</span>
-                  <span className="ml-2 text-xs text-yellow-500">
-                    (For verification only)
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  value={withdrawAddress}
-                  onChange={(e) => setWithdrawAddress(e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-3 rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500"
-                  placeholder="0x..."
-                />
-              </div>
-
-              {/* Withdraw Button */}
-              <button
-                onClick={handleWithdrawFunds}
-                disabled={
-                  isWithdrawing ||
-                  !withdrawAmount ||
-                  parseFloat(withdrawAmount) <= 0 ||
-                  !ethers.isAddress(withdrawAddress)
-                }
-                className="w-full bg-white text-black py-3 px-4 rounded-full font-semibold transition-colors disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
-              >
-                {isWithdrawing ? (
-                  <span className="flex items-center justify-center">
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-black"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Processing...
-                  </span>
-                ) : (
-                  "Withdraw"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <WithdrawModal
+        isOpen={showWithdrawModal}
+        onClose={() => setShowWithdrawModal(false)}
+        withdrawAmount={withdrawAmount}
+        withdrawAddress={withdrawAddress}
+        isWithdrawing={isWithdrawing}
+        onWithdraw={handleWithdrawFunds}
+        modalRef={modalRef as React.RefObject<HTMLDivElement>}
+      />
 
       {/* Receive Revenue Modal */}
       {showReceiveModal && (

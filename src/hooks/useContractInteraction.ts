@@ -193,7 +193,7 @@ export function useContractInteraction(): ContractInteractionHookResult {
         // Check if the smart wallet is the owner
         if (smartWalletAddress.toLowerCase() !== owner.toLowerCase()) {
           throw new Error(
-            `Only the pool owner can withdraw funds. Your smart wallet (${smartWalletAddress}) is not the owner (${owner}). Please use the pool owner's wallet to withdraw.`
+            `Only the pool creator's smart wallet can withdraw funds. Your smart wallet (${smartWalletAddress}) cannot withdraw since this pool was created by a different wallet (${owner}).`
           );
         }
 
