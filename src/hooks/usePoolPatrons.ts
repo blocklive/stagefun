@@ -91,18 +91,30 @@ export function usePoolPatrons(poolAddress: string | null) {
         const currentUserWalletAddress =
           privyUser?.wallet?.address?.toLowerCase();
 
+        // Also get current user's smart wallet address from dbUser
+        const currentUserSmartWalletAddress =
+          dbUser?.smart_wallet_address?.toLowerCase();
+
         // First, try to get user data for the current user if they're a patron
         let currentUserData = null;
         if (
-          currentUserWalletAddress &&
-          patronsWithBalances.some(
-            (p) => p.address.toLowerCase() === currentUserWalletAddress
-          )
+          (currentUserWalletAddress &&
+            patronsWithBalances.some(
+              (p) => p.address.toLowerCase() === currentUserWalletAddress
+            )) ||
+          (currentUserSmartWalletAddress &&
+            patronsWithBalances.some(
+              (p) => p.address.toLowerCase() === currentUserSmartWalletAddress
+            ))
         ) {
           const { data: userData } = await supabase
             .from("users")
-            .select("id, username, name, avatar_url, wallet_address")
-            .eq("wallet_address", currentUserWalletAddress)
+            .select(
+              "id, username, name, avatar_url, wallet_address, smart_wallet_address"
+            )
+            .or(
+              `wallet_address.ilike.${currentUserWalletAddress},smart_wallet_address.ilike.${currentUserSmartWalletAddress}`
+            )
             .single();
 
           if (userData) {
@@ -112,14 +124,28 @@ export function usePoolPatrons(poolAddress: string | null) {
         }
 
         // Then, get data for all patrons
-        // Use ilike for case-insensitive matching and or to check multiple addresses
-        const addressFilters = patronsWithBalances.map(
-          (p) => `wallet_address.ilike.${p.address.toLowerCase()}`
-        );
+        // Use ilike for case-insensitive matching and or to check both embedded and smart wallet addresses
+        const addressFilters: string[] = [];
+
+        // Add wallet_address filters
+        patronsWithBalances.forEach((p) => {
+          addressFilters.push(
+            `wallet_address.ilike.${p.address.toLowerCase()}`
+          );
+        });
+
+        // Add smart_wallet_address filters
+        patronsWithBalances.forEach((p) => {
+          addressFilters.push(
+            `smart_wallet_address.ilike.${p.address.toLowerCase()}`
+          );
+        });
 
         const { data: users, error: usersError } = await supabase
           .from("users")
-          .select("id, username, name, avatar_url, wallet_address")
+          .select(
+            "id, username, name, avatar_url, wallet_address, smart_wallet_address"
+          )
           .or(addressFilters.join(","));
 
         if (usersError) {
@@ -133,14 +159,27 @@ export function usePoolPatrons(poolAddress: string | null) {
         );
         console.log("User data from Supabase:", users);
 
-        // Create a map of wallet address to user
+        // Create a map of wallet address to user, checking both embedded and smart wallet addresses
         const walletToUserMap = new Map();
         if (users && users.length > 0) {
           users.forEach((user) => {
+            // Map embedded wallet
             if (user.wallet_address) {
               walletToUserMap.set(user.wallet_address.toLowerCase(), user);
               console.log(
-                `Mapped ${user.wallet_address.toLowerCase()} to user:`,
+                `Mapped embedded wallet ${user.wallet_address.toLowerCase()} to user:`,
+                user
+              );
+            }
+
+            // Map smart wallet
+            if (user.smart_wallet_address) {
+              walletToUserMap.set(
+                user.smart_wallet_address.toLowerCase(),
+                user
+              );
+              console.log(
+                `Mapped smart wallet ${user.smart_wallet_address.toLowerCase()} to user:`,
                 user
               );
             }
@@ -163,8 +202,11 @@ export function usePoolPatrons(poolAddress: string | null) {
         const enrichedPatrons = patronsWithBalances.map((patron) => {
           const normalizedAddress = patron.address.toLowerCase();
           const user = walletToUserMap.get(normalizedAddress);
+
+          // Check if this is the current user by comparing against both the embedded wallet and smart wallet
           const isCurrentUser =
             currentUserWalletAddress === normalizedAddress ||
+            currentUserSmartWalletAddress === normalizedAddress ||
             (dbUser && user?.id === dbUser.id);
 
           // For debugging

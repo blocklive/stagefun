@@ -110,7 +110,11 @@ export default function CommitModal({
 
   // Add a function to check if the user has sufficient funds
   const hasSufficientFunds = () => {
-    if (!selectedTier || !smartWalletBalance) return false;
+    // If no tier is selected, don't show any warning
+    if (!selectedTierId || !selectedTier) return true;
+
+    // If balance is loading, assume sufficient
+    if (isLoadingBalance) return true;
 
     const userBalance = parseFloat(smartWalletBalance || "0");
 
@@ -211,25 +215,28 @@ export default function CommitModal({
                   </div>
                 </div>
 
-                {selectedTier &&
-                  !selectedTier.is_variable_price &&
-                  parseFloat(smartWalletBalance || "0") <
-                    selectedTier.price && (
-                    <div className="mt-2 text-xs text-amber-400">
-                      Your balance is less than the required amount for this
-                      tier ({selectedTier.price} USDC)
-                    </div>
-                  )}
+                {/* Only show warnings if a tier is selected */}
+                {selectedTier && selectedTier.id === selectedTierId && (
+                  <>
+                    {!selectedTier.is_variable_price &&
+                      parseFloat(smartWalletBalance || "0") <
+                        selectedTier.price && (
+                        <div className="mt-2 text-xs text-amber-400">
+                          Your balance is less than the required amount for this
+                          tier ({selectedTier.price} USDC)
+                        </div>
+                      )}
 
-                {selectedTier &&
-                  selectedTier.is_variable_price &&
-                  commitAmount &&
-                  parseFloat(smartWalletBalance || "0") <
-                    parseFloat(commitAmount) && (
-                    <div className="mt-2 text-xs text-amber-400">
-                      Your balance is less than the amount you entered
-                    </div>
-                  )}
+                    {selectedTier.is_variable_price &&
+                      commitAmount &&
+                      parseFloat(smartWalletBalance || "0") <
+                        parseFloat(commitAmount) && (
+                        <div className="mt-2 text-xs text-amber-400">
+                          Your balance is less than the amount you entered
+                        </div>
+                      )}
+                  </>
+                )}
               </div>
 
               <div className="mt-6 flex justify-end space-x-3">
@@ -256,6 +263,8 @@ export default function CommitModal({
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       <span>Committing...</span>
                     </>
+                  ) : !selectedTierId ? (
+                    "Select a Tier"
                   ) : !hasSufficientFunds() ? (
                     "Insufficient Balance"
                   ) : (
