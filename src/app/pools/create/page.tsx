@@ -191,8 +191,10 @@ export default function CreatePoolPage() {
       // Validate funding goal and cap amount
       const goal = parseFloat(fundingGoal);
       const cap = parseFloat(capAmount);
-      if (cap <= goal) {
-        throw new Error("Cap amount must be greater than funding goal");
+      if (cap < goal) {
+        throw new Error(
+          "Cap amount must be greater than or equal to funding goal"
+        );
       }
 
       // Validate tiers
@@ -215,24 +217,24 @@ export default function CreatePoolPage() {
         }
       }
 
-      // Check if user has enough gas for deployment
-      if (parseFloat(balance) < 0.5) {
-        toast.error(
-          `Your wallet has ${parseFloat(balance).toFixed(
-            4
-          )} MON. Deploying a pool requires at least 0.5 MON to pay for gas.`,
-          {
-            duration: 6000,
-            style: {
-              background: "#1E1F25",
-              color: "white",
-              border: "1px solid rgba(131, 110, 249, 0.3)",
-              maxWidth: "400px",
-            },
-          }
-        );
-        return;
-      }
+      // No longer need to check gas balance as we're using ZeroDev for gas sponsorship
+      // if (parseFloat(balance) < 0.5) {
+      //   toast.error(
+      //     `Your wallet has ${parseFloat(balance).toFixed(
+      //       4
+      //     )} MON. Deploying a pool requires at least 0.5 MON to pay for gas.`,
+      //     {
+      //       duration: 6000,
+      //       style: {
+      //         background: "#1E1F25",
+      //         color: "white",
+      //         border: "1px solid rgba(131, 110, 249, 0.3)",
+      //         maxWidth: "400px",
+      //       },
+      //     }
+      //   );
+      //   return;
+      // }
 
       // Call handleSubmit from usePoolCreation with all required parameters
       await handleSubmit(
@@ -249,6 +251,7 @@ export default function CreatePoolPage() {
       );
     } catch (error: any) {
       console.error("Error creating pool:", error);
+      setError(error.message || "Failed to create pool");
       toast.error(error.message || "Failed to create pool");
     } finally {
       setIsLoading(false);
@@ -283,7 +286,8 @@ export default function CreatePoolPage() {
         </div>
 
         {/* Gas Warning Banner - Only show when balance check is complete and balance is low */}
-        {balanceChecked && showGasWarning && (
+        {/* Gas warning removed as we're using ZeroDev for gas sponsorship */}
+        {/* {balanceChecked && showGasWarning && (
           <div className="mx-6 mt-4 p-4 bg-[#1E1F25] border border-[#836EF9] border-opacity-50 rounded-lg">
             <div className="flex items-center">
               <div className="w-10 h-10 bg-[#836EF9] bg-opacity-20 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
@@ -327,7 +331,7 @@ export default function CreatePoolPage() {
               </button>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Main content */}
         <div className="px-6" style={{ paddingBottom: "40px" }}>

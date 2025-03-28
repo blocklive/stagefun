@@ -44,22 +44,27 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   const [showRewardDropdown, setShowRewardDropdown] = useState<string | null>(
     null
   );
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  // Close dropdown when clicking outside
+  const registerDropdownRef = (id: string, ref: HTMLDivElement | null) => {
+    dropdownRefs.current[id] = ref;
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowRewardDropdown(null);
+      const target = event.target as Node;
+      const openDropdownId = showRewardDropdown;
+
+      if (openDropdownId && dropdownRefs.current[openDropdownId]) {
+        if (!dropdownRefs.current[openDropdownId]?.contains(target)) {
+          setShowRewardDropdown(null);
+        }
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [showRewardDropdown]);
 
   // Function to generate a default tier name based on tier number
   const generateTierName = React.useCallback(
@@ -481,30 +486,76 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   };
 
   const handleSelectReward = (tierId: string, rewardId: string) => {
-    // Log what's happening
-    console.log("Selecting reward", rewardId, "for tier", tierId);
-    console.log("Current tiers:", tiers);
+    // Enhanced logging to debug the issue
+    console.log("=== REWARD SELECTION DEBUG ===");
+    console.log(`Selecting reward ${rewardId} for tier ${tierId}`);
 
-    // Create a new copy of tiers to avoid reference issues
+    // Log the original tiers state
+    console.log(
+      "Original tiers:",
+      JSON.stringify(
+        tiers,
+        (key, value) => {
+          if (key === "modifiedFields" && value instanceof Set) {
+            return Array.from(value);
+          }
+          return value;
+        },
+        2
+      )
+    );
+
+    // Find the tier and log its current state
+    const targetTier = tiers.find((tier) => tier.id === tierId);
+    console.log(
+      `Target tier "${targetTier?.name}" current rewardItems:`,
+      targetTier?.rewardItems
+    );
+
+    // Get the reward details for logging
+    const reward = availableRewardItems.find((item) => item.id === rewardId);
+    console.log(`Adding reward: ${reward?.name} (${rewardId})`);
+
+    // Create a deep copy of the tiers array
     const updatedTiers = tiers.map((tier) => {
       if (tier.id === tierId) {
-        console.log("Adding reward to tier", tier.name);
-        // Create a new tier object with updated rewardItems
-        return {
-          ...tier,
-          rewardItems: [...tier.rewardItems, rewardId],
-        };
+        // Make sure we're not duplicating the reward
+        if (!tier.rewardItems.includes(rewardId)) {
+          console.log(`Adding reward ${rewardId} to tier ${tier.name}`);
+          return {
+            ...tier,
+            rewardItems: [...tier.rewardItems, rewardId],
+          };
+        } else {
+          console.log(`Reward ${rewardId} already exists in tier ${tier.name}`);
+          return tier;
+        }
       }
       return tier;
     });
 
-    console.log("Updated tiers:", updatedTiers);
+    // Log the updated tiers
+    console.log(
+      "Updated tiers:",
+      JSON.stringify(
+        updatedTiers,
+        (key, value) => {
+          if (key === "modifiedFields" && value instanceof Set) {
+            return Array.from(value);
+          }
+          return value;
+        },
+        2
+      )
+    );
 
-    // Update the tiers state
+    // Update the state
     onTiersChange(updatedTiers);
 
     // Close the dropdown
     setShowRewardDropdown(null);
+
+    console.log("=== END REWARD SELECTION DEBUG ===");
   };
 
   // Filter out rewards that are already added to the tier
@@ -781,14 +832,28 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                   ))}
 
                 {/* Add New Reward Button with Dropdown */}
-                <div className="flex justify-start relative" ref={dropdownRef}>
+                <div
+                  className="flex justify-start relative"
+                  ref={(el) => {
+                    registerDropdownRef(tier.id, el);
+                  }}
+                >
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowRewardDropdown(
-                        showRewardDropdown === tier.id ? null : tier.id
-                      )
-                    }
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log(
+                        `Toggling dropdown for tier ${tier.name} (${tier.id})`
+                      );
+
+                      // Toggle dropdown for this tier only
+                      if (showRewardDropdown === tier.id) {
+                        setShowRewardDropdown(null);
+                      } else {
+                        setShowRewardDropdown(tier.id);
+                      }
+                    }}
                     className="flex items-center gap-2 px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-[#836EF9] transition-colors"
                   >
                     <PlusIcon className="w-5 h-5" />
@@ -811,6 +876,9 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          console.log(
+                            `Creating new reward for tier ${tier.name} (${tier.id})`
+                          );
                           setCurrentTierId(tier.id);
                           setShowAddRewardModal(true);
                           setShowRewardDropdown(null);
@@ -825,14 +893,39 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                       <div className="max-h-48 overflow-y-auto">
                         {getAvailableRewardsForTier(tier).length > 0 ? (
                           getAvailableRewardsForTier(tier).map((item) => (
-                            <button
+                            <div
                               key={item.id}
-                              type="button"
-                              onClick={() => {
-                                // Simplified click handler to reduce possible issues
-                                handleSelectReward(tier.id, item.id);
+                              className="w-full flex items-center gap-2 p-3 hover:bg-[#FFFFFF0A] text-white transition-colors cursor-pointer"
+                              onClick={(e) => {
+                                e.preventDefault(); // Prevent default behavior
+                                e.stopPropagation(); // Don't let event bubble
+                                console.log(
+                                  `Clicking reward ${item.name} (${item.id}) for tier ${tier.name} (${tier.id})`
+                                );
+
+                                // Directly update the tier here for immediate feedback
+                                const updatedTiers = tiers.map((t) => {
+                                  if (
+                                    t.id === tier.id &&
+                                    !t.rewardItems.includes(item.id)
+                                  ) {
+                                    console.log(
+                                      `Directly adding reward ${item.id} to tier ${t.name}`
+                                    );
+                                    return {
+                                      ...t,
+                                      rewardItems: [...t.rewardItems, item.id],
+                                    };
+                                  }
+                                  return t;
+                                });
+
+                                // Update state
+                                onTiersChange(updatedTiers);
+
+                                // Close dropdown
+                                setShowRewardDropdown(null);
                               }}
-                              className="w-full flex items-center gap-2 p-3 hover:bg-[#FFFFFF0A] text-white transition-colors"
                             >
                               <div className="flex-1 text-left">
                                 <div className="font-medium">{item.name}</div>
@@ -840,7 +933,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                                   {item.description}
                                 </div>
                               </div>
-                            </button>
+                            </div>
                           ))
                         ) : (
                           <div className="p-3 text-gray-400 text-sm text-center">

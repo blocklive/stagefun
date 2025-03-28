@@ -22,24 +22,9 @@ export const usePoolCreation = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [showGasWarning, setShowGasWarning] = useState(false);
-  const [balanceChecked, setBalanceChecked] = useState(false);
+  const [balanceChecked, setBalanceChecked] = useState(true);
   const [uniqueId] = useState<string>(uuidv4());
   const [error, setError] = useState<string | null>(null);
-
-  // Minimum recommended balance in MON (0.5 MON should be enough for deployment)
-  const MIN_GAS_BALANCE = 0.5;
-
-  // Effect to check gas balance
-  useEffect(() => {
-    if (!isBalanceLoading) {
-      // Balance check is complete
-      setBalanceChecked(true);
-      if (nativeBalance) {
-        const balanceNum = parseFloat(nativeBalance);
-        setShowGasWarning(balanceNum < MIN_GAS_BALANCE);
-      }
-    }
-  }, [nativeBalance, isBalanceLoading]);
 
   const handleSubmit = async (
     poolName: string,
@@ -147,25 +132,6 @@ export const usePoolCreation = () => {
       }
 
       // Description is optional, so we don't validate it
-    }
-
-    // Check if user has enough gas for deployment
-    if (parseFloat(nativeBalance) < MIN_GAS_BALANCE) {
-      toast.error(
-        `Your wallet has ${parseFloat(nativeBalance).toFixed(
-          4
-        )} MON. Deploying a pool requires at least 0.5 MON to pay for gas.`,
-        {
-          duration: 6000,
-          style: {
-            background: "#1E1F25",
-            color: "white",
-            border: "1px solid rgba(131, 110, 249, 0.3)",
-            maxWidth: "400px",
-          },
-        }
-      );
-      return;
     }
 
     setIsSubmitting(true);

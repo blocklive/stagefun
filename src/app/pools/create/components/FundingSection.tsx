@@ -233,7 +233,7 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
                   const goalValue = parseFloat(fundingGoal || "");
                   if (
                     !isNaN(currentValue) &&
-                    (!goalValue || currentValue > goalValue)
+                    (!goalValue || currentValue >= goalValue)
                   ) {
                     onCapAmountChange((currentValue - 1).toString());
                   }
