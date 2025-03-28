@@ -625,11 +625,6 @@ export default function PoolFundsSection({
                   and revenue. This is only available to the pool owner once the
                   pool has reached its funding target.
                 </p>
-                <p className="mt-2">
-                  <strong>Note:</strong> Funds will be sent directly to the pool
-                  owner's address according to the contract rules, regardless of
-                  the address entered below.
-                </p>
               </div>
 
               {/* Wallet Address Input */}

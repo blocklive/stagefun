@@ -186,9 +186,9 @@ export function useContractInteraction(): ContractInteractionHookResult {
           throw new Error("Pool must be in FUNDED status to withdraw funds");
         }
 
-        // Get the owner of the pool
-        const owner = await poolContract.owner();
-        console.log("Pool owner:", owner);
+        // Get owner address - this is the creator of the pool
+        const owner = await poolContract.creator();
+        console.log("Pool owner/creator:", owner);
 
         // Check if the smart wallet is the owner
         if (smartWalletAddress.toLowerCase() !== owner.toLowerCase()) {

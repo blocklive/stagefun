@@ -10,11 +10,13 @@ import { pools } from "@/data/pools";
 import AutoScroller from "@/app/components/AutoScroller";
 import PoolScroller from "@/app/components/PoolScroller";
 import AppHeader from "@/app/components/AppHeader";
+import InfoModal from "@/app/components/InfoModal";
 
 export default function LoginPage() {
   const { login, authenticated } = usePrivy();
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
   // Use useEffect to handle navigation after render
   useEffect(() => {
@@ -40,6 +42,14 @@ export default function LoginPage() {
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
+  const handleInfoClick = () => {
+    setIsInfoModalOpen(true);
+  };
+
+  const handleCloseInfoModal = () => {
+    setIsInfoModalOpen(false);
+  };
+
   return (
     <div
       className="flex flex-col bg-[#1E1B2E] text-white relative"
@@ -48,7 +58,11 @@ export default function LoginPage() {
       {/* Main content area with scrolling */}
       <div className="flex-1 overflow-y-auto">
         {/* Use the AppHeader component */}
-        <AppHeader showTitle={false} backgroundColor="#1E1B2E" />
+        <AppHeader
+          showTitle={false}
+          backgroundColor="#1E1B2E"
+          onInfoClick={handleInfoClick}
+        />
 
         {/* Auto-scrolling Navigation */}
         <div className="px-6 mt-6">
@@ -85,6 +99,9 @@ export default function LoginPage() {
           <span className="font-bold">MONAD</span>
         </div>
       </div>
+
+      {/* Info Modal */}
+      <InfoModal isOpen={isInfoModalOpen} onClose={handleCloseInfoModal} />
     </div>
   );
 }
