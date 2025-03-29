@@ -3,6 +3,8 @@ import {
   getUSDCContract,
   getPoolContract,
   getContractAddresses,
+  getDetailedPoolStatus,
+  PoolStatus,
 } from "../../contracts/StageDotFunPool";
 import { StageDotFunPoolABI } from "../../contracts/StageDotFunPool";
 import { getRecommendedGasParams } from "../../contracts/gas-utils";
@@ -35,7 +37,8 @@ export class DepositService {
   async checkDepositRequirements(
     poolAddress: string,
     tierId: number,
-    tierPrice: bigint
+    tierPrice: bigint,
+    isZeroAmountVariableTier: boolean = false
   ): Promise<{ requirements: DepositRequirements; error?: string }> {
     try {
       // Use the pre-defined ABI instead of custom one
@@ -44,12 +47,38 @@ export class DepositService {
       const targetTier = await poolContract.getTier(tierId);
       const now = Math.floor(Date.now() / 1000);
 
+      // Get detailed status analysis
+      const poolStatus = getDetailedPoolStatus(
+        Number(poolDetails._status),
+        poolDetails._totalDeposits,
+        poolDetails._targetAmount,
+        poolDetails._capAmount,
+        poolDetails._endTime
+      );
+
+      // Additional debugging for the fund status
+      console.log("Pool status analysis:", {
+        ...poolStatus,
+        totalDeposits: poolDetails._totalDeposits.toString(),
+        targetAmount: poolDetails._targetAmount.toString(),
+        capAmount: poolDetails._capAmount.toString(),
+        endTime: Number(poolDetails._endTime),
+        currentTime: now,
+        isZeroAmountVariableTier,
+      });
+
+      // Special rule: Allow variable price tiers with 0 amount to commit to funded but not capped pools
+      const notFundedRequirement = isZeroAmountVariableTier
+        ? !poolStatus.isCapped // For 0 amount variable price tiers, only check if it's not capped
+        : !poolStatus.isFunded; // For regular deposits, check if it's not funded
+
       const requirements: DepositRequirements = {
         tierIdValid: tierId < poolDetails._tierCount,
         tierActive: targetTier.isActive, // Using named property instead of array index
-        poolActive: Number(poolDetails._status) === 1,
-        notFunded: poolDetails._totalDeposits < poolDetails._targetAmount,
-        notEnded: now <= poolDetails._endTime,
+        poolActive:
+          poolDetails._status.toString() === PoolStatus.ACTIVE.toString(),
+        notFunded: notFundedRequirement,
+        notEnded: now <= Number(poolDetails._endTime),
         withinCap:
           poolDetails._totalDeposits + tierPrice <= poolDetails._capAmount,
         patronsCheck:
@@ -190,19 +219,58 @@ export class DepositService {
     tierId: number
   ): Promise<{
     success: boolean;
-    tier?: any;
+    tier?: {
+      name: string;
+      price: bigint;
+      isActive: boolean;
+      nftMetadata: string;
+      is_variable_price: boolean;
+      minPrice: bigint;
+      maxPrice: bigint;
+      maxPatrons: bigint;
+      currentPatrons: bigint;
+    };
     error?: string;
   }> {
     try {
-      // Use the pre-defined ABI instead of custom one
-      const poolContract = getPoolContract(this.provider, poolAddress);
-      const tier = await poolContract.getTier(tierId);
-      return { success: true, tier };
-    } catch (error) {
+      const poolContract = new ethers.Contract(
+        poolAddress,
+        StageDotFunPoolABI,
+        this.provider
+      );
+
+      console.log(`Getting tier details for tierId: ${tierId}`);
+
+      // Call the getTier function
+      const tierResponse = await poolContract.getTier(tierId);
+
+      console.log("Raw tier response from contract:", tierResponse);
+
+      if (!tierResponse) {
+        return { success: false, error: "Failed to get tier details" };
+      }
+
+      // Make sure to correctly extract the isVariablePrice flag
+      // The contract returns values in the order they're defined in the struct
+      return {
+        success: true,
+        tier: {
+          name: tierResponse[0],
+          price: tierResponse[1],
+          isActive: tierResponse[2],
+          nftMetadata: tierResponse[3],
+          is_variable_price: tierResponse[4], // Make sure this matches the contract struct order
+          minPrice: tierResponse[5],
+          maxPrice: tierResponse[6],
+          maxPatrons: tierResponse[7],
+          currentPatrons: tierResponse[8],
+        },
+      };
+    } catch (error: any) {
+      console.error("Error getting tier details:", error);
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to get tier details",
+        error: `Failed to get tier details: ${error.message}`,
       };
     }
   }
@@ -257,28 +325,54 @@ export class DepositService {
     ) => Promise<{ success: boolean; error?: string; txHash?: string }>,
     poolAddress: string,
     tierId: number,
-    tierPrice: bigint
-  ): Promise<DepositResult> {
+    amount: bigint
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    txHash?: string;
+  }> {
     try {
-      // Call commitToTier function on pool contract using smart wallet
+      // Additional logging details for variable price tier transactions
+      console.log("Committing to tier with smart wallet:", {
+        poolAddress,
+        tierId,
+        amount: amount.toString(),
+        isZeroAmount: amount === BigInt(0),
+      });
+
+      // Check that we're dealing with a valid pool contract address
+      if (!ethers.isAddress(poolAddress)) {
+        return { success: false, error: "Invalid pool address" };
+      }
+
+      // Special handling for zero amounts - they are allowed for any tier type and any pool state
+      console.log(
+        `Amount is ${amount.toString()}, which is ${
+          amount === BigInt(0)
+            ? "0 - bypassing some validations"
+            : "non-zero - normal validation applies"
+        }`
+      );
+
+      // Call the commitToTier function on the pool contract
+      console.log(
+        `Calling contract function commitToTier(${tierId}, ${amount})`
+      );
       const result = await callContractFunction(
         poolAddress as `0x${string}`,
         StageDotFunPoolABI,
         "commitToTier",
-        [BigInt(tierId), tierPrice],
-        "Commit to Pool Tier"
+        [tierId, amount],
+        "Commit to Tier"
       );
 
-      if (!result.success || !result.txHash) {
-        throw new Error(result.error || "Failed to commit to tier");
-      }
-
-      return { success: true, txHash: result.txHash };
-    } catch (error) {
+      console.log(`Contract commitToTier result:`, result);
+      return result;
+    } catch (error: any) {
+      console.error("Error committing to tier:", error);
       return {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to commit to tier",
+        error: `Failed to commit to tier: ${error.message}`,
       };
     }
   }
@@ -291,19 +385,32 @@ export class DepositService {
     try {
       const poolContract = getPoolContract(this.provider, poolAddress);
 
-      // Call the getUserTierCommitments function from the smart contract
-      const tierCommitments = await poolContract.getUserTierCommitments(
-        userAddress
-      );
+      // Create a promise with timeout to prevent hanging requests
+      const fetchCommitments = async () => {
+        // Call the getUserTierCommitments function from the smart contract
+        const tierCommitments = await poolContract.getUserTierCommitments(
+          userAddress
+        );
 
-      console.log("User tier commitments:", {
-        user: userAddress,
-        commitments: tierCommitments.map((tier: bigint) => tier.toString()),
+        console.log("User tier commitments:", {
+          user: userAddress,
+          commitments: tierCommitments.map((tier: bigint) => tier.toString()),
+        });
+
+        return tierCommitments.map((tier: bigint) => Number(tier));
+      };
+
+      // Create a timeout promise
+      const timeout = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Commitment check timed out")), 8000);
       });
+
+      // Race the commitments fetch against the timeout
+      const commitments = await Promise.race([fetchCommitments(), timeout]);
 
       return {
         success: true,
-        commitments: tierCommitments.map((tier: bigint) => Number(tier)),
+        commitments,
       };
     } catch (error) {
       console.error("Error getting user tier commitments:", error);

@@ -495,3 +495,55 @@ export async function commitToTier(
   const pool = getPoolContract(provider, poolAddress);
   return await pool.commitToTier(tierId, amount);
 }
+
+export enum PoolStatus {
+  CREATED = 0,
+  ACTIVE = 1,
+  FUNDED = 2,
+  FAILED = 3,
+  TERMINATED = 4,
+}
+
+/**
+ * Get a detailed interpretation of a pool's status based on blockchain data
+ */
+export function getDetailedPoolStatus(
+  status: number,
+  totalDeposits: bigint,
+  targetAmount: bigint,
+  capAmount: bigint,
+  endTime: bigint
+): {
+  rawStatus: number;
+  displayStatus: PoolStatus;
+  isFunded: boolean;
+  isCapped: boolean;
+  isTerminated: boolean;
+  hasEndedWithoutFunding: boolean;
+} {
+  const now = Math.floor(Date.now() / 1000);
+  const isFunded = totalDeposits >= targetAmount;
+  const isCapped = totalDeposits >= capAmount;
+  const hasEndedWithoutFunding = now > Number(endTime) && !isFunded;
+  const isTerminated = status === PoolStatus.TERMINATED;
+
+  let displayStatus = status as PoolStatus;
+
+  // Override status based on current state which might be different from what's in the blockchain
+  if (status === PoolStatus.ACTIVE) {
+    if (isFunded) {
+      displayStatus = PoolStatus.FUNDED;
+    } else if (hasEndedWithoutFunding) {
+      displayStatus = PoolStatus.FAILED;
+    }
+  }
+
+  return {
+    rawStatus: status,
+    displayStatus,
+    isFunded,
+    isCapped,
+    isTerminated,
+    hasEndedWithoutFunding,
+  };
+}

@@ -200,7 +200,18 @@ export default function PoolDetailsPage() {
   const handleCommit = async (tierId: string, amount: string) => {
     try {
       setIsCommitting(true);
+      console.log(
+        `Handling commit in page: tierId=${tierId}, amount=${amount}, type=${typeof amount}`
+      );
+
       const numericAmount = parseFloat(amount);
+      console.log(
+        `Parsed numeric amount: ${numericAmount}, isNaN: ${isNaN(
+          numericAmount
+        )}`
+      );
+
+      // Allow 0 as a valid amount, just check if it's NaN
       if (isNaN(numericAmount)) {
         throw new Error("Invalid amount");
       }
@@ -219,7 +230,14 @@ export default function PoolDetailsPage() {
         throw new Error("Tier not found");
       }
 
-      await depositToPool(pool.contract_address, numericAmount, tierIndex);
+      const contractAddress = pool.contract_address as `0x${string}`;
+      console.log(
+        `Calling depositToPool with: poolAddress=${contractAddress}, amount=${numericAmount}, tierIndex=${tierIndex}, isZero=${
+          numericAmount === 0
+        }`
+      );
+
+      await depositToPool(contractAddress, numericAmount, tierIndex);
       setIsCommitModalOpen(false);
       router.refresh();
     } catch (error: any) {

@@ -331,7 +331,9 @@ contract StageDotFunPool is Ownable {
         require(tiers[tierId].isActive, "Tier not active");
         require(status == PoolStatus.ACTIVE || status == PoolStatus.FUNDED, "Pool not active");
         require(block.timestamp <= endTime, "Pool ended");
-        require(totalDeposits + amount <= capAmount, "Exceeds cap");
+        if (capAmount > 0) {
+            require(totalDeposits + amount <= capAmount, "Exceeds cap");
+        }
         
         Tier storage tier = tiers[tierId];
         // Only check max patrons if not unlimited (maxPatrons > 0)

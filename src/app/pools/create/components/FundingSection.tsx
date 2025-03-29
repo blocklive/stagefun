@@ -37,7 +37,7 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
   const handleCapToggle = (enabled: boolean) => {
     setHasCap(enabled);
     if (!enabled) {
-      onCapAmountChange(""); // Set to empty string instead of "0"
+      onCapAmountChange(""); // Set to empty string when cap is disabled
     } else if (fundingGoal) {
       // Set to 20% more than goal when enabling
       const goal = parseFloat(fundingGoal);

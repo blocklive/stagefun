@@ -39,7 +39,6 @@ export default function CommitModal({
   const {
     balance: smartWalletBalance,
     isLoading: isLoadingBalance,
-    isUsingCache: isUsingCachedBalance,
     refresh: refreshBalance,
   } = useSmartWalletBalance();
 
@@ -55,72 +54,120 @@ export default function CommitModal({
   }, [isOpen, smartWalletAddress, refreshBalance]);
 
   const handleCommitAndClose = async () => {
-    if (!selectedTierId) return;
+    if (!selectedTierId) {
+      console.log("❌ No tier selected");
+      return;
+    }
 
     // Get the selected tier
-    const selectedTier = tiers?.find((t) => t.id === selectedTierId);
-    console.log("Handling commit with tier:", { selectedTierId, selectedTier });
-    if (!selectedTier) return;
+    const foundTier = tiers?.find((t) => t.id === selectedTierId);
+    console.log("Handling commit with tier:", {
+      selectedTierId,
+      selectedTier: foundTier,
+    });
+    if (!foundTier) {
+      console.log("❌ Selected tier not found");
+      return;
+    }
 
-    // For fixed price tiers, use the tier's price directly
-    // For variable price tiers, use the user input
-    const amount = selectedTier.is_variable_price
+    const amount = foundTier.is_variable_price
       ? commitAmount
-      : selectedTier.price.toString();
+      : foundTier.price.toString();
 
-    // Add logging for amount calculation
-    console.log("Calculated commit amount:", {
-      isVariablePrice: selectedTier.is_variable_price,
-      inputAmount: commitAmount,
-      tierPrice: selectedTier.price,
+    console.log("Handling commit with:", {
+      selectedTierId,
+      isVariablePriced: foundTier.is_variable_price,
+      inputAmount: amount,
+      tierPrice: foundTier.price,
       finalAmount: amount,
+      amountAsNumber: parseFloat(amount),
+      isNaN: isNaN(parseFloat(amount)),
+      isLessThanZero: parseFloat(amount) < 0,
+      isZero: parseFloat(amount) === 0,
+      isZeroVariablePrice:
+        parseFloat(amount) === 0 && foundTier.is_variable_price,
+      isZeroAndNotVariablePrice:
+        parseFloat(amount) === 0 && !foundTier.is_variable_price,
+      minPrice: foundTier.min_price,
+      maxPrice: foundTier.max_price,
     });
 
     // Validate amount
-    if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+    if (
+      isNaN(parseFloat(amount)) ||
+      parseFloat(amount) < 0 ||
+      (parseFloat(amount) === 0 && !foundTier.is_variable_price)
+    ) {
+      console.log("❌ Amount validation failed");
       toast.error("Please enter a valid amount");
       return;
     }
 
+    console.log("✅ Amount validation passed");
+
     // Validate against tier constraints for variable price tiers
-    if (selectedTier.is_variable_price) {
+    if (foundTier.is_variable_price) {
+      console.log("Checking variable price tier constraints");
+
+      // Check min price constraint
       if (
-        selectedTier.min_price &&
-        parseFloat(amount) < selectedTier.min_price
+        foundTier.min_price !== null &&
+        foundTier.min_price > 0 &&
+        parseFloat(amount) < foundTier.min_price
       ) {
+        console.log("❌ Below minimum price constraint");
         toast.error(
-          `Minimum commitment for this tier is ${selectedTier.min_price} USDC`
+          `Minimum commitment for this tier is ${foundTier.min_price} USDC`
         );
         return;
       }
-      if (
-        selectedTier.max_price &&
-        parseFloat(amount) > selectedTier.max_price
-      ) {
+
+      // Check max price constraint
+      if (foundTier.max_price && parseFloat(amount) > foundTier.max_price) {
+        console.log("❌ Above maximum price constraint");
         toast.error(
-          `Maximum commitment for this tier is ${selectedTier.max_price} USDC`
+          `Maximum commitment for this tier is ${foundTier.max_price} USDC`
         );
         return;
       }
+
+      console.log("✅ Variable price tier constraints passed");
     }
 
-    // Pass the human-readable amount to onCommit
-    await onCommit(selectedTierId, amount);
+    console.log("🚀 Calling onCommit with:", {
+      tierId: selectedTierId,
+      amount: amount,
+    });
+
+    try {
+      // Pass the human-readable amount to onCommit
+      console.log(
+        `🔥 Calling onCommit with tierId: ${selectedTierId}, amount: ${amount}, amountType: ${typeof amount}, parseFloat: ${parseFloat(
+          amount
+        )}`
+      );
+      await onCommit(selectedTierId, amount);
+      console.log("✅ onCommit completed successfully");
+    } catch (error) {
+      console.error("❌ Error in onCommit:", error);
+    }
   };
 
   // Add a function to check if the user has sufficient funds
   const hasSufficientFunds = () => {
-    // If no tier is selected, don't show any warning
-    if (!selectedTierId || !selectedTier) return true;
-
-    // If balance is loading, assume sufficient
-    if (isLoadingBalance) return true;
+    // If no tier is selected or balance is loading, don't show any warning
+    if (!selectedTierId || !selectedTier || isLoadingBalance) return true;
 
     const userBalance = parseFloat(smartWalletBalance || "0");
 
     if (selectedTier.is_variable_price) {
       // For variable price tiers, check against the entered amount
-      return !commitAmount || userBalance >= parseFloat(commitAmount);
+      // If amount is 0 or empty, consider it sufficient
+      return (
+        !commitAmount ||
+        parseFloat(commitAmount) === 0 ||
+        userBalance >= parseFloat(commitAmount)
+      );
     } else {
       // For fixed price tiers, check against the tier price
       return userBalance >= selectedTier.price;
@@ -188,7 +235,7 @@ export default function CommitModal({
                     onChange={(e) => setCommitAmount(e.target.value)}
                     className="w-full px-4 py-3 bg-[#FFFFFF0A] rounded-xl border border-[#FFFFFF1A] text-white placeholder-gray-500 focus:outline-none focus:border-[#836EF9] focus:ring-1 focus:ring-[#836EF9]"
                     placeholder={`Enter amount (${selectedTier.min_price}-${selectedTier.max_price} USDC)`}
-                    min={selectedTier.min_price || 0}
+                    min={0}
                     max={selectedTier.max_price || undefined}
                     step="0.01"
                   />
@@ -207,11 +254,6 @@ export default function CommitModal({
                         `${smartWalletBalance || "0"} USDC`
                       )}
                     </span>
-                    {isUsingCachedBalance && (
-                      <span className="ml-2 text-xs text-amber-400">
-                        (cached)
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -229,6 +271,7 @@ export default function CommitModal({
 
                     {selectedTier.is_variable_price &&
                       commitAmount &&
+                      parseFloat(commitAmount) > 0 &&
                       parseFloat(smartWalletBalance || "0") <
                         parseFloat(commitAmount) && (
                         <div className="mt-2 text-xs text-amber-400">
@@ -252,7 +295,9 @@ export default function CommitModal({
                   onClick={handleCommitAndClose}
                   disabled={
                     !selectedTierId ||
-                    (selectedTier?.is_variable_price && !commitAmount) ||
+                    (selectedTier?.is_variable_price &&
+                      commitAmount !== "0" &&
+                      !commitAmount) ||
                     isApproving ||
                     !hasSufficientFunds()
                   }

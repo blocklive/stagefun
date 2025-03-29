@@ -28,6 +28,7 @@ export default function NumberInput({
     const value = e.target.value;
     if (
       value === "" ||
+      value === "0" ||
       (isInteger ? /^\d*$/.test(value) : /^\d*\.?\d*$/.test(value))
     ) {
       onChange(value);

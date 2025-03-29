@@ -372,9 +372,9 @@ export function usePoolCreationContract(): PoolCreationHookResult {
             poolData.token_symbol,
             endTimeUnix,
             Number(toUSDCBaseUnits(poolData.target_amount)), // Convert to USDC base units (6 decimals)
-            poolData.cap_amount
+            poolData.cap_amount && poolData.cap_amount > 0
               ? Number(toUSDCBaseUnits(poolData.cap_amount))
-              : Number(toUSDCBaseUnits(poolData.target_amount)), // Use target amount as cap if not specified
+              : Number(toUSDCBaseUnits(poolData.target_amount)), // Use target amount as cap if not specified or is 0
             tierInitData.map((tier) => ({
               ...tier,
               price: Number(tier.price), // Already in USDC base units

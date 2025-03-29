@@ -11,7 +11,6 @@ interface Asset {
   value: number;
   type: "token" | "pool" | "native";
   status?: string;
-  isUsingCache?: boolean;
 }
 
 export function useUserAssets() {
@@ -22,7 +21,6 @@ export function useUserAssets() {
   const {
     balance: smartWalletUsdcBalance,
     isLoading: isLoadingSmartWalletUsdc,
-    isUsingCache: isUsingCachedSmartWalletBalance,
     refresh: refreshSmartWalletUsdcBalance,
   } = useSmartWalletBalance();
 
@@ -46,7 +44,6 @@ export function useUserAssets() {
         balance: smartWalletUsdcBalance,
         value: parseFloat(smartWalletUsdcBalance), // USDC is pegged to USD
         type: "token",
-        isUsingCache: isUsingCachedSmartWalletBalance,
       });
     }
 
@@ -54,11 +51,7 @@ export function useUserAssets() {
     // Will be implemented properly in the future
 
     return result;
-  }, [
-    smartWalletUsdcBalance,
-    smartWalletAddress,
-    isUsingCachedSmartWalletBalance,
-  ]);
+  }, [smartWalletUsdcBalance, smartWalletAddress]);
 
   const totalBalance = useMemo(() => {
     return assets.reduce((total, asset) => total + asset.value, 0).toFixed(2);
@@ -68,7 +61,6 @@ export function useUserAssets() {
     assets,
     totalBalance,
     isLoading: isLoadingSmartWalletUsdc || isLoadingPools,
-    isUsingCachedSmartWalletBalance,
     refreshUsdcBalance: refreshSmartWalletUsdcBalance,
   };
 }

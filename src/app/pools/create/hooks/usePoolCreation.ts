@@ -59,12 +59,14 @@ export const usePoolCreation = () => {
       return;
     }
 
-    if (!capAmount || capAmount <= 0) {
+    // Only check cap amount if it's provided - otherwise use target amount as cap
+    if (capAmount && capAmount <= 0) {
       toast.error("Please enter a valid cap amount");
       return;
     }
 
-    if (capAmount < fundingGoal) {
+    // If cap amount is provided, make sure it's at least the funding goal
+    if (capAmount && capAmount < fundingGoal) {
       toast.error("Cap amount must be greater than or equal to funding goal");
       return;
     }
@@ -94,7 +96,11 @@ export const usePoolCreation = () => {
       }
 
       if (tier.isVariablePrice) {
-        if (!tier.minPrice || tier.minPrice <= 0) {
+        if (
+          tier.minPrice === undefined ||
+          tier.minPrice === null ||
+          (!tier.minPrice && tier.minPrice !== 0)
+        ) {
           toast.error(
             `Please enter a valid minimum price for tier "${tier.name}"`
           );
@@ -106,7 +112,7 @@ export const usePoolCreation = () => {
           );
           return;
         }
-        if (tier.maxPrice <= tier.minPrice) {
+        if (tier.maxPrice <= tier.minPrice && tier.minPrice !== 0) {
           toast.error(
             `Maximum price must be greater than minimum price for tier "${tier.name}"`
           );

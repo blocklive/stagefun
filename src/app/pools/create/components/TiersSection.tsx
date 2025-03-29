@@ -678,9 +678,11 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                       <>
                         <NumberInput
                           value={tier.minPrice}
-                          onChange={(value) =>
-                            updateTier(tier.id, "minPrice", value)
-                          }
+                          onChange={(value) => {
+                            // If value is empty, set it to "0"
+                            const newValue = value === "" ? "0" : value;
+                            updateTier(tier.id, "minPrice", newValue);
+                          }}
                           placeholder="Min"
                           min={0}
                           step={0.01}
