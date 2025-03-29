@@ -33,7 +33,6 @@ import GetTokensModal from "../../components/GetTokensModal";
 import InfoModal from "../../components/InfoModal";
 import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
-import TestSection from "./TestSection";
 
 export default function ProfileComponent() {
   const router = useRouter();
@@ -652,15 +651,6 @@ export default function ProfileComponent() {
             <h2 className="text-xl text-gray-400 mb-2">Balance</h2>
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-5xl font-bold">${totalBalance}</h1>
-              <div className="flex items-center">
-                <button
-                  onClick={refreshUsdcBalance}
-                  className="text-amber-300 hover:text-amber-200"
-                  title="Refresh balance"
-                >
-                  <FaSync className="h-4 w-4" />
-                </button>
-              </div>
             </div>
 
             <h2 className="text-2xl font-bold mt-8 mb-4">My assets</h2>
@@ -743,24 +733,9 @@ export default function ProfileComponent() {
                   data if available.
                 </p>
               )}
-              <button
-                onClick={() => refreshUserPools()}
-                className="mt-4 hover:bg-opacity-80 px-4 py-2 rounded-lg transition-colors"
-                style={{ backgroundColor: "#836EF9" }}
-              >
-                Retry
-              </button>
             </div>
           ) : userHostedPools.length > 0 ? (
             <div className="space-y-4">
-              {isUsingCache && (
-                <div className="text-center py-2 text-amber-400 text-sm">
-                  Using cached data.{" "}
-                  <button onClick={refreshUserPools} className="underline">
-                    Refresh
-                  </button>
-                </div>
-              )}
               {userHostedPools.map((pool) => (
                 <div
                   key={`${pool.id}-${pool.blockchain_status}`}
@@ -809,9 +784,6 @@ export default function ProfileComponent() {
           )}
         </div>
       </div>
-
-      {/* Test JWT Auth Section - Only show on own profile */}
-      {isOwnProfile && <TestSection />}
 
       {/* Modals */}
       {showGetTokensModal && (
