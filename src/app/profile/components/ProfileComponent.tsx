@@ -8,24 +8,15 @@ import {
   FaEdit,
   FaTwitter,
   FaSignOutAlt,
-  FaWallet,
-  FaCopy,
-  FaTimes,
   FaKey,
-  FaCheck,
-  FaSync,
   FaDollarSign,
   FaUsers,
 } from "react-icons/fa";
 import { IoFlash } from "react-icons/io5";
 import Image from "next/image";
 import { useSupabase } from "../../../contexts/SupabaseContext";
-import { getUserPools } from "../../../lib/services/pool-service";
-import { Pool, User } from "../../../lib/supabase";
-import {
-  createOrUpdateUser,
-  getUserById,
-} from "../../../lib/services/user-service";
+import { User } from "../../../lib/supabase";
+import { getUserById } from "../../../lib/services/user-service";
 import { useUserAssets } from "../../../hooks/useUserAssets";
 import AppHeader from "../../components/AppHeader";
 import { useUserHostedPools } from "../../../hooks/useUserHostedPools";
