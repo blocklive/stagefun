@@ -42,37 +42,75 @@ interface PoolFundsSectionProps {
 
 // SWR fetcher function for on-chain data
 const fetcher = async (url: string, contractAddress: string) => {
-  // Get the provider based on the network
-  const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL);
+  try {
+    // Get the provider based on the network
+    const provider = new ethers.JsonRpcProvider(
+      process.env.NEXT_PUBLIC_RPC_URL
+    );
 
-  // Get the pool contract
-  const poolContract = new ethers.Contract(
-    contractAddress,
-    StageDotFunPoolABI,
-    provider
-  );
+    // Get the pool contract
+    const poolContract = new ethers.Contract(
+      contractAddress,
+      StageDotFunPoolABI,
+      provider
+    );
 
-  // Get the pool details
-  const poolDetails = await poolContract.getPoolDetails();
+    // Use multicall to batch the requests
+    const [poolDetails, depositTokenAddress] = await Promise.all([
+      poolContract.getPoolDetails(),
+      poolContract.depositToken(),
+    ]);
 
-  // Get the USDC token address from the pool
-  const usdcAddress = await poolContract.depositToken();
+    // Log the deposit token address for debugging
+    console.log("Pool deposit token details:", {
+      poolAddress: contractAddress,
+      depositTokenAddress,
+      network: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK || "unknown",
+    });
 
-  // Create a contract instance for USDC
-  const usdcContract = new ethers.Contract(
-    usdcAddress,
-    ["function balanceOf(address owner) view returns (uint256)"],
-    provider
-  );
+    let balance = BigInt(0);
+    try {
+      // Create USDC contract instance
+      const usdcContract = new ethers.Contract(
+        depositTokenAddress,
+        ["function balanceOf(address owner) view returns (uint256)"],
+        provider
+      );
 
-  // Get the current USDC balance of the pool contract
-  const balance = await usdcContract.balanceOf(contractAddress);
+      // Get balance in the same batch
+      balance = await usdcContract.balanceOf(contractAddress);
 
-  return {
-    totalDeposits: poolDetails._totalDeposits,
-    revenueAccumulated: poolDetails._revenueAccumulated,
-    contractBalance: balance,
-  };
+      // Log successful balance fetch
+      console.log("Successfully fetched USDC balance:", {
+        balance: ethers.formatUnits(balance, 6),
+        poolAddress: contractAddress,
+        usdcAddress: depositTokenAddress,
+      });
+    } catch (error) {
+      // Log the error but don't throw - we'll return 0 balance instead
+      console.warn("Error fetching USDC balance:", {
+        error,
+        depositTokenAddress,
+        poolAddress: contractAddress,
+        network: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK || "unknown",
+      });
+      // Continue with zero balance rather than failing the whole request
+    }
+
+    return {
+      totalDeposits: poolDetails._totalDeposits,
+      revenueAccumulated: poolDetails._revenueAccumulated,
+      contractBalance: balance,
+    };
+  } catch (error) {
+    console.error("Error fetching pool data:", {
+      error,
+      contractAddress,
+      rpcUrl: process.env.NEXT_PUBLIC_RPC_URL?.substring(0, 20) + "...",
+      network: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK || "unknown",
+    });
+    throw error;
+  }
 };
 
 // Function to check on-chain pool status
@@ -134,15 +172,34 @@ export default function PoolFundsSection({
     pool.contract_address ? [`/api/pool-balance`, pool.contract_address] : null,
     ([url, address]) => fetcher(url, address),
     {
-      refreshInterval: 30000, // Refresh every 30 seconds
-      revalidateOnFocus: true,
-      dedupingInterval: 5000,
+      refreshInterval: 60000, // Increase to 1 minute
+      revalidateOnFocus: false, // Disable revalidation on focus
+      dedupingInterval: 30000, // Increase deduping interval
+      refreshWhenHidden: false, // Don't refresh when tab is hidden
+      // Use pool data as initial data if available
+      fallbackData: pool.contract_address
+        ? {
+            totalDeposits: ethers.parseUnits(
+              String(pool.raised_amount || 0),
+              6
+            ),
+            revenueAccumulated: ethers.parseUnits(
+              String(pool.revenue_accumulated || 0),
+              6
+            ),
+            contractBalance: ethers.parseUnits(
+              String(pool.raised_amount || 0),
+              6
+            ),
+          }
+        : undefined,
     }
   );
 
-  // Get pool patrons using the usePoolPatrons hook
+  // Get pool patrons using the usePoolPatrons hook - only when distribute modal is open
   const { patrons, loading: loadingPatrons } = usePoolPatrons(
-    pool.contract_address || null
+    // Only load patrons when distribute modal is open and onChainData is available
+    showDistributeModal && onChainData ? pool.contract_address || null : null
   );
 
   // Get the actual patron count
@@ -758,7 +815,7 @@ export default function PoolFundsSection({
               <h2 className="text-xl font-bold text-white text-center flex-grow">
                 Confirm payback
               </h2>
-              <div className="w-10"></div> {/* Spacer for centering */}
+              <div className="w-10"></div>
             </div>
 
             {/* Modal Content */}
@@ -782,8 +839,10 @@ export default function PoolFundsSection({
                 <div className="flex justify-between items-center">
                   <div className="text-gray-400">Distribution among</div>
                   <div className="text-white font-semibold">
-                    {loadingPatrons
-                      ? "Loading..."
+                    {!onChainData
+                      ? "Loading pool data..."
+                      : loadingPatrons
+                      ? "Loading patrons..."
                       : `${patronCount} ${
                           patronCount === 1 ? "patron" : "patrons"
                         }`}
@@ -804,7 +863,9 @@ export default function PoolFundsSection({
                 disabled={
                   isDistributing ||
                   parseFloat(distributeAmount) <= 0 ||
-                  patronCount === 0
+                  patronCount === 0 ||
+                  !onChainData ||
+                  loadingPatrons
                 }
                 className="w-full bg-[#FFFFFF14] hover:bg-[#FFFFFF30] text-white py-4 px-4 rounded-full font-semibold transition-colors disabled:bg-[#FFFFFF08] disabled:text-gray-400 disabled:cursor-not-allowed"
               >
@@ -832,6 +893,10 @@ export default function PoolFundsSection({
                     </svg>
                     Processing...
                   </span>
+                ) : !onChainData ? (
+                  "Loading pool data..."
+                ) : loadingPatrons ? (
+                  "Loading patrons..."
                 ) : (
                   "Payback"
                 )}
