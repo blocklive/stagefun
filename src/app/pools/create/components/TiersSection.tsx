@@ -13,13 +13,12 @@ import RichTextEditor from "@/app/components/RichTextEditor";
 import Image from "next/image";
 import { Tier, RewardItem } from "../types";
 import { toast } from "react-hot-toast";
-import { supabase } from "@/lib/supabase";
 
 interface TiersSectionProps {
   tiers: Tier[];
   onTiersChange: (tiers: Tier[]) => void;
   availableRewardItems: RewardItem[];
-  onAddRewardItem: (item: Omit<RewardItem, "id">) => void;
+  onAddRewardItem: (item: Omit<RewardItem, "id">) => RewardItem;
   supabase: SupabaseClient;
   poolName?: string;
   fundingGoal?: string;
@@ -125,11 +124,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     let imageUrl = "";
     if (poolImage) {
       try {
-        console.log("Starting tier image creation with pool image:", poolImage);
-
-        // Check if poolImage is already a blob URL
         if (poolImage.startsWith("blob:")) {
-          console.log("Pool image is a blob URL, creating file directly");
           const response = await fetch(poolImage);
           if (!response.ok) {
             throw new Error("Failed to fetch pool image blob");
@@ -154,54 +149,132 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
           metadataUrl = result.metadataUrl;
         } else {
           // If it's a regular URL (e.g., from Supabase storage)
-          console.log("Using pool image directly:", poolImage);
-          imageUrl = poolImage;
+          try {
+            // Just use the existing URL without trying to fetch it (avoids CSP issues)
+            imageUrl = poolImage;
 
-          // Create and upload only the metadata
-          const metadata = {
-            name: defaultName,
-            description: `${defaultName} Tier NFT`,
-            image: poolImage,
-            tier: defaultName,
-            attributes: [{ trait_type: "Tier", value: defaultName }],
-          };
+            // Create metadata JSON directly using the existing URL
+            const metadata = {
+              name: defaultName,
+              description: `${defaultName} Tier NFT`,
+              image: poolImage,
+              tier: defaultName,
+              attributes: [{ trait_type: "Tier", value: defaultName }],
+            };
 
-          const metadataFileName = `${Math.random()
-            .toString(36)
-            .substring(2)}_${Date.now()}_metadata.json`;
-          const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
-            type: "application/json",
-          });
+            // Upload metadata to Supabase storage
+            const metadataFileName = `${Math.random()
+              .toString(36)
+              .substring(2)}_${Date.now()}_metadata.json`;
+            const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
+              type: "application/json",
+            });
+            const metadataFile = new File([metadataBlob], metadataFileName, {
+              type: "application/json",
+            });
 
-          const { data: metadataData, error: metadataError } =
-            await supabase.storage
+            // Try standard upload for metadata
+            let metadataData;
+            let metadataError;
+
+            try {
+              const result = await supabase.storage
+                .from("pool-images")
+                .upload(metadataFileName, metadataFile, {
+                  cacheControl: "3600",
+                  upsert: false,
+                  contentType: "application/json",
+                });
+
+              metadataData = result.data;
+              metadataError = result.error;
+            } catch (uploadError) {
+              console.error(
+                "Initial metadata upload attempt failed:",
+                uploadError
+              );
+              metadataError = uploadError;
+            }
+
+            // If there's an error, try the fallback approach
+            if (
+              metadataError &&
+              typeof metadataError === "object" &&
+              "message" in metadataError &&
+              typeof metadataError.message === "string" &&
+              (metadataError.message.includes("security policy") ||
+                metadataError.message.includes("permission denied") ||
+                metadataError.message.includes("invalid algorithm"))
+            ) {
+              console.log(
+                "RLS policy error on metadata, trying alternative approach..."
+              );
+
+              // Create a FormData object for metadata
+              const metadataForm = new FormData();
+              metadataForm.append("file", metadataFile);
+
+              // Use fetch API to upload directly to Supabase Storage REST API
+              try {
+                // Get authentication token from user session
+                const {
+                  data: { session },
+                } = await supabase.auth.getSession();
+                const token = session?.access_token;
+
+                if (!token) {
+                  throw new Error("No authentication token available");
+                }
+
+                const uploadResponse = await fetch(
+                  `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/pool-images/${metadataFileName}`,
+                  {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: metadataForm,
+                  }
+                );
+
+                if (!uploadResponse.ok) {
+                  throw new Error(
+                    `Upload failed with status: ${uploadResponse.status}`
+                  );
+                }
+
+                console.log("Metadata upload successful via REST API");
+                metadataError = null;
+              } catch (restError) {
+                console.error("REST API metadata upload failed:", restError);
+                metadataError = restError;
+              }
+            }
+
+            if (metadataError) {
+              const errorMessage =
+                typeof metadataError === "object" &&
+                metadataError !== null &&
+                "message" in metadataError
+                  ? String(metadataError.message)
+                  : "Unknown error";
+              throw new Error(`Failed to upload metadata: ${errorMessage}`);
+            }
+
+            // Get the public URL for the metadata
+            const {
+              data: { publicUrl: uploadedMetadataUrl },
+            } = supabase.storage
               .from("pool-images")
-              .upload(metadataFileName, metadataBlob, {
-                cacheControl: "3600",
-                upsert: false,
-                contentType: "application/json",
-              });
+              .getPublicUrl(metadataFileName);
 
-          if (metadataError) {
-            throw new Error(
-              `Failed to upload metadata: ${metadataError.message}`
-            );
+            metadataUrl = uploadedMetadataUrl;
+          } catch (error) {
+            console.error("Error uploading tier metadata:", error);
+            toast.error("Failed to upload tier metadata");
+            return;
           }
-
-          const {
-            data: { publicUrl: uploadedMetadataUrl },
-          } = supabase.storage
-            .from("pool-images")
-            .getPublicUrl(metadataFileName);
-
-          metadataUrl = uploadedMetadataUrl;
         }
-
-        console.log("Successfully created tier with:", {
-          imageUrl,
-          metadataUrl,
-          defaultName,
-        });
       } catch (error) {
         console.error("Detailed error creating tier:", error);
         toast.error("Failed to upload tier image and metadata");
@@ -246,9 +319,8 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     const updateTierMetadata = async (tier: Tier) => {
       if (!tier.modifiedFields.has("imageUrl") && poolImage && !tier.imageUrl) {
         try {
-          console.log("Starting tier metadata update for tier:", tier.name);
-          console.log("Pool image:", poolImage);
-
+          // Skip creation of a File from a data URL - it's blocked by CSP
+          // Instead, use the URL directly in the metadata
           // Create metadata JSON
           const metadata = {
             name: tier.name,
@@ -265,19 +337,96 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
           const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
             type: "application/json",
           });
+          const metadataFile = new File([metadataBlob], metadataFileName, {
+            type: "application/json",
+          });
 
-          const { data: metadataData, error: metadataError } =
-            await supabase.storage
+          // Try the standard upload first
+          let metadataData;
+          let metadataError;
+
+          try {
+            const result = await supabase.storage
               .from("pool-images")
-              .upload(metadataFileName, metadataBlob, {
+              .upload(metadataFileName, metadataFile, {
                 cacheControl: "3600",
                 upsert: false,
+                contentType: "application/json",
               });
 
-          if (metadataError) {
-            throw new Error(
-              `Failed to upload metadata: ${metadataError.message}`
+            metadataData = result.data;
+            metadataError = result.error;
+          } catch (uploadError) {
+            console.error(
+              "Initial metadata upload attempt failed:",
+              uploadError
             );
+            metadataError = uploadError;
+          }
+
+          // If there's an error, try an alternative approach
+          if (
+            metadataError &&
+            typeof metadataError === "object" &&
+            "message" in metadataError &&
+            typeof metadataError.message === "string" &&
+            (metadataError.message.includes("security policy") ||
+              metadataError.message.includes("permission denied") ||
+              metadataError.message.includes("invalid algorithm"))
+          ) {
+            console.log(
+              "Error with standard upload, trying alternative approach..."
+            );
+
+            // Create a FormData object for metadata
+            const metadataForm = new FormData();
+            metadataForm.append("file", metadataFile);
+
+            // Use fetch API to upload directly to Supabase Storage REST API
+            try {
+              // Get authentication token from user session
+              const {
+                data: { session },
+              } = await supabase.auth.getSession();
+              const token = session?.access_token;
+
+              if (!token) {
+                throw new Error("No authentication token available");
+              }
+
+              const uploadResponse = await fetch(
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/pool-images/${metadataFileName}`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: metadataForm,
+                }
+              );
+
+              if (!uploadResponse.ok) {
+                throw new Error(
+                  `Upload failed with status: ${uploadResponse.status}`
+                );
+              }
+
+              console.log("Upload successful via alternative method");
+              metadataError = null;
+            } catch (restError) {
+              console.error("Alternative upload failed:", restError);
+              metadataError = restError;
+            }
+          }
+
+          if (metadataError) {
+            const errorMessage =
+              typeof metadataError === "object" &&
+              metadataError !== null &&
+              "message" in metadataError
+                ? String(metadataError.message)
+                : "Unknown error";
+            throw new Error(`Failed to upload metadata: ${errorMessage}`);
           }
 
           // Get the public URL for the metadata
@@ -287,7 +436,6 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
             .from("pool-images")
             .getPublicUrl(metadataFileName);
 
-          console.log("Upload successful, metadata URL:", metadataUrl);
           return {
             imageUrl: poolImage,
             nftMetadata: metadataUrl,
@@ -460,109 +608,73 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     }
   };
 
-  const handleAddReward = async (reward: Omit<RewardItem, "id">) => {
-    // Generate a unique ID for the new reward
-    const newRewardId = crypto.randomUUID();
-
-    // Add to available rewards with the generated ID
-    onAddRewardItem({ ...reward, id: newRewardId } as RewardItem);
-
-    // Add the reward to the current tier's rewards
-    if (currentTierId) {
-      const updatedTiers = tiers.map((tier) => {
-        if (tier.id === currentTierId) {
-          return {
-            ...tier,
-            rewardItems: [...tier.rewardItems, newRewardId],
-          };
-        }
-        return tier;
-      });
-      onTiersChange(updatedTiers);
-    }
-
-    setShowAddRewardModal(false);
-    setCurrentTierId(null);
-  };
-
-  const handleSelectReward = (tierId: string, rewardId: string) => {
-    // Enhanced logging to debug the issue
-    console.log("=== REWARD SELECTION DEBUG ===");
-    console.log(`Selecting reward ${rewardId} for tier ${tierId}`);
-
-    // Log the original tiers state
-    console.log(
-      "Original tiers:",
-      JSON.stringify(
-        tiers,
-        (key, value) => {
-          if (key === "modifiedFields" && value instanceof Set) {
-            return Array.from(value);
-          }
-          return value;
-        },
-        2
-      )
-    );
-
-    // Find the tier and log its current state
-    const targetTier = tiers.find((tier) => tier.id === tierId);
-    console.log(
-      `Target tier "${targetTier?.name}" current rewardItems:`,
-      targetTier?.rewardItems
-    );
-
-    // Get the reward details for logging
-    const reward = availableRewardItems.find((item) => item.id === rewardId);
-    console.log(`Adding reward: ${reward?.name} (${rewardId})`);
-
-    // Create a deep copy of the tiers array
-    const updatedTiers = tiers.map((tier) => {
-      if (tier.id === tierId) {
-        // Make sure we're not duplicating the reward
-        if (!tier.rewardItems.includes(rewardId)) {
-          console.log(`Adding reward ${rewardId} to tier ${tier.name}`);
-          return {
-            ...tier,
-            rewardItems: [...tier.rewardItems, rewardId],
-          };
-        } else {
-          console.log(`Reward ${rewardId} already exists in tier ${tier.name}`);
-          return tier;
-        }
-      }
-      return tier;
-    });
-
-    // Log the updated tiers
-    console.log(
-      "Updated tiers:",
-      JSON.stringify(
-        updatedTiers,
-        (key, value) => {
-          if (key === "modifiedFields" && value instanceof Set) {
-            return Array.from(value);
-          }
-          return value;
-        },
-        2
-      )
-    );
-
-    // Update the state
-    onTiersChange(updatedTiers);
-
-    // Close the dropdown
-    setShowRewardDropdown(null);
-
-    console.log("=== END REWARD SELECTION DEBUG ===");
-  };
-
   // Filter out rewards that are already added to the tier
   const getAvailableRewardsForTier = (tier: Tier) => {
     return availableRewardItems.filter(
       (item) => !tier.rewardItems.includes(item.id)
     );
+  };
+
+  const handleAddReward = async (reward: Omit<RewardItem, "id">) => {
+    try {
+      console.log(
+        `Creating new reward: ${reward.name} for tier ${currentTierId}`
+      );
+
+      // Use the parent component's function to add reward - it returns the complete reward with ID
+      const newReward = onAddRewardItem(reward);
+
+      // Now use the ID assigned by the parent component
+      const rewardId = newReward.id;
+      console.log(`Reward created with ID: ${rewardId}`);
+
+      // If we have a current tier selected
+      if (currentTierId) {
+        // Find the tier to update
+        const tierToUpdate = tiers.find((t) => t.id === currentTierId);
+
+        if (!tierToUpdate) {
+          console.error(`Could not find tier with ID ${currentTierId}`);
+          setShowAddRewardModal(false);
+          setCurrentTierId(null);
+          return;
+        }
+
+        console.log(`Adding reward ${rewardId} to tier ${tierToUpdate.name}`);
+
+        // Create updated tier with the new reward ID
+        const updatedTier = {
+          ...tierToUpdate,
+          rewardItems: [...tierToUpdate.rewardItems, rewardId],
+          modifiedFields: new Set([
+            ...tierToUpdate.modifiedFields,
+            "rewardItems",
+          ]),
+        };
+
+        // Create a new tiers array with the updated tier
+        const updatedTiers = tiers.map((t) =>
+          t.id === currentTierId ? updatedTier : t
+        );
+
+        // Update tiers state
+        onTiersChange(updatedTiers);
+
+        console.log(
+          `Added reward ${rewardId} to tier ${currentTierId}. RewardItems now: ${JSON.stringify(
+            updatedTier.rewardItems
+          )}`
+        );
+      }
+
+      // Close modal and reset
+      setShowAddRewardModal(false);
+      setCurrentTierId(null);
+    } catch (error) {
+      console.error("Error adding reward:", error);
+      setShowAddRewardModal(false);
+      setCurrentTierId(null);
+    }
   };
 
   return (
@@ -800,38 +912,42 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                 </div>
 
                 {/* Reward Items - Only show rewards that belong to this tier */}
-                {availableRewardItems
-                  .filter((item) => tier.rewardItems.includes(item.id))
-                  .map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-2 rounded-lg"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 flex items-center justify-center">
-                          <CheckIcon className="w-4 h-4 text-[#836EF9]" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{item.name}</div>
-                          <div className="text-sm text-gray-400">
-                            {item.description}
+                {tier.rewardItems.length > 0 &&
+                  availableRewardItems
+                    .filter((item) => {
+                      const isIncluded = tier.rewardItems.includes(item.id);
+                      return isIncluded;
+                    })
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-gray-800/10"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 flex items-center justify-center">
+                            <CheckIcon className="w-4 h-4 text-[#836EF9]" />
+                          </div>
+                          <div>
+                            <div className="font-medium">{item.name}</div>
+                            <div className="text-sm text-gray-400">
+                              {item.description}
+                            </div>
                           </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newRewardItems = tier.rewardItems.filter(
+                              (id) => id !== item.id
+                            );
+                            updateTier(tier.id, "rewardItems", newRewardItems);
+                          }}
+                          className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newRewardItems = tier.rewardItems.filter(
-                            (id) => id !== item.id
-                          );
-                          updateTier(tier.id, "rewardItems", newRewardItems);
-                        }}
-                        className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                    ))}
 
                 {/* Add New Reward Button with Dropdown */}
                 <div
@@ -901,23 +1017,34 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                               onClick={(e) => {
                                 e.preventDefault(); // Prevent default behavior
                                 e.stopPropagation(); // Don't let event bubble
-                                console.log(
-                                  `Clicking reward ${item.name} (${item.id}) for tier ${tier.name} (${tier.id})`
-                                );
 
                                 // Directly update the tier here for immediate feedback
                                 const updatedTiers = tiers.map((t) => {
-                                  if (
-                                    t.id === tier.id &&
-                                    !t.rewardItems.includes(item.id)
-                                  ) {
-                                    console.log(
-                                      `Directly adding reward ${item.id} to tier ${t.name}`
-                                    );
-                                    return {
-                                      ...t,
-                                      rewardItems: [...t.rewardItems, item.id],
-                                    };
+                                  if (t.id === tier.id) {
+                                    // Ensure rewardItems is an array
+                                    const currentRewards = Array.isArray(
+                                      t.rewardItems
+                                    )
+                                      ? t.rewardItems
+                                      : [];
+
+                                    // Only add if not already included
+                                    if (!currentRewards.includes(item.id)) {
+                                      // Create a modified fields set
+                                      const modifiedFields = new Set(
+                                        t.modifiedFields
+                                      );
+                                      modifiedFields.add("rewardItems");
+
+                                      return {
+                                        ...t,
+                                        rewardItems: [
+                                          ...currentRewards,
+                                          item.id,
+                                        ],
+                                        modifiedFields,
+                                      };
+                                    }
                                   }
                                   return t;
                                 });

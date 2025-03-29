@@ -271,7 +271,6 @@ export default function TestSection() {
 
       // Check for app ID in the audience field
       if (payload.aud) {
-        console.log("Extracted App ID from token:", payload.aud);
         return payload.aud;
       }
 

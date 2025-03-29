@@ -50,8 +50,6 @@ export async function verifyPrivyToken(
     // Get the token audience (app ID) directly from the token
     const tokenAppId = extractAudienceFromToken(token);
     if (tokenAppId) {
-      console.log("Extracted App ID from token:", tokenAppId);
-
       // Use the exact JWKS URL format from the docs with the app ID from the token
       const jwksUrl = `https://auth.privy.io/api/v1/apps/${tokenAppId}/jwks.json`;
       console.log("Using JWKS URL:", jwksUrl);
