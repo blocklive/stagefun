@@ -33,6 +33,7 @@ import GetTokensModal from "../../components/GetTokensModal";
 import InfoModal from "../../components/InfoModal";
 import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
+import TestSection from "./TestSection";
 
 export default function ProfileComponent() {
   const router = useRouter();
@@ -808,6 +809,9 @@ export default function ProfileComponent() {
           )}
         </div>
       </div>
+
+      {/* Test JWT Auth Section - Only show on own profile */}
+      {isOwnProfile && <TestSection />}
 
       {/* Modals */}
       {showGetTokensModal && (
