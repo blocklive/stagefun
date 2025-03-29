@@ -30,7 +30,7 @@ export default function RichTextEditor({
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { client: supabase } = useAuthenticatedSupabase();
+  const { supabase } = useAuthenticatedSupabase();
 
   const editor = useEditor({
     extensions: [

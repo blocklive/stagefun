@@ -1,37 +1,49 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { verifyPrivyToken, extractBearerToken } from "./lib/auth/server";
 
 export async function middleware(request: NextRequest) {
+  // Skip middleware for the public test API endpoint
+  if (request.nextUrl.pathname === "/api/test/debug") {
+    return NextResponse.next();
+  }
+
   // Get the response to modify
   const response = NextResponse.next();
 
-  // Get the Privy JWT from the request cookies or headers
-  const privyToken = request.cookies.get("privy_token")?.value;
+  // Get the Privy JWT from the Authorization header
+  const token = extractBearerToken(request);
 
-  if (!privyToken) {
+  if (!token) {
+    console.log("No valid Authorization header found in request");
     return response;
   }
 
-  // Create a new Supabase client for each request
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  try {
+    // Verify the token
+    const payload = await verifyPrivyToken(token);
 
-  // Set the Privy JWT as the Supabase auth token
-  const { error } = await supabase.auth.setSession({
-    access_token: privyToken,
-    refresh_token: "",
-  });
+    if (!payload) {
+      console.log("Invalid Privy token");
+      return response;
+    }
 
-  if (error) {
-    console.error("Error setting Supabase session:", error);
+    console.log("Valid Privy token found", {
+      subject: payload.sub,
+      issuer: payload.iss,
+      audience: payload.aud,
+    });
+
+    // For demo purposes, we're not setting anything on the response
+    // since we're using direct token verification in the API endpoints
+
+    return response;
+  } catch (error) {
+    console.error("Error verifying Privy token:", error);
+    return response;
   }
-
-  return response;
 }
 
 export const config = {
-  matcher: ["/api/:path*", "/pools/:path*"],
+  matcher: ["/api/test/:path*"],
 };

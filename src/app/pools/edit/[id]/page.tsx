@@ -31,8 +31,7 @@ import RichTextEditor from "@/app/components/RichTextEditor";
 export default function EditPoolPage() {
   const { user: privyUser } = usePrivy();
   const { dbUser } = useSupabase();
-  const { client: supabase, isLoading: isClientLoading } =
-    useAuthenticatedSupabase();
+  const { supabase, isLoading: isClientLoading } = useAuthenticatedSupabase();
   const {
     updatePoolName,
     updateMinCommitment,

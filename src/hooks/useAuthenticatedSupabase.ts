@@ -1,46 +1,72 @@
-import { useState, useEffect } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { useAuthJwt } from "./useAuthJwt";
 
 export function useAuthenticatedSupabase() {
-  const { ready, authenticated, user } = usePrivy();
+  const { token, isLoading: isTokenLoading, isAuthenticated } = useAuthJwt();
   const [client, setClient] = useState<SupabaseClient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const clientRef = useRef<SupabaseClient | null>(null);
 
-  useEffect(() => {
-    async function initClient() {
-      if (!ready || !authenticated || !user) {
-        setIsLoading(false);
-        return;
-      }
+  // Create a new Supabase client
+  const createSupabaseClient = useCallback(() => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-      try {
-        setIsLoading(true);
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      // Create a basic client with anon key
+      const newClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      });
 
-        // Create a standard client with global headers
-        const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-          global: {
-            headers: {
-              "x-privy-user-id": user.id,
-              "x-privy-wallet-address": user.wallet?.address || "",
-            },
-          },
+      // If we have a token and the user is authenticated, enhance the client
+      if (token && isAuthenticated) {
+        // Set the auth header for authenticated requests
+        newClient.auth.setSession({
+          access_token: token,
+          refresh_token: "",
         });
-
-        console.log("Created Supabase client with custom headers");
-        setClient(authClient);
-      } catch (error) {
-        console.error("Error initializing Supabase client:", error);
-      } finally {
-        setIsLoading(false);
       }
+
+      clientRef.current = newClient;
+      setClient(newClient);
+      setIsLoading(false);
+    } catch (err) {
+      console.error("Error creating Supabase client:", err);
+      setError("Failed to initialize Supabase client");
+      setIsLoading(false);
     }
+  }, [token, isAuthenticated]);
 
-    initClient();
-  }, [ready, authenticated, user]);
+  // Initialize the client on mount
+  useEffect(() => {
+    // Only create the client if we don't have one yet
+    if (!clientRef.current) {
+      createSupabaseClient();
+    }
+  }, [createSupabaseClient]);
 
-  return { client, isLoading };
+  // Update client when token changes
+  useEffect(() => {
+    // If token changes, update the client
+    if (token && isAuthenticated && clientRef.current) {
+      clientRef.current.auth.setSession({
+        access_token: token,
+        refresh_token: "",
+      });
+    }
+  }, [token, isAuthenticated]);
+
+  return {
+    supabase: client,
+    isLoading: isLoading || isTokenLoading,
+    error,
+  };
 }

@@ -50,8 +50,7 @@ function formatDateForInput(date: Date): string {
 export default function CreatePoolPage() {
   const { user: privyUser } = usePrivy();
   const { dbUser } = useSupabase();
-  const { client: supabase, isLoading: isClientLoading } =
-    useAuthenticatedSupabase();
+  const { supabase, isLoading: isClientLoading } = useAuthenticatedSupabase();
   const { fundWallet } = useFundWallet();
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
@@ -258,12 +257,21 @@ export default function CreatePoolPage() {
     }
   };
 
-  const handleAddRewardItem = (reward: Omit<RewardItem, "id">) => {
-    const newItem: RewardItem = {
-      id: Math.random().toString(36).substr(2, 9),
-      ...reward,
+  // Add reward item handler
+  const handleAddRewardItem = (item: Omit<RewardItem, "id">) => {
+    const newId = crypto.randomUUID();
+    const newItem = {
+      ...item,
+      id: newId,
     };
-    setRewardItems([...rewardItems, newItem]);
+
+    console.log(`Parent: Creating new reward "${item.name}" with ID ${newId}`);
+
+    // Update the rewardItems state with the new item
+    setRewardItems((prev) => [...prev, newItem]);
+
+    // Return the complete new item including its ID
+    return newItem;
   };
 
   return (
@@ -380,6 +388,24 @@ export default function CreatePoolPage() {
                 fundingGoal={fundingGoal}
                 poolImage={imagePreview || undefined}
               />
+            )}
+            {!supabase && (
+              <div className="mb-8 p-4 bg-red-900/30 border border-red-600 rounded-lg">
+                <h3 className="text-xl font-bold text-white mb-2">
+                  Tier Section Not Available
+                </h3>
+                <p className="text-white">
+                  Supabase client not available. This is required for creating
+                  tiers.
+                </p>
+                <button
+                  type="button"
+                  className="mt-2 px-4 py-2 bg-red-600 text-white rounded-md"
+                  onClick={() => window.location.reload()}
+                >
+                  Reload Page
+                </button>
+              </div>
             )}
 
             {/* Description */}

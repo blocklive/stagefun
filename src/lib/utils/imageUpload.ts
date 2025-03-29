@@ -50,7 +50,8 @@ export async function uploadPoolImage(
       "message" in error &&
       typeof error.message === "string" &&
       (error.message.includes("security policy") ||
-        error.message.includes("permission denied"))
+        error.message.includes("permission denied") ||
+        error.message.includes("invalid algorithm"))
     ) {
       console.log("RLS policy error detected, trying alternative approach...");
 
@@ -174,7 +175,8 @@ export async function uploadTierImage(
       "message" in error &&
       typeof error.message === "string" &&
       (error.message.includes("security policy") ||
-        error.message.includes("permission denied"))
+        error.message.includes("permission denied") ||
+        error.message.includes("invalid algorithm"))
     ) {
       console.log("RLS policy error detected, trying alternative approach...");
 
@@ -250,18 +252,88 @@ export async function uploadTierImage(
     const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
       type: "application/json",
     });
-    const metadataFile = new File([metadataBlob], metadataFileName);
+    const metadataFile = new File([metadataBlob], metadataFileName, {
+      type: "application/json",
+    });
 
-    const metadataResult = await supabase.storage
-      .from("pool-images")
-      .upload(metadataFileName, metadataFile, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: "application/json",
-      });
+    // Try standard upload for metadata
+    let metadataData;
+    let metadataError;
 
-    if (metadataResult.error) {
-      console.error("Failed to upload metadata:", metadataResult.error);
+    try {
+      const result = await supabase.storage
+        .from("pool-images")
+        .upload(metadataFileName, metadataFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: "application/json",
+        });
+
+      metadataData = result.data;
+      metadataError = result.error;
+    } catch (uploadError) {
+      console.error("Initial metadata upload attempt failed:", uploadError);
+      metadataError = uploadError;
+    }
+
+    // If there's an error, try the fallback approach
+    if (
+      metadataError &&
+      typeof metadataError === "object" &&
+      "message" in metadataError &&
+      typeof metadataError.message === "string" &&
+      (metadataError.message.includes("security policy") ||
+        metadataError.message.includes("permission denied") ||
+        metadataError.message.includes("invalid algorithm"))
+    ) {
+      console.log(
+        "RLS policy error on metadata, trying alternative approach..."
+      );
+
+      // Create a FormData object for metadata
+      const metadataForm = new FormData();
+      metadataForm.append("file", metadataFile);
+
+      // Use fetch API to upload directly to Supabase Storage REST API
+      try {
+        // Get authentication token from user session
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        if (!token) {
+          throw new Error("No authentication token available");
+        }
+
+        const uploadResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/pool-images/${metadataFileName}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: metadataForm,
+          }
+        );
+
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json();
+          throw new Error(
+            `Metadata upload failed: ${JSON.stringify(errorData)}`
+          );
+        }
+
+        console.log("Metadata upload successful via REST API");
+        metadataError = null;
+      } catch (restError) {
+        console.error("REST API metadata upload failed:", restError);
+        metadataError = restError;
+      }
+    }
+
+    if (metadataError) {
+      console.error("Failed to upload metadata:", metadataError);
       return { imageUrl, metadataUrl: null };
     }
 
