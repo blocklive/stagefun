@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { FaChevronUp, FaChevronRight } from "react-icons/fa";
 import { Pool } from "../../../../lib/supabase";
+import UserAvatar from "@/app/components/UserAvatar";
 
 interface Patron {
   id: string;
@@ -47,15 +48,12 @@ export default function PatronsSection({ pool, patrons }: PatronsSectionProps) {
               className="flex items-center justify-between p-2 rounded-[12px] bg-[#FFFFFF0F]"
             >
               <div className="flex items-center">
-                {patron.user?.avatar_url && (
-                  <Image
-                    src={patron.user.avatar_url}
-                    alt={patron.user.name || "Patron"}
-                    width={32}
-                    height={32}
-                    className="rounded-full mr-2"
-                  />
-                )}
+                <UserAvatar
+                  avatarUrl={patron.user?.avatar_url}
+                  name={patron.user?.name || "Anonymous"}
+                  size={32}
+                  className="mr-2"
+                />
                 <span className="text-gray-400">
                   {patron.user?.name || "Anonymous"}
                 </span>

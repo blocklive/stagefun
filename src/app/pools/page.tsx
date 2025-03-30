@@ -19,6 +19,7 @@ import {
   getPoolStatusFromNumber,
   getDisplayStatus,
 } from "../../lib/contracts/types";
+import UserAvatar from "../components/UserAvatar";
 
 type TabType = "open" | "funded" | "unfunded";
 
@@ -500,17 +501,11 @@ export default function PoolsPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
-                        <div className="w-6 h-6 rounded-full overflow-hidden bg-[#2A2640]">
-                          {pool.creator_avatar_url && (
-                            <Image
-                              src={pool.creator_avatar_url || ""}
-                              alt={pool.creator_name || ""}
-                              width={24}
-                              height={24}
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-                        </div>
+                        <UserAvatar
+                          avatarUrl={pool.creator_avatar_url || undefined}
+                          name={pool.creator_name || undefined}
+                          size={24}
+                        />
                         <span className="text-sm text-gray-400">
                           {pool.creator_name || "Anonymous"}
                         </span>
