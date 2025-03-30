@@ -4,6 +4,8 @@ import { usePoolPatrons } from "../../../../hooks/usePoolPatrons";
 import Image from "next/image";
 import { ethers } from "ethers";
 import { useEffect } from "react";
+import React from "react";
+import UserAvatar from "@/app/components/UserAvatar";
 
 interface PatronsTabProps {
   poolAddress: string | null;
@@ -94,15 +96,16 @@ export default function PatronsTab({ poolAddress }: PatronsTabProps) {
               className="flex justify-between items-center py-2 border-b border-[#FFFFFF14] last:border-0"
             >
               <div className="flex items-center">
-                <div className="w-8 h-8 rounded-full bg-[#FFFFFF14] flex items-center justify-center mr-3">
-                  <Image
-                    src={patron.avatarUrl || ""}
-                    alt={patron.displayName || patron.username || ""}
-                    width={32}
-                    height={32}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                <UserAvatar
+                  avatarUrl={patron.avatarUrl}
+                  name={
+                    patron.displayName ||
+                    patron.username ||
+                    patron.address.substring(0, 6)
+                  }
+                  size={32}
+                  className="mr-3"
+                />
                 <div>
                   <div className="flex items-center">
                     <p className="font-semibold">

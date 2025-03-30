@@ -24,6 +24,7 @@ import GetTokensModal from "../../components/GetTokensModal";
 import InfoModal from "../../components/InfoModal";
 import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
+import UserAvatar from "../../components/UserAvatar";
 
 export default function ProfileComponent() {
   const router = useRouter();
@@ -481,33 +482,22 @@ export default function ProfileComponent() {
         <div className="relative pt-12 pb-8 flex flex-col items-center bg-gradient-to-b from-[#1A0B3E] to-[#4A2A9A]">
           {/* Avatar with Edit Button */}
           <div className="relative mb-4">
-            <div className="w-28 h-28 rounded-full bg-purple-600 overflow-hidden">
+            <div className="w-28 h-28 overflow-hidden">
               {imagePreview ? (
                 <Image
                   src={imagePreview}
                   alt="Profile Preview"
                   width={112}
                   height={112}
-                  className="object-cover w-full h-full"
-                  unoptimized={true}
-                />
-              ) : user?.avatar_url ? (
-                <Image
-                  src={user.avatar_url}
-                  alt="Profile"
-                  width={112}
-                  height={112}
-                  className="object-cover w-full h-full"
+                  className="object-cover w-full h-full rounded-full"
                   unoptimized={true}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-3xl font-bold">
-                  {displayName.charAt(0)}
-                </div>
+                <UserAvatar user={user} size={112} />
               )}
 
               {isUploadingImage && (
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full">
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
                 </div>
               )}

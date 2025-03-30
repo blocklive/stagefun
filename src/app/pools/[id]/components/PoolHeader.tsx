@@ -7,6 +7,7 @@ import {
   getDisplayStatus,
   getPoolStatusFromNumber,
 } from "../../../../lib/contracts/types";
+import UserAvatar from "@/app/components/UserAvatar";
 
 export interface PoolHeaderProps {
   pool: Pool;
@@ -67,21 +68,16 @@ export default function PoolHeader({
     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 py-4">
       <div className="flex items-center gap-4">
         {/* Pool Image */}
-        <div className="relative w-12 h-12 rounded-[16px] overflow-hidden bg-gray-700 flex-shrink-0">
+        <div className="relative w-12 h-12 flex-shrink-0">
           {pool.image_url ? (
             <Image
               src={pool.image_url}
               alt={pool.name}
               fill
-              className="object-cover"
+              className="object-cover rounded-[16px]"
             />
           ) : (
-            <div
-              className="w-full h-full flex items-center justify-center text-white"
-              style={{ backgroundColor: "#836EF9" }}
-            >
-              <span className="text-xl font-bold">{pool.name.charAt(0)}</span>
-            </div>
+            <UserAvatar name={pool.name} size={48} className="rounded-[16px]" />
           )}
         </div>
 
