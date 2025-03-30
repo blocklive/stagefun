@@ -293,6 +293,12 @@ export default function EditPoolPage() {
     }
   };
 
+  // Handle points button click
+  const handlePointsClick = () => {
+    // Currently just a placeholder - later can route to points history or leaderboard
+    router.push("/pools"); // In the future this can be "/profile/points" or similar
+  };
+
   // Check if user is authorized to edit this pool
   const isAuthorized = dbUser && pool && dbUser.id === pool.creator_id;
 
@@ -337,7 +343,9 @@ export default function EditPoolPage() {
         showTitle={false}
         backgroundColor="#15161a"
         showGetTokensButton={true}
+        showPointsButton={true}
         onGetTokensClick={() => setShowGetTokensModal(true)}
+        onPointsClick={handlePointsClick}
         onBackClick={() => router.back()}
       />
 

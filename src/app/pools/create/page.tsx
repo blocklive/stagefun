@@ -172,6 +172,12 @@ export default function CreatePoolPage() {
     }, 5000);
   };
 
+  // Handle points button click
+  const handlePointsClick = () => {
+    // Currently just a placeholder - later can route to points history or leaderboard
+    router.push("/pools"); // In the future this can be "/profile/points" or similar
+  };
+
   // Handle form submission
   const onSubmit = async (
     e: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>
@@ -281,8 +287,10 @@ export default function CreatePoolPage() {
         showTitle={false}
         backgroundColor="#15161a"
         showGetTokensButton={true}
+        showPointsButton={true}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
+        onPointsClick={handlePointsClick}
         onBackClick={handleBackClick}
       />
 

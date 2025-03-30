@@ -452,6 +452,12 @@ export default function ProfileComponent() {
     }
   };
 
+  // Handle points button click
+  const handlePointsClick = () => {
+    // Currently just a placeholder - later can route to points history or leaderboard
+    router.push("/pools"); // In the future this can be "/profile/points" or similar
+  };
+
   return (
     <>
       <AppHeader
@@ -460,8 +466,10 @@ export default function ProfileComponent() {
         backgroundColor="#15161a"
         showGetTokensButton={true}
         showCreateButton={true}
+        showPointsButton={true}
         onGetTokensClick={() => setShowGetTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
+        onPointsClick={handlePointsClick}
       />
 
       {/* Main Content */}

@@ -20,6 +20,7 @@ import {
   getDisplayStatus,
 } from "../../lib/contracts/types";
 import UserAvatar from "../components/UserAvatar";
+import DailyCheckin from "../components/DailyCheckin";
 
 type TabType = "open" | "funded" | "unfunded";
 
@@ -298,6 +299,12 @@ export default function PoolsPage() {
     router.push(`/pools/${poolId}?from_tab=${activeTab}`);
   };
 
+  // Handle points button click
+  const handlePointsClick = () => {
+    // Currently just a placeholder - later can route to points history or leaderboard
+    router.push("/pools"); // In the future this can be "/profile/points" or similar
+  };
+
   return (
     <div className="min-h-screen bg-[#15161a] text-white">
       <AppHeader
@@ -306,12 +313,19 @@ export default function PoolsPage() {
         backgroundColor="#15161a"
         showGetTokensButton={true}
         showCreateButton={true}
+        showPointsButton={true}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
+        onPointsClick={handlePointsClick}
       />
 
       {/* Main Content */}
       <div className="px-4 pb-24 md:pb-8">
+        {/* Daily Check-in */}
+        <div className="mb-6">
+          <DailyCheckin />
+        </div>
+
         {/* Tabs */}
         <div className="flex justify-center gap-2 px-4">
           <button

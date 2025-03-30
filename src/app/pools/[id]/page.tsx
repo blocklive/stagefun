@@ -410,6 +410,12 @@ export default function PoolDetailsPage() {
     }
   };
 
+  // Handle points button click
+  const handlePointsClick = () => {
+    // Currently just a placeholder - later can route to points history or leaderboard
+    router.push("/pools"); // In the future this can be "/profile/points" or similar
+  };
+
   // Render main content
   const renderContent = () => {
     if (isLoadingPool) {
@@ -602,9 +608,11 @@ export default function PoolDetailsPage() {
         backgroundColor="#15161a"
         showGetTokensButton={true}
         showCreateButton={true}
+        showPointsButton={true}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
         onBackClick={handleBackClick}
+        onPointsClick={handlePointsClick}
       />
 
       {/* Main Content */}
