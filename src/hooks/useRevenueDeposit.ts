@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { ethers } from "ethers";
-import { toast } from "react-hot-toast";
+import showToast from "@/utils/toast";
 import { usePrivy } from "@privy-io/react-auth";
 import {
   RevenueService,
@@ -60,7 +60,7 @@ export function useRevenueDeposit(): UseRevenueDepositResult {
       setIsLoading(true);
 
       // Create a toast for loading status
-      const loadingToast = toast.loading("Processing revenue deposit...");
+      const loadingToast = showToast.loading("Processing revenue deposit...");
 
       try {
         // Get provider for service initialization
@@ -91,12 +91,12 @@ export function useRevenueDeposit(): UseRevenueDepositResult {
 
         if (userBalanceInWei < amountBigInt) {
           const errorMessage = `Insufficient USDC balance in smart wallet. You have ${smartWalletBalance} USDC but trying to deposit ${amountFormatted} USDC`;
-          toast.error(errorMessage, { id: loadingToast });
+          showToast.error(errorMessage, { id: loadingToast });
           return { success: false, error: errorMessage };
         }
 
         // Check allowance and provide approval if needed
-        toast.loading("Checking USDC allowance...", { id: loadingToast });
+        showToast.loading("Checking USDC allowance...", { id: loadingToast });
 
         // Check current allowance
         const allowanceCheck = await revenueService.checkUSDCAllowance(
@@ -113,7 +113,7 @@ export function useRevenueDeposit(): UseRevenueDepositResult {
 
         // Handle approval if needed
         if (!allowanceCheck.hasEnoughAllowance) {
-          toast.loading("Approving USDC with smart wallet...", {
+          showToast.loading("Approving USDC with smart wallet...", {
             id: loadingToast,
           });
 
@@ -129,18 +129,20 @@ export function useRevenueDeposit(): UseRevenueDepositResult {
             throw new Error(approvalResult.error || "Failed to approve USDC");
           }
 
-          toast.loading("USDC approval sent, waiting for confirmation...", {
+          showToast.loading("USDC approval sent, waiting for confirmation...", {
             id: loadingToast,
           });
 
           // Wait for the transaction to be mined
           await provider.waitForTransaction(approvalResult.txHash as string);
 
-          toast.success("USDC approval confirmed!", { id: loadingToast });
+          showToast.success("USDC approval confirmed!", { id: loadingToast });
         }
 
         // Use smart wallet to deposit revenue
-        toast.loading("Initiating revenue deposit...", { id: loadingToast });
+        showToast.loading("Initiating revenue deposit...", {
+          id: loadingToast,
+        });
 
         const depositResult =
           await revenueService.depositRevenueWithSmartWallet(
@@ -153,14 +155,14 @@ export function useRevenueDeposit(): UseRevenueDepositResult {
           throw new Error(depositResult.error || "Failed to deposit revenue");
         }
 
-        toast.loading("Revenue deposit sent, waiting for confirmation...", {
+        showToast.loading("Revenue deposit sent, waiting for confirmation...", {
           id: loadingToast,
         });
 
         // Wait for the transaction to be mined
         await provider.waitForTransaction(depositResult.txHash as string);
 
-        toast.success("Revenue deposit successful!", { id: loadingToast });
+        showToast.success("Revenue deposit successful!", { id: loadingToast });
 
         // Refresh smart wallet balance
         refreshSmartWalletBalance();
@@ -177,16 +179,16 @@ export function useRevenueDeposit(): UseRevenueDepositResult {
         // Check for common error types
         if (errorMessage.includes("user rejected transaction")) {
           const rejectedMessage = "Transaction rejected by user";
-          toast.error(rejectedMessage, { id: loadingToast });
+          showToast.error(rejectedMessage, { id: loadingToast });
           return { success: false, error: rejectedMessage };
         } else if (errorMessage.includes("insufficient funds")) {
           const fundsMessage = "Insufficient funds for transaction";
-          toast.error(fundsMessage, { id: loadingToast });
+          showToast.error(fundsMessage, { id: loadingToast });
           return { success: false, error: fundsMessage };
         }
 
         setError(errorMessage);
-        toast.error(errorMessage, { id: loadingToast });
+        showToast.error(errorMessage, { id: loadingToast });
 
         return {
           success: false,

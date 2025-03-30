@@ -1,9 +1,10 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import { Pool, User } from "../../../../lib/supabase";
-import { useState, useEffect } from "react";
 import { formatCurrency } from "../../../../lib/utils";
-import { toast } from "react-hot-toast";
+import showToast from "@/utils/toast";
+import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
 
 interface UserCommitmentProps {
   pool: Pool | null;
@@ -112,7 +113,7 @@ export default function UserCommitment({
   // Handle refund button click if no handler is provided
   const onRefundClick = () => {
     if (!handleRefund) {
-      toast.error("Refund functionality is not available");
+      showToast.error("Refund functionality is not available");
       return;
     }
     handleRefund();

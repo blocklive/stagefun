@@ -5,7 +5,6 @@ import type {
   SendTransactionModalUIOptions,
 } from "@privy-io/react-auth";
 import { ethers } from "ethers";
-import { toast } from "react-hot-toast";
 import { createPoolWithSmartWallet } from "../lib/services/contract-service";
 import {
   toUSDCBaseUnits,
@@ -15,6 +14,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { CONTRACT_ADDRESSES } from "../lib/contracts/addresses";
 import { useSmartWallet } from "./useSmartWallet";
+import showToast from "@/utils/toast";
 
 // Define the interface for pool creation data
 interface PoolCreationData {
@@ -317,8 +317,8 @@ export function usePoolCreationContract(): PoolCreationHookResult {
       setError(null);
 
       // Initialize loading toast
-      const loadingToast = toast.loading(
-        "Creating your pool on the blockchain..."
+      const loadingToast = showToast.loading(
+        "Creating pool on the blockchain."
       );
 
       try {
@@ -390,9 +390,12 @@ export function usePoolCreationContract(): PoolCreationHookResult {
           );
         } catch (blockchainError: any) {
           console.error("Error creating pool on blockchain:", blockchainError);
-          toast.error(blockchainError.message || "Unknown blockchain error", {
-            id: loadingToast,
-          });
+          showToast.error(
+            blockchainError.message || "Unknown blockchain error",
+            {
+              id: loadingToast,
+            }
+          );
           return {
             success: false,
             error: blockchainError.message || "Unknown blockchain error",
@@ -400,7 +403,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         }
 
         // STEP 2: Now that blockchain creation succeeded, add to database
-        toast.loading("Synchronizing pool data...", { id: loadingToast });
+        showToast.loading("Synchronizing pool data...", { id: loadingToast });
         console.log(
           "Adding pool to database with blockchain details:",
           blockchainResult
@@ -430,7 +433,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
 
         if (poolError) {
           console.error("Error creating pool in database:", poolError);
-          toast.error(
+          showToast.error(
             "Pool was created on blockchain but database entry failed",
             { id: loadingToast }
           );
@@ -443,7 +446,9 @@ export function usePoolCreationContract(): PoolCreationHookResult {
 
         // Create tiers in database first
         if (tiers && tiers.length > 0) {
-          toast.loading("Preparing tiers and rewards...", { id: loadingToast });
+          showToast.loading("Preparing tiers and rewards...", {
+            id: loadingToast,
+          });
           const { data: insertedTiers, error: tiersError } = await supabase
             .from("tiers")
             .insert(
@@ -464,7 +469,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
 
           if (tiersError) {
             console.error("Error creating tiers in database:", tiersError);
-            toast.error("Pool was created but tiers failed to save", {
+            showToast.error("Pool was created but tiers failed to save", {
               id: loadingToast,
             });
             return {
@@ -488,7 +493,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
           );
 
           if (!rewardResult.success) {
-            toast.error(rewardResult.error || "Failed to process rewards", {
+            showToast.error(rewardResult.error || "Failed to process rewards", {
               id: loadingToast,
             });
             return {
@@ -500,7 +505,9 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         }
 
         console.log("Pool created successfully in database:", insertedPool);
-        toast.success("Pool created successfully! 🎉", { id: loadingToast });
+        showToast.success("Pool created successfully! 🎉", {
+          id: loadingToast,
+        });
         return {
           success: true,
           data: insertedPool,
@@ -510,7 +517,9 @@ export function usePoolCreationContract(): PoolCreationHookResult {
       } catch (err: any) {
         console.error("Error in createPoolWithDatabase:", err);
         setError(err.message || "Error creating pool");
-        toast.error(err.message || "Error creating pool", { id: loadingToast });
+        showToast.error(err.message || "Error creating pool", {
+          id: loadingToast,
+        });
         return {
           success: false,
           error: err.message || "Unknown error in pool creation process",

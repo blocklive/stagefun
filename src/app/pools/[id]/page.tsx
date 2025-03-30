@@ -4,7 +4,6 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { FaArrowLeft, FaWallet } from "react-icons/fa";
-import { toast } from "react-hot-toast";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { useContractInteraction as useContractInteractionHook } from "../../../hooks/useContractInteraction";
 import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
@@ -20,6 +19,7 @@ import {
 import AppHeader from "../../components/AppHeader";
 import { getAllTiers, Tier } from "../../../lib/contracts/StageDotFunPool";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
+import showToast from "@/utils/toast";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -242,7 +242,7 @@ export default function PoolDetailsPage() {
       router.refresh();
     } catch (error: any) {
       console.error("Error committing to pool:", error);
-      toast.error(error.message || "Failed to commit to pool");
+      showToast.error(error.message || "Failed to commit to pool");
     } finally {
       setIsCommitting(false);
     }
@@ -396,15 +396,15 @@ export default function PoolDetailsPage() {
       const result = await claimRefund(pool.contract_address);
 
       if (result.success) {
-        toast.success("Refund claimed successfully");
+        showToast.success("Refund claimed successfully");
         refreshCommitments();
         refreshBalance?.();
       } else {
-        toast.error(result.error || "Failed to claim refund");
+        showToast.error(result.error || "Failed to claim refund");
       }
     } catch (error: any) {
       console.error("Error claiming refund:", error);
-      toast.error(error.message || "Failed to claim refund");
+      showToast.error(error.message || "Failed to claim refund");
     } finally {
       setIsRefunding(false);
     }

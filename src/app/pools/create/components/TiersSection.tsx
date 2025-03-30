@@ -4,7 +4,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { uploadTierImage } from "@/lib/utils/imageUpload";
 import { AddRewardModal } from "./AddRewardModal";
 import { Tier, RewardItem } from "../types";
-import { toast } from "react-hot-toast";
+import showToast from "@/utils/toast";
 import { TierCard } from "./tier-components/TierCard";
 
 interface TiersSectionProps {
@@ -264,13 +264,13 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
             metadataUrl = uploadedMetadataUrl;
           } catch (error) {
             console.error("Error uploading tier metadata:", error);
-            toast.error("Failed to upload tier metadata");
+            showToast.error("Failed to upload tier metadata");
             return;
           }
         }
       } catch (error) {
         console.error("Detailed error creating tier:", error);
-        toast.error("Failed to upload tier image and metadata");
+        showToast.error("Failed to upload tier image and metadata");
         return; // Don't create the tier if image upload fails
       }
     }
@@ -435,7 +435,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
           };
         } catch (error) {
           console.error("Detailed error in updateTierMetadata:", error);
-          toast.error("Failed to upload tier metadata");
+          showToast.error("Failed to upload tier metadata");
           return null;
         }
       }

@@ -3,7 +3,6 @@
 import { Pool } from "../../../../lib/supabase";
 import { formatCurrency } from "../../../../lib/utils";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { toast } from "react-hot-toast";
 import { ethers } from "ethers";
 import { useSendTransaction, useWallets } from "@privy-io/react-auth";
 import {
@@ -31,6 +30,7 @@ import { useSmartWallet } from "../../../../hooks/useSmartWallet";
 import { useSmartWalletBalance } from "../../../../hooks/useSmartWalletBalance";
 import { useRevenueDeposit } from "../../../../hooks/useRevenueDeposit";
 import WithdrawModal from "./WithdrawModal";
+import showToast from "@/utils/toast";
 
 interface PoolFundsSectionProps {
   pool: Pool & {
@@ -312,13 +312,13 @@ export default function PoolFundsSection({
   // Handle receive revenue
   const handleReceiveRevenue = async () => {
     if (!pool.contract_address) {
-      toast.error("Pool contract address not found");
+      showToast.error("Pool contract address not found");
       return;
     }
 
     const amount = parseFloat(receiveAmount);
     if (isNaN(amount) || amount <= 0) {
-      toast.error("Please enter a valid amount");
+      showToast.error("Please enter a valid amount");
       return;
     }
 
@@ -344,7 +344,7 @@ export default function PoolFundsSection({
   // Open withdraw modal
   const openWithdrawModal = async () => {
     if (!pool.contract_address) {
-      toast.error("Pool contract address not found");
+      showToast.error("Pool contract address not found");
       return;
     }
 
@@ -361,7 +361,7 @@ export default function PoolFundsSection({
 
       // If on-chain status is not FUNDED, prevent withdrawal
       if (onChainStatus !== PoolStatus.FUNDED) {
-        toast.error(
+        showToast.error(
           `Pool must be in FUNDED status to withdraw funds. On-chain status: ${PoolStatus[onChainStatus]}`
         );
         return;
@@ -389,7 +389,7 @@ export default function PoolFundsSection({
 
         // If contract balance is zero, show a message and don't open the modal
         if (formattedBalance <= 0) {
-          toast.error("No funds available to withdraw");
+          showToast.error("No funds available to withdraw");
           return;
         }
       } else {
@@ -407,7 +407,7 @@ export default function PoolFundsSection({
 
           // If contract balance is zero, show a message and don't open the modal
           if (formattedBalance <= 0) {
-            toast.error("No funds available to withdraw");
+            showToast.error("No funds available to withdraw");
             return;
           }
         } catch (error) {
@@ -425,7 +425,7 @@ export default function PoolFundsSection({
       setShowWithdrawModal(true);
     } catch (error) {
       console.error("Error checking on-chain pool status:", error);
-      toast.error("Error checking pool status. See console for details.");
+      showToast.error("Error checking pool status. See console for details.");
     }
   };
 
@@ -435,7 +435,7 @@ export default function PoolFundsSection({
   // Handle withdraw funds
   const handleWithdrawFunds = async () => {
     if (!pool.contract_address) {
-      toast.error("Pool contract address not found");
+      showToast.error("Pool contract address not found");
       return;
     }
 
@@ -458,7 +458,7 @@ export default function PoolFundsSection({
 
       // If on-chain status is not FUNDED, prevent withdrawal
       if (onChainStatus !== PoolStatus.FUNDED) {
-        toast.error(
+        showToast.error(
           `Pool must be in FUNDED status to withdraw funds. On-chain status: ${PoolStatus[onChainStatus]}`
         );
         return;
@@ -481,13 +481,13 @@ export default function PoolFundsSection({
       }
     } catch (error) {
       console.error("Error processing pool status (withdraw):", error);
-      toast.error("Error checking pool status. See console for details.");
+      showToast.error("Error checking pool status. See console for details.");
       return;
     }
 
     const amount = parseFloat(withdrawAmount);
     if (isNaN(amount) || amount <= 0) {
-      toast.error("Please enter a valid amount");
+      showToast.error("Please enter a valid amount");
       return;
     }
 
@@ -497,7 +497,7 @@ export default function PoolFundsSection({
       : (pool.raised_amount || 0) + (pool.revenue_accumulated || 0);
 
     if (amount > totalAvailable) {
-      toast.error(
+      showToast.error(
         `Withdrawal amount (${amount.toFixed(
           2
         )}) exceeds available funds (${totalAvailable.toFixed(2)})`
@@ -506,7 +506,7 @@ export default function PoolFundsSection({
     }
 
     setIsWithdrawing(true);
-    const loadingToast = toast.loading("Preparing withdrawal...");
+    const loadingToast = showToast.loading("Preparing withdrawal...");
 
     try {
       // Fix precision issues by rounding to 6 decimals (USDC standard)
@@ -529,7 +529,7 @@ export default function PoolFundsSection({
         throw new Error(result.error || "Failed to withdraw funds");
       }
 
-      toast.success("Funds withdrawn successfully!", { id: loadingToast });
+      showToast.success("Funds withdrawn successfully!", { id: loadingToast });
       setStatusMessage("Withdrawal completed successfully!");
       console.log("Withdrawal result:", result);
       setShowWithdrawModal(false);
@@ -538,7 +538,7 @@ export default function PoolFundsSection({
       setTimeout(() => refreshOnChainData(), 5000);
     } catch (error) {
       console.error("Error withdrawing funds:", error);
-      toast.error(
+      showToast.error(
         error instanceof Error ? error.message : "Failed to withdraw funds",
         { id: loadingToast }
       );
@@ -566,7 +566,7 @@ export default function PoolFundsSection({
   // Handle distribute revenue
   const handleDistributeRevenue = async () => {
     if (!pool.contract_address) {
-      toast.error("Pool contract address not found");
+      showToast.error("Pool contract address not found");
       return;
     }
 
@@ -576,12 +576,12 @@ export default function PoolFundsSection({
       : pool.revenue_accumulated || 0;
 
     if (availableRevenue <= 0) {
-      toast.error("No revenue available to distribute");
+      showToast.error("No revenue available to distribute");
       return;
     }
 
     setIsDistributing(true);
-    const loadingToast = toast.loading("Preparing distribution...");
+    const loadingToast = showToast.loading("Preparing distribution...");
 
     try {
       // Use the distributeRevenue function from the hook
@@ -592,7 +592,7 @@ export default function PoolFundsSection({
         throw new Error(result.error || "Failed to distribute revenue");
       }
 
-      toast.success("Revenue distribution initiated successfully!", {
+      showToast.success("Revenue distribution initiated successfully!", {
         id: loadingToast,
       });
       setStatusMessage("Distribution completed successfully!");
@@ -603,7 +603,7 @@ export default function PoolFundsSection({
       setTimeout(() => refreshOnChainData(), 5000);
     } catch (error) {
       console.error("Error distributing revenue:", error);
-      toast.error(
+      showToast.error(
         error instanceof Error ? error.message : "Failed to distribute revenue",
         { id: loadingToast }
       );
