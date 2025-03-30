@@ -1,13 +1,16 @@
 "use client";
 
-import { Dialog } from "@headlessui/react";
-import { useState, useEffect } from "react";
+import { Dialog, Transition } from "@headlessui/react";
+import { Fragment, useState, useEffect } from "react";
 import { DBTier } from "../../../../hooks/usePoolTiers";
-import { toast } from "react-hot-toast";
+import showToast from "@/utils/toast";
 import { ethers } from "ethers";
 import { toUSDCBaseUnits } from "@/lib/contracts/StageDotFunPool";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
 import { useSmartWalletBalance } from "@/hooks/useSmartWalletBalance";
+import Image from "next/image";
+import { FaArrowRight } from "react-icons/fa";
+import { useDeposit } from "@/hooks/useDeposit";
 
 interface CommitModalProps {
   isOpen: boolean;
@@ -94,44 +97,35 @@ export default function CommitModal({
 
     // Validate amount
     if (
-      isNaN(parseFloat(amount)) ||
-      parseFloat(amount) < 0 ||
-      (parseFloat(amount) === 0 && !foundTier.is_variable_price)
+      !foundTier ||
+      (!amount && foundTier.price !== 0 && !foundTier.is_variable_price)
     ) {
       console.log("❌ Amount validation failed");
-      toast.error("Please enter a valid amount");
+      showToast.error("Please enter a valid amount");
       return;
     }
 
-    console.log("✅ Amount validation passed");
-
-    // Validate against tier constraints for variable price tiers
+    // Handle variable price tier constraints
     if (foundTier.is_variable_price) {
-      console.log("Checking variable price tier constraints");
-
-      // Check min price constraint
       if (
-        foundTier.min_price !== null &&
-        foundTier.min_price > 0 &&
-        parseFloat(amount) < foundTier.min_price
+        foundTier.min_price &&
+        parseFloat(amount) < foundTier.min_price &&
+        parseFloat(amount) !== 0
       ) {
         console.log("❌ Below minimum price constraint");
-        toast.error(
+        showToast.error(
           `Minimum commitment for this tier is ${foundTier.min_price} USDC`
         );
         return;
       }
 
-      // Check max price constraint
       if (foundTier.max_price && parseFloat(amount) > foundTier.max_price) {
         console.log("❌ Above maximum price constraint");
-        toast.error(
+        showToast.error(
           `Maximum commitment for this tier is ${foundTier.max_price} USDC`
         );
         return;
       }
-
-      console.log("✅ Variable price tier constraints passed");
     }
 
     console.log("🚀 Calling onCommit with:", {

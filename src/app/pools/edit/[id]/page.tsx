@@ -19,7 +19,7 @@ import AppHeader from "../../../components/AppHeader";
 import GetTokensModal from "../../../components/GetTokensModal";
 import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
 import { useNativeBalance } from "../../../../hooks/useNativeBalance";
-import toast from "react-hot-toast";
+import showToast from "@/utils/toast";
 import PoolImageUpload from "@/app/components/PoolImageUpload";
 import { uploadPoolImage } from "@/lib/utils/imageUpload";
 import { usePoolDetails } from "@/hooks/usePoolDetails";
@@ -158,18 +158,18 @@ export default function EditPoolPage() {
     e.preventDefault();
 
     if (!dbUser || !supabase || isClientLoading) {
-      toast.error("Please wait for authentication to complete");
+      showToast.error("Please wait for authentication to complete");
       return;
     }
 
     if (!pool) {
-      toast.error("Pool data not available");
+      showToast.error("Pool data not available");
       return;
     }
 
     // Check if user is the creator
     if (dbUser.id !== pool.creator_id) {
-      toast.error("You don't have permission to edit this pool");
+      showToast.error("You don't have permission to edit this pool");
       return;
     }
 
@@ -229,11 +229,13 @@ export default function EditPoolPage() {
           error.message.includes("permission") ||
           error.message.includes("policy")
         ) {
-          toast.error(
+          showToast.error(
             "You don't have permission to update this pool. Please contact support."
           );
         } else {
-          toast.error(`Failed to update pool in database: ${error.message}`);
+          showToast.error(
+            `Failed to update pool in database: ${error.message}`
+          );
         }
 
         setIsSubmitting(false);
@@ -242,7 +244,9 @@ export default function EditPoolPage() {
 
       // Verify that the update was successful by checking the returned data
       if (!data || data.length === 0) {
-        toast.error("Failed to update pool: No data returned from database");
+        showToast.error(
+          "Failed to update pool: No data returned from database"
+        );
         setIsSubmitting(false);
         return;
       }
@@ -272,9 +276,9 @@ export default function EditPoolPage() {
       });
 
       if (!fieldsUpdated) {
-        toast.error("No changes were detected in the pool data");
+        showToast.error("No changes were detected in the pool data");
       } else {
-        toast.success("Pool updated successfully");
+        showToast.success("Pool updated successfully");
       }
 
       // Force a refresh of the pool data in the SWR cache
@@ -283,7 +287,7 @@ export default function EditPoolPage() {
       // Navigate back to pool details with a state parameter
       router.push(`/pools/${pool.id}?refresh=true`);
     } catch (error) {
-      toast.error("An error occurred while updating the pool");
+      showToast.error("An error occurred while updating the pool");
     } finally {
       setIsSubmitting(false);
     }

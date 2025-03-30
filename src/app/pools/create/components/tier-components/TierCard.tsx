@@ -1,11 +1,15 @@
-import React from "react";
-import { TrashIcon } from "@heroicons/react/24/outline";
+import React, { useState, useRef, useEffect } from "react";
+import { TrashIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { SupabaseClient } from "@supabase/supabase-js";
+import { FaExclamationCircle, FaCrown, FaSortDown } from "react-icons/fa";
+import { TierRewardItem } from "./TierRewardItem";
+import { RewardDropdown } from "./RewardDropdown";
+import showToast from "@/utils/toast";
 import { Tier, RewardItem } from "../../types";
+import { uploadTierImage } from "@/lib/utils/imageUpload";
 import { TierImageUploader } from "./TierImageUploader";
 import { TierDetailsForm } from "./TierDetailsForm";
 import { TierRewardsList } from "./TierRewardsList";
-import { toast } from "react-hot-toast";
 import RichTextEditor from "@/app/components/RichTextEditor";
 
 interface TierCardProps {
@@ -57,7 +61,7 @@ export const TierCard: React.FC<TierCardProps> = ({
   // Handler for image upload error
   const handleUploadError = (error: Error) => {
     setIsUploadingImage(tier.id, false);
-    toast.error(error.message || "Failed to upload image");
+    showToast.error(error.message || "Failed to upload image");
   };
 
   return (

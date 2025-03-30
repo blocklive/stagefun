@@ -17,7 +17,7 @@ import GetTokensModal from "../../components/GetTokensModal";
 import { useNativeBalance } from "../../../hooks/useNativeBalance";
 import RichTextEditor from "@/app/components/RichTextEditor";
 import InfoModal from "../../components/InfoModal";
-import { toast } from "react-hot-toast";
+import showToast from "@/utils/toast";
 
 // Import our new components
 import PoolImageSection from "./components/PoolImageSection";
@@ -181,7 +181,7 @@ export default function CreatePoolPage() {
     setError(null);
 
     if (!supabase || isClientLoading) {
-      toast.error("Please wait for authentication to complete");
+      showToast.error("Please wait for authentication to complete");
       setIsLoading(false);
       return;
     }
@@ -218,7 +218,7 @@ export default function CreatePoolPage() {
 
       // No longer need to check gas balance as we're using ZeroDev for gas sponsorship
       // if (parseFloat(balance) < 0.5) {
-      //   toast.error(
+      //   showToast.error(
       //     `Your wallet has ${parseFloat(balance).toFixed(
       //       4
       //     )} MON. Deploying a pool requires at least 0.5 MON to pay for gas.`,
@@ -251,7 +251,7 @@ export default function CreatePoolPage() {
     } catch (error: any) {
       console.error("Error creating pool:", error);
       setError(error.message || "Failed to create pool");
-      toast.error(error.message || "Failed to create pool");
+      showToast.error(error.message || "Failed to create pool");
     } finally {
       setIsLoading(false);
     }

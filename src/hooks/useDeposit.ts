@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { ethers } from "ethers";
-import { toast } from "react-hot-toast";
+import showToast from "@/utils/toast";
 import {
   DepositService,
   DepositResult,
@@ -87,7 +87,7 @@ export function useDeposit(): UseDepositResult {
       setIsLoading(true);
 
       // Create a toast for loading status
-      const loadingToast = toast.loading("Processing your deposit...");
+      const loadingToast = showToast.loading("Processing your deposit...");
 
       try {
         // Get provider from user's wallet
@@ -190,7 +190,7 @@ export function useDeposit(): UseDepositResult {
         // Check if we have a smart wallet to use
         if (smartWalletAddress && callContractFunction) {
           console.log("Using smart wallet for deposit:", smartWalletAddress);
-          toast.loading("Using smart wallet with gas sponsorship...", {
+          showToast.loading("Using smart wallet with gas sponsorship...", {
             id: loadingToast,
           });
 
@@ -211,7 +211,7 @@ export function useDeposit(): UseDepositResult {
                   6
                 )} USDC.`;
                 console.error(errorMessage);
-                toast.error(errorMessage, { id: loadingToast });
+                showToast.error(errorMessage, { id: loadingToast });
                 return { success: false, error: errorMessage };
               }
             } catch (balanceError) {
@@ -252,7 +252,7 @@ export function useDeposit(): UseDepositResult {
 
           // Approve USDC if needed - skip for 0 amount variable price tiers
           if (!hasEnoughAllowance && amount > 0) {
-            toast.loading("Approving USDC...", { id: loadingToast });
+            showToast.loading("Approving USDC...", { id: loadingToast });
             console.log("Approving USDC with smart wallet:", {
               poolAddress,
               commitAmount: commitAmount.toString(),
@@ -285,13 +285,13 @@ export function useDeposit(): UseDepositResult {
                 approvalError instanceof Error
                   ? approvalError.message
                   : "Failed to approve USDC";
-              toast.error(errorMessage, { id: loadingToast });
+              showToast.error(errorMessage, { id: loadingToast });
               return { success: false, error: errorMessage };
             }
           }
 
           // Commit to tier
-          toast.loading("Initiating deposit transaction...", {
+          showToast.loading("Initiating deposit transaction...", {
             id: loadingToast,
           });
           console.log("Committing to tier with smart wallet:", {
@@ -324,7 +324,7 @@ export function useDeposit(): UseDepositResult {
           }
 
           // Wait for transaction confirmation
-          toast.loading("Waiting for transaction confirmation...", {
+          showToast.loading("Waiting for transaction confirmation...", {
             id: loadingToast,
           });
           const receipt = await provider.waitForTransaction(
@@ -337,7 +337,7 @@ export function useDeposit(): UseDepositResult {
           }
 
           // Verify balance changes - with timeout and error handling
-          toast.loading("Verifying deposit...", { id: loadingToast });
+          showToast.loading("Verifying deposit...", { id: loadingToast });
 
           // Wait a bit for blockchain state to update
           await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -391,7 +391,7 @@ export function useDeposit(): UseDepositResult {
             await Promise.race([verificationPromise, timeoutPromise]);
 
             // If we get here, verification succeeded
-            toast.success("Successfully committed to tier!", {
+            showToast.success("Successfully committed to tier!", {
               id: loadingToast,
             });
             return { success: true, txHash: commitResult.txHash };
@@ -400,14 +400,14 @@ export function useDeposit(): UseDepositResult {
 
             // Even if verification fails, assume success if the transaction was confirmed
             if (receipt && receipt.status === 1) {
-              toast.success(
+              showToast.success(
                 "Transaction confirmed on-chain! You have successfully committed to the tier.",
                 { id: loadingToast }
               );
               return { success: true, txHash: commitResult.txHash };
             } else {
               // This is unusual - transaction says it confirmed but verification failed completely
-              toast.error(
+              showToast.error(
                 "Transaction appears to have completed, but verification failed. Please check your commitments later.",
                 { id: loadingToast }
               );
@@ -422,7 +422,7 @@ export function useDeposit(): UseDepositResult {
           // If no smart wallet is available, show an error
           const errorMessage = "Smart wallet is required for deposits";
           console.error(errorMessage);
-          toast.error(errorMessage, { id: loadingToast });
+          showToast.error(errorMessage, { id: loadingToast });
           return { success: false, error: errorMessage };
         }
       } catch (error) {
@@ -430,7 +430,7 @@ export function useDeposit(): UseDepositResult {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error occurred";
         setError(errorMessage);
-        toast.error(errorMessage, { id: loadingToast });
+        showToast.error(errorMessage, { id: loadingToast });
         return { success: false, error: errorMessage };
       } finally {
         setIsLoading(false);
