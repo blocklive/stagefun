@@ -293,10 +293,8 @@ export default function EditPoolPage() {
     }
   };
 
-  // Handle points button click
   const handlePointsClick = () => {
-    // Currently just a placeholder - later can route to points history or leaderboard
-    router.push("/pools"); // In the future this can be "/profile/points" or similar
+    router.push("/onboarding");
   };
 
   // Check if user is authorized to edit this pool

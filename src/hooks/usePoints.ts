@@ -2,7 +2,12 @@ import { useState, useEffect, useCallback } from "react";
 import { useSupabase } from "../contexts/SupabaseContext";
 import { useAuthJwt } from "./useAuthJwt";
 import showToast from "../utils/toast";
-import { formatTimeRemaining } from "../lib/services/points-service";
+import {
+  formatTimeRemaining,
+  checkRecentMissionCompletions,
+} from "../lib/services/points-service";
+import { useAuthenticatedSupabase } from "./useAuthenticatedSupabase";
+import useSWR from "swr";
 
 // Define types locally since we'll only be accessing data through the API
 interface UserPoints {
@@ -53,73 +58,116 @@ function getTimeUntilNextClaim(checkin: DailyCheckin | null): number {
   return Math.max(0, nextAvailable.getTime() - now.getTime());
 }
 
+// Define the fetcher function for SWR
+const fetchUserPointsData = async ([url, jwt]: [string, string]) => {
+  if (!jwt) {
+    throw new Error("No JWT token available");
+  }
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch points data: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
 export function usePoints(): UsePointsReturn {
   const { dbUser } = useSupabase();
+  const { supabase } = useAuthenticatedSupabase();
   const { token: authJwt, refreshToken } = useAuthJwt();
-  const [pointsData, setPointsData] = useState<UserPoints | null>(null);
-  const [checkinData, setCheckinData] = useState<DailyCheckin | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [checkedMission, setCheckedMission] = useState(false);
   const [timeUntilNextClaim, setTimeUntilNextClaim] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState("");
+  const [cachedPoints, setCachedPoints] = useState<UserPoints | null>(null);
+  const [cachedCheckin, setCachedCheckin] = useState<DailyCheckin | null>(null);
+
+  // Use SWR to fetch and cache points data
+  const {
+    data: userData,
+    error,
+    isValidating,
+    mutate,
+  } = useSWR(
+    dbUser && authJwt ? ["/api/points/user-data", authJwt] : null,
+    fetchUserPointsData,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 5000, // Dedupe calls within 5 seconds
+      errorRetryCount: 2,
+      refreshInterval: 30000, // Refresh every 30 seconds
+      keepPreviousData: true, // Keep previous data while revalidating
+      onSuccess: (data) => {
+        if (data?.points) {
+          setCachedPoints(data.points);
+        }
+        if (data?.checkin) {
+          setCachedCheckin(data.checkin);
+          const timeMs = getTimeUntilNextClaim(data.checkin);
+          setTimeUntilNextClaim(timeMs);
+          setTimeRemaining(formatTimeRemaining(timeMs));
+        }
+      },
+    }
+  );
+
+  // Extract data from SWR response with fallback to cached values
+  const pointsData = userData?.points || cachedPoints || null;
+  const checkinData = userData?.checkin || cachedCheckin || null;
 
   // Derived state
   const points = pointsData?.total_points ?? null;
   const streakCount = checkinData?.streak_count ?? 0;
   const canClaim = canClaimDaily(checkinData);
+  const isLoading = !pointsData && !error && !cachedPoints;
 
-  // Fetch points and check-in data
-  const fetchData = useCallback(async () => {
-    if (!dbUser) {
-      setIsLoading(false);
-      return;
-    }
+  // Check for recent mission completions
+  useEffect(() => {
+    if (!dbUser || !supabase || checkedMission) return;
 
-    try {
-      setIsLoading(true);
+    const checkMissions = async () => {
+      try {
+        const recentMission = await checkRecentMissionCompletions(
+          supabase,
+          dbUser.id
+        );
 
-      // Get JWT token for API call
-      let jwt = authJwt;
-      if (!jwt) {
-        jwt = await refreshToken();
+        if (recentMission) {
+          // Get descriptive text for the mission
+          let missionText = "completing a mission";
+          switch (recentMission.missionId) {
+            case "link_x":
+              missionText = "linking your X account";
+              break;
+            case "follow_x":
+              missionText = "following Stage.fun on X";
+              break;
+            case "create_pool":
+              missionText = "creating your first pool";
+              break;
+          }
+
+          // Show a toast notification for the earned points
+          showToast.success(
+            `+${recentMission.points.toLocaleString()} points for ${missionText}!`,
+            { duration: 5000 }
+          );
+        }
+
+        setCheckedMission(true);
+      } catch (err) {
+        console.error("Error checking mission completions:", err);
       }
+    };
 
-      if (!jwt) {
-        console.error("Failed to get auth token");
-        setIsLoading(false);
-        return;
-      }
-
-      // Fetch user points data
-      const response = await fetch("/api/points/user-data", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-        },
-      });
-
-      if (!response.ok) {
-        console.error("Failed to fetch points data:", response.statusText);
-        setIsLoading(false);
-        return;
-      }
-
-      const userData = await response.json();
-
-      setPointsData(userData.points || null);
-      setCheckinData(userData.checkin || null);
-
-      // Calculate time until next claim
-      if (userData.checkin) {
-        const timeMs = getTimeUntilNextClaim(userData.checkin);
-        setTimeUntilNextClaim(timeMs);
-        setTimeRemaining(formatTimeRemaining(timeMs));
-      }
-    } catch (error) {
-      console.error("Error loading points data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [dbUser, authJwt, refreshToken]);
+    checkMissions();
+  }, [dbUser, supabase, checkedMission]);
 
   // Update time remaining countdown
   useEffect(() => {
@@ -131,18 +179,38 @@ export function usePoints(): UsePointsReturn {
 
         // If time expired, refresh data
         if (newTimeMs === 0) {
-          fetchData();
+          mutate();
         }
       }, 1000);
 
       return () => clearInterval(timer);
     }
-  }, [timeUntilNextClaim, canClaim, fetchData]);
+  }, [timeUntilNextClaim, canClaim, mutate]);
 
-  // Initial data fetch
+  // Initial data fetch if not using SWR
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    // If we don't have points data yet but we have user and jwt, fetch manually once
+    if (!pointsData && dbUser && authJwt && !isValidating && !error) {
+      const fetchInitialData = async () => {
+        try {
+          const initialData = await fetchUserPointsData([
+            "/api/points/user-data",
+            authJwt,
+          ]);
+          if (initialData?.points) {
+            setCachedPoints(initialData.points);
+          }
+          if (initialData?.checkin) {
+            setCachedCheckin(initialData.checkin);
+          }
+        } catch (err) {
+          console.error("Error fetching initial points data:", err);
+        }
+      };
+
+      fetchInitialData();
+    }
+  }, [dbUser, authJwt, pointsData, isValidating, error]);
 
   // Function to claim daily points using the secure API endpoint
   const claimDailyPoints = useCallback(async () => {
@@ -190,7 +258,7 @@ export function usePoints(): UsePointsReturn {
         );
 
         // Refresh data
-        await fetchData();
+        await mutate();
       } else {
         showToast.error(
           result.message || result.error || "Failed to claim points",
@@ -201,7 +269,16 @@ export function usePoints(): UsePointsReturn {
       console.error("Error claiming daily points:", error);
       showToast.error("Something went wrong. Please try again.");
     }
-  }, [dbUser, canClaim, timeRemaining, fetchData, authJwt, refreshToken]);
+  }, [dbUser, canClaim, timeRemaining, authJwt, refreshToken, mutate]);
+
+  // Function to refresh points data
+  const refreshPoints = useCallback(async () => {
+    try {
+      await mutate();
+    } catch (error) {
+      console.error("Error refreshing points data:", error);
+    }
+  }, [mutate]);
 
   return {
     points,
@@ -211,6 +288,6 @@ export function usePoints(): UsePointsReturn {
     timeUntilNextClaim,
     formattedTimeRemaining: timeRemaining,
     claimDailyPoints,
-    refreshPoints: fetchData,
+    refreshPoints,
   };
 }

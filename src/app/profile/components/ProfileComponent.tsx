@@ -454,8 +454,7 @@ export default function ProfileComponent() {
 
   // Handle points button click
   const handlePointsClick = () => {
-    // Currently just a placeholder - later can route to points history or leaderboard
-    router.push("/pools"); // In the future this can be "/profile/points" or similar
+    router.push("/onboarding");
   };
 
   return (

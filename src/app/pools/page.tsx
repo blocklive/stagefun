@@ -301,8 +301,7 @@ export default function PoolsPage() {
 
   // Handle points button click
   const handlePointsClick = () => {
-    // Currently just a placeholder - later can route to points history or leaderboard
-    router.push("/pools"); // In the future this can be "/profile/points" or similar
+    router.push("/onboarding");
   };
 
   return (
@@ -314,9 +313,9 @@ export default function PoolsPage() {
         showGetTokensButton={true}
         showCreateButton={true}
         showPointsButton={true}
+        onPointsClick={handlePointsClick}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
-        onPointsClick={handlePointsClick}
       />
 
       {/* Main Content */}

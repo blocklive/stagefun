@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { IoFlash } from "react-icons/io5";
 import Image from "next/image";
+import { IoFlash } from "react-icons/io5";
 
 interface SideNavbarProps {
   activeTab: "party" | "portfolio";
