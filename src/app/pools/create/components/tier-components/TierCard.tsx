@@ -1,9 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import { TrashIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import { TrashIcon } from "@heroicons/react/24/outline";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { FaExclamationCircle, FaCrown, FaSortDown } from "react-icons/fa";
-import { TierRewardItem } from "./TierRewardItem";
-import { RewardDropdown } from "./RewardDropdown";
 import showToast from "@/utils/toast";
 import { Tier, RewardItem } from "../../types";
 import { uploadTierImage } from "@/lib/utils/imageUpload";

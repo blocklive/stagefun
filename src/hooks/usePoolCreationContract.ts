@@ -14,10 +14,6 @@ import {
 import { supabase } from "../lib/supabase";
 import { CONTRACT_ADDRESSES } from "../lib/contracts/addresses";
 import { useSmartWallet } from "./useSmartWallet";
-import {
-  PoolCreationService,
-  CreatePoolResult,
-} from "../lib/services/blockchain/pool-creation.service";
 import showToast from "@/utils/toast";
 
 // Define the interface for pool creation data
