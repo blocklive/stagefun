@@ -135,21 +135,21 @@ export const useOnboardingMissions = () => {
         return true;
       }
 
-      // Special handling for Twitter follow mission
-      if (missionId === "follow_x") {
-        const loadingToastId = showToast.loading("Verifying your follow...");
+      // Special handling for Twitter verification
+      if (missionId === "link_x") {
+        showToast.loading("Verifying X account...");
 
         try {
           if (!authToken) {
-            showToast.dismiss(loadingToastId);
+            showToast.remove();
             showToast.error(
               "Authentication token not available. Please try again."
             );
             return false;
           }
 
-          // Call the Twitter follow verification API endpoint
-          const response = await fetch("/api/twitter/verify-follow", {
+          // Call the Twitter verification API endpoint
+          const response = await fetch("/api/missions/verify-twitter", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -159,16 +159,22 @@ export const useOnboardingMissions = () => {
 
           const data = await response.json();
 
-          // Hide loading toast
-          showToast.dismiss(loadingToastId);
-
           if (!response.ok) {
-            showToast.error(data.error || "Failed to verify follow status");
+            showToast.remove();
+            showToast.error(data.error || "Failed to verify X account");
+            return false;
+          }
+
+          // If not linked yet, show message
+          if (!data.isLinked) {
+            showToast.remove();
+            showToast.info(data.message);
             return false;
           }
 
           // If already completed, just acknowledge it
           if (data.alreadyCompleted) {
+            showToast.remove();
             // Update local state to reflect completion
             setMissions((prevMissions) =>
               prevMissions.map((mission) =>
@@ -183,11 +189,6 @@ export const useOnboardingMissions = () => {
 
             return true;
           }
-
-          // Success!
-          showToast.success(
-            `Thanks for following! +${data.points.toLocaleString()} points`
-          );
 
           // Update local state to reflect completion
           setMissions((prevMissions) =>
@@ -207,12 +208,186 @@ export const useOnboardingMissions = () => {
             window.dispatchEvent(new CustomEvent("refreshPoints"));
           }
 
+          // Remove all toasts instantly before showing success
+          showToast.remove();
+          showToast.success(
+            `X account verified! +${data.points.toLocaleString()} points`
+          );
+
           return true;
         } catch (error) {
-          // Hide the loading toast and show error
-          showToast.dismiss(loadingToastId);
+          showToast.remove();
+          console.error("Error verifying X account:", error);
+          showToast.error("Failed to verify X account. Please try again.");
+          return false;
+        }
+      }
+
+      // Special handling for Twitter follow mission
+      if (missionId === "follow_x") {
+        showToast.loading("Verifying your follow...");
+
+        try {
+          if (!authToken) {
+            showToast.remove();
+            showToast.error(
+              "Authentication token not available. Please try again."
+            );
+            return false;
+          }
+
+          // Call the Twitter follow verification API endpoint
+          const response = await fetch("/api/twitter/verify-follow", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            showToast.remove();
+            showToast.error(data.error || "Failed to verify follow status");
+            return false;
+          }
+
+          // If already completed, just acknowledge it
+          if (data.alreadyCompleted) {
+            showToast.remove();
+            // Update local state to reflect completion
+            setMissions((prevMissions) =>
+              prevMissions.map((mission) =>
+                mission.id === missionId
+                  ? { ...mission, completed: true }
+                  : mission
+              )
+            );
+
+            // Update completed missions cache
+            updateCompletedMissions(missionId);
+
+            return true;
+          }
+
+          // Update local state to reflect completion
+          setMissions((prevMissions) =>
+            prevMissions.map((mission) =>
+              mission.id === missionId
+                ? { ...mission, completed: true }
+                : mission
+            )
+          );
+
+          // Update completed missions cache
+          updateCompletedMissions(missionId);
+
+          // Also trigger a points refresh to show updated points
+          if (typeof window !== "undefined") {
+            // Dispatch a custom event that usePoints hook can listen for
+            window.dispatchEvent(new CustomEvent("refreshPoints"));
+          }
+
+          // Remove all toasts instantly before showing success
+          showToast.remove();
+          showToast.success(
+            `Thanks for following! +${data.points.toLocaleString()} points`
+          );
+
+          return true;
+        } catch (error) {
+          showToast.remove();
           console.error("Error verifying Twitter follow:", error);
           showToast.error("Failed to verify follow status. Please try again.");
+          return false;
+        }
+      }
+
+      // Special handling for pool creation verification
+      if (missionId === "create_pool") {
+        showToast.loading("Verifying pool creation...");
+
+        try {
+          if (!authToken) {
+            showToast.remove();
+            showToast.error(
+              "Authentication token not available. Please try again."
+            );
+            return false;
+          }
+
+          // Call the pool verification API endpoint
+          const response = await fetch("/api/missions/verify-pool", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            showToast.remove();
+            showToast.error(data.error || "Failed to verify pool creation");
+            return false;
+          }
+
+          // If no pool yet, show message
+          if (!data.hasPool) {
+            showToast.remove();
+            showToast.info(data.message);
+            return false;
+          }
+
+          // If already completed, just acknowledge it
+          if (data.alreadyCompleted) {
+            showToast.remove();
+            // Update local state to reflect completion
+            setMissions((prevMissions) =>
+              prevMissions.map((mission) =>
+                mission.id === missionId
+                  ? { ...mission, completed: true }
+                  : mission
+              )
+            );
+
+            // Update completed missions cache
+            updateCompletedMissions(missionId);
+
+            return true;
+          }
+
+          // Update local state to reflect completion
+          setMissions((prevMissions) =>
+            prevMissions.map((mission) =>
+              mission.id === missionId
+                ? { ...mission, completed: true }
+                : mission
+            )
+          );
+
+          // Update completed missions cache
+          updateCompletedMissions(missionId);
+
+          // Also trigger a points refresh to show updated points
+          if (typeof window !== "undefined") {
+            // Dispatch a custom event that usePoints hook can listen for
+            window.dispatchEvent(new CustomEvent("refreshPoints"));
+          }
+
+          // Remove all toasts instantly before showing success
+          showToast.remove();
+          showToast.success(
+            `Pool verified! +${data.points.toLocaleString()} points`
+          );
+
+          return true;
+        } catch (error) {
+          showToast.remove();
+          console.error("Error verifying pool creation:", error);
+          showToast.error("Failed to verify pool creation. Please try again.");
           return false;
         }
       }

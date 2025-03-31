@@ -11,31 +11,47 @@ interface MissionItemProps {
 }
 
 const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
-  const { id, title, description, points, completed, actionLabel, component } =
-    mission;
+  const { id, title, description, points, completed, actionLabel } = mission;
   const [isLoading, setIsLoading] = useState(false);
+  const [hasClickedFollow, setHasClickedFollow] = useState(false);
 
   // Handle action click with loading state
   const handleActionClick = async () => {
-    // Only show loading for Twitter follow verification
+    // Special handling for Twitter follow
     if (id === "follow_x") {
-      setIsLoading(true);
+      if (!hasClickedFollow) {
+        // First click - open Twitter profile
+        window.open("https://x.com/stagedotfun", "_blank");
+        setHasClickedFollow(true);
+        return;
+      }
 
+      // Second click - verify follow
+      setIsLoading(true);
       try {
         await onAction(mission);
       } finally {
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 500); // Add a slight delay to ensure UI feels responsive
+        setIsLoading(false);
       }
-    } else {
-      // For other missions, just call the handler directly
-      onAction(mission);
+      return;
+    }
+
+    // For other missions, set loading state and call handler
+    setIsLoading(true);
+    try {
+      await onAction(mission);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Determine if we should show the action button
-  const shouldShowActionButton = !completed && (actionLabel || component);
+  // Get the current action label
+  const getCurrentActionLabel = () => {
+    if (id === "follow_x" && hasClickedFollow && !completed) {
+      return "Verify";
+    }
+    return actionLabel;
+  };
 
   return (
     <div className="flex items-center justify-between p-4 border-b border-[#FFFFFF14] last:border-b-0">
@@ -66,8 +82,8 @@ const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
           {points.toLocaleString()} points
         </div>
 
-        {/* Action Button - Show if not completed and has actionLabel or component */}
-        {shouldShowActionButton && (
+        {/* Action Button - Show if not completed and has actionLabel */}
+        {!completed && actionLabel && (
           <button
             onClick={handleActionClick}
             disabled={isLoading}
@@ -79,7 +95,7 @@ const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
                 <span className="ml-2">Verifying...</span>
               </>
             ) : (
-              actionLabel || "Connect"
+              getCurrentActionLabel()
             )}
           </button>
         )}
