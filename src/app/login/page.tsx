@@ -59,7 +59,11 @@ export default function LoginPage() {
       <div className="flex-1 overflow-y-auto">
         {/* Use the AppHeader component */}
         <AppHeader
-          showTitle={false}
+          title="Login"
+          showBackButton={false}
+          showPointsButton={false}
+          showCreateButton={false}
+          showGetTokensButton={false}
           backgroundColor="#1E1B2E"
           onInfoClick={handleInfoClick}
         />
