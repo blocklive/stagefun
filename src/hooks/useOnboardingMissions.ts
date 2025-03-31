@@ -137,11 +137,11 @@ export const useOnboardingMissions = () => {
 
       // Special handling for Twitter verification
       if (missionId === "link_x") {
-        showToast.loading("Verifying X account...");
+        const loadingToastId = showToast.loading("Verifying X account...");
 
         try {
           if (!authToken) {
-            showToast.remove();
+            showToast.remove(loadingToastId);
             showToast.error(
               "Authentication token not available. Please try again."
             );
@@ -159,23 +159,17 @@ export const useOnboardingMissions = () => {
 
           const data = await response.json();
 
+          // Remove loading toast regardless of outcome now
+          showToast.remove(loadingToastId);
+
           if (!response.ok) {
-            showToast.remove();
             showToast.error(data.error || "Failed to verify X account");
             return false;
           }
 
-          // If not linked yet, show message
-          if (!data.isLinked) {
-            showToast.remove();
-            showToast.info(data.message);
-            return false;
-          }
-
-          // If already completed, just acknowledge it
+          // Handle based on the new API response structure
           if (data.alreadyCompleted) {
-            showToast.remove();
-            // Update local state to reflect completion
+            // Update local state just in case it wasn't already set
             setMissions((prevMissions) =>
               prevMissions.map((mission) =>
                 mission.id === missionId
@@ -183,14 +177,13 @@ export const useOnboardingMissions = () => {
                   : mission
               )
             );
-
-            // Update completed missions cache
             updateCompletedMissions(missionId);
-
-            return true;
+            // Optionally, show a confirmation that it was already done
+            // showToast.info("X account already linked and mission completed.");
+            return true; // Success, already done
           }
 
-          // Update local state to reflect completion
+          // Success path (first time completion)
           setMissions((prevMissions) =>
             prevMissions.map((mission) =>
               mission.id === missionId
@@ -198,25 +191,19 @@ export const useOnboardingMissions = () => {
                 : mission
             )
           );
-
-          // Update completed missions cache
           updateCompletedMissions(missionId);
 
-          // Also trigger a points refresh to show updated points
+          // Trigger points refresh
           if (typeof window !== "undefined") {
-            // Dispatch a custom event that usePoints hook can listen for
             window.dispatchEvent(new CustomEvent("refreshPoints"));
           }
 
-          // Remove all toasts instantly before showing success
-          showToast.remove();
-          showToast.success(
-            `X account verified! +${data.points.toLocaleString()} points`
-          );
+          // Show the success message from the API
+          showToast.success(data.message);
 
           return true;
         } catch (error) {
-          showToast.remove();
+          showToast.remove(loadingToastId); // Ensure loading toast is removed on catch
           console.error("Error verifying X account:", error);
           showToast.error("Failed to verify X account. Please try again.");
           return false;
@@ -285,14 +272,17 @@ export const useOnboardingMissions = () => {
 
           // Also trigger a points refresh to show updated points
           if (typeof window !== "undefined") {
-            // Dispatch a custom event that usePoints hook can listen for
             window.dispatchEvent(new CustomEvent("refreshPoints"));
           }
 
+          // Get the correct points from the mission data
+          const mission = defaultMissions.find((m) => m.id === missionId);
+          const pointsAwarded = mission ? mission.points : 0; // Fallback to 0 if mission not found
+
           // Remove all toasts instantly before showing success
-          showToast.remove();
+          showToast.remove(); // Consider removing only the loading toast by ID if needed
           showToast.success(
-            `Thanks for following! +${data.points.toLocaleString()} points`
+            `Thanks for following! +${pointsAwarded.toLocaleString()} points` // Use points from mission data
           );
 
           return true;

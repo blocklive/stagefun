@@ -4,9 +4,18 @@ import {
   getSupabaseAdmin,
   extractBearerToken,
 } from "@/lib/auth/server";
+import { onboardingMissions } from "@/app/data/onboarding-missions"; // Import mission data
 
 // The Twitter username we want users to follow
 const TARGET_TWITTER_ACCOUNT = "stagedotfun";
+
+// TODO: Replace with actual Twitter API client and logic
+async function checkTwitterFollow(userId: string): Promise<boolean> {
+  // Placeholder: Assume follow is verified for now
+  // In reality, this would involve checking Twitter API using stored credentials
+  console.log(`Placeholder: Verifying Twitter follow for user ${userId}`);
+  return true;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,132 +31,143 @@ export async function POST(request: NextRequest) {
     // Authenticate the request
     const authResult = await authenticateRequest(request);
 
-    if (!authResult.authenticated) {
+    if (!authResult.authenticated || !authResult.userId) {
       return NextResponse.json(
         { error: authResult.error || "Unauthorized" },
         { status: authResult.statusCode || 401 }
       );
     }
 
-    const { userId } = authResult;
+    const userId = authResult.userId;
+    const missionId = "follow_x";
+
+    // Get points dynamically from mission data
+    const mission = onboardingMissions.find((m) => m.id === missionId);
+    if (!mission) {
+      console.error(`Mission data not found for ID: ${missionId}`);
+      return NextResponse.json(
+        { error: "Mission configuration error" },
+        { status: 500 }
+      );
+    }
+    const pointsToAward = mission.points; // Use points from data file (should be 1000)
 
     // Create an admin client with service role permissions
     const adminClient = getSupabaseAdmin();
 
-    // Ensure userId is valid before proceeding
-    if (!userId) {
-      return NextResponse.json(
-        { error: "Invalid user authentication" },
-        { status: 401 }
-      );
-    }
-
-    // Check if the mission has already been completed first
+    // --- 1. Check if mission already completed ---
     const { data: existingMission, error: missionError } = await adminClient
       .from("user_completed_missions")
       .select("id")
       .eq("user_id", userId)
-      .eq("mission_id", "follow_x")
+      .eq("mission_id", missionId)
       .maybeSingle();
 
     if (missionError) {
+      console.error("Error checking mission status:", missionError);
       return NextResponse.json(
         { error: "Failed to check mission status" },
         { status: 500 }
       );
     }
 
-    // If already completed, return success
     if (existingMission) {
       return NextResponse.json({
-        isFollowing: true,
         alreadyCompleted: true,
+        message: "You've already completed this mission!",
       });
     }
 
-    // Record mission completion using admin client with service role
-    const pointsAmount = 10000; // 10k points for Twitter follow
+    // --- 2. Verify the Twitter Follow (Placeholder) ---
+    // TODO: Implement actual Twitter API check here
+    const isFollowing = await checkTwitterFollow(userId);
+    if (!isFollowing) {
+      return NextResponse.json(
+        {
+          error:
+            "Verification failed: Please ensure you are following the account.",
+        },
+        { status: 400 }
+      );
+    }
 
-    const { error: completionError } = await adminClient
+    // --- 3. Record mission completion ---
+    const { error: insertError } = await adminClient
       .from("user_completed_missions")
-      .insert({
-        user_id: userId,
-        mission_id: "follow_x",
-        completed_at: new Date().toISOString(),
-      });
+      .insert({ user_id: userId, mission_id: missionId });
 
-    if (completionError) {
+    if (insertError) {
+      console.error("Error recording mission completion:", insertError);
+      if (insertError.code === "23505") {
+        return NextResponse.json({
+          alreadyCompleted: true,
+          message: "Mission already completed.",
+        });
+      }
       return NextResponse.json(
         { error: "Failed to record mission completion" },
         { status: 500 }
       );
     }
 
-    // Update user's points
-    // First, check if they have a points record
-    const { data: userPoints, error: pointsCheckError } = await adminClient
-      .from("user_points")
-      .select("id, total_points")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (pointsCheckError) {
-      // Continue with the process even if we can't get the current points
-    }
-
-    // If user has existing points, update them
-    if (userPoints) {
-      const { error: pointsUpdateError } = await adminClient
-        .from("user_points")
-        .update({
-          total_points: (userPoints.total_points as number) + pointsAmount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", userId);
-
-      if (pointsUpdateError) {
-        // Continue with the process even if points update fails
-      }
-    } else {
-      // Create a new points record for the user
-      const { error: newPointsError } = await adminClient
-        .from("user_points")
-        .insert({
-          user_id: userId,
-          total_points: pointsAmount,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-
-      if (newPointsError) {
-        // Continue with the process even if creating points record fails
-      }
-    }
-
-    // Record the points transaction
-    const { error: transactionError } = await adminClient
+    // --- 4. Award points transaction ---
+    const { error: pointsError } = await adminClient
       .from("point_transactions")
       .insert({
         user_id: userId,
-        amount: pointsAmount,
-        action_type: "follow_x",
-        metadata: {
-          mission_id: "follow_x",
-          account: TARGET_TWITTER_ACCOUNT,
-        },
+        amount: pointsToAward,
+        action_type: "mission_completed",
+        metadata: { mission_id: missionId, reason: "Followed on X" },
       });
 
-    if (transactionError) {
-      // Continue with the process even if transaction record fails
+    if (pointsError) {
+      console.error("Error awarding points transaction:", pointsError);
+      // Note: Consider rollback
+      return NextResponse.json(
+        { error: "Failed to award points" },
+        { status: 500 }
+      );
+    }
+
+    // --- 5. Update total points directly in user_points table ---
+    const { data: userPointsData, error: fetchPointsError } = await adminClient
+      .from("user_points")
+      .select("total_points")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (fetchPointsError) {
+      console.error("Error fetching user points:", fetchPointsError);
+      return NextResponse.json(
+        { error: "Failed to fetch points for update" },
+        { status: 500 }
+      );
+    }
+
+    const currentPoints = Number(userPointsData?.total_points || 0);
+    const newTotalPoints = currentPoints + pointsToAward;
+
+    const { error: updateError } = await adminClient
+      .from("user_points")
+      .upsert(
+        { user_id: userId, total_points: newTotalPoints },
+        { onConflict: "user_id" }
+      );
+
+    if (updateError) {
+      console.error("Error updating total points directly:", updateError);
+      return NextResponse.json(
+        { error: "Failed to update total points balance" },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
-      isFollowing: true,
       alreadyCompleted: false,
-      points: pointsAmount,
-      message: `Thanks for following @${TARGET_TWITTER_ACCOUNT}!`,
+      message: `Thanks for following! You've earned ${pointsToAward} points.`, // Use dynamic points
     });
   } catch (error) {
+    console.error("Error verifying Twitter follow:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
