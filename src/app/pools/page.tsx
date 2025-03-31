@@ -20,7 +20,6 @@ import {
   getDisplayStatus,
 } from "../../lib/contracts/types";
 import UserAvatar from "../components/UserAvatar";
-import DailyCheckin from "../components/DailyCheckin";
 
 type TabType = "open" | "funded" | "unfunded";
 
@@ -321,9 +320,7 @@ export default function PoolsPage() {
       {/* Main Content */}
       <div className="px-4 pb-24 md:pb-8">
         {/* Daily Check-in */}
-        <div className="mb-6">
-          <DailyCheckin />
-        </div>
+        <div className="mb-6">{/* Daily Check-in component removed */}</div>
 
         {/* Tabs */}
         <div className="flex justify-center gap-2 px-4">

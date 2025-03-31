@@ -13,7 +13,6 @@ export function useAuthJwt() {
   // Function to refresh the token
   const refreshToken = useCallback(async () => {
     if (!authenticated || !user) {
-      console.log("refreshToken: Not authenticated or no user available");
       setToken(null);
       setIsLoading(false);
       return null;
@@ -24,15 +23,7 @@ export function useAuthJwt() {
       setError(null);
 
       // Get fresh token from Privy
-      console.log("Fetching fresh token from Privy...");
       const accessToken = await getAccessToken();
-      console.log(
-        "Token fetched successfully, length:",
-        accessToken?.length || 0
-      );
-      if (accessToken) {
-        console.log("Token begins with:", accessToken.substring(0, 10) + "...");
-      }
       setToken(accessToken);
 
       return accessToken;
@@ -59,14 +50,6 @@ export function useAuthJwt() {
       try {
         setIsLoading(true);
         const token = await getAccessToken();
-
-        // Debug info
-        console.log("Auth token fetched, length:", token?.length || 0);
-        if (token && token.length > 0) {
-          // Log first 10 chars for debugging
-          console.log("Token starts with:", token.substring(0, 10) + "...");
-        }
-
         setToken(token);
       } catch (err) {
         console.error("Error fetching JWT token:", err);

@@ -8,6 +8,7 @@ export interface Mission {
   actionLabel?: string;
   icon?: string;
   category?: string;
+  component?: string;
 }
 
 export const onboardingMissions: Mission[] = [
@@ -15,16 +16,17 @@ export const onboardingMissions: Mission[] = [
     id: "link_x",
     title: "Link your X account",
     description: "Connect your X account to Stage.fun",
-    points: 10000,
-    actionUrl: "/profile",
-    actionLabel: "Link Account",
+    points: 1000,
+    component: "TwitterLinkButton",
+    category: "social",
+    actionLabel: "Connect X",
   },
   {
     id: "follow_x",
     title: "Follow us on X (Twitter)",
     description:
       "Connect with us on Twitter for the latest updates and join our growing community.",
-    points: 10000,
+    points: 1000,
     icon: "/images/x-logo.png",
     actionLabel: "Verify Follow",
     category: "social",
@@ -34,7 +36,7 @@ export const onboardingMissions: Mission[] = [
     id: "create_pool",
     title: "Create your first pool",
     description: "Create your first party round",
-    points: 50000,
+    points: 5000,
     actionUrl: "/pools/create",
     actionLabel: "Create Pool",
   },
@@ -42,7 +44,7 @@ export const onboardingMissions: Mission[] = [
     id: "daily_checkin",
     title: "Daily Check-in",
     description: "Check in daily to earn points and build your streak",
-    points: 1000,
+    points: 100,
     actionUrl: "/pools",
     actionLabel: "Check In",
   },

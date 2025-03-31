@@ -2,12 +2,11 @@
 
 import React from "react";
 import { usePoints } from "../../hooks/usePoints";
-import { FaBolt, FaFire } from "react-icons/fa";
+import { FaBolt } from "react-icons/fa";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 const DailyCheckin = () => {
   const {
-    points,
     isLoading,
     streakCount,
     canClaim,
@@ -17,43 +16,34 @@ const DailyCheckin = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center w-full p-4 bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-lg shadow-md border border-gray-800">
+      <div className="flex items-center justify-center w-full p-4 bg-[#FFFFFF0A] rounded-lg">
         <LoadingSpinner color="#836EF9" size={20} />
-        <span className="ml-2 text-gray-300">Loading points...</span>
+        <span className="ml-2 text-gray-300">Loading...</span>
       </div>
     );
   }
 
   return (
-    <div className="w-full p-4 bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-lg shadow-md border border-gray-800">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center space-x-1">
-          <FaBolt className="text-yellow-400" />
-          <span className="font-semibold text-white">
-            {points?.toLocaleString() || 0} pts
-          </span>
+    <div className="w-full p-4 bg-[#FFFFFF0A] rounded-lg flex items-center justify-between">
+      <div>
+        <div className="text-xl font-semibold text-white flex items-center gap-2">
+          {streakCount} day streak
         </div>
-
-        <div className="flex items-center space-x-1">
-          <FaFire className="text-orange-500" />
-          <span className="font-semibold text-white">
-            {streakCount} day streak
-          </span>
+        <div className="text-sm text-gray-400 mt-1">
+          Claim your daily points every 24 hours
         </div>
       </div>
 
       {canClaim ? (
         <button
           onClick={claimDailyPoints}
-          className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium rounded-lg flex items-center justify-center transition-colors"
+          className="py-3 px-6 bg-white hover:bg-gray-100 text-[#15161A] font-medium rounded-lg flex items-center justify-center transition-colors"
         >
-          <FaBolt className="mr-2" />
-          Claim +1000 pts
+          Claim +100 pts
         </button>
       ) : (
-        <div className="w-full py-3 px-4 bg-gray-800 text-gray-300 font-medium rounded-lg flex items-center justify-center">
-          <FaBolt className="mr-2 text-gray-500" />
-          Next claim in {formattedTimeRemaining || "..."}
+        <div className="py-3 px-6 bg-white text-[#15161A] font-medium rounded-lg flex items-center justify-center">
+          {formattedTimeRemaining || "..."}
         </div>
       )}
     </div>

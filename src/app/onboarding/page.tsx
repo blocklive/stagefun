@@ -12,12 +12,16 @@ import { Mission } from "../data/onboarding-missions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import showToast from "@/utils/toast";
 import { usePoints } from "@/hooks/usePoints";
+import DailyCheckin from "../components/DailyCheckin";
+import MissionModal from "./components/MissionModal";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { dbUser } = useSupabase();
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
+  const [showMissionModal, setShowMissionModal] = useState(false);
 
   const {
     missions,
@@ -37,6 +41,18 @@ export default function OnboardingPage() {
     claimDailyPoints,
     refreshPoints,
   } = usePoints({ disableRecentMissionCheck: true });
+
+  // Check for Twitter auth error in URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const error = searchParams.get("error");
+
+    if (error === "twitter_auth_failed") {
+      showToast.error("Failed to connect to Twitter. Please try again.");
+      // Clean up the URL
+      window.history.replaceState({}, "", "/onboarding");
+    }
+  }, []);
 
   // Force a check of completed missions when the page loads
   useEffect(() => {
@@ -91,9 +107,14 @@ export default function OnboardingPage() {
       return;
     }
 
-    if (mission.id === "link_x") {
-      router.push("/profile/settings?tab=social");
-      return;
+    // Handle component-based missions
+    if (mission.component) {
+      // For TwitterLinkButton, we'll show the modal with the component
+      if (mission.component === "TwitterLinkButton") {
+        setSelectedMission(mission);
+        setShowMissionModal(true);
+        return;
+      }
     }
 
     // For Twitter follow mission, completeMission will handle verification
@@ -206,8 +227,13 @@ export default function OnboardingPage() {
       />
 
       <div className="container mx-auto px-4 py-6 pb-24 md:pb-8">
+        {/* Daily Check-in */}
+        <div className="mb-8">
+          <DailyCheckin />
+        </div>
+
         {/* Header Section */}
-        <div className="mb-8 pt-4">
+        <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Onboarding Missions</h1>
           <p className="text-gray-400">
             Complete these missions to finish setting up your account
@@ -276,7 +302,7 @@ export default function OnboardingPage() {
 
         {/* Mission List */}
         <div className="bg-[#FFFFFF0A] rounded-xl overflow-hidden">
-          {/* Show one-time missions first */}
+          {/* Show one-time missions */}
           {onboardingMissions.map((mission) => (
             <MissionItem
               key={mission.id}
@@ -284,29 +310,6 @@ export default function OnboardingPage() {
               onAction={handleMissionAction}
             />
           ))}
-
-          {/* Show daily check-in mission if available */}
-          {dailyCheckInMission && (
-            <>
-              <div className="border-t border-[#FFFFFF14] my-2"></div>
-              <div className="px-4 py-2 text-sm text-gray-400">
-                Recurring Missions
-              </div>
-              <MissionItem
-                key={dailyCheckInMission.id}
-                mission={{
-                  ...dailyCheckInMission,
-                  actionLabel: canClaim
-                    ? "Check In"
-                    : `Wait ${formattedTimeRemaining}`,
-                  description: canClaim
-                    ? "Check in now to earn points and build your streak"
-                    : `Next check-in available in ${formattedTimeRemaining}`,
-                }}
-                onAction={handleMissionAction}
-              />
-            </>
-          )}
         </div>
 
         {/* Show message when all missions are completed */}
@@ -336,6 +339,24 @@ export default function OnboardingPage() {
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}
       />
+
+      {/* Mission Modal */}
+      {selectedMission && (
+        <MissionModal
+          mission={selectedMission}
+          isOpen={showMissionModal}
+          onClose={() => {
+            setShowMissionModal(false);
+            setSelectedMission(null);
+          }}
+          onComplete={async () => {
+            const success = await completeMission(selectedMission.id);
+            if (success) {
+              await refreshPoints();
+            }
+          }}
+        />
+      )}
     </>
   );
 }

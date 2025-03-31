@@ -44,15 +44,11 @@ export async function verifyPrivyToken(
   token: string
 ): Promise<PrivyTokenPayload | null> {
   try {
-    // Log token for debugging (just the start)
-    console.log("Verifying token:", token.substring(0, 15) + "...");
-
     // Get the token audience (app ID) directly from the token
     const tokenAppId = extractAudienceFromToken(token);
     if (tokenAppId) {
       // Use the exact JWKS URL format from the docs with the app ID from the token
       const jwksUrl = `https://auth.privy.io/api/v1/apps/${tokenAppId}/jwks.json`;
-      console.log("Using JWKS URL:", jwksUrl);
 
       // Fetch the JWKS from Privy
       const jwksResponse = await fetch(jwksUrl);
@@ -65,7 +61,6 @@ export async function verifyPrivyToken(
       }
 
       const jwks = await jwksResponse.json();
-      console.log("JWKS response received with keys:", jwks.keys?.length || 0);
 
       // Find the key that matches the token (ES256 is Privy's algorithm)
       const jsonWebKey = jwks.keys?.find((key: any) => key.alg === "ES256");
@@ -76,19 +71,16 @@ export async function verifyPrivyToken(
 
       // According to our token, the issuer is simply "privy.io"
       const issuer = "privy.io";
-      console.log("Using issuer:", issuer);
 
       try {
         // Import the JWK as a proper CryptoKey
         const cryptoKey = await importJWK(jsonWebKey);
-        console.log("Successfully imported JWK as CryptoKey");
 
         const { payload } = await jwtVerify(token, cryptoKey, {
           issuer,
           audience: tokenAppId,
         });
 
-        console.log("Token verified successfully with sub:", payload.sub);
         return payload as PrivyTokenPayload;
       } catch (error) {
         console.error("JWT verification failed:", error);
@@ -140,9 +132,6 @@ export async function resolveUserFromPrivyDid(
   const supabase = getSupabaseAdmin();
 
   try {
-    // Log the Privy DID we're trying to resolve
-    console.log("Attempting to resolve user from Privy DID:", privyDid);
-
     // Look up the user by Privy DID
     const { data: userByDid, error: didError } = await supabase
       .from("users")
@@ -151,12 +140,10 @@ export async function resolveUserFromPrivyDid(
       .maybeSingle();
 
     if (userByDid && userByDid.id) {
-      console.log("Found user by Privy DID:", userByDid.id);
       return { success: true, userId: String(userByDid.id) };
     }
 
     // No user found with the provided Privy DID
-    console.error("No user found with Privy DID:", privyDid);
     return {
       success: false,
       error: "No user associated with this Privy DID",
@@ -178,7 +165,6 @@ export async function authenticateRequest(
   // Extract token
   const token = extractBearerToken(request);
   if (!token) {
-    console.warn("No Authorization header or invalid format");
     return {
       authenticated: false,
       error: "No Authorization header or invalid format",
@@ -186,12 +172,9 @@ export async function authenticateRequest(
     };
   }
 
-  console.log("Found Authorization header with token");
-
   // Verify token
   const tokenPayload = await verifyPrivyToken(token);
   if (!tokenPayload) {
-    console.error("Token verification failed");
     return {
       authenticated: false,
       error: "Invalid or expired token",
@@ -199,32 +182,18 @@ export async function authenticateRequest(
     };
   }
 
-  console.log("Token verification successful");
-
   // Get Privy DID from token
   const privyDid = tokenPayload.sub;
-  console.log("Private DID from token:", privyDid);
-
-  // If privyDid looks like a wallet address, log it in a more readable format
-  if (privyDid && privyDid.startsWith("0x")) {
-    console.log(
-      "Processing wallet address:",
-      privyDid.slice(0, 10) + "..." + privyDid.slice(-8)
-    );
-  }
 
   // Resolve user
   const userResult = await resolveUserFromPrivyDid(privyDid);
   if (!userResult.success) {
-    console.error("User resolution failed:", userResult.error);
     return {
       authenticated: false,
       error: userResult.error || "User not found",
       statusCode: 401,
     };
   }
-
-  console.log("User resolution successful, ID:", userResult.userId);
 
   // Successfully authenticated
   return {

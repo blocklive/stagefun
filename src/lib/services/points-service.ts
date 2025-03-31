@@ -1,7 +1,7 @@
 // Points system constants and utility functions
 
 // Constants
-export const DAILY_CHECKIN_POINTS = 1000;
+export const DAILY_CHECKIN_POINTS = 100;
 export const DAILY_CHECKIN_ACTION = "daily_checkin";
 export const MIN_CHECKIN_INTERVAL_HOURS = 24;
 

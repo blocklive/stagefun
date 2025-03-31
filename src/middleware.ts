@@ -15,7 +15,6 @@ export async function middleware(request: NextRequest) {
   const token = extractBearerToken(request);
 
   if (!token) {
-    console.log("No valid Authorization header found in request");
     return response;
   }
 
@@ -24,22 +23,14 @@ export async function middleware(request: NextRequest) {
     const payload = await verifyPrivyToken(token);
 
     if (!payload) {
-      console.log("Invalid Privy token");
       return response;
     }
-
-    console.log("Valid Privy token found", {
-      subject: payload.sub,
-      issuer: payload.iss,
-      audience: payload.aud,
-    });
 
     // For demo purposes, we're not setting anything on the response
     // since we're using direct token verification in the API endpoints
 
     return response;
   } catch (error) {
-    console.error("Error verifying Privy token:", error);
     return response;
   }
 }

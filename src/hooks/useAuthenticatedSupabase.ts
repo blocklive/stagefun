@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { useSupabase } from "@/contexts/SupabaseContext";
 
 // Create a hook that returns an authenticated Supabase client
 export const useAuthenticatedSupabase = () => {
   const { dbUser } = useSupabase();
-  const [supabase, setSupabase] = useState<ReturnType<
-    typeof createClient
-  > | null>(null);
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -15,12 +13,6 @@ export const useAuthenticatedSupabase = () => {
     const setupClient = async () => {
       try {
         setIsLoading(true);
-
-        // Log whether we have a dbUser
-        console.log(
-          "Setting up authenticated Supabase client. User available:",
-          !!dbUser
-        );
 
         // Create a new Supabase client
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
@@ -38,24 +30,6 @@ export const useAuthenticatedSupabase = () => {
             },
           },
         });
-
-        // In development mode, use service role for testing when available
-        if (
-          process.env.NODE_ENV === "development" &&
-          window.localStorage.getItem("use_service_role") === "true"
-        ) {
-          console.log("DEV MODE: Using service role for testing");
-          // This will be a no-op in production as the service role key won't be available
-          const serviceRoleKey = localStorage.getItem("supabase_service_role");
-          if (serviceRoleKey) {
-            const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-              auth: { persistSession: false },
-            });
-            setSupabase(adminClient);
-            setIsLoading(false);
-            return;
-          }
-        }
 
         setSupabase(client);
       } catch (error) {

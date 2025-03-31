@@ -11,7 +11,8 @@ interface MissionItemProps {
 }
 
 const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
-  const { id, title, description, points, completed, actionLabel } = mission;
+  const { id, title, description, points, completed, actionLabel, component } =
+    mission;
   const [isLoading, setIsLoading] = useState(false);
 
   // Handle action click with loading state
@@ -32,6 +33,9 @@ const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
       onAction(mission);
     }
   };
+
+  // Determine if we should show the action button
+  const shouldShowActionButton = !completed && (actionLabel || component);
 
   return (
     <div className="flex items-center justify-between p-4 border-b border-[#FFFFFF14] last:border-b-0">
@@ -62,8 +66,8 @@ const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
           {points.toLocaleString()} points
         </div>
 
-        {/* Action Button - Show only if not completed */}
-        {!completed && actionLabel && (
+        {/* Action Button - Show if not completed and has actionLabel or component */}
+        {shouldShowActionButton && (
           <button
             onClick={handleActionClick}
             disabled={isLoading}
@@ -75,7 +79,7 @@ const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
                 <span className="ml-2">Verifying...</span>
               </>
             ) : (
-              actionLabel
+              actionLabel || "Connect"
             )}
           </button>
         )}
