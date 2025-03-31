@@ -8,7 +8,7 @@ export function useAuthJwt() {
   const { user, ready, authenticated, getAccessToken } = usePrivy();
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   // Function to refresh the token
   const refreshToken = useCallback(async () => {
@@ -29,7 +29,7 @@ export function useAuthJwt() {
       return accessToken;
     } catch (err) {
       console.error("Error getting Privy access token:", err);
-      setError("Failed to get access token");
+      setError(err instanceof Error ? err : new Error(String(err)));
       return null;
     } finally {
       setIsLoading(false);
@@ -42,6 +42,25 @@ export function useAuthJwt() {
       refreshToken();
     }
   }, [ready, authenticated, refreshToken]);
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      if (!ready) return;
+
+      try {
+        setIsLoading(true);
+        const token = await getAccessToken();
+        setToken(token);
+      } catch (err) {
+        console.error("Error fetching JWT token:", err);
+        setError(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchToken();
+  }, [getAccessToken, ready]);
 
   return {
     token,

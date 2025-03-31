@@ -293,6 +293,10 @@ export default function EditPoolPage() {
     }
   };
 
+  const handlePointsClick = () => {
+    router.push("/onboarding");
+  };
+
   // Check if user is authorized to edit this pool
   const isAuthorized = dbUser && pool && dbUser.id === pool.creator_id;
 
@@ -337,7 +341,9 @@ export default function EditPoolPage() {
         showTitle={false}
         backgroundColor="#15161a"
         showGetTokensButton={true}
+        showPointsButton={true}
         onGetTokensClick={() => setShowGetTokensModal(true)}
+        onPointsClick={handlePointsClick}
         onBackClick={() => router.back()}
       />
 

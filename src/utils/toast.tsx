@@ -3,6 +3,7 @@
 import { toast, ToastOptions, ToastPosition } from "react-hot-toast";
 import React from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { FaCheck } from "react-icons/fa";
 
 // Base toast style object to be used for all toast types
 const baseToastStyle: ToastOptions = {
@@ -42,7 +43,7 @@ const successToastStyle: ToastOptions = {
     background: "#0F2417", // Darker green
     borderLeft: "4px solid #10B981", // Green accent
   },
-  icon: "✅",
+  icon: "✓",
 };
 
 // Error toast style
@@ -54,6 +55,17 @@ const errorToastStyle: ToastOptions = {
     borderLeft: "4px solid #EF4444", // Red accent
   },
   icon: "❌",
+};
+
+// Info toast style
+const infoToastStyle: ToastOptions = {
+  ...baseToastStyle,
+  style: {
+    ...baseToastStyle.style,
+    background: "#1A2235", // Darker blue
+    borderLeft: "4px solid #3B82F6", // Blue accent
+  },
+  icon: "ℹ️",
 };
 
 // Custom loading toast with spinner
@@ -82,20 +94,50 @@ const customLoadingToast = (message: string, options?: ToastOptions) => {
   );
 };
 
+// Custom success toast with clean checkmark icon
+const customSuccessToast = (message: string, options?: ToastOptions) => {
+  return toast.custom(
+    (t) => (
+      <div
+        className={`${t.visible ? "animate-enter" : "animate-leave"}`}
+        style={{
+          ...baseToastStyle.style,
+          display: "flex",
+          alignItems: "center",
+          background: "#0F2417",
+          borderLeft: "4px solid #10B981",
+          padding: "16px",
+        }}
+      >
+        <FaCheck color="#10B981" size={16} />
+        <span style={{ marginLeft: "12px" }}>{message}</span>
+      </div>
+    ),
+    {
+      id: options?.id,
+      duration: 4000,
+      position: "bottom-right",
+    }
+  );
+};
+
 // Custom toast functions to use the styled versions
 export const showToast = {
   loading: (message: string, options?: ToastOptions) =>
     customLoadingToast(message, options),
 
   success: (message: string, options?: ToastOptions) =>
-    toast.success(message, {
-      ...successToastStyle,
-      ...options,
-    }),
+    customSuccessToast(message, options),
 
   error: (message: string, options?: ToastOptions) =>
     toast.error(message, {
       ...errorToastStyle,
+      ...options,
+    }),
+
+  info: (message: string, options?: ToastOptions) =>
+    toast(message, {
+      ...infoToastStyle,
       ...options,
     }),
 
@@ -104,6 +146,14 @@ export const showToast = {
       toast.dismiss(toastId);
     } else {
       toast.dismiss();
+    }
+  },
+
+  remove: (toastId?: string) => {
+    if (toastId) {
+      toast.remove(toastId);
+    } else {
+      toast.remove();
     }
   },
 };
@@ -121,7 +171,7 @@ export const toasterOptions = {
     // Customize specific toast types
     success: {
       style: successToastStyle.style,
-      icon: "✅",
+      icon: "✓",
     },
     error: {
       style: errorToastStyle.style,

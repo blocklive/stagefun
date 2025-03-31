@@ -298,6 +298,11 @@ export default function PoolsPage() {
     router.push(`/pools/${poolId}?from_tab=${activeTab}`);
   };
 
+  // Handle points button click
+  const handlePointsClick = () => {
+    router.push("/onboarding");
+  };
+
   return (
     <div className="min-h-screen bg-[#15161a] text-white">
       <AppHeader
@@ -306,12 +311,17 @@ export default function PoolsPage() {
         backgroundColor="#15161a"
         showGetTokensButton={true}
         showCreateButton={true}
+        showPointsButton={true}
+        onPointsClick={handlePointsClick}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
       />
 
       {/* Main Content */}
       <div className="px-4 pb-24 md:pb-8">
+        {/* Daily Check-in */}
+        <div className="mb-6">{/* Daily Check-in component removed */}</div>
+
         {/* Tabs */}
         <div className="flex justify-center gap-2 px-4">
           <button

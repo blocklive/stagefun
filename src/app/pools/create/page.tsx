@@ -18,6 +18,8 @@ import { useNativeBalance } from "../../../hooks/useNativeBalance";
 import RichTextEditor from "@/app/components/RichTextEditor";
 import InfoModal from "../../components/InfoModal";
 import showToast from "@/utils/toast";
+import useOnboardingMissions from "@/hooks/useOnboardingMissions";
+import { useAuthJwt } from "@/hooks/useAuthJwt";
 
 // Import our new components
 import PoolImageSection from "./components/PoolImageSection";
@@ -63,6 +65,8 @@ export default function CreatePoolPage() {
   const [rewardItems, setRewardItems] = useState<RewardItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { completeMission } = useOnboardingMissions();
+  const { token: authToken } = useAuthJwt();
 
   // Use our custom hooks
   const {
@@ -87,7 +91,7 @@ export default function CreatePoolPage() {
     showGasWarning,
     balanceChecked,
     uniqueId,
-    handleSubmit,
+    handleSubmit: hookHandleSubmit,
     refreshNativeBalance,
   } = usePoolCreation();
 
@@ -172,6 +176,10 @@ export default function CreatePoolPage() {
     }, 5000);
   };
 
+  const handlePointsClick = () => {
+    router.push("/onboarding");
+  };
+
   // Handle form submission
   const onSubmit = async (
     e: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>
@@ -216,27 +224,8 @@ export default function CreatePoolPage() {
         }
       }
 
-      // No longer need to check gas balance as we're using ZeroDev for gas sponsorship
-      // if (parseFloat(balance) < 0.5) {
-      //   showToast.error(
-      //     `Your wallet has ${parseFloat(balance).toFixed(
-      //       4
-      //     )} MON. Deploying a pool requires at least 0.5 MON to pay for gas.`,
-      //     {
-      //       duration: 6000,
-      //       style: {
-      //         background: "#1E1F25",
-      //         color: "white",
-      //         border: "1px solid rgba(131, 110, 249, 0.3)",
-      //         maxWidth: "400px",
-      //       },
-      //     }
-      //   );
-      //   return;
-      // }
-
       // Call handleSubmit from usePoolCreation with all required parameters
-      await handleSubmit(
+      await hookHandleSubmit(
         poolName,
         ticker,
         description,
@@ -248,6 +237,34 @@ export default function CreatePoolPage() {
         socialLinks,
         Math.floor(endDate.getTime() / 1000)
       );
+
+      // Award points for pool creation via API
+      try {
+        if (authToken) {
+          // Call the points API
+          const response = await fetch("/api/points/award-mission", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({
+              missionId: "create_pool",
+            }),
+          });
+
+          const result = await response.json();
+          if (result.success) {
+            // Show a success message
+            showToast.success(
+              `+${result.points.toLocaleString()} points earned for creating your pool!`
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Error awarding points for pool creation:", err);
+        // Don't block the main flow if this fails
+      }
     } catch (error: any) {
       console.error("Error creating pool:", error);
       setError(error.message || "Failed to create pool");
@@ -281,8 +298,11 @@ export default function CreatePoolPage() {
         showTitle={false}
         backgroundColor="#15161a"
         showGetTokensButton={true}
+        showCreateButton={true}
+        showPointsButton={true}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
+        onPointsClick={handlePointsClick}
         onBackClick={handleBackClick}
       />
 
@@ -292,54 +312,6 @@ export default function CreatePoolPage() {
         <div className="px-2 mt-4">
           <h1 className="text-5xl font-bold">CREATE PARTY ROUND</h1>
         </div>
-
-        {/* Gas Warning Banner - Only show when balance check is complete and balance is low */}
-        {/* Gas warning removed as we're using ZeroDev for gas sponsorship */}
-        {/* {balanceChecked && showGasWarning && (
-          <div className="mx-6 mt-4 p-4 bg-[#1E1F25] border border-[#836EF9] border-opacity-50 rounded-lg">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-[#836EF9] bg-opacity-20 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
-                <FaExclamationTriangle className="text-[#836EF9]" size={18} />
-              </div>
-              <div>
-                <h3 className="font-bold text-white">Low MON Balance</h3>
-                <p className="text-sm text-gray-300">
-                  Your wallet has {parseFloat(balance).toFixed(4)} MON.
-                  Deploying a pool requires at least 0.5 MON to pay for gas. Use
-                  one of the options below to refill your wallet.
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 space-y-2">
-              <button
-                onClick={() => setShowTokensModal(true)}
-                className="w-full py-2 px-3 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-center text-sm transition-colors"
-              >
-                Stage Fun Drip
-              </button>
-              <button
-                onClick={() => {
-                  if (privyUser?.wallet?.address) {
-                    fundWallet(privyUser.wallet.address, {
-                      chain: {
-                        id: 10143,
-                      },
-                      asset: "native-currency",
-                      uiConfig: {
-                        receiveFundsTitle: "Refill Gas on Monad",
-                        receiveFundsSubtitle:
-                          "Scan this QR code or copy your wallet address to receive MON on Monad Testnet.",
-                      },
-                    });
-                  }
-                }}
-                className="w-full py-2 px-3 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-center text-sm transition-colors"
-              >
-                Refill Gas
-              </button>
-            </div>
-          </div>
-        )} */}
 
         {/* Main content */}
         <div className="px-6" style={{ paddingBottom: "40px" }}>

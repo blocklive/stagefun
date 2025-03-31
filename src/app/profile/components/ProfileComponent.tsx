@@ -452,6 +452,11 @@ export default function ProfileComponent() {
     }
   };
 
+  // Handle points button click
+  const handlePointsClick = () => {
+    router.push("/onboarding");
+  };
+
   return (
     <>
       <AppHeader
@@ -460,8 +465,10 @@ export default function ProfileComponent() {
         backgroundColor="#15161a"
         showGetTokensButton={true}
         showCreateButton={true}
+        showPointsButton={true}
         onGetTokensClick={() => setShowGetTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
+        onPointsClick={handlePointsClick}
       />
 
       {/* Main Content */}

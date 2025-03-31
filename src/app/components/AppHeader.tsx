@@ -5,15 +5,18 @@ import { useRouter } from "next/navigation";
 import { FaPlus, FaDollarSign, FaArrowLeft } from "react-icons/fa";
 import { BiInfoCircle } from "react-icons/bi";
 import Image from "next/image";
+import PointsButton from "./PointsButton";
 
 interface AppHeaderProps {
   showBackButton?: boolean;
   showCreateButton?: boolean;
   showGetTokensButton?: boolean;
+  showPointsButton?: boolean;
   showRightButtons?: boolean;
   onGetTokensClick?: () => void;
   onInfoClick?: () => void;
   onBackClick?: () => void;
+  onPointsClick?: () => void;
   title?: string;
   showTitle?: boolean;
   className?: string;
@@ -25,10 +28,12 @@ export default function AppHeader({
   showBackButton = false,
   showCreateButton = false,
   showGetTokensButton = false,
+  showPointsButton = true,
   showRightButtons = false,
   onGetTokensClick,
   onInfoClick,
   onBackClick,
+  onPointsClick,
   title = "POOLS",
   showTitle = true,
   className = "",
@@ -66,7 +71,10 @@ export default function AppHeader({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          {/* Points Button */}
+          {showPointsButton && <PointsButton onClick={onPointsClick} />}
+
           {/* Info Button - Always visible */}
           <button
             onClick={onInfoClick}

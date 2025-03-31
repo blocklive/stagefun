@@ -16,6 +16,7 @@ export interface User {
   id: string;
   wallet_address: string;
   smart_wallet_address?: string;
+  privy_did?: string;
   name: string;
   email?: string;
   twitter_username?: string;
@@ -79,4 +80,35 @@ export type Patron = {
   pool_id: string;
   amount: number;
   verified: boolean;
+};
+
+// Points system types
+export type UserPoints = {
+  id: string;
+  user_id: string;
+  total_points: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PointTransaction = {
+  id: string;
+  user_id: string;
+  amount: number;
+  action_type: string;
+  created_at: string;
+  metadata?: {
+    streak_count?: number;
+    reason?: string;
+    [key: string]: any;
+  };
+};
+
+export type DailyCheckin = {
+  id: string;
+  user_id: string;
+  streak_count: number;
+  last_checkin_at: string;
+  next_available_at: string;
+  created_at: string;
 };

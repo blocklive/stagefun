@@ -1,72 +1,49 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { useAuthJwt } from "./useAuthJwt";
+import { useSupabase } from "@/contexts/SupabaseContext";
 
-export function useAuthenticatedSupabase() {
-  const { token, isLoading: isTokenLoading, isAuthenticated } = useAuthJwt();
-  const [client, setClient] = useState<SupabaseClient | null>(null);
+// Create a hook that returns an authenticated Supabase client
+export const useAuthenticatedSupabase = () => {
+  const { dbUser } = useSupabase();
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const clientRef = useRef<SupabaseClient | null>(null);
 
-  // Create a new Supabase client
-  const createSupabaseClient = useCallback(() => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  useEffect(() => {
+    // Setup an authenticated Supabase client
+    const setupClient = async () => {
+      try {
+        setIsLoading(true);
 
-    try {
-      setIsLoading(true);
-      setError(null);
+        // Create a new Supabase client
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+        const supabaseAnonKey = process.env
+          .NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
 
-      // Create a basic client with anon key
-      const newClient = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      });
-
-      // If we have a token and the user is authenticated, enhance the client
-      if (token && isAuthenticated) {
-        // Set the auth header for authenticated requests
-        newClient.auth.setSession({
-          access_token: token,
-          refresh_token: "",
+        const client = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            persistSession: false,
+          },
+          // Add global headers for debugging
+          global: {
+            headers: {
+              "x-client-info": "client-side-auth",
+            },
+          },
         });
+
+        setSupabase(client);
+      } catch (error) {
+        console.error("Error setting up Supabase client:", error);
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      clientRef.current = newClient;
-      setClient(newClient);
-      setIsLoading(false);
-    } catch (err) {
-      console.error("Error creating Supabase client:", err);
-      setError("Failed to initialize Supabase client");
-      setIsLoading(false);
-    }
-  }, [token, isAuthenticated]);
-
-  // Initialize the client on mount
-  useEffect(() => {
-    // Only create the client if we don't have one yet
-    if (!clientRef.current) {
-      createSupabaseClient();
-    }
-  }, [createSupabaseClient]);
-
-  // Update client when token changes
-  useEffect(() => {
-    // If token changes, update the client
-    if (token && isAuthenticated && clientRef.current) {
-      clientRef.current.auth.setSession({
-        access_token: token,
-        refresh_token: "",
-      });
-    }
-  }, [token, isAuthenticated]);
+    setupClient();
+  }, [dbUser]);
 
   return {
-    supabase: client,
-    isLoading: isLoading || isTokenLoading,
-    error,
+    supabase,
+    isLoading,
   };
-}
+};

@@ -53,7 +53,7 @@ export function useAuthToken() {
   return {
     token,
     loading,
-    error: error ? new Error(error) : null,
+    error,
     refreshToken,
     isAuthenticated,
   };

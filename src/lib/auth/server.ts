@@ -44,15 +44,11 @@ export async function verifyPrivyToken(
   token: string
 ): Promise<PrivyTokenPayload | null> {
   try {
-    // Log token for debugging (just the start)
-    console.log("Verifying token:", token.substring(0, 15) + "...");
-
     // Get the token audience (app ID) directly from the token
     const tokenAppId = extractAudienceFromToken(token);
     if (tokenAppId) {
       // Use the exact JWKS URL format from the docs with the app ID from the token
       const jwksUrl = `https://auth.privy.io/api/v1/apps/${tokenAppId}/jwks.json`;
-      console.log("Using JWKS URL:", jwksUrl);
 
       // Fetch the JWKS from Privy
       const jwksResponse = await fetch(jwksUrl);
@@ -65,7 +61,6 @@ export async function verifyPrivyToken(
       }
 
       const jwks = await jwksResponse.json();
-      console.log("JWKS response received with keys:", jwks.keys?.length || 0);
 
       // Find the key that matches the token (ES256 is Privy's algorithm)
       const jsonWebKey = jwks.keys?.find((key: any) => key.alg === "ES256");
@@ -76,19 +71,16 @@ export async function verifyPrivyToken(
 
       // According to our token, the issuer is simply "privy.io"
       const issuer = "privy.io";
-      console.log("Using issuer:", issuer);
 
       try {
         // Import the JWK as a proper CryptoKey
         const cryptoKey = await importJWK(jsonWebKey);
-        console.log("Successfully imported JWK as CryptoKey");
 
         const { payload } = await jwtVerify(token, cryptoKey, {
           issuer,
           audience: tokenAppId,
         });
 
-        console.log("Token verified successfully with sub:", payload.sub);
         return payload as PrivyTokenPayload;
       } catch (error) {
         console.error("JWT verification failed:", error);
@@ -140,55 +132,22 @@ export async function resolveUserFromPrivyDid(
   const supabase = getSupabaseAdmin();
 
   try {
-    // Look up the user in database by wallet address
-    const { data, error } = await supabase
+    // Look up the user by Privy DID
+    const { data: userByDid, error: didError } = await supabase
       .from("users")
-      .select("id, wallet_address")
-      .eq("wallet_address", privyDid)
+      .select("id, name, privy_did")
+      .eq("privy_did", privyDid)
       .maybeSingle();
 
-    if (data && data.id) {
-      console.log("Found user by wallet address:", data.id);
-      return { success: true, userId: String(data.id) };
+    if (userByDid && userByDid.id) {
+      return { success: true, userId: String(userByDid.id) };
     }
 
-    // For debugging: fetch all users
-    const { data: allUsers } = await supabase.from("users").select("*");
-    console.log("All users count:", allUsers?.length || 0);
-
-    if (allUsers?.length) {
-      console.log(
-        "First few users:",
-        allUsers
-          .slice(0, 3)
-          .map((u) => ({ id: u.id, wallet: u.wallet_address }))
-      );
-    }
-
-    // For demo purposes: use the first user
-    if (allUsers && allUsers.length > 0) {
-      console.log("Using first user:", allUsers[0].id);
-      return { success: true, userId: String(allUsers[0].id) };
-    }
-
-    // Create a new user if none exists
-    const { data: newUser, error: insertError } = await supabase
-      .from("users")
-      .insert({
-        wallet_address: privyDid,
-        name: "Privy User",
-        username: `privy_${Math.floor(Math.random() * 10000)}`,
-      })
-      .select()
-      .single();
-
-    if (insertError || !newUser) {
-      console.error("Error creating new user:", insertError);
-      return { success: false, error: "Failed to create user" };
-    }
-
-    console.log("Created new user:", newUser.id);
-    return { success: true, userId: String(newUser.id) };
+    // No user found with the provided Privy DID
+    return {
+      success: false,
+      error: "No user associated with this Privy DID",
+    };
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
@@ -206,7 +165,6 @@ export async function authenticateRequest(
   // Extract token
   const token = extractBearerToken(request);
   if (!token) {
-    console.warn("No Authorization header or invalid format");
     return {
       authenticated: false,
       error: "No Authorization header or invalid format",
@@ -214,12 +172,9 @@ export async function authenticateRequest(
     };
   }
 
-  console.log("Found Authorization header with token");
-
   // Verify token
   const tokenPayload = await verifyPrivyToken(token);
   if (!tokenPayload) {
-    console.error("Token verification failed");
     return {
       authenticated: false,
       error: "Invalid or expired token",
@@ -227,24 +182,18 @@ export async function authenticateRequest(
     };
   }
 
-  console.log("Token verification successful");
-
   // Get Privy DID from token
   const privyDid = tokenPayload.sub;
-  console.log("Private DID from token:", privyDid);
 
   // Resolve user
   const userResult = await resolveUserFromPrivyDid(privyDid);
   if (!userResult.success) {
-    console.error("User resolution failed:", userResult.error);
     return {
       authenticated: false,
       error: userResult.error || "User not found",
       statusCode: 401,
     };
   }
-
-  console.log("User resolution successful, ID:", userResult.userId);
 
   // Successfully authenticated
   return {
