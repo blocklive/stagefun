@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "@/contexts/SupabaseContext";
 import AppHeader from "../components/AppHeader";
 import InfoModal from "../components/InfoModal";
-import { useState } from "react";
 import useOnboardingMissions from "@/hooks/useOnboardingMissions";
 import OnboardingProgress from "./components/OnboardingProgress";
 import MissionItem from "./components/MissionItem";
@@ -18,7 +17,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { dbUser } = useSupabase();
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const { claimDailyPoints, canClaim, formattedTimeRemaining } = usePoints();
+  const [refreshing, setRefreshing] = useState(false);
 
   const {
     missions,
@@ -28,7 +27,51 @@ export default function OnboardingPage() {
     totalCount,
     completionPercentage,
     completeMission,
+    refreshMissionStatus,
   } = useOnboardingMissions();
+
+  const {
+    points,
+    canClaim,
+    formattedTimeRemaining,
+    claimDailyPoints,
+    refreshPoints,
+  } = usePoints({ disableRecentMissionCheck: true });
+
+  // Force a check of completed missions when the page loads
+  useEffect(() => {
+    const runOnce = async () => {
+      // Only run if authentication is ready and user is logged in
+      if (!dbUser || isLoading) {
+        return;
+      }
+
+      try {
+        await refreshMissionStatus();
+      } catch (err) {
+        console.error("Error refreshing mission status:", err);
+      }
+    };
+
+    // Run when the component mounts and authentication state changes
+    runOnce();
+  }, [dbUser, isLoading, refreshMissionStatus]);
+
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshMissionStatus();
+      // Also refresh points
+      await refreshPoints();
+      showToast.success("Mission status refreshed");
+    } catch (err) {
+      console.error("Error during manual refresh:", err);
+      showToast.error("Error refreshing mission status");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Handle back navigation
   const handleBackClick = () => {
@@ -37,56 +80,38 @@ export default function OnboardingPage() {
 
   // Handle mission actions
   const handleMissionAction = async (mission: Mission) => {
-    if (mission.actionUrl) {
-      // Handle daily check-in
-      if (mission.id === "daily_checkin") {
-        if (canClaim) {
-          await claimDailyPoints();
-          // No need to mark as complete - streaks are by nature recurring
-        } else {
-          showToast.error(`You can claim again in ${formattedTimeRemaining}`);
-        }
+    if (mission.id === "daily_checkin") {
+      if (!canClaim) {
+        showToast.error(`You can claim again in ${formattedTimeRemaining}`);
         return;
       }
 
-      // If the mission is to link X account
-      if (mission.id === "link_x") {
-        // Just navigate to profile page for now
-        router.push(mission.actionUrl);
-      }
-      // If the mission is to follow on X
-      else if (mission.id === "follow_x") {
-        // Open Twitter in a new tab
-        window.open(mission.actionUrl, "_blank");
+      // Call the claimDailyPoints function - it handles its own success/error toasts
+      await claimDailyPoints();
+      return;
+    }
 
-        // Ask user if they followed
-        if (confirm("Did you follow @stagedotfun on X?")) {
-          try {
-            const success = await completeMission(mission.id);
-            if (success) {
-              showToast.success(
-                `Completed! +${mission.points.toLocaleString()} points`
-              );
-            }
-          } catch (err) {
-            console.error("Error completing mission:", err);
-          }
-        }
+    if (mission.id === "link_x") {
+      router.push("/profile/settings?tab=social");
+      return;
+    }
+
+    // For Twitter follow mission, completeMission will handle verification
+    if (mission.id === "follow_x") {
+      const success = await completeMission(mission.id);
+
+      if (success) {
+        // If successfully completed, refresh points
+        await refreshPoints();
       }
-      // If the mission is to create a pool
-      else if (mission.id === "create_pool") {
-        // Just navigate to the create pool page
-        router.push(mission.actionUrl);
-      }
-      // For other mission types
-      else {
-        // Handle generic mission - just navigate to the URL
-        if (mission.actionUrl.startsWith("http")) {
-          window.open(mission.actionUrl, "_blank");
-        } else {
-          router.push(mission.actionUrl);
-        }
-      }
+      return;
+    }
+
+    // For other missions, just complete them directly
+    const success = await completeMission(mission.id);
+    if (success) {
+      // Refresh points to show updated points after mission completion
+      await refreshPoints();
     }
   };
 
@@ -101,27 +126,74 @@ export default function OnboardingPage() {
           onBackClick={handleBackClick}
           onInfoClick={() => setShowInfoModal(true)}
         />
-        <div className="flex items-center justify-center h-[70vh]">
-          <LoadingSpinner size={40} />
+        <div className="container mx-auto px-4 py-6 pb-24 md:pb-8">
+          {/* Header Section - skeleton */}
+          <div className="mb-8 pt-4">
+            <h1 className="text-4xl font-bold mb-2 text-transparent bg-gray-800 rounded animate-pulse">
+              Onboarding Missions
+            </h1>
+            <p className="text-transparent bg-gray-800 rounded w-3/4 animate-pulse">
+              Complete these missions to finish setting up your account
+            </p>
+          </div>
+
+          {/* Progress Bar - skeleton */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center text-sm text-gray-600 mb-2">
+              <div className="text-transparent bg-gray-800 w-32 h-5 rounded animate-pulse"></div>
+              <div className="text-transparent bg-gray-800 w-16 h-5 rounded animate-pulse"></div>
+            </div>
+            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gray-700 rounded-full animate-pulse"
+                style={{ width: "0%" }}
+              ></div>
+            </div>
+          </div>
+
+          {/* Mission List - skeleton */}
+          <div className="bg-[#FFFFFF0A] rounded-xl overflow-hidden">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between p-4 border-b border-[#FFFFFF14]"
+              >
+                <div className="flex items-center">
+                  <div className="mr-4 w-6 h-6 rounded-full border-2 border-dashed border-gray-700 animate-pulse"></div>
+                  <div>
+                    <h3 className="text-lg w-32 h-6 bg-gray-800 rounded animate-pulse mb-2"></h3>
+                    <p className="text-sm w-48 h-4 bg-gray-800 rounded animate-pulse"></p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <div className="w-20 h-5 bg-gray-800 rounded animate-pulse"></div>
+                  <div className="w-24 h-8 bg-gray-800 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </>
     );
   }
 
-  // Prepare mission items for display
-  // Filter out daily check-in from progress calculation
-  // since it's not a one-time completion mission
-  const onboardingMissions = missions.filter((m) => m.id !== "daily_checkin");
-  const dailyCheckInMission = missions.find((m) => m.id === "daily_checkin");
-
   // Calculate completion status excluding daily check-in
-  const onboardingCompletedCount = onboardingMissions.filter(
-    (mission) => mission.completed
-  ).length;
-  const onboardingTotalCount = onboardingMissions.length;
-  const onboardingPercentage = Math.round(
-    (onboardingCompletedCount / onboardingTotalCount) * 100
-  );
+  // But only show it when not in loading state
+  const onboardingMissions = !isLoading
+    ? missions.filter((m) => m.id !== "daily_checkin")
+    : [];
+  const dailyCheckInMission = !isLoading
+    ? missions.find((m) => m.id === "daily_checkin")
+    : undefined;
+
+  // Only calculate percentages when data is loaded
+  const onboardingCompletedCount = !isLoading
+    ? onboardingMissions.filter((mission) => mission.completed).length
+    : 0;
+  const onboardingTotalCount = !isLoading ? onboardingMissions.length : 0;
+  const onboardingPercentage = !isLoading
+    ? Math.round((onboardingCompletedCount / onboardingTotalCount) * 100)
+    : 0;
 
   return (
     <>
@@ -148,6 +220,59 @@ export default function OnboardingPage() {
           total={onboardingTotalCount}
           percentage={onboardingPercentage}
         />
+
+        {/* Debug refresh button */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 py-1 px-3 rounded-md flex items-center"
+          >
+            {refreshing ? (
+              <>
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <svg
+                  className="w-4 h-4 mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  ></path>
+                </svg>
+                Refresh Status
+              </>
+            )}
+          </button>
+        </div>
 
         {/* Mission List */}
         <div className="bg-[#FFFFFF0A] rounded-xl overflow-hidden">

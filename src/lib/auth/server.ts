@@ -140,55 +140,27 @@ export async function resolveUserFromPrivyDid(
   const supabase = getSupabaseAdmin();
 
   try {
-    // Look up the user in database by wallet address
-    const { data, error } = await supabase
+    // Log the Privy DID we're trying to resolve
+    console.log("Attempting to resolve user from Privy DID:", privyDid);
+
+    // Look up the user by Privy DID
+    const { data: userByDid, error: didError } = await supabase
       .from("users")
-      .select("id, wallet_address")
-      .eq("wallet_address", privyDid)
+      .select("id, name, privy_did")
+      .eq("privy_did", privyDid)
       .maybeSingle();
 
-    if (data && data.id) {
-      console.log("Found user by wallet address:", data.id);
-      return { success: true, userId: String(data.id) };
+    if (userByDid && userByDid.id) {
+      console.log("Found user by Privy DID:", userByDid.id);
+      return { success: true, userId: String(userByDid.id) };
     }
 
-    // For debugging: fetch all users
-    const { data: allUsers } = await supabase.from("users").select("*");
-    console.log("All users count:", allUsers?.length || 0);
-
-    if (allUsers?.length) {
-      console.log(
-        "First few users:",
-        allUsers
-          .slice(0, 3)
-          .map((u) => ({ id: u.id, wallet: u.wallet_address }))
-      );
-    }
-
-    // For demo purposes: use the first user
-    if (allUsers && allUsers.length > 0) {
-      console.log("Using first user:", allUsers[0].id);
-      return { success: true, userId: String(allUsers[0].id) };
-    }
-
-    // Create a new user if none exists
-    const { data: newUser, error: insertError } = await supabase
-      .from("users")
-      .insert({
-        wallet_address: privyDid,
-        name: "Privy User",
-        username: `privy_${Math.floor(Math.random() * 10000)}`,
-      })
-      .select()
-      .single();
-
-    if (insertError || !newUser) {
-      console.error("Error creating new user:", insertError);
-      return { success: false, error: "Failed to create user" };
-    }
-
-    console.log("Created new user:", newUser.id);
-    return { success: true, userId: String(newUser.id) };
+    // No user found with the provided Privy DID
+    console.error("No user found with Privy DID:", privyDid);
+    return {
+      success: false,
+      error: "No user associated with this Privy DID",
+    };
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
@@ -232,6 +204,14 @@ export async function authenticateRequest(
   // Get Privy DID from token
   const privyDid = tokenPayload.sub;
   console.log("Private DID from token:", privyDid);
+
+  // If privyDid looks like a wallet address, log it in a more readable format
+  if (privyDid && privyDid.startsWith("0x")) {
+    console.log(
+      "Processing wallet address:",
+      privyDid.slice(0, 10) + "..." + privyDid.slice(-8)
+    );
+  }
 
   // Resolve user
   const userResult = await resolveUserFromPrivyDid(privyDid);

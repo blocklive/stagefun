@@ -6,6 +6,8 @@ export interface Mission {
   completed?: boolean;
   actionUrl?: string;
   actionLabel?: string;
+  icon?: string;
+  category?: string;
 }
 
 export const onboardingMissions: Mission[] = [
@@ -19,11 +21,14 @@ export const onboardingMissions: Mission[] = [
   },
   {
     id: "follow_x",
-    title: "Follow Stage.fun on X",
-    description: "Follow @stagedotfun on X",
+    title: "Follow us on X (Twitter)",
+    description:
+      "Connect with us on Twitter for the latest updates and join our growing community.",
     points: 10000,
-    actionUrl: "https://x.com/stagedotfun",
-    actionLabel: "Follow",
+    icon: "/images/x-logo.png",
+    actionLabel: "Verify Follow",
+    category: "social",
+    completed: false,
   },
   {
     id: "create_pool",

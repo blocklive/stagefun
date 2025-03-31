@@ -78,7 +78,9 @@ const fetchUserPointsData = async ([url, jwt]: [string, string]) => {
   return response.json();
 };
 
-export function usePoints(): UsePointsReturn {
+export function usePoints(
+  options: { disableRecentMissionCheck?: boolean } = {}
+): UsePointsReturn {
   const { dbUser } = useSupabase();
   const { supabase } = useAuthenticatedSupabase();
   const { token: authJwt, refreshToken } = useAuthJwt();
@@ -87,6 +89,11 @@ export function usePoints(): UsePointsReturn {
   const [timeRemaining, setTimeRemaining] = useState("");
   const [cachedPoints, setCachedPoints] = useState<UserPoints | null>(null);
   const [cachedCheckin, setCachedCheckin] = useState<DailyCheckin | null>(null);
+
+  // Get current pathname to check if we're on the onboarding page
+  const pathname =
+    typeof window !== "undefined" ? window.location.pathname : "";
+  const isOnboardingPage = pathname === "/onboarding";
 
   // Use SWR to fetch and cache points data
   const {
@@ -121,15 +128,24 @@ export function usePoints(): UsePointsReturn {
   const pointsData = userData?.points || cachedPoints || null;
   const checkinData = userData?.checkin || cachedCheckin || null;
 
-  // Derived state
-  const points = pointsData?.total_points ?? null;
+  // Derived state - consider request complete even if points is null (new user with no points)
+  const points = pointsData?.total_points ?? 0; // Default to 0 instead of null
   const streakCount = checkinData?.streak_count ?? 0;
   const canClaim = canClaimDaily(checkinData);
-  const isLoading = !pointsData && !error && !cachedPoints;
+  // Consider loading complete if we've received any response, even if pointsData is null
+  const isLoading = userData === undefined && !error && !cachedPoints;
 
   // Check for recent mission completions
   useEffect(() => {
-    if (!dbUser || !supabase || checkedMission) return;
+    // Skip check if explicitly disabled or we're on the onboarding page
+    if (
+      !dbUser ||
+      !supabase ||
+      checkedMission ||
+      options.disableRecentMissionCheck ||
+      isOnboardingPage
+    )
+      return;
 
     const checkMissions = async () => {
       try {
@@ -167,25 +183,45 @@ export function usePoints(): UsePointsReturn {
     };
 
     checkMissions();
-  }, [dbUser, supabase, checkedMission]);
+  }, [
+    dbUser,
+    supabase,
+    checkedMission,
+    options.disableRecentMissionCheck,
+    isOnboardingPage,
+  ]);
 
   // Update time remaining countdown
   useEffect(() => {
+    // Initialize time remaining on first render or when check-in data changes
+    if (checkinData) {
+      const initialTimeMs = getTimeUntilNextClaim(checkinData);
+      setTimeUntilNextClaim(initialTimeMs);
+      setTimeRemaining(formatTimeRemaining(initialTimeMs));
+    }
+
+    // Set up countdown timer if needed
     if (!canClaim && timeUntilNextClaim > 0) {
       const timer = setInterval(() => {
-        const newTimeMs = Math.max(0, timeUntilNextClaim - 1000);
-        setTimeUntilNextClaim(newTimeMs);
-        setTimeRemaining(formatTimeRemaining(newTimeMs));
+        setTimeUntilNextClaim((prev) => {
+          const newTimeMs = Math.max(0, prev - 1000);
 
-        // If time expired, refresh data
-        if (newTimeMs === 0) {
-          mutate();
-        }
+          // Update the formatted time string
+          const newFormattedTime = formatTimeRemaining(newTimeMs);
+          setTimeRemaining(newFormattedTime);
+
+          // If time expired, refresh data
+          if (newTimeMs === 0) {
+            mutate();
+          }
+
+          return newTimeMs;
+        });
       }, 1000);
 
       return () => clearInterval(timer);
     }
-  }, [timeUntilNextClaim, canClaim, mutate]);
+  }, [checkinData, canClaim, mutate]);
 
   // Initial data fetch if not using SWR
   useEffect(() => {
@@ -279,6 +315,25 @@ export function usePoints(): UsePointsReturn {
       console.error("Error refreshing points data:", error);
     }
   }, [mutate]);
+
+  // Listen for refresh points event
+  useEffect(() => {
+    const handleRefreshPoints = () => {
+      refreshPoints();
+    };
+
+    // Add event listener
+    if (typeof window !== "undefined") {
+      window.addEventListener("refreshPoints", handleRefreshPoints);
+    }
+
+    // Clean up
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("refreshPoints", handleRefreshPoints);
+      }
+    };
+  }, [refreshPoints]);
 
   return {
     points,

@@ -54,43 +54,27 @@ export async function getUserById(userId: string): Promise<User | null> {
 export async function getUserByWalletAddress(
   walletAddress: string
 ): Promise<User | null> {
-  console.log("Getting user by wallet address:", walletAddress);
-
   try {
-    // First check for embedded wallet match
-    const { data: embeddedData, error: embeddedError } = await supabase
+    console.log("Getting user by wallet address:", walletAddress);
+
+    const { data, error } = await supabase
       .from("users")
       .select("*")
       .eq("wallet_address", walletAddress)
       .single();
 
-    if (!embeddedError) {
-      return embeddedData as User;
-    }
-
-    if (embeddedError && embeddedError.code !== "PGRST116") {
-      console.error("Supabase error checking embedded wallet:", embeddedError);
-      throw embeddedError;
-    }
-
-    // Then check for smart wallet match
-    const { data: smartData, error: smartError } = await supabase
-      .from("users")
-      .select("*")
-      .eq("smart_wallet_address", walletAddress)
-      .single();
-
-    if (smartError) {
-      if (smartError.code === "PGRST116") {
-        // No rows returned (user not found with either wallet type)
-        console.log("User not found with any wallet address:", walletAddress);
+    if (error) {
+      if (error.code === "PGRST116") {
+        // No rows returned (user not found)
+        console.log("No user found with wallet address:", walletAddress);
         return null;
       }
-      console.error("Supabase error checking smart wallet:", smartError);
-      throw smartError;
+      console.error("Supabase error when getting user by wallet:", error);
+      throw error;
     }
 
-    return smartData as User;
+    console.log("Found user by wallet address:", data?.id);
+    return data as User;
   } catch (error) {
     console.error("Error in getUserByWalletAddress:", error);
     throw error;

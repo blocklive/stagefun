@@ -56,6 +56,17 @@ const errorToastStyle: ToastOptions = {
   icon: "❌",
 };
 
+// Info toast style
+const infoToastStyle: ToastOptions = {
+  ...baseToastStyle,
+  style: {
+    ...baseToastStyle.style,
+    background: "#1A2235", // Darker blue
+    borderLeft: "4px solid #3B82F6", // Blue accent
+  },
+  icon: "ℹ️",
+};
+
 // Custom loading toast with spinner
 const customLoadingToast = (message: string, options?: ToastOptions) => {
   return toast.custom(
@@ -96,6 +107,12 @@ export const showToast = {
   error: (message: string, options?: ToastOptions) =>
     toast.error(message, {
       ...errorToastStyle,
+      ...options,
+    }),
+
+  info: (message: string, options?: ToastOptions) =>
+    toast(message, {
+      ...infoToastStyle,
       ...options,
     }),
 

@@ -151,10 +151,49 @@ export async function POST(request: NextRequest) {
 
         if (createPointsError) {
           console.error("Error creating user points:", createPointsError);
-          return NextResponse.json(
-            { error: "Failed to create points record" },
-            { status: 500 }
-          );
+
+          // If it's a duplicate key error, the record already exists - try to update instead
+          if (createPointsError.code === "23505") {
+            // Get the current points
+            const { data: existingPoints, error: fetchError } =
+              await supabaseAdmin
+                .from("user_points")
+                .select("total_points")
+                .eq("user_id", userId)
+                .single();
+
+            if (fetchError) {
+              console.error("Error fetching existing points:", fetchError);
+              return NextResponse.json(
+                { error: "Failed to update points record" },
+                { status: 500 }
+              );
+            }
+
+            // Update the existing record
+            const { error: updateError } = await supabaseAdmin
+              .from("user_points")
+              .update({
+                total_points:
+                  existingPoints.total_points + DAILY_CHECKIN_POINTS,
+                updated_at: currentTime.toISOString(),
+              })
+              .eq("user_id", userId);
+
+            if (updateError) {
+              console.error("Error updating points:", updateError);
+              return NextResponse.json(
+                { error: "Failed to update points record" },
+                { status: 500 }
+              );
+            }
+          } else {
+            // If it's any other error, return a failure response
+            return NextResponse.json(
+              { error: "Failed to create points record" },
+              { status: 500 }
+            );
+          }
         }
       }
 
@@ -222,10 +261,48 @@ export async function POST(request: NextRequest) {
 
       if (createPointsError) {
         console.error("Error creating user points:", createPointsError);
-        return NextResponse.json(
-          { error: "Failed to create points record" },
-          { status: 500 }
-        );
+
+        // If it's a duplicate key error, the record already exists - try to update instead
+        if (createPointsError.code === "23505") {
+          // Get the current points
+          const { data: existingPoints, error: fetchError } =
+            await supabaseAdmin
+              .from("user_points")
+              .select("total_points")
+              .eq("user_id", userId)
+              .single();
+
+          if (fetchError) {
+            console.error("Error fetching existing points:", fetchError);
+            return NextResponse.json(
+              { error: "Failed to update points record" },
+              { status: 500 }
+            );
+          }
+
+          // Update the existing record
+          const { error: updateError } = await supabaseAdmin
+            .from("user_points")
+            .update({
+              total_points: existingPoints.total_points + DAILY_CHECKIN_POINTS,
+              updated_at: currentTime.toISOString(),
+            })
+            .eq("user_id", userId);
+
+          if (updateError) {
+            console.error("Error updating points:", updateError);
+            return NextResponse.json(
+              { error: "Failed to update points record" },
+              { status: 500 }
+            );
+          }
+        } else {
+          // If it's any other error, return a failure response
+          return NextResponse.json(
+            { error: "Failed to create points record" },
+            { status: 500 }
+          );
+        }
       }
 
       // 3. Create transaction record

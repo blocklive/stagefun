@@ -16,6 +16,7 @@ export interface User {
   id: string;
   wallet_address: string;
   smart_wallet_address?: string;
+  privy_did?: string;
   name: string;
   email?: string;
   twitter_username?: string;

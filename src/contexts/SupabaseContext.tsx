@@ -54,6 +54,10 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setIsLoadingUser(true);
 
+      // Get Privy DID - this is the user's unique identifier from Privy
+      const privyDid = privyUser.id;
+      console.log("Privy user DID:", privyDid);
+
       // Check for wallet address from embedded wallet first
       let walletAddress = privyUser.wallet?.address;
 
@@ -105,6 +109,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         const newUser = {
           wallet_address: walletAddress,
           smart_wallet_address: smartWalletAddress,
+          privy_did: privyDid,
           name:
             (privyUser as any).twitter?.username ||
             (privyUser as any).name?.first ||
@@ -128,6 +133,13 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         const privyEmail = (privyUser as any).email?.address;
         const privyTwitter = (privyUser as any).twitter?.username;
         const privyAvatar = (privyUser as any).avatar;
+
+        // Add or update Privy DID if it's not set
+        if (privyDid && privyDid !== user.privy_did) {
+          updatedFields.privy_did = privyDid;
+          needsUpdate = true;
+          console.log("Updating user with Privy DID:", privyDid);
+        }
 
         // Update smart wallet address if it exists and has changed
         if (

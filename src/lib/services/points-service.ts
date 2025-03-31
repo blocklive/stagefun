@@ -9,7 +9,9 @@ export const MIN_CHECKIN_INTERVAL_HOURS = 24;
  * Format the time remaining until next claim
  */
 export function formatTimeRemaining(milliseconds: number): string {
-  if (milliseconds <= 0) return "Available now";
+  if (milliseconds <= 0) {
+    return "Available now";
+  }
 
   const seconds = Math.floor(milliseconds / 1000);
   const minutes = Math.floor(seconds / 60);

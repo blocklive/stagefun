@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest } from "../../../../lib/auth/server";
+import {
+  authenticateRequest,
+  extractBearerToken,
+} from "../../../../lib/auth/server";
 import { createClient } from "@supabase/supabase-js";
 
 // Create a Supabase client with the service role key for admin operations
@@ -11,10 +14,35 @@ const supabaseAdmin = createClient(
 
 export async function GET(request: NextRequest) {
   try {
+    // Log request headers for debugging
+    const authHeader = request.headers.get("Authorization");
+    console.log("== USER-DATA API ==");
+    console.log("Auth header present:", !!authHeader);
+    if (authHeader) {
+      console.log(
+        "Auth header starts with:",
+        authHeader.substring(0, 15) + "..."
+      );
+    }
+
+    // Extract the token manually for debugging
+    const token = extractBearerToken(request);
+    console.log(
+      "Token extracted:",
+      token ? "Yes (length: " + token.length + ")" : "No"
+    );
+
     // Authenticate the request using Privy JWT
+    console.log("Calling authenticateRequest...");
     const authResult = await authenticateRequest(request);
+    console.log("Auth result:", {
+      authenticated: authResult.authenticated,
+      userId: authResult.userId,
+      error: authResult.error,
+    });
 
     if (!authResult.authenticated) {
+      console.log("Authentication failed:", authResult.error);
       return NextResponse.json(
         { error: authResult.error || "Unauthorized" },
         { status: authResult.statusCode || 401 }
@@ -55,7 +83,7 @@ export async function GET(request: NextRequest) {
 
     // Return both datasets
     return NextResponse.json({
-      points: userPoints || null,
+      points: userPoints || { user_id: userId, total_points: 0 },
       checkin: checkinData || null,
     });
   } catch (error) {

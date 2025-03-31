@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { userId } = authResult;
+    console.log("Award mission API called for user:", userId);
 
     // Parse request body
     const body = await request.json();

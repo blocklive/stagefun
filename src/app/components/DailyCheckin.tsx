@@ -53,7 +53,7 @@ const DailyCheckin = () => {
       ) : (
         <div className="w-full py-3 px-4 bg-gray-800 text-gray-300 font-medium rounded-lg flex items-center justify-center">
           <FaBolt className="mr-2 text-gray-500" />
-          Next claim in {formattedTimeRemaining}
+          Next claim in {formattedTimeRemaining || "..."}
         </div>
       )}
     </div>

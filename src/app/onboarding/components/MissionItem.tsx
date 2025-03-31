@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Mission } from "@/app/data/onboarding-missions";
 import { FaCheck } from "react-icons/fa";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface MissionItemProps {
   mission: Mission;
@@ -10,7 +11,27 @@ interface MissionItemProps {
 }
 
 const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
-  const { title, description, points, completed, actionLabel } = mission;
+  const { id, title, description, points, completed, actionLabel } = mission;
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Handle action click with loading state
+  const handleActionClick = async () => {
+    // Only show loading for Twitter follow verification
+    if (id === "follow_x") {
+      setIsLoading(true);
+
+      try {
+        await onAction(mission);
+      } finally {
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 500); // Add a slight delay to ensure UI feels responsive
+      }
+    } else {
+      // For other missions, just call the handler directly
+      onAction(mission);
+    }
+  };
 
   return (
     <div className="flex items-center justify-between p-4 border-b border-[#FFFFFF14] last:border-b-0">
@@ -44,10 +65,18 @@ const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
         {/* Action Button - Show only if not completed */}
         {!completed && actionLabel && (
           <button
-            onClick={() => onAction(mission)}
-            className="py-1.5 px-3 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white text-sm transition-colors"
+            onClick={handleActionClick}
+            disabled={isLoading}
+            className="py-1.5 px-3 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white text-sm transition-colors flex items-center justify-center min-w-20"
           >
-            {actionLabel}
+            {isLoading ? (
+              <>
+                <LoadingSpinner color="#FFFFFF" size={14} />
+                <span className="ml-2">Verifying...</span>
+              </>
+            ) : (
+              actionLabel
+            )}
           </button>
         )}
       </div>
