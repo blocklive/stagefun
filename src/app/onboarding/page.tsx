@@ -14,12 +14,13 @@ import showToast from "@/utils/toast";
 import { usePoints } from "@/hooks/usePoints";
 import DailyCheckin from "../components/DailyCheckin";
 import MissionModal from "./components/MissionModal";
+import GetTokensModal from "../components/GetTokensModal";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { dbUser } = useSupabase();
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [showTokensModal, setShowTokensModal] = useState(false);
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [showMissionModal, setShowMissionModal] = useState(false);
 
@@ -73,25 +74,14 @@ export default function OnboardingPage() {
     runOnce();
   }, [dbUser, isLoading, refreshMissionStatus]);
 
-  // Manual refresh function
-  const handleManualRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await refreshMissionStatus();
-      // Also refresh points
-      await refreshPoints();
-      showToast.success("Mission status refreshed");
-    } catch (err) {
-      console.error("Error during manual refresh:", err);
-      showToast.error("Error refreshing mission status");
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   // Handle back navigation
   const handleBackClick = () => {
     router.push("/pools");
+  };
+
+  // Handle points click - we're already on the onboarding page
+  const handlePointsClick = () => {
+    // No-op since we're already on the onboarding page
   };
 
   // Handle mission actions
@@ -144,8 +134,13 @@ export default function OnboardingPage() {
           showBackButton={true}
           showTitle={false}
           backgroundColor="#15161a"
-          onBackClick={handleBackClick}
+          showGetTokensButton={true}
+          showCreateButton={true}
+          showPointsButton={true}
+          onGetTokensClick={() => setShowTokensModal(true)}
           onInfoClick={() => setShowInfoModal(true)}
+          onBackClick={handleBackClick}
+          onPointsClick={handlePointsClick}
         />
         <div className="container mx-auto px-4 py-6 pb-24 md:pb-8">
           {/* Header Section - skeleton */}
@@ -222,8 +217,13 @@ export default function OnboardingPage() {
         showBackButton={true}
         showTitle={false}
         backgroundColor="#15161a"
-        onBackClick={handleBackClick}
+        showGetTokensButton={true}
+        showCreateButton={true}
+        showPointsButton={true}
+        onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
+        onBackClick={handleBackClick}
+        onPointsClick={handlePointsClick}
       />
 
       <div className="container mx-auto px-4 py-6 pb-24 md:pb-8">
@@ -246,59 +246,6 @@ export default function OnboardingPage() {
           total={onboardingTotalCount}
           percentage={onboardingPercentage}
         />
-
-        {/* Debug refresh button */}
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={handleManualRefresh}
-            disabled={refreshing}
-            className="text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 py-1 px-3 rounded-md flex items-center"
-          >
-            {refreshing ? (
-              <>
-                <svg
-                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <svg
-                  className="w-4 h-4 mr-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  ></path>
-                </svg>
-                Refresh Status
-              </>
-            )}
-          </button>
-        </div>
 
         {/* Mission List */}
         <div className="bg-[#FFFFFF0A] rounded-xl overflow-hidden">
@@ -355,6 +302,14 @@ export default function OnboardingPage() {
               await refreshPoints();
             }
           }}
+        />
+      )}
+
+      {/* Get Tokens Modal */}
+      {showTokensModal && (
+        <GetTokensModal
+          isOpen={showTokensModal}
+          onClose={() => setShowTokensModal(false)}
         />
       )}
     </>

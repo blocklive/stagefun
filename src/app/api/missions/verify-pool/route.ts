@@ -6,14 +6,14 @@ export async function POST(request: NextRequest) {
     // Authenticate the request
     const authResult = await authenticateRequest(request);
 
-    if (!authResult.authenticated) {
+    if (!authResult.authenticated || !authResult.userId) {
       return NextResponse.json(
         { error: authResult.error || "Unauthorized" },
         { status: authResult.statusCode || 401 }
       );
     }
 
-    const { userId } = authResult;
+    const userId = authResult.userId;
 
     // Create an admin client with service role permissions
     const adminClient = getSupabaseAdmin();
@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         hasPool: true,
         alreadyCompleted: true,
+        message: "You've already completed this mission!",
       });
     }
 
@@ -65,71 +66,61 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Record mission completion
-    const { error: completionError } = await adminClient
+    // Insert the completed mission
+    const { error: insertError } = await adminClient
       .from("user_completed_missions")
       .insert({
         user_id: userId,
         mission_id: "create_pool",
-        completed_at: new Date().toISOString(),
       });
 
-    if (completionError) {
+    if (insertError) {
       return NextResponse.json(
         { error: "Failed to record mission completion" },
         { status: 500 }
       );
     }
 
-    // Award points
-    const pointsAmount = 5000;
-
-    // Update user's points
-    const { data: userPoints, error: pointsCheckError } = await adminClient
-      .from("user_points")
-      .select("id, total_points")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (pointsCheckError) {
-      console.error("Error checking points:", pointsCheckError);
-    }
-
-    if (userPoints) {
-      await adminClient
-        .from("user_points")
-        .update({
-          total_points: (userPoints.total_points as number) + pointsAmount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", userId);
-    } else {
-      await adminClient.from("user_points").insert({
+    // Award points for completing the mission
+    const { error: pointsError } = await adminClient
+      .from("point_transactions")
+      .insert({
         user_id: userId,
-        total_points: pointsAmount,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        amount: 100,
+        action_type: "mission_completed",
+        metadata: {
+          mission_id: "create_pool",
+          reason: "Created first pool",
+        },
       });
+
+    if (pointsError) {
+      return NextResponse.json(
+        { error: "Failed to award points" },
+        { status: 500 }
+      );
     }
 
-    // Record the points transaction
-    await adminClient.from("point_transactions").insert({
-      user_id: userId,
-      amount: pointsAmount,
-      action_type: "create_pool",
-      metadata: {
-        mission_id: "create_pool",
-      },
+    // Update total points
+    const { error: updateError } = await adminClient.rpc("update_user_points", {
+      p_user_id: userId,
+      p_points: 100,
     });
+
+    if (updateError) {
+      return NextResponse.json(
+        { error: "Failed to update total points" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       hasPool: true,
       alreadyCompleted: false,
-      points: pointsAmount,
-      message: "Congratulations! You've completed the Create Pool mission!",
+      message: "Mission completed! You've earned 100 points.",
     });
   } catch (error) {
-    console.error("Error in verify pool:", error);
+    console.error("Error verifying pool mission:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

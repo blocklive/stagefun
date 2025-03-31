@@ -298,6 +298,7 @@ export default function CreatePoolPage() {
         showTitle={false}
         backgroundColor="#15161a"
         showGetTokensButton={true}
+        showCreateButton={true}
         showPointsButton={true}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}

@@ -87,8 +87,6 @@ export function usePoints(
   const [checkedMission, setCheckedMission] = useState(false);
   const [timeUntilNextClaim, setTimeUntilNextClaim] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState("");
-  const [cachedPoints, setCachedPoints] = useState<UserPoints | null>(null);
-  const [cachedCheckin, setCachedCheckin] = useState<DailyCheckin | null>(null);
 
   // Get current pathname to check if we're on the onboarding page
   const pathname =
@@ -110,12 +108,10 @@ export function usePoints(
       errorRetryCount: 2,
       refreshInterval: 30000, // Refresh every 30 seconds
       keepPreviousData: true, // Keep previous data while revalidating
+      revalidateIfStale: false, // Don't revalidate stale data automatically
+      revalidateOnMount: true, // But do validate on first mount
       onSuccess: (data) => {
-        if (data?.points) {
-          setCachedPoints(data.points);
-        }
         if (data?.checkin) {
-          setCachedCheckin(data.checkin);
           const timeMs = getTimeUntilNextClaim(data.checkin);
           setTimeUntilNextClaim(timeMs);
           setTimeRemaining(formatTimeRemaining(timeMs));
@@ -124,16 +120,16 @@ export function usePoints(
     }
   );
 
-  // Extract data from SWR response with fallback to cached values
-  const pointsData = userData?.points || cachedPoints || null;
-  const checkinData = userData?.checkin || cachedCheckin || null;
+  // Extract data from SWR response
+  const pointsData = userData?.points;
+  const checkinData = userData?.checkin;
 
-  // Derived state - consider request complete even if points is null (new user with no points)
-  const points = pointsData?.total_points ?? 0; // Default to 0 instead of null
+  // Derived state
+  const points = pointsData?.total_points ?? null;
   const streakCount = checkinData?.streak_count ?? 0;
   const canClaim = canClaimDaily(checkinData);
-  // Consider loading complete if we've received any response, even if pointsData is null
-  const isLoading = userData === undefined && !error && !cachedPoints;
+  // Only show loading when we have no data and no error
+  const isLoading = !userData && !error;
 
   // Check for recent mission completions
   useEffect(() => {
@@ -229,16 +225,7 @@ export function usePoints(
     if (!pointsData && dbUser && authJwt && !isValidating && !error) {
       const fetchInitialData = async () => {
         try {
-          const initialData = await fetchUserPointsData([
-            "/api/points/user-data",
-            authJwt,
-          ]);
-          if (initialData?.points) {
-            setCachedPoints(initialData.points);
-          }
-          if (initialData?.checkin) {
-            setCachedCheckin(initialData.checkin);
-          }
+          await fetchUserPointsData(["/api/points/user-data", authJwt]);
         } catch (err) {
           console.error("Error fetching initial points data:", err);
         }
