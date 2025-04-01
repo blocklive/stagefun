@@ -156,7 +156,7 @@ export const usePoolCreation = () => {
         cap_amount: capAmount,
         currency: "USDC",
         token_amount: 0,
-        token_symbol: "USDC",
+        token_symbol: ticker,
         location,
         venue: "",
         status: "ACTIVE",

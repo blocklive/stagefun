@@ -1,70 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Pool } from "../../../../lib/supabase";
-import { getStageDotFunLiquidityContract } from "../../../../lib/contracts/StageDotFunPool";
-import { ethers } from "ethers";
-import { useContractInteraction } from "../../../../hooks/useContractInteraction";
+import { useLpTokenInfo } from "../../../../hooks/useLpTokenInfo";
 
 interface TokenSectionProps {
   pool: Pool;
 }
 
 export default function TokenSection({ pool }: TokenSectionProps) {
-  const [lpTokenSymbol, setLpTokenSymbol] = useState<string>(
-    pool.token_symbol + "-LP"
-  );
-  const [lpTokenName, setLpTokenName] = useState<string>(
-    `${pool.name} LP Token`
-  );
-  const { getProvider } = useContractInteraction();
+  const {
+    symbol: lpTokenSymbol,
+    name: lpTokenName,
+    isLoading,
+  } = useLpTokenInfo(pool.lp_token_address, pool.name, pool.ticker);
+
   const explorerUrl =
     process.env.NEXT_PUBLIC_BLOCKCHAIN_EXPLORER ||
     "https://testnet.monadexplorer.com";
 
-  useEffect(() => {
-    const fetchLpTokenInfo = async () => {
-      if (!pool.lp_token_address) return;
-
-      try {
-        // Set default values based on pool data (since LP token contract likely has empty name/symbol)
-        setLpTokenSymbol(pool.token_symbol ? `${pool.token_symbol}-LP` : "LP");
-        setLpTokenName(`${pool.name} LP Token`);
-
-        // Try to get from contract (but will likely be empty due to contract bug)
-        const provider = await getProvider();
-        const lpTokenContract = getStageDotFunLiquidityContract(
-          provider,
-          pool.lp_token_address
-        );
-
-        // Check if contract returns valid names
-        const symbol = await lpTokenContract.symbol();
-        const name = await lpTokenContract.name();
-
-        // Only update if we got non-empty values
-        if (symbol && symbol.trim() !== "") {
-          setLpTokenSymbol(symbol);
-        }
-
-        if (name && name.trim() !== "") {
-          setLpTokenName(name);
-        }
-      } catch (error) {
-        console.error("Error fetching LP token info:", error);
-        // Keep using the default values set above
-      }
-    };
-
-    fetchLpTokenInfo();
-  }, [pool.lp_token_address, pool.name, pool.token_symbol, getProvider]);
+  // Generate a fallback name for UI display if needed
+  const fallbackSymbol = `${pool.name.substring(0, 4).toUpperCase()}-LP`;
+  const fallbackName = `${pool.name} Liquidity Token`;
 
   // Check if LP token address exists
   if (!pool.lp_token_address) {
     return (
       <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
-        <h3 className="text-xl font-semibold mb-4">Token</h3>
+        <h3 className="text-xl font-semibold mb-4">LP Token</h3>
         <div className="p-4 rounded-[12px] bg-[#FFFFFF0F]">
           <div className="flex items-center gap-3">
             <div
@@ -74,7 +37,7 @@ export default function TokenSection({ pool }: TokenSectionProps) {
               <span className="text-2xl">🎭</span>
             </div>
             <div>
-              <div className="text-2xl font-bold">${pool.token_symbol}</div>
+              <div className="text-2xl font-bold">{fallbackSymbol}</div>
               <div className="text-sm text-gray-400">
                 Pool token not deployed yet
               </div>
@@ -87,7 +50,7 @@ export default function TokenSection({ pool }: TokenSectionProps) {
 
   return (
     <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
-      <h3 className="text-xl font-semibold mb-4">Token</h3>
+      <h3 className="text-xl font-semibold mb-4">LP Token</h3>
       <Link
         href={`${explorerUrl}/address/${pool.lp_token_address}`}
         target="_blank"
@@ -102,8 +65,21 @@ export default function TokenSection({ pool }: TokenSectionProps) {
             <span className="text-2xl">🎭</span>
           </div>
           <div>
-            <div className="text-2xl font-bold">${lpTokenSymbol}</div>
-            <div className="text-sm text-gray-400">{lpTokenName}</div>
+            {isLoading ? (
+              <div className="animate-pulse">
+                <div className="h-6 w-20 bg-gray-700 rounded mb-2"></div>
+                <div className="h-4 w-40 bg-gray-700 rounded"></div>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">
+                  {lpTokenSymbol || fallbackSymbol}
+                </div>
+                <div className="text-sm text-gray-400">
+                  {lpTokenName || fallbackName}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </Link>
