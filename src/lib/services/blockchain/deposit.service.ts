@@ -65,26 +65,44 @@ export class DepositService {
         endTime: Number(poolDetails._endTime),
         currentTime: now,
         isZeroAmountVariableTier,
+        isNoCap: poolDetails._capAmount === BigInt(0),
       });
 
       // Special rule: Allow variable price tiers with 0 amount to commit to funded but not capped pools
       const notFundedRequirement = isZeroAmountVariableTier
         ? !poolStatus.isCapped // For 0 amount variable price tiers, only check if it's not capped
-        : !poolStatus.isFunded; // For regular deposits, check if it's not funded
+        : poolDetails._capAmount === BigInt(0)
+        ? !poolStatus.isCapped // For no cap pools, allow deposits as long as not capped
+        : !poolStatus.isFunded; // For capped pools, check if it's not funded
 
       const requirements: DepositRequirements = {
         tierIdValid: tierId < poolDetails._tierCount,
         tierActive: targetTier.isActive, // Using named property instead of array index
         poolActive:
-          poolDetails._status.toString() === PoolStatus.ACTIVE.toString(),
+          Number(poolDetails._status) === PoolStatus.ACTIVE ||
+          Number(poolDetails._status) === PoolStatus.FUNDED,
         notFunded: notFundedRequirement,
         notEnded: now <= Number(poolDetails._endTime),
         withinCap:
+          // If capAmount is 0, it means "no cap", so always pass this check
+          poolDetails._capAmount === BigInt(0) ||
           poolDetails._totalDeposits + tierPrice <= poolDetails._capAmount,
         patronsCheck:
           targetTier.maxPatrons === BigInt(0) ||
           targetTier.currentPatrons < targetTier.maxPatrons,
       };
+
+      // Log cap amount-specific details
+      console.log("Cap amount check details:", {
+        capAmount: poolDetails._capAmount.toString(),
+        isNoCap: poolDetails._capAmount === BigInt(0),
+        totalDeposits: poolDetails._totalDeposits.toString(),
+        tierPrice: tierPrice.toString(),
+        sum: (poolDetails._totalDeposits + tierPrice).toString(),
+        withinCapCheck:
+          poolDetails._totalDeposits + tierPrice <= poolDetails._capAmount,
+        finalCheck: requirements.withinCap,
+      });
 
       return { requirements };
     } catch (error) {

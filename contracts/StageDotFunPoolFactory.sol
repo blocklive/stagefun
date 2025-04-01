@@ -64,7 +64,7 @@ contract StageDotFunPoolFactory is Ownable {
         require(owner != address(0), "Invalid owner");
         require(creator != address(0), "Invalid creator");
         require(targetAmount > 0, "Target amount must be greater than 0");
-        require(capAmount >= targetAmount, "Cap amount must be >= target amount");
+        require(capAmount == 0 || capAmount >= targetAmount, "Cap amount must be >= target amount");
         
         // Create pool using minimal proxy
         address pool = Clones.clone(poolImplementation);

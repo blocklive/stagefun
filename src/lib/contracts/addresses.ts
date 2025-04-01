@@ -4,10 +4,10 @@
  */
 export const CONTRACT_ADDRESSES = {
   monadTestnet: {
-    stageDotFunPoolFactory: "0x0A3cB40Cb868871F1ebDB69F34a3551a5A4bD46a",
-    stageDotFunPoolImplementation: "0x9009A500AE81FF61dE6F765a1D3FF7707a8eC80c",
-    stageDotFunLiquidityImplementation: "0x1df9a5A68D48FCC86f23Dec8D5338964530CaCdd",
-    stageDotFunNFTImplementation: "0xD0Ff4507b50d884fC1C2379b91EaCEE918Ab7fE0",
+    stageDotFunPoolFactory: "0x7aec322d87d87a2add4189b915ab5706f83E56E4",
+    stageDotFunPoolImplementation: "0xE3f45B38e969C8b612E14E5a2dfB78A9caa8dAf4",
+    stageDotFunLiquidityImplementation: "0x59DeB13883E43884a2686de27f8Bb8f1145fd6C1",
+    stageDotFunNFTImplementation: "0xCbcc9bd4B30fC5562b2f1b4160B4d2C5D444832C",
     usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
   },
 } as const;

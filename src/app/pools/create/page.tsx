@@ -197,8 +197,11 @@ export default function CreatePoolPage() {
     try {
       // Validate funding goal and cap amount
       const goal = parseFloat(fundingGoal);
-      const cap = parseFloat(capAmount);
-      if (cap < goal) {
+      const cap = capAmount === "0" ? 0 : parseFloat(capAmount);
+
+      // Special case: If cap is exactly 0, it means "no cap" so we skip the validation
+      // Otherwise, ensure cap is greater than or equal to goal
+      if (cap !== 0 && cap < goal) {
         throw new Error(
           "Cap amount must be greater than or equal to funding goal"
         );

@@ -37,7 +37,7 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
   const handleCapToggle = (enabled: boolean) => {
     setHasCap(enabled);
     if (!enabled) {
-      onCapAmountChange(""); // Set to empty string when cap is disabled
+      onCapAmountChange("0"); // Set to "0" explicitly when cap is disabled to represent unlimited cap
     } else if (fundingGoal) {
       // Set to 20% more than goal when enabling
       const goal = parseFloat(fundingGoal);
@@ -258,7 +258,8 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
             </div>
           </div>
           <p className="text-sm text-gray-400 mt-2">
-            Cap amount must be greater than or equal to the funding goal
+            Cap amount must be greater than or equal to the funding goal. To
+            disable the cap completely, toggle off "Enable Cap" above.
           </p>
         </div>
       )}

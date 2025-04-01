@@ -1,5 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("@nomicfoundation/hardhat-ethers");
+require("@nomicfoundation/hardhat-toolbox-viem");
 require("dotenv").config({ path: ".env.local" });
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -19,6 +20,10 @@ module.exports = {
         },
       },
       viaIR: true,
+      metadata: {
+        bytecodeHash: "none", // disable ipfs
+        useLiteralContent: true, // use source code
+      },
     },
   },
   networks: {
@@ -27,15 +32,23 @@ module.exports = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
     monadTestnet: {
-      url: process.env.MONAD_TESTNET_RPC_URL || "https://testnet-rpc.monad.xyz",
+      url: "https://testnet-rpc.monad.xyz",
+      chainId: 10143,
       accounts: process.env.BLOCKCHAIN_PRIVATE_KEY
         ? [process.env.BLOCKCHAIN_PRIVATE_KEY]
         : [],
-      chainId: 10143,
     },
   },
   paths: {
     sources: "./contracts",
     artifacts: "./artifacts",
+  },
+  sourcify: {
+    enabled: true,
+    apiUrl: "https://sourcify-api-monad.blockvision.org",
+    browserUrl: "https://testnet.monadexplorer.com",
+  },
+  etherscan: {
+    enabled: false,
   },
 };

@@ -539,12 +539,12 @@ contract StageDotFunPool is Ownable {
             emit PoolStatusUpdated(PoolStatus.FAILED);
         }
         
-        // Check if cap reached
-        if (totalDeposits >= capAmount) {
+        // Check if cap reached - but only if capAmount is not 0 (unlimited)
+        if (capAmount >= targetAmount && totalDeposits >= capAmount) {
             targetReached = true;
-            status = PoolStatus.FUNDED;
+            status = PoolStatus.CAPPED;
             emit CapReached(totalDeposits);
-            emit PoolStatusUpdated(PoolStatus.FUNDED);
+            emit PoolStatusUpdated(PoolStatus.CAPPED);
         }
     }
 

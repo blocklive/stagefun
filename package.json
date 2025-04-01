@@ -16,7 +16,8 @@
     "db:push": "supabase db push",
     "setup-test-table": "bash scripts/setup-test-table.sh",
     "compile": "hardhat compile",
-    "deploy:factory:monad": "hardhat run scripts/deploy-factory.ts --network monadTestnet"
+    "deploy:factory:monad": "hardhat run scripts/deploy-factory.ts --network monadTestnet",
+    "verify:monad": "hardhat run scripts/verify-contracts.ts --network monadTestnet"
   },
   "dependencies": {
     "@babel/runtime": "^7.26.10",
