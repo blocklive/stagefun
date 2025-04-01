@@ -237,34 +237,6 @@ export default function CreatePoolPage() {
         socialLinks,
         Math.floor(endDate.getTime() / 1000)
       );
-
-      // Award points for pool creation via API
-      try {
-        if (authToken) {
-          // Call the points API
-          const response = await fetch("/api/points/award-mission", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${authToken}`,
-            },
-            body: JSON.stringify({
-              missionId: "create_pool",
-            }),
-          });
-
-          const result = await response.json();
-          if (result.success) {
-            // Show a success message
-            showToast.success(
-              `+${result.points.toLocaleString()} points earned for creating your pool!`
-            );
-          }
-        }
-      } catch (err) {
-        console.error("Error awarding points for pool creation:", err);
-        // Don't block the main flow if this fails
-      }
     } catch (error: any) {
       console.error("Error creating pool:", error);
       setError(error.message || "Failed to create pool");

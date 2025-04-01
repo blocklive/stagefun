@@ -1,5 +1,10 @@
 import { useState, useCallback } from "react";
-import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
+import {
+  usePrivy,
+  useWallets,
+  useSendTransaction,
+  getAccessToken,
+} from "@privy-io/react-auth";
 import type {
   UnsignedTransactionRequest,
   SendTransactionModalUIOptions,
@@ -11,7 +16,6 @@ import {
   StageDotFunPoolFactoryABI,
   StageDotFunPoolABI,
 } from "../lib/contracts/StageDotFunPool";
-import { supabase } from "../lib/supabase";
 import { CONTRACT_ADDRESSES } from "../lib/contracts/addresses";
 import { useSmartWallet } from "./useSmartWallet";
 import showToast from "@/utils/toast";
@@ -44,6 +48,13 @@ interface BlockchainPoolResult {
   poolAddress: string;
   lpTokenAddress: string;
   transactionHash: string;
+}
+
+// Define the interface for the API response data
+interface PoolApiResponseData {
+  id: string;
+  // Add other fields returned by the API if needed by the frontend
+  [key: string]: any;
 }
 
 export interface PoolCreationHookResult {
@@ -79,11 +90,12 @@ export interface PoolCreationHookResult {
     error?: string;
     poolAddress?: string;
     txHash?: string;
+    data?: PoolApiResponseData; // Add the pool data returned from API
   }>;
 }
 
 export function usePoolCreationContract(): PoolCreationHookResult {
-  const { user, ready: privyReady } = usePrivy();
+  const { user, ready: privyReady, getAccessToken } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
   const { sendTransaction } = useSendTransaction();
   const {
@@ -233,153 +245,91 @@ export function usePoolCreationContract(): PoolCreationHookResult {
     [user, smartWalletAddress, callContractFunction, getProvider]
   );
 
-  // Helper function to create and link reward items
-  const createAndLinkRewardItems = async (
-    tiers: any[],
-    availableRewardItems: any[],
-    poolCreatorId: string
-  ): Promise<{ success: boolean; error?: string }> => {
-    try {
-      // First, create all reward items in the database
-      const { data: createdRewardItems, error: rewardItemsError } =
-        await supabase
-          .from("reward_items")
-          .insert(
-            availableRewardItems.map((item) => ({
-              name: item.name,
-              description: item.description,
-              type: item.type,
-              metadata: item.metadata,
-              creator_id: poolCreatorId,
-              is_active: true,
-            }))
-          )
-          .select();
-
-      if (rewardItemsError) {
-        console.error("Error creating reward items:", rewardItemsError);
-        return { success: false, error: "Failed to create reward items" };
-      }
-
-      // Create a map of original reward IDs to new database IDs
-      const rewardIdMap = new Map(
-        createdRewardItems.map((item, index) => [
-          availableRewardItems[index].id,
-          item.id,
-        ])
-      );
-
-      // Now, create the tier-reward links
-      const tierRewardLinks = tiers.flatMap((tier) => {
-        if (!tier.rewardItems || tier.rewardItems.length === 0) return [];
-
-        return tier.rewardItems
-          .filter((itemId: string) => itemId !== "nft") // Skip NFT rewards
-          .map((itemId: string) => ({
-            tier_id: tier.id,
-            reward_item_id: rewardIdMap.get(itemId),
-            quantity: 1,
-          }))
-          .filter(
-            (link: {
-              tier_id: string;
-              reward_item_id: string | undefined;
-              quantity: number;
-            }) => link.reward_item_id
-          ); // Only include links with valid reward IDs
-      });
-
-      if (tierRewardLinks.length > 0) {
-        const { error: tierRewardLinksError } = await supabase
-          .from("tier_reward_items")
-          .insert(tierRewardLinks);
-
-        if (tierRewardLinksError) {
-          console.error(
-            "Error creating tier reward links:",
-            tierRewardLinksError
-          );
-          return { success: false, error: "Failed to link rewards to tiers" };
-        }
-      }
-
-      return { success: true };
-    } catch (error) {
-      console.error("Error in createAndLinkRewardItems:", error);
-      return { success: false, error: "Failed to process reward items" };
-    }
-  };
-
-  // Create a pool on the blockchain and then in the database
+  // Create a pool on the blockchain and then call the backend API
   const createPoolWithDatabase = useCallback(
     async (poolData: PoolCreationData, endTimeUnix: number) => {
       setIsLoading(true);
       setError(null);
 
-      // Initialize loading toast
-      const loadingToast = showToast.loading(
-        "Creating pool on the blockchain."
-      );
+      const loadingToast = showToast.loading("Preparing pool creation...");
 
       try {
         if (!user) {
+          showToast.error("User not logged in", { id: loadingToast });
           throw new Error("User not logged in");
         }
 
         if (!smartWalletAddress) {
+          showToast.error("Smart wallet not ready", { id: loadingToast });
           throw new Error(
             "Smart wallet not available. Please contact support."
           );
         }
 
-        console.log("Starting pool creation process with data:", poolData);
+        console.log(
+          "Starting pool creation process (hook) with data:",
+          poolData
+        );
 
-        // STEP 1: First create the pool on the blockchain
+        // STEP 1: Create the pool on the blockchain (no change here)
+        showToast.loading("Sending transaction to create pool...", {
+          id: loadingToast,
+        });
         let blockchainResult: BlockchainPoolResult;
         try {
-          // Convert tiers to the format expected by the contract
-          const tierInitData =
+          // Prepare tier data for the contract (use base units)
+          const tierInitDataForContract =
             poolData.tiers?.map((tier) => {
-              // Convert price to USDC base units (6 decimals)
-              const price = toUSDCBaseUnits(Number(tier.price));
-              console.log("Converting tier price:", {
+              // Convert price to USDC base units (6 decimals) only for contract call
+              const priceBaseUnits = toUSDCBaseUnits(Number(tier.price));
+              const minPriceBaseUnits = tier.isVariablePrice
+                ? toUSDCBaseUnits(Number(tier.minPrice))
+                : BigInt(0);
+              const maxPriceBaseUnits = tier.isVariablePrice
+                ? toUSDCBaseUnits(Number(tier.maxPrice))
+                : BigInt(0);
+
+              console.log("Converting tier price for contract:", {
                 original: tier.price,
-                converted: price.toString(),
-                expected: (Number(tier.price) * 1e6).toString(),
+                converted: priceBaseUnits.toString(),
                 isVariablePrice: tier.isVariablePrice,
-                minPrice: tier.minPrice,
-                maxPrice: tier.maxPrice,
+                minPriceOriginal: tier.minPrice,
+                minPriceConverted: minPriceBaseUnits.toString(),
+                maxPriceOriginal: tier.maxPrice,
+                maxPriceConverted: maxPriceBaseUnits.toString(),
               });
 
               return {
                 name: tier.name,
-                price,
+                price: priceBaseUnits, // Use base units for contract
                 nftMetadata: tier.nftMetadata || "",
                 isVariablePrice: tier.isVariablePrice || false,
-                minPrice: tier.isVariablePrice
-                  ? toUSDCBaseUnits(Number(tier.minPrice))
-                  : BigInt(0),
-                maxPrice: tier.isVariablePrice
-                  ? toUSDCBaseUnits(Number(tier.maxPrice))
-                  : BigInt(0),
+                minPrice: minPriceBaseUnits, // Use base units for contract
+                maxPrice: maxPriceBaseUnits, // Use base units for contract
                 maxPatrons: BigInt(tier.maxPatrons || 0),
               };
             }) || [];
 
+          // Convert target/cap amounts to base units only for contract call
+          const targetAmountBaseUnits = toUSDCBaseUnits(poolData.target_amount);
+          const capAmountBaseUnits =
+            poolData.cap_amount && poolData.cap_amount > 0
+              ? toUSDCBaseUnits(poolData.cap_amount)
+              : targetAmountBaseUnits; // Use target amount base units if cap not specified
+
           blockchainResult = await createPool(
             poolData.name,
-            poolData.id,
-            poolData.token_symbol,
+            poolData.id, // uniqueId
+            poolData.token_symbol, // ticker is used as symbol
             endTimeUnix,
-            Number(toUSDCBaseUnits(poolData.target_amount)), // Convert to USDC base units (6 decimals)
-            poolData.cap_amount && poolData.cap_amount > 0
-              ? Number(toUSDCBaseUnits(poolData.cap_amount))
-              : Number(toUSDCBaseUnits(poolData.target_amount)), // Use target amount as cap if not specified or is 0
-            tierInitData.map((tier) => ({
+            Number(targetAmountBaseUnits), // Pass base units to contract
+            Number(capAmountBaseUnits), // Pass base units to contract
+            // Map tier data again, ensuring correct types (BigInts already handled in createPool)
+            tierInitDataForContract.map((tier) => ({
               ...tier,
-              price: Number(tier.price), // Already in USDC base units
-              minPrice: tier.isVariablePrice ? Number(tier.minPrice) : 0,
-              maxPrice: tier.isVariablePrice ? Number(tier.maxPrice) : 0,
+              price: Number(tier.price), // createPool expects number/BigInt
+              minPrice: Number(tier.minPrice),
+              maxPrice: Number(tier.maxPrice),
               maxPatrons: Number(tier.maxPatrons),
             }))
           );
@@ -388,137 +338,121 @@ export function usePoolCreationContract(): PoolCreationHookResult {
             "Pool created successfully on blockchain:",
             blockchainResult
           );
-        } catch (blockchainError: any) {
-          console.error("Error creating pool on blockchain:", blockchainError);
-          showToast.error(
-            blockchainError.message || "Unknown blockchain error",
-            {
-              id: loadingToast,
-            }
-          );
-          return {
-            success: false,
-            error: blockchainError.message || "Unknown blockchain error",
-          };
-        }
-
-        // STEP 2: Now that blockchain creation succeeded, add to database
-        showToast.loading("Synchronizing pool data...", { id: loadingToast });
-        console.log(
-          "Adding pool to database with blockchain details:",
-          blockchainResult
-        );
-
-        // Add blockchain information to the pool data
-        const poolDataWithBlockchain = {
-          ...poolData,
-          blockchain_tx_hash: blockchainResult.transactionHash,
-          blockchain_status: "active",
-          contract_address: blockchainResult.poolAddress,
-          lp_token_address: blockchainResult.lpTokenAddress,
-          ends_at: new Date(Number(poolData.ends_at) * 1000).toISOString(),
-        };
-
-        // Remove tiers from pool data before inserting
-        const { tiers, ...poolDataForInsertion } = poolDataWithBlockchain;
-
-        console.log("Inserting pool data into database:", poolDataForInsertion);
-
-        // Insert the pool using supabase
-        const { data: insertedPool, error: poolError } = await supabase
-          .from("pools")
-          .insert(poolDataForInsertion)
-          .select()
-          .single();
-
-        if (poolError) {
-          console.error("Error creating pool in database:", poolError);
-          showToast.error(
-            "Pool was created on blockchain but database entry failed",
-            { id: loadingToast }
-          );
-          return {
-            success: false,
-            error: "Pool was created on blockchain but database entry failed",
-            txHash: blockchainResult.transactionHash,
-          };
-        }
-
-        // Create tiers in database first
-        if (tiers && tiers.length > 0) {
-          showToast.loading("Preparing tiers and rewards...", {
+          showToast.loading("Blockchain transaction confirmed.", {
             id: loadingToast,
           });
-          const { data: insertedTiers, error: tiersError } = await supabase
-            .from("tiers")
-            .insert(
-              tiers.map((tier: any) => ({
-                pool_id: insertedPool.id,
-                name: tier.name,
-                description: tier.description || `${tier.name} tier`,
-                price: tier.isVariablePrice ? 0 : tier.price,
-                is_variable_price: tier.isVariablePrice,
-                min_price: tier.isVariablePrice ? tier.minPrice : null,
-                max_price: tier.isVariablePrice ? tier.maxPrice : null,
-                max_supply: tier.maxPatrons,
-                current_supply: 0,
-                is_active: tier.isActive,
-              }))
-            )
-            .select();
-
-          if (tiersError) {
-            console.error("Error creating tiers in database:", tiersError);
-            showToast.error("Pool was created but tiers failed to save", {
-              id: loadingToast,
-            });
-            return {
-              success: false,
-              error: "Pool was created but tiers failed to save",
-              txHash: blockchainResult.transactionHash,
-            };
+        } catch (blockchainError: any) {
+          console.error("Error creating pool on blockchain:", blockchainError);
+          const message =
+            blockchainError?.shortMessage ??
+            blockchainError.message ??
+            "Unknown blockchain error";
+          showToast.error(`Blockchain Error: ${message}`, { id: loadingToast });
+          // Attempt to extract revert reason if available
+          let reason = "Blockchain transaction failed.";
+          if (blockchainError.reason) {
+            reason = `Blockchain Error: ${blockchainError.reason}`;
+          } else if (blockchainError.data?.message) {
+            reason = `Blockchain Error: ${blockchainError.data.message}`;
+          } else if (typeof blockchainError.toString === "function") {
+            const errString = blockchainError.toString();
+            const revertMatch = errString.match(/execution reverted: ([^"]*)/);
+            if (revertMatch && revertMatch[1]) {
+              reason = `Blockchain Error: ${revertMatch[1]}`;
+            }
           }
 
-          // Create and link reward items
-          const rewardResult = await createAndLinkRewardItems(
-            insertedTiers,
-            tiers.map((tier) => ({
-              id: tier.id,
-              name: tier.name,
-              description: tier.name,
-              type: tier.name,
-              metadata: tier.name,
-            })),
-            insertedPool.creator_id
-          );
-
-          if (!rewardResult.success) {
-            showToast.error(rewardResult.error || "Failed to process rewards", {
-              id: loadingToast,
-            });
-            return {
-              success: false,
-              error: rewardResult.error || "Failed to process rewards",
-              txHash: blockchainResult.transactionHash,
-            };
-          }
+          return {
+            success: false,
+            error: reason, // Return extracted reason
+          };
         }
 
-        console.log("Pool created successfully in database:", insertedPool);
-        showToast.success("Pool created successfully! 🎉", {
+        // STEP 2: Call the backend API to save data to the database
+        showToast.loading("Synchronizing pool data with server...", {
           id: loadingToast,
         });
-        return {
-          success: true,
-          data: insertedPool,
-          poolAddress: blockchainResult.poolAddress,
-          txHash: blockchainResult.transactionHash,
-        };
+        console.log("Calling backend API to save pool data:", {
+          poolData,
+          endTimeUnix,
+          blockchainResult,
+        });
+
+        let authToken;
+        try {
+          authToken = await getAccessToken();
+          if (!authToken) {
+            throw new Error("Could not retrieve authentication token.");
+          }
+        } catch (tokenError: any) {
+          console.error("Error getting auth token:", tokenError);
+          showToast.error("Authentication error. Please log in again.", {
+            id: loadingToast,
+          });
+          return { success: false, error: "Authentication error." };
+        }
+
+        try {
+          const response = await fetch("/api/pools/create", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({
+              poolData, // Send original poolData (API handles conversions if needed)
+              endTimeUnix,
+              blockchainResult,
+            }),
+          });
+
+          const apiResponse = await response.json();
+
+          if (!response.ok) {
+            console.error("API Error Response:", apiResponse);
+            throw new Error(
+              apiResponse.error ||
+                `API request failed with status ${response.status}`
+            );
+          }
+
+          if (!apiResponse.success) {
+            console.error("API returned success=false:", apiResponse);
+            throw new Error(apiResponse.error || "API operation failed");
+          }
+
+          console.log(
+            "Pool synchronized successfully via API:",
+            apiResponse.data
+          );
+          showToast.success("Pool created successfully! 🎉", {
+            id: loadingToast,
+          });
+
+          return {
+            success: true,
+            data: apiResponse.data, // Return the pool data from API response
+            poolAddress: blockchainResult.poolAddress,
+            txHash: blockchainResult.transactionHash,
+          };
+        } catch (apiError: any) {
+          console.error("Error calling create pool API:", apiError);
+          showToast.error(`Failed to save pool data: ${apiError.message}`, {
+            id: loadingToast,
+          });
+          // Note: Pool exists on-chain but DB failed. May need manual reconciliation or retry logic.
+          return {
+            success: false,
+            error: `Pool created on blockchain, but failed to save to server: ${apiError.message}`,
+            txHash: blockchainResult.transactionHash, // Still return hash if available
+            poolAddress: blockchainResult.poolAddress,
+          };
+        }
       } catch (err: any) {
-        console.error("Error in createPoolWithDatabase:", err);
+        console.error("Error in createPoolWithDatabase (outer catch):", err);
         setError(err.message || "Error creating pool");
         showToast.error(err.message || "Error creating pool", {
-          id: loadingToast,
+          id: loadingToast, // Update the final error toast
         });
         return {
           success: false,
@@ -528,7 +462,8 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         setIsLoading(false);
       }
     },
-    [user, createPool, smartWalletAddress]
+    // Update dependencies: remove supabase-related things, add getAccessToken
+    [user, createPool, getAccessToken, smartWalletAddress] // Keep smartWalletAddress check at start
   );
 
   return {
