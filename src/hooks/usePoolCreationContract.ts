@@ -369,7 +369,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         }
 
         // STEP 2: Call the backend API to save data to the database
-        showToast.loading("Synchronizing pool data with server...", {
+        showToast.loading("Synchronizing pool...", {
           id: loadingToast,
         });
         console.log("Calling backend API to save pool data:", {

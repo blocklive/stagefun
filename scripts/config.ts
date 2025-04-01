@@ -19,25 +19,25 @@ const NETWORK_CONFIG = {
 };
 
 // Helper to get the current network's configuration
-export function getCurrentNetworkConfig() {
+function getCurrentNetworkConfig() {
   return NETWORK_CONFIG.monadTestnet;
 }
 
 // Helper to get contract addresses for current network
-export function getContractAddresses() {
+function getContractAddresses() {
   return getCurrentNetworkConfig().contracts;
 }
 
 // Helper to update contract addresses after deployment
-export function updateContractAddresses(addresses: {
-  stageDotFunPoolFactory?: string;
-  poolImplementation?: string;
-  lpTokenImplementation?: string;
-  nftImplementation?: string;
-}) {
+function updateContractAddresses(addresses) {
   const config = getCurrentNetworkConfig();
   Object.assign(config.contracts, addresses);
   return config.contracts;
 }
 
-export { NETWORK_CONFIG };
+module.exports = {
+  NETWORK_CONFIG,
+  getCurrentNetworkConfig,
+  getContractAddresses,
+  updateContractAddresses,
+};

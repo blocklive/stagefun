@@ -102,10 +102,15 @@ export default function SocialLinksInput({
     setLinks(value);
   }, [value]);
 
-  // Update parent component when links change
+  // Update parent component when links change, but only if it's different from current value
   useEffect(() => {
-    onChange(links);
-  }, [links, onChange]);
+    // Create deep comparison of links and value to avoid unnecessary updates
+    const hasChanged = JSON.stringify(links) !== JSON.stringify(value);
+
+    if (hasChanged) {
+      onChange(links);
+    }
+  }, [links, onChange, value]);
 
   // Handle input change for website (full URL)
   const handleWebsiteChange = (input: string) => {
@@ -129,23 +134,31 @@ export default function SocialLinksInput({
 
   // Handle input change for username-based platforms
   const handleUsernameChange = (platform: string, username: string) => {
-    const newUsernames = { ...usernames };
-    const newLinks = { ...links };
-    const prefix =
-      SOCIAL_PLATFORMS[platform as keyof typeof SOCIAL_PLATFORMS]?.prefix || "";
+    // First update the username state
+    setUsernames((prev) => {
+      const newUsernames = { ...prev };
+      if (!username.trim()) {
+        delete newUsernames[platform];
+      } else {
+        newUsernames[platform] = username.trim();
+      }
+      return newUsernames;
+    });
 
-    // Update the username state
-    if (!username.trim()) {
-      delete newUsernames[platform];
-      delete newLinks[platform];
-    } else {
-      newUsernames[platform] = username.trim();
-      // Store the full URL in links
-      newLinks[platform] = `${prefix}${username.trim()}`;
-    }
+    // Then update the links state in a separate operation
+    setLinks((prev) => {
+      const newLinks = { ...prev };
+      const prefix =
+        SOCIAL_PLATFORMS[platform as keyof typeof SOCIAL_PLATFORMS]?.prefix ||
+        "";
 
-    setUsernames(newUsernames);
-    setLinks(newLinks);
+      if (!username.trim()) {
+        delete newLinks[platform];
+      } else {
+        newLinks[platform] = `${prefix}${username.trim()}`;
+      }
+      return newLinks;
+    });
   };
 
   return (
