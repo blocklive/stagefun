@@ -2,6 +2,14 @@
  * Consolidated configuration for contract deployment and network settings
  */
 
+type ContractAddresses = {
+  stageDotFunPoolFactory?: string;
+  poolImplementation?: string;
+  lpTokenImplementation?: string;
+  nftImplementation?: string;
+  [key: string]: string | undefined;
+};
+
 const NETWORK_CONFIG = {
   monadTestnet: {
     chainId: 10143,
@@ -19,25 +27,25 @@ const NETWORK_CONFIG = {
 };
 
 // Helper to get the current network's configuration
-function getCurrentNetworkConfig() {
+function getDeploymentNetworkConfig() {
   return NETWORK_CONFIG.monadTestnet;
 }
 
 // Helper to get contract addresses for current network
-function getContractAddresses() {
-  return getCurrentNetworkConfig().contracts;
+function getDeploymentContractAddresses() {
+  return getDeploymentNetworkConfig().contracts;
 }
 
 // Helper to update contract addresses after deployment
-function updateContractAddresses(addresses) {
-  const config = getCurrentNetworkConfig();
+function updateDeploymentContractAddresses(addresses: ContractAddresses) {
+  const config = getDeploymentNetworkConfig();
   Object.assign(config.contracts, addresses);
   return config.contracts;
 }
 
 module.exports = {
   NETWORK_CONFIG,
-  getCurrentNetworkConfig,
-  getContractAddresses,
-  updateContractAddresses,
+  getCurrentNetworkConfig: getDeploymentNetworkConfig, // Export with original name for backward compatibility
+  getContractAddresses: getDeploymentContractAddresses, // Export with original name for backward compatibility
+  updateContractAddresses: updateDeploymentContractAddresses, // Export with original name for backward compatibility
 };
