@@ -25,6 +25,7 @@ import InfoModal from "../../components/InfoModal";
 import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import UserAvatar from "../../components/UserAvatar";
+import showToast from "@/utils/toast";
 
 export default function ProfileComponent() {
   const router = useRouter();
@@ -172,13 +173,13 @@ export default function ProfileComponent() {
     if (file) {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        alert("Please select an image file");
+        showToast.error("Please select an image file");
         return;
       }
 
       // Validate file size (50MB limit)
       if (file.size > 50 * 1024 * 1024) {
-        alert("Image size should be less than 50MB");
+        showToast.error("Image size should be less than 50MB");
         return;
       }
 
@@ -203,9 +204,11 @@ export default function ProfileComponent() {
   // Upload image to Supabase
   const uploadImage = async (file: File) => {
     if (!dbUser || !privyUser) {
-      alert("You must be logged in to upload an avatar");
+      showToast.error("You must be logged in to upload an avatar");
       return;
     }
+
+    const loadingToast = showToast.loading("Uploading avatar...");
 
     try {
       setIsUploadingImage(true);
@@ -229,6 +232,7 @@ export default function ProfileComponent() {
       // Try direct fetch upload first
       try {
         console.log("Trying direct fetch upload...");
+        showToast.loading("Processing image...", { id: loadingToast });
 
         // Create a FormData object
         const formData = new FormData();
@@ -315,7 +319,7 @@ export default function ProfileComponent() {
         await refreshUser();
 
         // Show success message
-        alert("Avatar updated successfully!");
+        showToast.success("Avatar updated successfully!", { id: loadingToast });
         return;
       } catch (fetchError) {
         console.error("Direct fetch upload failed:", fetchError);
@@ -325,6 +329,8 @@ export default function ProfileComponent() {
       // Try to upload with the authenticated client
       try {
         console.log("Trying Supabase client upload...");
+        showToast.loading("Processing image...", { id: loadingToast });
+
         const { data, error } = await supabase.storage
           .from("user-images")
           .upload(filePath, file, {
@@ -394,14 +400,18 @@ export default function ProfileComponent() {
         await refreshUser();
 
         // Show success message
-        alert("Avatar updated successfully!");
+        showToast.success("Avatar updated successfully!", { id: loadingToast });
       } catch (supabaseError) {
         console.error("Supabase client upload error:", supabaseError);
-        alert("Failed to upload avatar. Please try again.");
+        showToast.error("Failed to upload avatar. Please try again.", {
+          id: loadingToast,
+        });
       }
     } catch (error) {
       console.error("Error uploading avatar:", error);
-      alert("Failed to upload avatar. Please try again.");
+      showToast.error("Failed to upload avatar. Please try again.", {
+        id: loadingToast,
+      });
     } finally {
       setIsUploadingImage(false);
       // Don't reset the image preview so the user can see the uploaded image
