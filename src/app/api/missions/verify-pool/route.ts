@@ -159,10 +159,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Return response with all necessary fields including points
     return NextResponse.json({
       hasPool: true,
       alreadyCompleted: false,
       message: `Mission completed! You've earned ${pointsToAward} points.`, // Dynamic points
+      points: pointsToAward, // Add this field explicitly for the client
     });
   } catch (error) {
     console.error("Error verifying pool mission:", error);

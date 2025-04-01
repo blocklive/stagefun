@@ -2,10 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSupabase } from "../contexts/SupabaseContext";
 import { useAuthJwt } from "./useAuthJwt";
 import showToast from "../utils/toast";
-import {
-  formatTimeRemaining,
-  checkRecentMissionCompletions,
-} from "../lib/services/points-service";
+import { formatTimeRemaining } from "../lib/services/points-service";
 import { useAuthenticatedSupabase } from "./useAuthenticatedSupabase";
 import useSWR from "swr";
 
@@ -84,7 +81,6 @@ export function usePoints(
   const { dbUser } = useSupabase();
   const { supabase } = useAuthenticatedSupabase();
   const { token: authJwt, refreshToken } = useAuthJwt();
-  const [checkedMission, setCheckedMission] = useState(false);
   const [timeUntilNextClaim, setTimeUntilNextClaim] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState("");
 
@@ -130,62 +126,6 @@ export function usePoints(
   const canClaim = canClaimDaily(checkinData);
   // Only show loading when we have no data and no error
   const isLoading = !userData && !error;
-
-  // Check for recent mission completions
-  useEffect(() => {
-    // Skip check if explicitly disabled or we're on the onboarding page
-    if (
-      !dbUser ||
-      !supabase ||
-      checkedMission ||
-      options.disableRecentMissionCheck ||
-      isOnboardingPage
-    )
-      return;
-
-    const checkMissions = async () => {
-      try {
-        const recentMission = await checkRecentMissionCompletions(
-          supabase,
-          dbUser.id
-        );
-
-        if (recentMission) {
-          // Get descriptive text for the mission
-          let missionText = "completing a mission";
-          switch (recentMission.missionId) {
-            case "link_x":
-              missionText = "linking your X account";
-              break;
-            case "follow_x":
-              missionText = "following Stage.fun on X";
-              break;
-            case "create_pool":
-              missionText = "creating your first pool";
-              break;
-          }
-
-          // Show a toast notification for the earned points
-          showToast.success(
-            `+${recentMission.points.toLocaleString()} points for ${missionText}!`,
-            { duration: 5000 }
-          );
-        }
-
-        setCheckedMission(true);
-      } catch (err) {
-        console.error("Error checking mission completions:", err);
-      }
-    };
-
-    checkMissions();
-  }, [
-    dbUser,
-    supabase,
-    checkedMission,
-    options.disableRecentMissionCheck,
-    isOnboardingPage,
-  ]);
 
   // Update time remaining countdown
   useEffect(() => {
