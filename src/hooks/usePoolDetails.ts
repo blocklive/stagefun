@@ -59,6 +59,7 @@ export function usePoolDetails(poolId: string | null) {
     targetAmount: poolData?.pool?.target_amount ?? 0,
     raisedAmount: poolData?.pool?.raised_amount ?? 0,
     percentage: poolData?.percentage ?? 0,
+    targetReachedTime: poolData?.pool?.target_reached_time ?? 0,
     isLoading: !error && !poolData,
     error,
     refresh: mutate,

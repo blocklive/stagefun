@@ -45,7 +45,7 @@ export const StageDotFunPoolABI = [
   "event LPTransfer(address indexed from, address indexed to, uint256 amount)",
 
   // View functions
-  "function getPoolDetails() view returns (string _name, string _uniqueId, address _creator, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _capAmount, uint8 _status, address _lpTokenAddress, address _nftContractAddress, uint256 _tierCount)",
+  "function getPoolDetails() view returns (string _name, string _uniqueId, address _creator, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _capAmount, uint8 _status, address _lpTokenAddress, address _nftContractAddress, uint256 _tierCount, uint256 _targetReachedTime, uint256 _capReachedTime)",
   "function name() view returns (string)",
   "function uniqueId() view returns (string)",
   "function creator() view returns (address)",
@@ -140,6 +140,8 @@ export interface ContractPool {
   lpTokenAddress: string;
   nftContractAddress: string;
   tierCount: bigint;
+  targetReachedTime: bigint;
+  capReachedTime: bigint;
   minCommitment: bigint;
   lpHolders: string[];
   milestones: any[];
@@ -297,6 +299,8 @@ export async function getPoolDetails(
       lpTokenAddress: details._lpTokenAddress,
       nftContractAddress: details._nftContractAddress,
       tierCount: details._tierCount,
+      targetReachedTime: details._targetReachedTime,
+      capReachedTime: details._capReachedTime,
       minCommitment: BigInt(0), // Assuming default value, actual implementation needed
       lpHolders: [], // Assuming default value, actual implementation needed
       milestones: [], // Assuming default value, actual implementation needed

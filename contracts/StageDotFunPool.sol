@@ -25,8 +25,10 @@ contract StageDotFunPool is Ownable {
     uint256 public endTime;
     uint256 public targetAmount;
     uint256 public capAmount;
-    bool public targetReached;
-    bool public capReached;
+    
+    // Timestamp tracking for milestones
+    uint256 public targetReachedTime;
+    uint256 public capReachedTime;
     
     // Revenue tracking
     uint256 public totalRevenue;
@@ -154,8 +156,8 @@ contract StageDotFunPool is Ownable {
         status = PoolStatus.ACTIVE;
         targetAmount = _targetAmount;
         capAmount = _capAmount;
-        targetReached = false;
-        capReached = false;
+        targetReachedTime = 0;
+        capReachedTime = 0;
         
         string memory tokenName = string(abi.encodePacked(_name, " LP Token"));
         lpToken = StageDotFunLiquidity(Clones.clone(_lpTokenImplementation));
@@ -232,7 +234,7 @@ contract StageDotFunPool is Ownable {
     }
     
     modifier targetMet() {
-        require(targetReached, "Target amount not reached");
+        require(targetReachedTime > 0, "Target amount not reached");
         _;
     }
     
@@ -506,7 +508,9 @@ contract StageDotFunPool is Ownable {
         uint8 _status,
         address _lpTokenAddress,
         address _nftContractAddress,
-        uint256 _tierCount
+        uint256 _tierCount,
+        uint256 _targetReachedTime,
+        uint256 _capReachedTime
     ) {
         return (
             name,
@@ -520,28 +524,33 @@ contract StageDotFunPool is Ownable {
             uint8(status),
             address(lpToken),
             address(nftContract),
-            tierCount
+            tierCount,
+            targetReachedTime,
+            capReachedTime
         );
     }
 
     function _checkPoolStatus() internal {
         // Check if target has been reached
-        if (!targetReached && totalDeposits >= targetAmount) {
-            targetReached = true;
+        if (targetReachedTime == 0 && totalDeposits >= targetAmount) {
+            targetReachedTime = block.timestamp;
             status = PoolStatus.FUNDED;
             emit TargetReached(totalDeposits);
             emit PoolStatusUpdated(PoolStatus.FUNDED);
         }
         
         // Check if end time has passed and target not met
-        if (block.timestamp > endTime && !targetReached && status == PoolStatus.ACTIVE) {
+        if (block.timestamp > endTime && targetReachedTime == 0 && status == PoolStatus.ACTIVE) {
             status = PoolStatus.FAILED;
             emit PoolStatusUpdated(PoolStatus.FAILED);
         }
         
         // Check if cap reached - but only if capAmount is not 0 (unlimited)
-        if (capAmount >= targetAmount && totalDeposits >= capAmount) {
-            targetReached = true;
+        if (capAmount >= targetAmount && totalDeposits >= capAmount && capReachedTime == 0) {
+            if (targetReachedTime == 0) {
+                targetReachedTime = block.timestamp;
+            }
+            capReachedTime = block.timestamp;
             status = PoolStatus.CAPPED;
             emit CapReached(totalDeposits);
             emit PoolStatusUpdated(PoolStatus.CAPPED);

@@ -55,6 +55,7 @@ export default function PoolDetailsPage() {
     targetAmount,
     raisedAmount,
     percentage,
+    targetReachedTime,
     isLoading: isLoadingPool,
     error: poolError,
     refresh: refreshPool,
@@ -457,6 +458,7 @@ export default function PoolDetailsPage() {
               activeTab={contentTab}
               onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
               raisedAmount={raisedAmount}
+              targetReachedTimestamp={targetReachedTime}
             />
 
             {/* Tab Content */}
