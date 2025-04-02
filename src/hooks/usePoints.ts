@@ -82,7 +82,6 @@ export function usePoints(
   const { supabase } = useAuthenticatedSupabase();
   const { token: authJwt, refreshToken } = useAuthJwt();
   const [timeUntilNextClaim, setTimeUntilNextClaim] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState("");
 
   // Get current pathname to check if we're on the onboarding page
   const pathname =
@@ -110,7 +109,6 @@ export function usePoints(
         if (data?.checkin) {
           const timeMs = getTimeUntilNextClaim(data.checkin);
           setTimeUntilNextClaim(timeMs);
-          setTimeRemaining(formatTimeRemaining(timeMs));
         }
       },
     }
@@ -133,7 +131,6 @@ export function usePoints(
     if (checkinData) {
       const initialTimeMs = getTimeUntilNextClaim(checkinData);
       setTimeUntilNextClaim(initialTimeMs);
-      setTimeRemaining(formatTimeRemaining(initialTimeMs));
     }
 
     // Set up countdown timer if needed
@@ -141,10 +138,6 @@ export function usePoints(
       const timer = setInterval(() => {
         setTimeUntilNextClaim((prev) => {
           const newTimeMs = Math.max(0, prev - 1000);
-
-          // Update the formatted time string
-          const newFormattedTime = formatTimeRemaining(newTimeMs);
-          setTimeRemaining(newFormattedTime);
 
           // If time expired, refresh data
           if (newTimeMs === 0) {
@@ -183,7 +176,9 @@ export function usePoints(
     }
 
     if (!canClaim) {
-      showToast.error(`You can claim again in ${timeRemaining}`);
+      showToast.error(
+        `You can claim again in ${formatTimeRemaining(timeUntilNextClaim)}`
+      );
       return;
     }
 
@@ -232,7 +227,7 @@ export function usePoints(
       console.error("Error claiming daily points:", error);
       showToast.error("Something went wrong. Please try again.");
     }
-  }, [dbUser, canClaim, timeRemaining, authJwt, refreshToken, mutate]);
+  }, [dbUser, canClaim, timeUntilNextClaim, authJwt, refreshToken, mutate]);
 
   // Function to refresh points data
   const refreshPoints = useCallback(async () => {
@@ -262,13 +257,14 @@ export function usePoints(
     };
   }, [refreshPoints]);
 
+  // Return the hook state
   return {
     points,
     isLoading,
     streakCount,
     canClaim,
     timeUntilNextClaim,
-    formattedTimeRemaining: timeRemaining,
+    formattedTimeRemaining: formatTimeRemaining(timeUntilNextClaim),
     claimDailyPoints,
     refreshPoints,
   };
