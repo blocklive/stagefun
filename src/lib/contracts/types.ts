@@ -8,7 +8,11 @@ export enum PoolStatus {
   PAUSED = 2,
   CLOSED = 3,
   FUNDED = 4, // Status for when target is reached
-  FAILED = 5, // Status for when end time is reached without meeting target
+  FULLY_FUNDED = 5, // When cap is reached (but might be deprecated)
+  FAILED = 6, // Status for when end time is reached without meeting target
+  EXECUTING = 7, // When pool is using funds to execute the event/project
+  COMPLETED = 8,
+  CANCELLED = 9,
 }
 
 /**
@@ -41,7 +45,11 @@ export function getPoolStatusFromNumber(
       paused: PoolStatus.PAUSED,
       closed: PoolStatus.CLOSED,
       funded: PoolStatus.FUNDED,
+      fully_funded: PoolStatus.FULLY_FUNDED,
       failed: PoolStatus.FAILED,
+      executing: PoolStatus.EXECUTING,
+      completed: PoolStatus.COMPLETED,
+      cancelled: PoolStatus.CANCELLED,
     };
 
     if (statusMap[status.toLowerCase()]) {

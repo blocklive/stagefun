@@ -137,6 +137,20 @@ contract StageDotFunPoolFactory is Ownable {
             }
         }
     }
+    
+    // Begin the execution phase of a pool - transitions it to EXECUTING state
+    function beginExecution(address poolAddress) external {
+        StageDotFunPool pool = StageDotFunPool(poolAddress);
+        // This will enforce that only the owner can begin execution
+        pool.beginExecution();
+    }
+    
+    // Complete a pool - transitions it from EXECUTING to COMPLETED state
+    function completePool(address poolAddress) external {
+        StageDotFunPool pool = StageDotFunPool(poolAddress);
+        // This will enforce that only the owner can complete the pool
+        pool.completePool();
+    }
 
     // Get details for deployed pools with pagination support
     // If both startIndex and endIndex are 0, returns all pools

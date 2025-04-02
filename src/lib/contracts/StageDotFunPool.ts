@@ -285,6 +285,7 @@ export async function getPoolDetails(
 
     // Try to get the pool details - matches exactly with the ABI return values
     const details = await pool.getPoolDetails();
+    console.log("**** REAL details:", details);
 
     return {
       name: details._name,
@@ -508,7 +509,7 @@ export enum PoolStatus {
   FUNDED = 4,
   FULLY_FUNDED = 5,
   FAILED = 6,
-  CAPPED = 7,
+  EXECUTING = 7,
   COMPLETED = 8,
   CANCELLED = 9,
 }
@@ -541,7 +542,7 @@ export function getDetailedPoolStatus(
   // Override status based on current state which might be different from what's in the blockchain
   if (status === PoolStatus.ACTIVE) {
     if (isCapped) {
-      displayStatus = PoolStatus.CAPPED;
+      displayStatus = PoolStatus.EXECUTING;
     } else if (isFunded) {
       displayStatus = PoolStatus.FUNDED;
     } else if (hasEndedWithoutFunding) {

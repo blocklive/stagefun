@@ -70,10 +70,19 @@ export default function FundedPoolView({
 
           {/* Progress Bar with Overfunding Message */}
           <div className="relative w-full h-4 bg-gray-800 rounded-full mb-6">
-            <div className="h-full rounded-full bg-[#836EF9]"></div>
+            <div
+              className="h-full rounded-full bg-[#836EF9]"
+              style={{
+                width: `${Math.min(
+                  100,
+                  (raisedAmount / (pool.target_amount || 1)) * 100
+                )}%`,
+              }}
+            ></div>
             {/* Only show "Overfunded" message for pools with a significant cap (> 0.1) */}
-            {pool.cap_amount &&
+            {pool.cap_amount !== undefined &&
               pool.cap_amount > 0.1 &&
+              pool.cap_amount !== 0 &&
               raisedAmount > pool.cap_amount && (
                 <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-sm text-[#836EF9] font-medium">
                   Overfunded! Cap reached at{" "}

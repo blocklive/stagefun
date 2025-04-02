@@ -447,7 +447,7 @@ export default function PoolDetailsPage() {
           isCreator={isCreator}
           handleEditClick={handleEditClick}
         />
-
+        <div>hi</div>
         {/* Conditional rendering based on pool state */}
         {isFunded ? (
           <>

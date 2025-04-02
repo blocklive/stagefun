@@ -16,6 +16,8 @@ import {
   FaChevronLeft,
   FaSync,
   FaDollarSign,
+  FaPlay,
+  FaInfoCircle,
 } from "react-icons/fa";
 import useSWR from "swr";
 import { usePoolPatrons } from "../../../../hooks/usePoolPatrons";
@@ -31,6 +33,8 @@ import { useSmartWalletBalance } from "../../../../hooks/useSmartWalletBalance";
 import { useRevenueDeposit } from "../../../../hooks/useRevenueDeposit";
 import WithdrawModal from "./WithdrawModal";
 import showToast from "@/utils/toast";
+import { usePoolDetails } from "../../../../hooks/usePoolDetails";
+import Tooltip from "../../../../components/Tooltip";
 
 interface PoolFundsSectionProps {
   pool: Pool & {
@@ -152,6 +156,9 @@ export default function PoolFundsSection({
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [receiveAmount, setReceiveAmount] = useState("");
   const [distributeAmount, setDistributeAmount] = useState("");
+  const [onChainPoolStatus, setOnChainPoolStatus] = useState<number | null>(
+    null
+  );
   const { sendTransaction } = useSendTransaction();
   const { wallets } = useWallets();
   const { smartWalletAddress } = useSmartWallet();
@@ -162,6 +169,69 @@ export default function PoolFundsSection({
   const modalRef = useRef<HTMLDivElement>(null);
   const receiveModalRef = useRef<HTMLDivElement>(null);
   const distributeModalRef = useRef<HTMLDivElement>(null);
+
+  // Get the on-chain pool data using usePoolDetails
+  const { pool: onChainPoolDetails, refresh: refreshPoolDetails } =
+    usePoolDetails(pool.id);
+
+  // Update onChainPoolStatus when onChainPoolDetails changes
+  useEffect(() => {
+    if (
+      onChainPoolDetails &&
+      onChainPoolDetails.blockchain_status !== undefined
+    ) {
+      setOnChainPoolStatus(onChainPoolDetails.blockchain_status);
+    }
+  }, [onChainPoolDetails]);
+
+  // Determine if pool is uncapped (cap_amount is exactly 0)
+  const isUncapped = useMemo(() => {
+    return pool.cap_amount === 0;
+  }, [pool.cap_amount]);
+
+  // Determine if pool is below cap (which includes uncapped pools)
+  const isBelowCap = useMemo(() => {
+    if (isUncapped) return true;
+    return (
+      pool.cap_amount !== undefined &&
+      pool.cap_amount !== null &&
+      pool.cap_amount > 0 &&
+      (pool.raised_amount || 0) < pool.cap_amount
+    );
+  }, [isUncapped, pool.cap_amount, pool.raised_amount]);
+
+  // Check if target is met
+  const targetMet = useMemo(() => {
+    return (pool.raised_amount || 0) >= (pool.target_amount || 0);
+  }, [pool.raised_amount, pool.target_amount]);
+
+  // Check if we're before the end time
+  const isBeforeEndTime = useMemo(() => {
+    return new Date() <= new Date(pool.ends_at || "");
+  }, [pool.ends_at]);
+
+  // Determine if we should show the Begin Execution button
+  const canBeginExecution = useMemo(() => {
+    const statusToUse =
+      onChainPoolStatus !== null
+        ? onChainPoolStatus
+        : getPoolStatusFromNumber(pool.status || 0);
+
+    return (
+      isCreator &&
+      statusToUse === PoolStatus.FUNDED &&
+      targetMet &&
+      isBeforeEndTime &&
+      isBelowCap
+    );
+  }, [
+    isCreator,
+    onChainPoolStatus,
+    pool.status,
+    targetMet,
+    isBeforeEndTime,
+    isBelowCap,
+  ]);
 
   // Fetch on-chain data using SWR
   const {
@@ -430,7 +500,8 @@ export default function PoolFundsSection({
   };
 
   // Add the contract interaction hook
-  const { withdrawFromPool, distributeRevenue } = useContractInteraction();
+  const { withdrawFromPool, distributeRevenue, beginExecution } =
+    useContractInteraction();
 
   // Handle withdraw funds
   const handleWithdrawFunds = async () => {
@@ -612,37 +683,150 @@ export default function PoolFundsSection({
     }
   };
 
+  // Add refreshPoolData function that utilizes both refresh functions
+  const refreshPoolData = async () => {
+    if (pool.contract_address) {
+      try {
+        // Refresh on-chain data
+        await refreshOnChainData();
+        // Refresh pool details to get updated status
+        await refreshPoolDetails();
+      } catch (error) {
+        console.error("Error refreshing pool data:", error);
+      }
+    }
+  };
+
+  // Add the function to handle beginning execution
+  const handleBeginExecution = async () => {
+    if (!pool.contract_address) {
+      showToast.error("Pool contract address not found");
+      return;
+    }
+
+    if (!isCreator) {
+      showToast.error("Only the creator can begin execution");
+      return;
+    }
+
+    // Get the on-chain pool status
+    const statusToUse =
+      onChainPoolStatus !== null
+        ? onChainPoolStatus
+        : getPoolStatusFromNumber(pool.status || 0);
+
+    if (statusToUse !== PoolStatus.FUNDED) {
+      showToast.error("Pool must be in FUNDED state to begin execution");
+      return;
+    }
+
+    const loadingToast = showToast.loading("Starting event execution phase...");
+
+    try {
+      const result = await beginExecution(pool.contract_address);
+
+      if (result.success) {
+        showToast.success("Pool has moved to execution phase successfully!", {
+          id: loadingToast,
+        });
+        setStatusMessage("Pool status updated to EXECUTING");
+
+        // Refresh pool data after transaction
+        setTimeout(() => refreshPoolData(), 3000);
+        setTimeout(() => refreshPoolDetails(), 3000);
+      } else {
+        showToast.error(`Failed to begin execution: ${result.error}`, {
+          id: loadingToast,
+        });
+      }
+    } catch (error) {
+      console.error("Error beginning execution:", error);
+      showToast.error("Failed to begin execution. See console for details.", {
+        id: loadingToast,
+      });
+    }
+  };
+
   return (
     <>
       <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
-        <h3 className="text-xl font-semibold mb-4">Pool Funds</h3>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <h3 className="text-xl font-semibold">Pool Funds</h3>
+            <Tooltip
+              text="Current funds in your contract"
+              width="200px"
+              icon={
+                <FaInfoCircle className="ml-2 text-gray-400 hover:text-white" />
+              }
+            />
+          </div>
+        </div>
 
         <div className="mb-6">
           <div className="text-5xl font-bold mb-2">{contractBalance}</div>
         </div>
 
-        {/* Only show action buttons for pool creator */}
+        {/* Only show action buttons for pool creator and either in EXECUTING or can begin execution */}
         {isCreator && (
-          <CreatorActions
-            isDepositLoading={isRevenueDepositLoading}
-            isWithdrawing={isWithdrawing}
-            isDistributing={isDistributing}
-            rawTotalFunds={
-              onChainData
-                ? parseFloat(ethers.formatUnits(onChainData.contractBalance, 6))
-                : rawTotalFunds
-            }
-            onReceiveClick={openReceiveModal}
-            onWithdrawClick={openWithdrawModal}
-            onDistributeClick={openDistributeModal}
-            revenueAccumulated={
-              onChainData
-                ? parseFloat(
-                    ethers.formatUnits(onChainData.revenueAccumulated, 6)
-                  )
-                : pool.revenue_accumulated || 0
-            }
-          />
+          <>
+            {/* Show Begin Execution button if conditions are met */}
+            {canBeginExecution && (
+              <div className="flex items-center mb-4">
+                <button
+                  onClick={handleBeginExecution}
+                  className="bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
+                >
+                  <FaPlay className="mr-2" /> Start Using Funds
+                </button>
+                <Tooltip
+                  text="Pressing this button will transition the pool to the Executing state, allowing you to use the funds. You will no longer be able to receive additional commitments."
+                  width="280px"
+                  position="right"
+                  icon={
+                    <FaInfoCircle className="ml-2 text-gray-400 hover:text-white" />
+                  }
+                />
+              </div>
+            )}
+
+            {/* Show CreatorActions if in EXECUTING state */}
+            {(onChainPoolStatus === PoolStatus.EXECUTING ||
+              getPoolStatusFromNumber(pool.status || 0) ===
+                PoolStatus.EXECUTING) && (
+              <CreatorActions
+                isDepositLoading={isRevenueDepositLoading}
+                isWithdrawing={isWithdrawing}
+                isDistributing={isDistributing}
+                rawTotalFunds={
+                  onChainData
+                    ? parseFloat(
+                        ethers.formatUnits(onChainData.contractBalance, 6)
+                      )
+                    : rawTotalFunds
+                }
+                onReceiveClick={openReceiveModal}
+                onWithdrawClick={openWithdrawModal}
+                onDistributeClick={openDistributeModal}
+                revenueAccumulated={
+                  onChainData
+                    ? parseFloat(
+                        ethers.formatUnits(onChainData.revenueAccumulated, 6)
+                      )
+                    : pool.revenue_accumulated || 0
+                }
+                poolStatus={
+                  onChainPoolStatus !== null
+                    ? onChainPoolStatus
+                    : getPoolStatusFromNumber(pool.status || 0)
+                }
+                targetMet={targetMet}
+                isBeforeEndTime={isBeforeEndTime}
+                belowCap={isBelowCap}
+                onBeginExecutionClick={handleBeginExecution}
+              />
+            )}
+          </>
         )}
 
         {/* Status message */}
