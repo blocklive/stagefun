@@ -274,15 +274,30 @@ export async function getPoolDetails(
     throw new Error("Pool not found");
   }
 
-  const pool = getPoolContract(provider, poolAddress);
-
   try {
     // First check if the contract exists at this address
     const code = await provider.getCode(poolAddress);
     if (code === "0x") {
-      console.error(`No contract found at address: ${poolAddress}`);
-      throw new Error("Contract not found at specified address");
+      console.error(
+        `No contract found at address: ${poolAddress} - this could be a newly created pool that's not yet mined`
+      );
+      throw new Error(
+        "Contract not found at specified address - may be a newly created pool"
+      );
     }
+
+    // Check if the contract code is too small (might be incomplete deployment)
+    if (code.length < 100) {
+      // Arbitrary small size check
+      console.warn(
+        `Contract at ${poolAddress} has very small code size (${code.length} bytes) - deployment may be incomplete`
+      );
+      throw new Error(
+        "Contract deployment may be incomplete - please retry in a few seconds"
+      );
+    }
+
+    const pool = getPoolContract(provider, poolAddress);
 
     // Try to get the pool details - matches exactly with the ABI return values
     const details = await pool.getPoolDetails();
@@ -317,11 +332,21 @@ export async function getPoolDetails(
     if (error instanceof Error) {
       if (error.message.includes("call revert exception")) {
         console.error(
-          "Contract call reverted. This could mean the contract doesn't have the expected interface."
+          "Contract call reverted. This could mean the contract doesn't have the expected interface or is still being initialized."
+        );
+        throw new Error(
+          `Contract call reverted - pool ${poolAddress} may still be initializing`
         );
       } else if (error.message.includes("network error")) {
         console.error(
           "Network error occurred. This could mean the RPC endpoint is down or unreachable."
+        );
+      } else if (error.message.includes("missing revert data")) {
+        console.error(
+          "Missing revert data. This typically happens when a contract is newly deployed and not fully initialized."
+        );
+        throw new Error(
+          `Missing revert data - pool ${poolAddress} may be newly created and not fully initialized`
         );
       }
     }
