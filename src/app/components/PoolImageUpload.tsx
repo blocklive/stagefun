@@ -16,7 +16,7 @@ export default function PoolImageUpload({
   isUploadingImage,
   onImageSelect,
   onRemoveImage,
-  placeholderText = "YOU ARE INVITED",
+  placeholderText = "UPLOAD IMAGE",
   isRequired = true,
   showValidation = false,
 }: PoolImageUploadProps) {
@@ -95,11 +95,7 @@ export default function PoolImageUpload({
               <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
             </svg>
             <span className="text-white text-lg">
-              {isUploadingImage
-                ? "Uploading..."
-                : imagePreview
-                ? "Change Image"
-                : "Upload Image"}
+              {isUploadingImage ? "Uploading..." : "Upload Image"}
             </span>
           </div>
         </label>

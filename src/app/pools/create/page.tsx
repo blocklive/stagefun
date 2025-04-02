@@ -323,6 +323,16 @@ export default function CreatePoolPage() {
 
           {/* Form */}
           <form id="createPoolForm" onSubmit={onSubmit} className="mt-8">
+            {/* Description */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold mb-4">Pool Description</h2>
+              <RichTextEditor
+                content={description}
+                onChange={(value) => setDescription(value)}
+                placeholder="Write your story..."
+              />
+            </div>
+
             {/* Tiers Section */}
             {supabase && (
               <TiersSection
@@ -354,16 +364,6 @@ export default function CreatePoolPage() {
                 </button>
               </div>
             )}
-
-            {/* Description */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-4">Pool Description</h2>
-              <RichTextEditor
-                content={description}
-                onChange={(value) => setDescription(value)}
-                placeholder="Write your story..."
-              />
-            </div>
 
             {/* Location */}
             <div className="mb-6">

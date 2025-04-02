@@ -26,7 +26,7 @@ const PoolImageSection: React.FC<PoolImageSectionProps> = ({
       onImageSelect={onImageSelect}
       onRemoveImage={onRemoveImage}
       showValidation={showValidation}
-      placeholderText="YOU ARE INVITED"
+      placeholderText="UPLOAD IMAGE"
       isRequired={true}
     />
   );

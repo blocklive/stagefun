@@ -48,7 +48,7 @@ export default function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          "w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none min-h-[200px] prose prose-invert max-w-none",
+          "w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none min-h-[100px] prose prose-invert max-w-none",
       },
     },
     onUpdate: ({ editor }) => {
