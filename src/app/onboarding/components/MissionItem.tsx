@@ -56,7 +56,7 @@ const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
   return (
     <div className="flex items-center justify-between p-4 border-b border-[#FFFFFF14] last:border-b-0">
       {/* Status Icon and Mission Info */}
-      <div className="flex items-center">
+      <div className="flex items-center flex-1 mr-4">
         {/* Status Circle - Dotted circle for incomplete, checkmark for complete */}
         <div className="mr-4">
           {completed ? (
@@ -76,9 +76,9 @@ const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
       </div>
 
       {/* Right Side - Points & Action Button */}
-      <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-col items-end gap-2 min-w-[120px]">
         {/* Points */}
-        <div className="text-[#FFDD50] font-medium">
+        <div className="text-[#FFDD50] font-medium whitespace-nowrap">
           {points.toLocaleString()} points
         </div>
 

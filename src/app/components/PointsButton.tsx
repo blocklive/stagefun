@@ -27,7 +27,7 @@ const PointsButton: React.FC<PointsButtonProps> = ({ onClick }) => {
   return (
     <button
       onClick={onClick}
-      className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full bg-[#FFDD5014] text-[#FFDD50] hover:bg-[#FFDD5024] transition-colors border border-[#FFDD5033]"
+      className="h-10 flex items-center justify-center px-4 rounded-full bg-[#FFDD5014] text-[#FFDD50] hover:bg-[#FFDD5024] transition-colors border border-[#FFDD5033]"
       aria-label="Points"
     >
       {isLoading ? (

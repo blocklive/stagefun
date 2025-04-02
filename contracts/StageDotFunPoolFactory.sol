@@ -64,7 +64,7 @@ contract StageDotFunPoolFactory is Ownable {
         require(owner != address(0), "Invalid owner");
         require(creator != address(0), "Invalid creator");
         require(targetAmount > 0, "Target amount must be greater than 0");
-        require(capAmount >= targetAmount, "Cap amount must be >= target amount");
+        require(capAmount == 0 || capAmount >= targetAmount, "Cap amount must be >= target amount");
         
         // Create pool using minimal proxy
         address pool = Clones.clone(poolImplementation);
@@ -137,6 +137,20 @@ contract StageDotFunPoolFactory is Ownable {
             }
         }
     }
+    
+    // Begin the execution phase of a pool - transitions it to EXECUTING state
+    function beginExecution(address poolAddress) external {
+        StageDotFunPool pool = StageDotFunPool(poolAddress);
+        // This will enforce that only the owner can begin execution
+        pool.beginExecution();
+    }
+    
+    // Complete a pool - transitions it from EXECUTING to COMPLETED state
+    function completePool(address poolAddress) external {
+        StageDotFunPool pool = StageDotFunPool(poolAddress);
+        // This will enforce that only the owner can complete the pool
+        pool.completePool();
+    }
 
     // Get details for deployed pools with pagination support
     // If both startIndex and endIndex are 0, returns all pools
@@ -155,7 +169,9 @@ contract StageDotFunPoolFactory is Ownable {
         uint8[] memory statuses,
         address[] memory lpTokenAddresses,
         address[] memory nftContractAddresses,
-        uint256[] memory tierCounts
+        uint256[] memory tierCounts,
+        uint256[] memory targetReachedTimes,
+        uint256[] memory capReachedTimes
     ) {
         // If both indices are 0, return all pools
         if (startIndex == 0 && endIndex == 0) {
@@ -185,6 +201,8 @@ contract StageDotFunPoolFactory is Ownable {
                 new uint8[](0),
                 new address[](0),
                 new address[](0),
+                new uint256[](0),
+                new uint256[](0),
                 new uint256[](0)
             );
         }
@@ -203,6 +221,8 @@ contract StageDotFunPoolFactory is Ownable {
         lpTokenAddresses = new address[](batchSize);
         nftContractAddresses = new address[](batchSize);
         tierCounts = new uint256[](batchSize);
+        targetReachedTimes = new uint256[](batchSize);
+        capReachedTimes = new uint256[](batchSize);
         
         for (uint256 i = 0; i < batchSize; i++) {
             uint256 poolIndex = startIndex + i;
@@ -221,7 +241,9 @@ contract StageDotFunPoolFactory is Ownable {
                 statuses[i],
                 lpTokenAddresses[i],
                 nftContractAddresses[i],
-                tierCounts[i]
+                tierCounts[i],
+                targetReachedTimes[i],
+                capReachedTimes[i]
             ) = pool.getPoolDetails();
         }
         
@@ -237,7 +259,9 @@ contract StageDotFunPoolFactory is Ownable {
             statuses,
             lpTokenAddresses,
             nftContractAddresses,
-            tierCounts
+            tierCounts,
+            targetReachedTimes,
+            capReachedTimes
         );
     }
 

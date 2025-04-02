@@ -3,7 +3,6 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
-import { FaArrowLeft, FaWallet } from "react-icons/fa";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { useContractInteraction as useContractInteractionHook } from "../../../hooks/useContractInteraction";
 import { useContractInteraction } from "../../../contexts/ContractInteractionContext";
@@ -17,7 +16,6 @@ import {
   type DBTier,
 } from "../../../hooks/usePoolTiers";
 import AppHeader from "../../components/AppHeader";
-import { getAllTiers, Tier } from "../../../lib/contracts/StageDotFunPool";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import showToast from "@/utils/toast";
 
@@ -55,6 +53,7 @@ export default function PoolDetailsPage() {
     targetAmount,
     raisedAmount,
     percentage,
+    targetReachedTime,
     isLoading: isLoadingPool,
     error: poolError,
     refresh: refreshPool,
@@ -303,17 +302,18 @@ export default function PoolDetailsPage() {
 
   const isFunded = displayStatus === PoolStatus.FUNDED;
   const isUnfunded = displayStatus === PoolStatus.FAILED;
+  const isExecuting = displayStatus === PoolStatus.EXECUTING;
 
   // Update showCommitButton based on pool status
   useEffect(() => {
-    if (isUnfunded) {
-      // For unfunded pools, never show the commit button
+    if (isUnfunded || isExecuting) {
+      // For unfunded pools and executing pools, never show the commit button
       setShowCommitButton(false);
     } else {
       // For other pool states (open, funded), show the commit button
       setShowCommitButton(true);
     }
-  }, [isUnfunded]);
+  }, [isUnfunded, isExecuting]);
 
   // Remove the complex visibility logic
   const commitButtonText = "Commit";
@@ -446,9 +446,8 @@ export default function PoolDetailsPage() {
           isCreator={isCreator}
           handleEditClick={handleEditClick}
         />
-
         {/* Conditional rendering based on pool state */}
-        {isFunded ? (
+        {isExecuting || isFunded ? (
           <>
             <FundedPoolView
               pool={pool}
@@ -457,6 +456,7 @@ export default function PoolDetailsPage() {
               activeTab={contentTab}
               onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
               raisedAmount={raisedAmount}
+              targetReachedTimestamp={targetReachedTime}
             />
 
             {/* Tab Content */}

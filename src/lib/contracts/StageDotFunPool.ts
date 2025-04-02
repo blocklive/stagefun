@@ -45,7 +45,7 @@ export const StageDotFunPoolABI = [
   "event LPTransfer(address indexed from, address indexed to, uint256 amount)",
 
   // View functions
-  "function getPoolDetails() view returns (string _name, string _uniqueId, address _creator, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _capAmount, uint8 _status, address _lpTokenAddress, address _nftContractAddress, uint256 _tierCount)",
+  "function getPoolDetails() view returns (string _name, string _uniqueId, address _creator, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _capAmount, uint8 _status, address _lpTokenAddress, address _nftContractAddress, uint256 _tierCount, uint256 _targetReachedTime, uint256 _capReachedTime)",
   "function name() view returns (string)",
   "function uniqueId() view returns (string)",
   "function creator() view returns (address)",
@@ -81,6 +81,7 @@ export const StageDotFunPoolABI = [
   "function claimRefund() external",
   "function checkPoolStatus() external",
   "function withdrawFunds(uint256 amount) external returns (bool)",
+  "function beginExecution() external",
 ];
 
 // ABI for the StageDotFunLiquidity token
@@ -140,6 +141,8 @@ export interface ContractPool {
   lpTokenAddress: string;
   nftContractAddress: string;
   tierCount: bigint;
+  targetReachedTime: bigint;
+  capReachedTime: bigint;
   minCommitment: bigint;
   lpHolders: string[];
   milestones: any[];
@@ -283,6 +286,7 @@ export async function getPoolDetails(
 
     // Try to get the pool details - matches exactly with the ABI return values
     const details = await pool.getPoolDetails();
+    console.log("**** REAL details:", details);
 
     return {
       name: details._name,
@@ -297,6 +301,8 @@ export async function getPoolDetails(
       lpTokenAddress: details._lpTokenAddress,
       nftContractAddress: details._nftContractAddress,
       tierCount: details._tierCount,
+      targetReachedTime: details._targetReachedTime,
+      capReachedTime: details._capReachedTime,
       minCommitment: BigInt(0), // Assuming default value, actual implementation needed
       lpHolders: [], // Assuming default value, actual implementation needed
       milestones: [], // Assuming default value, actual implementation needed
@@ -497,11 +503,16 @@ export async function commitToTier(
 }
 
 export enum PoolStatus {
-  CREATED = 0,
+  INACTIVE = 0,
   ACTIVE = 1,
-  FUNDED = 2,
-  FAILED = 3,
-  TERMINATED = 4,
+  PAUSED = 2,
+  CLOSED = 3,
+  FUNDED = 4,
+  FULLY_FUNDED = 5,
+  FAILED = 6,
+  EXECUTING = 7,
+  COMPLETED = 8,
+  CANCELLED = 9,
 }
 
 /**
@@ -523,15 +534,17 @@ export function getDetailedPoolStatus(
 } {
   const now = Math.floor(Date.now() / 1000);
   const isFunded = totalDeposits >= targetAmount;
-  const isCapped = totalDeposits >= capAmount;
+  const isCapped = capAmount > 0 && totalDeposits >= capAmount;
   const hasEndedWithoutFunding = now > Number(endTime) && !isFunded;
-  const isTerminated = status === PoolStatus.TERMINATED;
+  const isTerminated = status === PoolStatus.CANCELLED;
 
   let displayStatus = status as PoolStatus;
 
   // Override status based on current state which might be different from what's in the blockchain
   if (status === PoolStatus.ACTIVE) {
-    if (isFunded) {
+    if (isCapped) {
+      displayStatus = PoolStatus.EXECUTING;
+    } else if (isFunded) {
       displayStatus = PoolStatus.FUNDED;
     } else if (hasEndedWithoutFunding) {
       displayStatus = PoolStatus.FAILED;

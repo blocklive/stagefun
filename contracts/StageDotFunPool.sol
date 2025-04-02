@@ -25,8 +25,10 @@ contract StageDotFunPool is Ownable {
     uint256 public endTime;
     uint256 public targetAmount;
     uint256 public capAmount;
-    bool public targetReached;
-    bool public capReached;
+    
+    // Timestamp tracking for milestones
+    uint256 public targetReachedTime;
+    uint256 public capReachedTime;
     
     // Revenue tracking
     uint256 public totalRevenue;
@@ -46,7 +48,7 @@ contract StageDotFunPool is Ownable {
         FUNDED,  // When target is reached
         FULLY_FUNDED, // When cap is reached
         FAILED,   // When end time is reached without meeting target
-        CAPPED,   // When cap is reached
+        EXECUTING, // When pool is using funds to execute the event/project
         COMPLETED,
         CANCELLED
     }
@@ -154,8 +156,8 @@ contract StageDotFunPool is Ownable {
         status = PoolStatus.ACTIVE;
         targetAmount = _targetAmount;
         capAmount = _capAmount;
-        targetReached = false;
-        capReached = false;
+        targetReachedTime = 0;
+        capReachedTime = 0;
         
         string memory tokenName = string(abi.encodePacked(_name, " LP Token"));
         lpToken = StageDotFunLiquidity(Clones.clone(_lpTokenImplementation));
@@ -232,7 +234,7 @@ contract StageDotFunPool is Ownable {
     }
     
     modifier targetMet() {
-        require(targetReached, "Target amount not reached");
+        require(targetReachedTime > 0, "Target amount not reached");
         _;
     }
     
@@ -329,7 +331,7 @@ contract StageDotFunPool is Ownable {
     function commitToTier(uint256 tierId, uint256 amount) external {
         require(tierId < tierCount, "Invalid tier");
         require(tiers[tierId].isActive, "Tier not active");
-        require(status == PoolStatus.ACTIVE || status == PoolStatus.FUNDED, "Pool not active");
+        require(status == PoolStatus.ACTIVE || status == PoolStatus.FUNDED, "Pool not accepting commitments");
         require(block.timestamp <= endTime, "Pool ended");
         if (capAmount > 0) {
             require(totalDeposits + amount <= capAmount, "Exceeds cap");
@@ -379,6 +381,7 @@ contract StageDotFunPool is Ownable {
     
     function receiveRevenue(uint256 amount) external {
         require(amount > 0, "Amount must be greater than 0");
+        require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
         require(depositToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         
         revenueAccumulated += amount;
@@ -387,6 +390,7 @@ contract StageDotFunPool is Ownable {
     
     function distributeRevenue() external {
         require(revenueAccumulated > 0, "No revenue to distribute");
+        require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
         
         uint256 totalSupply = lpToken.totalSupply();
         require(totalSupply > 0, "No LP tokens issued");
@@ -506,7 +510,9 @@ contract StageDotFunPool is Ownable {
         uint8 _status,
         address _lpTokenAddress,
         address _nftContractAddress,
-        uint256 _tierCount
+        uint256 _tierCount,
+        uint256 _targetReachedTime,
+        uint256 _capReachedTime
     ) {
         return (
             name,
@@ -520,31 +526,37 @@ contract StageDotFunPool is Ownable {
             uint8(status),
             address(lpToken),
             address(nftContract),
-            tierCount
+            tierCount,
+            targetReachedTime,
+            capReachedTime
         );
     }
 
     function _checkPoolStatus() internal {
         // Check if target has been reached
-        if (!targetReached && totalDeposits >= targetAmount) {
-            targetReached = true;
+        if (targetReachedTime == 0 && totalDeposits >= targetAmount) {
+            targetReachedTime = block.timestamp;
             status = PoolStatus.FUNDED;
             emit TargetReached(totalDeposits);
             emit PoolStatusUpdated(PoolStatus.FUNDED);
         }
         
         // Check if end time has passed and target not met
-        if (block.timestamp > endTime && !targetReached && status == PoolStatus.ACTIVE) {
+        if (block.timestamp > endTime && targetReachedTime == 0 && status == PoolStatus.ACTIVE) {
             status = PoolStatus.FAILED;
             emit PoolStatusUpdated(PoolStatus.FAILED);
         }
         
-        // Check if cap reached
-        if (totalDeposits >= capAmount) {
-            targetReached = true;
-            status = PoolStatus.FUNDED;
+        // Check if cap reached - but only if capAmount is not 0 (unlimited)
+        if (capAmount >= targetAmount && totalDeposits >= capAmount && capReachedTime == 0) {
+            if (targetReachedTime == 0) {
+                targetReachedTime = block.timestamp;
+            }
+            capReachedTime = block.timestamp;
+            // Automatically transition to EXECUTING state when cap is hit
+            status = PoolStatus.EXECUTING;
             emit CapReached(totalDeposits);
-            emit PoolStatusUpdated(PoolStatus.FUNDED);
+            emit PoolStatusUpdated(PoolStatus.EXECUTING);
         }
     }
 
@@ -575,8 +587,9 @@ contract StageDotFunPool is Ownable {
         emit FundsReturned(msg.sender, lpBalance);
     }
 
-    // Withdraw funds after target is met
+    // Withdraw funds after target is met - allow only in EXECUTING state
     function withdrawFunds(uint256 amount) external onlyOwner targetMet {
+        require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
         uint256 balance = depositToken.balanceOf(address(this));
         require(balance > 0, "No funds to withdraw");
         
@@ -588,6 +601,25 @@ contract StageDotFunPool is Ownable {
         require(depositToken.transfer(owner(), withdrawAmount), "Transfer failed");
         
         emit FundsWithdrawn(owner(), withdrawAmount);
+    }
+    
+    // Begin execution phase to allow fund withdrawal and stop new commitments
+    function beginExecution() external onlyOwner targetMet {
+        require(status == PoolStatus.FUNDED, "Pool must be funded");
+        status = PoolStatus.EXECUTING;
+        emit PoolStatusUpdated(PoolStatus.EXECUTING);
+    }
+    
+    // Complete the pool when all activities are finished
+    function completePool() external onlyOwner {
+        require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
+        
+        // Ensure all funds have been withdrawn before completion
+        uint256 balance = depositToken.balanceOf(address(this));
+        require(balance == 0, "Contract must be empty before completion");
+        
+        status = PoolStatus.COMPLETED;
+        emit PoolStatusUpdated(PoolStatus.COMPLETED);
     }
 
     // Remove the constructor since we're using initialize

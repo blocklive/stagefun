@@ -47,6 +47,7 @@ export interface Pool {
   emergency_mode?: boolean;
   emergency_withdrawal_request_time?: number;
   authorized_withdrawer?: string;
+  target_reached_time?: number;
   // Social links
   social_links?: {
     website?: string;
@@ -184,6 +185,8 @@ export async function getPoolById(id: string): Promise<Pool | null> {
     lpTokenAddress: ethers.ZeroAddress,
     nftContractAddress: "",
     tierCount: BigInt(0),
+    targetReachedTime: BigInt(0),
+    capReachedTime: BigInt(0),
     minCommitment: BigInt(0),
     lpHolders: [],
     milestones: [],
@@ -206,6 +209,7 @@ export async function getPoolById(id: string): Promise<Pool | null> {
       });
 
       chainData = await getPoolDetails(provider, dbPool.contract_address);
+      console.log("**** Chain data:", chainData);
     } catch (error) {
       // Only log actual errors
       console.error("[Pool Details] Chain data error:", {
@@ -219,6 +223,7 @@ export async function getPoolById(id: string): Promise<Pool | null> {
   const totalDeposits = fromUSDCBaseUnits(chainData.totalDeposits);
   const revenueAccumulated = fromUSDCBaseUnits(chainData.revenueAccumulated);
   const targetAmount = fromUSDCBaseUnits(chainData.targetAmount);
+  const capAmount = fromUSDCBaseUnits(chainData.capAmount);
   const minCommitment = fromUSDCBaseUnits(chainData.minCommitment);
 
   return {
@@ -227,6 +232,7 @@ export async function getPoolById(id: string): Promise<Pool | null> {
     creator_avatar_url: dbPool.creator?.avatar_url || null,
     target_amount: targetAmount || Number(dbPool.target_amount) || 0,
     min_commitment: minCommitment || Number(dbPool.min_commitment) || 0,
+    cap_amount: capAmount,
     raised_amount: totalDeposits || 0,
     revenue_accumulated: revenueAccumulated || 0,
     blockchain_status: Number(chainData.status || 0),
@@ -241,6 +247,8 @@ export async function getPoolById(id: string): Promise<Pool | null> {
     authorized_withdrawer: chainData.authorizedWithdrawer || "",
     patrons_number: dbPool.patrons_number,
     social_links: dbPool.social_links || null,
+    target_reached_time: Number(chainData.targetReachedTime) || 0,
+    chainData: chainData,
   };
 }
 

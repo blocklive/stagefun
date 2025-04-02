@@ -127,26 +127,49 @@ export function getContractAddresses() {
   await factory.deploymentTransaction().wait(5);
   console.log("Contract deployment confirmed");
 
-  // Verify the contract on Sourcify if not on a local network
+  // Verify the contract on Monad Explorer if not on a local network
   if (
     ethers.network.name !== "hardhat" &&
     ethers.network.name !== "localhost"
   ) {
-    console.log("Verifying contract on Sourcify...");
+    console.log("Verifying contracts on Monad Explorer...");
+
     try {
-      await ethers.run("sourcify:verify", {
-        address: await factory.getAddress(),
-        constructorArguments: [
-          usdc,
-          await poolImplementation.getAddress(),
-          await lpTokenImplementation.getAddress(),
-          await nftImplementation.getAddress(),
-        ],
-      });
-      console.log("Contract verified on Sourcify");
+      // Verify the factory contract
+      console.log("Verifying StageDotFunPoolFactory...");
+      await runVerification(await factory.getAddress(), [
+        usdc,
+        await poolImplementation.getAddress(),
+        await lpTokenImplementation.getAddress(),
+        await nftImplementation.getAddress(),
+      ]);
+
+      // Verify the implementation contracts
+      console.log("Verifying StageDotFunPool implementation...");
+      await runVerification(await poolImplementation.getAddress(), []);
+
+      console.log("Verifying StageDotFunLiquidity implementation...");
+      await runVerification(await lpTokenImplementation.getAddress(), []);
+
+      console.log("Verifying StageDotFunNFT implementation...");
+      await runVerification(await nftImplementation.getAddress(), []);
     } catch (error) {
-      console.error("Error verifying contract:", error);
+      console.error("Error verifying contracts:", error);
     }
+  }
+}
+
+// Helper function for contract verification
+async function runVerification(contractAddress, constructorArgs) {
+  try {
+    await ethers.run("verify", {
+      address: contractAddress,
+      constructorArguments: constructorArgs,
+      network: "monadTestnet",
+    });
+    console.log(`Successfully verified contract at ${contractAddress}`);
+  } catch (error) {
+    console.error(`Verification failed for ${contractAddress}:`, error);
   }
 }
 

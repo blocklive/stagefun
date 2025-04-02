@@ -3,6 +3,10 @@
 import { Pool } from "../../../../lib/supabase";
 import TabsAndSocial from "./TabsAndSocial";
 import { formatCurrency } from "../../../../lib/utils";
+import {
+  PoolStatus,
+  getPoolStatusFromNumber,
+} from "../../../../lib/contracts/types";
 
 type TabType = "overview" | "patrons";
 
@@ -13,6 +17,7 @@ interface FundedPoolViewProps {
   activeTab?: TabType;
   onTabChange?: (tab: TabType) => void;
   raisedAmount: number;
+  targetReachedTimestamp?: number;
 }
 
 export default function FundedPoolView({
@@ -22,7 +27,16 @@ export default function FundedPoolView({
   activeTab = "overview",
   onTabChange,
   raisedAmount,
+  targetReachedTimestamp,
 }: FundedPoolViewProps) {
+  const fundedDate = targetReachedTimestamp
+    ? new Date(targetReachedTimestamp * 1000).toLocaleDateString()
+    : new Date(pool.ends_at).toLocaleDateString();
+
+  // Check if pool is in executing status
+  const isExecuting =
+    getPoolStatusFromNumber(pool.blockchain_status) === PoolStatus.EXECUTING;
+
   return (
     <>
       {/* Tabs and Social Links */}
@@ -42,25 +56,42 @@ export default function FundedPoolView({
               {formatCurrency(raisedAmount)}
             </div>
             <div className="flex items-center">
-              <span className="text-xl text-gray-400">
-                Funded {new Date(pool.ends_at).toLocaleDateString()}
-              </span>
+              <span className="text-xl text-gray-400">Funded {fundedDate}</span>
             </div>
-            {pool.cap_amount && pool.cap_amount > 0 && (
-              <div className="text-sm text-gray-400 mt-1">
-                Still taking commitments up to{" "}
-                <span className="text-[#836EF9] font-medium">
-                  ${pool.cap_amount.toLocaleString()}
-                </span>
-              </div>
-            )}
+            {/* Don't show any cap messages if the pool is executing or if cap_amount is very small (like 0.1) or 0 */}
+            {!isExecuting &&
+              (pool.cap_amount && pool.cap_amount > 0.1 ? (
+                <div className="text-sm text-gray-400 mt-1">
+                  Still taking commitments up to{" "}
+                  <span className="text-[#836EF9] font-medium">
+                    ${pool.cap_amount.toLocaleString()}
+                  </span>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400 mt-1">
+                  Commitments are uncapped and accepted until{" "}
+                  <span className="text-[#836EF9] font-medium">
+                    {new Date(pool.ends_at).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
           </div>
 
           {/* Progress Bar with Overfunding Message */}
           <div className="relative w-full h-4 bg-gray-800 rounded-full mb-6">
-            <div className="h-full rounded-full bg-[#836EF9]"></div>
-            {pool.cap_amount &&
-              pool.cap_amount > 0 &&
+            <div
+              className="h-full rounded-full bg-[#836EF9]"
+              style={{
+                width: `${Math.min(
+                  100,
+                  (raisedAmount / (pool.target_amount || 1)) * 100
+                )}%`,
+              }}
+            ></div>
+            {/* Only show "Overfunded" message for pools with a significant cap (> 0.1) */}
+            {pool.cap_amount !== undefined &&
+              pool.cap_amount > 0.1 &&
+              pool.cap_amount !== 0 &&
               raisedAmount > pool.cap_amount && (
                 <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-sm text-[#836EF9] font-medium">
                   Overfunded! Cap reached at{" "}

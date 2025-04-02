@@ -313,9 +313,19 @@ export function usePoolCreationContract(): PoolCreationHookResult {
           // Convert target/cap amounts to base units only for contract call
           const targetAmountBaseUnits = toUSDCBaseUnits(poolData.target_amount);
           const capAmountBaseUnits =
-            poolData.cap_amount && poolData.cap_amount > 0
+            // Check explicitly if cap_amount is 0 to distinguish between "no cap" (0) and "not specified" (undefined/null)
+            poolData.cap_amount === 0
+              ? BigInt(0) // Use 0 to indicate no cap for the contract
+              : poolData.cap_amount && poolData.cap_amount > 0
               ? toUSDCBaseUnits(poolData.cap_amount)
               : targetAmountBaseUnits; // Use target amount base units if cap not specified
+
+          console.log("Pool creation cap settings:", {
+            rawCap: poolData.cap_amount,
+            isNoCap: poolData.cap_amount === 0,
+            capAmountBaseUnits: capAmountBaseUnits.toString(),
+            targetAmountBaseUnits: targetAmountBaseUnits.toString(),
+          });
 
           blockchainResult = await createPool(
             poolData.name,

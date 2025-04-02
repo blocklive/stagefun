@@ -80,7 +80,7 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-center p-4">
             <div className="text-2xl font-bold text-[#836EF9] opacity-50">
-              {name || "TIER"} ACCESS
+              UPLOAD IMAGE
             </div>
           </div>
         )}
@@ -109,11 +109,7 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
               <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
             </svg>
             <span className="text-white">
-              {isUploading
-                ? "Uploading..."
-                : imageUrl
-                ? "Change Image"
-                : "Upload Image"}
+              {isUploading ? "Uploading..." : "Upload Image"}
             </span>
           </div>
         </label>
