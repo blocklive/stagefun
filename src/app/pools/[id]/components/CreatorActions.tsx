@@ -1,4 +1,4 @@
-import { FaPlus, FaArrowUp, FaDollarSign, FaPlay } from "react-icons/fa";
+import { FaPlus, FaArrowUp, FaDollarSign } from "react-icons/fa";
 import { PoolStatus } from "@/lib/contracts/types";
 
 interface CreatorActionsProps {
@@ -9,7 +9,6 @@ interface CreatorActionsProps {
   onReceiveClick: () => void;
   onWithdrawClick: () => void;
   onDistributeClick: () => void;
-  onBeginExecutionClick?: () => void;
   revenueAccumulated: number;
   poolStatus: number;
   targetMet: boolean;
@@ -25,44 +24,17 @@ export default function CreatorActions({
   onReceiveClick,
   onWithdrawClick,
   onDistributeClick,
-  onBeginExecutionClick,
   revenueAccumulated,
   poolStatus,
   targetMet,
   isBeforeEndTime,
   belowCap,
 }: CreatorActionsProps) {
-  // Should show begin execution button?
-  const showBeginExecutionButton =
-    poolStatus === PoolStatus.FUNDED &&
-    targetMet &&
-    isBeforeEndTime &&
-    belowCap; // Cap will auto-transition to EXECUTING
-
   // Should show execution actions?
   const isExecuting = poolStatus === PoolStatus.EXECUTING;
 
   return (
-    <div className="flex justify-center space-x-4">
-      {/* Begin Execution Button - only shown when conditions are met */}
-      {showBeginExecutionButton && onBeginExecutionClick && (
-        <div className="flex flex-col items-center w-20">
-          <button
-            className="w-10 h-10 bg-[#3F2A90] hover:bg-[#503AA0] rounded-full flex items-center justify-center mb-2 transition-colors"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onClick={onBeginExecutionClick}
-            title="Begin Execution"
-          >
-            <FaPlay className="w-4 h-4 text-white" />
-          </button>
-          <span className="text-gray-400 text-sm">Begin Execution</span>
-        </div>
-      )}
-
+    <div className="flex justify-start space-x-4">
       {/* Receive Button - only shown in EXECUTING state */}
       {isExecuting && (
         <div className="flex flex-col items-center w-20">

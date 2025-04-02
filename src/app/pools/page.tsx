@@ -163,7 +163,10 @@ export default function PoolsPage() {
 
       // Then filter by tab
       if (activeTab === "funded") {
-        return displayStatus === PoolStatus.FUNDED;
+        return (
+          displayStatus === PoolStatus.FUNDED ||
+          displayStatus === PoolStatus.EXECUTING
+        );
       } else if (activeTab === "unfunded") {
         return displayStatus === PoolStatus.FAILED;
       } else {

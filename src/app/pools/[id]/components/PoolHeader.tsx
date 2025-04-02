@@ -44,6 +44,10 @@ export default function PoolHeader({
       statusText = "Unfunded";
       statusColor = "#F87171"; // Red for unfunded
       break;
+    case PoolStatus.EXECUTING:
+      statusText = "Executing";
+      statusColor = "#22C55E"; // Green for executing
+      break;
     case PoolStatus.INACTIVE:
       statusText = "Inactive";
       break;

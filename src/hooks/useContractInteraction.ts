@@ -184,9 +184,9 @@ export function useContractInteraction(): ContractInteractionHookResult {
         });
 
         // Check if the pool has reached its target (FUNDED status)
-        if (Number(poolDetails._status) !== 4) {
-          // 4 is FUNDED status
-          throw new Error("Pool must be in FUNDED status to withdraw funds");
+        if (Number(poolDetails._status) !== 7) {
+          // 7 is EXECUTING status
+          throw new Error("Pool must be in EXECUTING status to withdraw funds");
         }
 
         // Get owner address - this is the creator of the pool

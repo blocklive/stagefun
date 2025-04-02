@@ -112,9 +112,10 @@ export function getDisplayStatus(
       : endTime;
   const now = Math.floor(Date.now() / 1000); // Current time in seconds
 
-  // If the pool is already marked as FUNDED or FAILED, respect that status
+  // If the pool is already marked as FUNDED, FAILED, or EXECUTING, respect that status
   if (status === PoolStatus.FUNDED) return PoolStatus.FUNDED;
   if (status === PoolStatus.FAILED) return PoolStatus.FAILED;
+  if (status === PoolStatus.EXECUTING) return PoolStatus.EXECUTING;
 
   // Check if the pool has ended
   if (now > endTimeNum) {
