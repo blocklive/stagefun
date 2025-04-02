@@ -746,14 +746,7 @@ export default function PoolFundsSection({
       <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
-            <h3 className="text-xl font-semibold">Pool Funds</h3>
-            <Tooltip
-              text="Current funds in your contract"
-              width="200px"
-              icon={
-                <FaInfoCircle className="ml-2 text-gray-400 hover:text-white" />
-              }
-            />
+            <h3 className="text-xl font-semibold">Pool Balance</h3>
           </div>
         </div>
 

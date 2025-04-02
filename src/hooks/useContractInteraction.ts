@@ -501,6 +501,8 @@ export function useContractInteraction(): ContractInteractionHookResult {
           lpTokenAddress: details._lpTokenAddress || ethers.ZeroAddress,
           nftContractAddress: details._nftContractAddress || ethers.ZeroAddress,
           tierCount: details._tierCount,
+          targetReachedTime: details._targetReachedTime || BigInt(0),
+          capReachedTime: details._capReachedTime || BigInt(0),
           minCommitment: details._minCommitment || BigInt(0),
           lpHolders: details._lpHolders || [],
           milestones: details._milestones || [],
