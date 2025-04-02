@@ -39,14 +39,18 @@ function parseBatchData(data) {
 // --- Keep helper functions if provided ---
 
 // Replace with your actual factory addresses (lowercase)
-const FACTORY_ADDRESSES = [
-  "0x24ec1a5bad13cb96562d6d37de3f753e3c1ac099", // Ensure lowercase
-  // Add more factory addresses if needed (lowercase)
-];
+// const FACTORY_ADDRESSES = [
+//   "0x24ec1a5bad13cb96562d6d37de3f753e3c1ac099", // Ensure lowercase
+// Add more factory addresses if needed (lowercase)
+// ];
 
-// CORRECT PoolCreated Topic Hash observed from logs
+// Topic hashes for events we want to track
 const POOL_CREATED_TOPIC =
   "0xa6f06b3ba9a7796573bab39bc2643d47c32efadc0a504262e58b54cd9d633e2e";
+
+// TierCommitted event topic hash - CORRECTED from actual transaction logs
+const TIER_COMMITTED_TOPIC =
+  "0xd9861a9641141da7a608bb821575da486cc59cac5cf3f24e644633d8b9a051b5";
 
 // The main function processes the stream data
 function main(stream) {
@@ -54,7 +58,7 @@ function main(stream) {
 
   // Check if the basic structure is as expected
   if (!stream || !Array.isArray(stream.data)) {
-    return []; // Return empty if structure is wrong
+    return null; // Return null to avoid webhook call
   }
 
   // Iterate through the outer array (blocks?)
@@ -79,25 +83,32 @@ function main(stream) {
           continue; // Skip malformed logs
         }
 
-        // Normalize addresses and topics for comparison
-        const logAddress = log.address.toLowerCase();
+        // Normalize topics for comparison
         const eventTopic = log.topics[0].toLowerCase();
 
         // --- Filtering Logic ---
-        const isFromFactory = FACTORY_ADDRESSES.includes(logAddress);
-        const isPoolCreatedEvent = eventTopic === POOL_CREATED_TOPIC;
 
-        // If it matches, add it to our results
-        if (isFromFactory && isPoolCreatedEvent) {
+        // Case 1: PoolCreated events from any contract (factory)
+        if (eventTopic === POOL_CREATED_TOPIC) {
+          console.log("Found PoolCreated event");
           allMatchingLogs.push(log);
+          continue;
+        }
+
+        // Case 2: TierCommitted events from any contract (pool)
+        if (eventTopic === TIER_COMMITTED_TOPIC) {
+          console.log("Found TierCommitted event");
+          allMatchingLogs.push(log);
+          continue;
         }
       }
     }
   }
 
-  // CRITICAL CHANGE: Return null instead of empty array when no matches
+  // CRITICAL: Return null instead of empty array when no matches
+  // This prevents the webhook from being called when there are no relevant events
   if (allMatchingLogs.length === 0) {
-    return null; // Should prevent the webhook from being called
+    return null;
   }
 
   // Return the flattened array of all matching logs found across all blocks/transactions
