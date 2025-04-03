@@ -97,26 +97,19 @@ contract StageDotFunPool is Ownable {
     mapping(uint256 => uint256) public tierNFTSupply; // tierId => current supply
     
     // Events
-    event PoolCreated(string name, string uniqueId, uint256 endTime);
     event TierCreated(uint256 indexed tierId, string name, uint256 price);
     event TierUpdated(uint256 indexed tierId, string name, uint256 price);
     event TierDeactivated(uint256 indexed tierId);
     event TierActivated(uint256 indexed tierId);
-    event RewardItemAdded(uint256 indexed tierId, string name, string itemType);
     event TierCommitted(address indexed user, uint256 indexed tierId, uint256 amount);
     event TargetReached(uint256 totalAmount);
     event CapReached(uint256 totalAmount);
     event FundsReturned(address indexed lp, uint256 amount);
     event PoolStatusUpdated(PoolStatus newStatus);
-    event Deposit(address indexed lp, uint256 amount);
     event RevenueReceived(uint256 amount);
     event RevenueDistributed(uint256 amount);
     event PoolNameUpdated(string oldName, string newName);
-    event NFTClaimed(address indexed user, uint256 indexed tierId, uint256 tokenId);
-    event NFTsMintedForTier(uint256 indexed tierId, uint256 count);
-    event LPTransfer(address indexed from, address indexed to, uint256 amount);
     event FundsWithdrawn(address indexed recipient, uint256 amount);
-    event RefundIssued(address indexed user, uint256 amount);
     
     // Get user's tier commitments
     function getUserTierCommitments(address user) external view returns (uint256[] memory) {

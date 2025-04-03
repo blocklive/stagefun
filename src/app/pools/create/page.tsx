@@ -72,6 +72,7 @@ export default function CreatePoolPage() {
   const {
     selectedImage,
     imagePreview,
+    finalImageUrl,
     isUploadingImage,
     setIsUploadingImage,
     handleImageSelect,
@@ -227,6 +228,38 @@ export default function CreatePoolPage() {
         }
       }
 
+      // IMPORTANT: Always upload images to Supabase storage first!
+      // Never save base64 data directly to the database - this causes:
+      // 1. Extremely large DB entries (megabytes instead of a few bytes for a URL)
+      // 2. Poor performance for queries that return these fields
+      // 3. Difficulty managing/referencing these images later
+      // 4. Higher database costs
+      //
+      // The imagePreview state may contain a base64 string after file selection,
+      // so we must upload it to storage and use the resulting URL.
+      let finalImageUrl = imagePreview;
+      let finalMetadataUrl = null;
+      if (selectedImage && !imagePreview?.startsWith("http")) {
+        console.log("Uploading image to Supabase storage...");
+        setIsUploadingImage(true);
+        try {
+          // Call uploadImage with the pool name to create proper metadata
+          const uploadResult = await uploadImage(selectedImage, poolName);
+          if (!uploadResult.imageUrl) {
+            throw new Error("Failed to upload image");
+          }
+          finalImageUrl = uploadResult.imageUrl;
+          finalMetadataUrl = uploadResult.metadataUrl; // Store the metadata URL too
+          console.log("Image uploaded successfully:", finalImageUrl);
+          console.log("Metadata uploaded successfully:", finalMetadataUrl);
+        } catch (uploadError: any) {
+          console.error("Error uploading image:", uploadError);
+          throw new Error(`Error uploading image: ${uploadError.message}`);
+        } finally {
+          setIsUploadingImage(false);
+        }
+      }
+
       // Call handleSubmit from usePoolCreation with all required parameters
       await hookHandleSubmit(
         poolName,
@@ -234,7 +267,7 @@ export default function CreatePoolPage() {
         description,
         parseFloat(fundingGoal),
         parseFloat(capAmount),
-        imagePreview || "",
+        finalImageUrl || "", // Use the URL from storage upload instead of base64
         tiers,
         location,
         socialLinks,
@@ -343,7 +376,7 @@ export default function CreatePoolPage() {
                 supabase={supabase}
                 poolName={poolName}
                 fundingGoal={fundingGoal}
-                poolImage={imagePreview || undefined}
+                poolImage={finalImageUrl || undefined}
               />
             )}
             {!supabase && (

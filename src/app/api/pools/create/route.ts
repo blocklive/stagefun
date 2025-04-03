@@ -247,18 +247,35 @@ export async function POST(request: NextRequest) {
     let insertedTiers: any[] = [];
     if (poolData.tiers && poolData.tiers.length > 0) {
       console.log(`Preparing ${poolData.tiers.length} tiers for insertion`);
-      const tiersToInsert = poolData.tiers.map((tier: any) => ({
-        pool_id: insertedPool.id,
-        name: tier.name,
-        description: tier.description || `${tier.name} tier`,
-        price: tier.isVariablePrice ? 0 : tier.price,
-        is_variable_price: tier.isVariablePrice || false,
-        min_price: tier.isVariablePrice ? tier.minPrice : null,
-        max_price: tier.isVariablePrice ? tier.maxPrice : null,
-        max_supply: tier.maxPatrons === 0 ? null : tier.maxPatrons,
-        current_supply: 0,
-        is_active: tier.isActive !== undefined ? tier.isActive : true,
-      }));
+
+      // CRITICAL: Never store base64 images in the database!
+      // - Always store URLs to images in Supabase storage
+      // - Base64 images can be megabytes in size and will break database indexes
+      // - The tier.imageUrl and tier.nftMetadata fields should ONLY contain URLs
+      // - If you see a base64 string here, it means something went wrong in the upload process
+      const tiersToInsert = poolData.tiers.map((tier: any) => {
+        // Validate no base64 images are being stored
+        if (tier.imageUrl?.startsWith("data:")) {
+          throw new Error(
+            `Cannot store base64 image in database for tier "${tier.name}". Upload to storage first.`
+          );
+        }
+
+        return {
+          pool_id: insertedPool.id,
+          name: tier.name,
+          description: tier.description || `${tier.name} tier`,
+          price: tier.isVariablePrice ? 0 : tier.price,
+          is_variable_price: tier.isVariablePrice || false,
+          min_price: tier.isVariablePrice ? tier.minPrice : null,
+          max_price: tier.isVariablePrice ? tier.maxPrice : null,
+          max_supply: tier.maxPatrons === 0 ? null : tier.maxPatrons,
+          current_supply: 0,
+          is_active: tier.isActive !== undefined ? tier.isActive : true,
+          nft_metadata: tier.nftMetadata || null, // Save metadata URL to database
+          image_url: tier.imageUrl || null, // Save image URL to database
+        };
+      });
 
       const { data: dbTiers, error: tiersError } = await adminClient
         .from("tiers")

@@ -97,6 +97,13 @@ export const usePoolCreation = () => {
         throw new Error(`Tier price must be greater than 0`);
       }
 
+      // Validate that imageUrl is a proper URL and not base64
+      if (tier.imageUrl && tier.imageUrl.startsWith("data:")) {
+        throw new Error(
+          `Cannot store base64 image in database for tier "${tier.name}". Upload to storage first.`
+        );
+      }
+
       if (tier.isVariablePrice) {
         if (
           tier.minPrice === undefined ||
@@ -179,6 +186,7 @@ export const usePoolCreation = () => {
           maxPatrons: parseInt(tier.maxPatrons),
           description: tier.description || `${tier.name} tier`,
           rewardItems: tier.rewardItems,
+          imageUrl: tier.imageUrl,
         })),
       };
 

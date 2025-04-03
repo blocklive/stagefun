@@ -45,7 +45,7 @@ export default function PoolHeader({
       statusColor = "#F87171"; // Red for unfunded
       break;
     case PoolStatus.EXECUTING:
-      statusText = "Executing";
+      statusText = "Production";
       statusColor = "#22C55E"; // Green for executing
       break;
     case PoolStatus.INACTIVE:

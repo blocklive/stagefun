@@ -40,7 +40,6 @@ type OnChainPool = {
   image_url: string | null;
   description: string;
   creator_id: string;
-  blockchain_status: number | bigint;
 };
 
 export default function PoolsPage() {
@@ -91,10 +90,10 @@ export default function PoolsPage() {
     pools,
     isLoading: loading,
     error,
-    isRpcError,
+    isDbError,
     refresh,
     isUsingCache,
-  } = usePoolsWithDeposits();
+  } = usePoolsWithDeposits(1, activeTab);
   const [showUSDCModal, setShowUSDCModal] = useState(false);
   const [showTokensModal, setShowTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -145,34 +144,16 @@ export default function PoolsPage() {
     fetchJoinedPools();
   }, [dbUser]);
 
-  // Filter pools based on active tab and pool type
+  // Replace the custom filtering section with a simpler version
+  // that only filters by pool type (all or my)
   const filteredPools =
-    pools?.filter((pool: OnChainPool) => {
-      // First filter by pool type (all or my)
+    pools?.filter((pool) => {
+      // Only filter by pool type (all or my)
       if (poolType === "my" && pool.creator_id !== dbUser?.id) {
         return false;
       }
 
-      // Get the display status that takes into account both blockchain status and end time
-      const displayStatus = getDisplayStatus(
-        pool.blockchain_status,
-        pool.ends_at,
-        pool.raised_amount,
-        pool.target_amount
-      );
-
-      // Then filter by tab
-      if (activeTab === "funded") {
-        return (
-          displayStatus === PoolStatus.FUNDED ||
-          displayStatus === PoolStatus.EXECUTING
-        );
-      } else if (activeTab === "unfunded") {
-        return displayStatus === PoolStatus.FAILED;
-      } else {
-        // open - show active pools that aren't funded or failed
-        return displayStatus === PoolStatus.ACTIVE;
-      }
+      return true;
     }) || [];
 
   // Sort pools
@@ -214,15 +195,29 @@ export default function PoolsPage() {
       return `${(amount / 1000000).toFixed(1)}M`;
     } else if (amount >= 1000) {
       return `${(amount / 1000).toFixed(1)}K`;
+    } else if (amount >= 0.01) {
+      return amount.toFixed(2);
+    } else if (amount > 0) {
+      return amount.toFixed(4);
     }
-    return amount.toString();
+    return "0";
   };
 
   // Get pool status indicator
   const getPoolStatusIndicator = (pool: OnChainPool) => {
-    if (pool.status === "closed") {
-      return <span className="text-gray-400">• Closed</span>;
+    // Display indicator based on status string from database
+    if (pool.status === "CLOSED" || pool.status === "CANCELLED") {
+      return (
+        <span className="text-gray-400">
+          • {pool.status.charAt(0) + pool.status.slice(1).toLowerCase()}
+        </span>
+      );
     }
+
+    if (pool.status === "PAUSED") {
+      return <span className="text-yellow-400">• Paused</span>;
+    }
+
     return null;
   };
 
@@ -470,7 +465,7 @@ export default function PoolsPage() {
         >
           {loading && pools.length === 0 ? (
             renderSkeletonList()
-          ) : error && !isRpcError ? (
+          ) : error && !isDbError ? (
             <div className="p-8 text-center text-red-400">
               <p>Error loading pools. Please try again later.</p>
               <button

@@ -67,10 +67,9 @@ export default function ProfileComponent() {
   const userId = profileUser?.id || dbUser?.id;
   const {
     pools: userHostedPools,
-    isLoading: isUserPoolsLoading,
+    isLoading: userPoolsLoading,
     error: userPoolsError,
     refresh: refreshUserPools,
-    isRpcError,
     isUsingCache,
   } = useUserHostedPools(userId);
 
@@ -715,7 +714,7 @@ export default function ProfileComponent() {
 
         {/* Pool List */}
         <div className="flex-1 p-4 pb-32">
-          {isUserPoolsLoading ? (
+          {userPoolsLoading ? (
             <div className="flex justify-center py-8">
               <div
                 className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2"
@@ -725,7 +724,7 @@ export default function ProfileComponent() {
           ) : userPoolsError ? (
             <div className="text-center py-8 text-red-400">
               <p>Error loading pools. Please try again.</p>
-              {isRpcError && (
+              {isUsingCache && (
                 <p className="text-sm mt-1">
                   There was an issue connecting to the blockchain. Using cached
                   data if available.
@@ -736,7 +735,7 @@ export default function ProfileComponent() {
             <div className="space-y-4">
               {userHostedPools.map((pool) => (
                 <div
-                  key={`${pool.id}-${pool.blockchain_status}`}
+                  key={pool.id}
                   className="bg-[#1C1B1F] rounded-xl overflow-hidden cursor-pointer hover:bg-[#28262C] transition-colors p-4"
                   onClick={() => router.push(`/pools/${pool.id}`)}
                 >
