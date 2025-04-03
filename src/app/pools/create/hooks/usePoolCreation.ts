@@ -6,6 +6,7 @@ import { useContractInteraction } from "@/contexts/ContractInteractionContext";
 import { useNativeBalance } from "@/hooks/useNativeBalance";
 import { v4 as uuidv4 } from "uuid";
 import showToast from "@/utils/toast";
+import { toUSDCBaseUnits } from "@/lib/contracts/StageDotFunPool";
 
 export const usePoolCreation = () => {
   const router = useRouter();
@@ -159,8 +160,8 @@ export const usePoolCreation = () => {
         name: poolName,
         ticker,
         description,
-        target_amount: fundingGoal,
-        cap_amount: capAmount,
+        target_amount: Number(toUSDCBaseUnits(fundingGoal)), // Store in base units in DB
+        cap_amount: capAmount === 0 ? 0 : Number(toUSDCBaseUnits(capAmount)), // Store in base units in DB, preserve 0 for uncapped
         currency: "USDC",
         token_amount: 0,
         token_symbol: ticker,
@@ -176,13 +177,13 @@ export const usePoolCreation = () => {
         tiers: tiers.map((tier) => ({
           name: tier.name,
           price: tier.isVariablePrice
-            ? parseFloat(tier.minPrice)
-            : parseFloat(tier.price),
+            ? Number(toUSDCBaseUnits(parseFloat(tier.minPrice))) // Store in base units in DB
+            : Number(toUSDCBaseUnits(parseFloat(tier.price))), // Store in base units in DB
           isActive: tier.isActive,
           nftMetadata: tier.nftMetadata,
           isVariablePrice: tier.isVariablePrice,
-          minPrice: parseFloat(tier.minPrice),
-          maxPrice: parseFloat(tier.maxPrice),
+          minPrice: Number(toUSDCBaseUnits(parseFloat(tier.minPrice))), // Store in base units in DB
+          maxPrice: Number(toUSDCBaseUnits(parseFloat(tier.maxPrice))), // Store in base units in DB
           maxPatrons: parseInt(tier.maxPatrons),
           description: tier.description || `${tier.name} tier`,
           rewardItems: tier.rewardItems,

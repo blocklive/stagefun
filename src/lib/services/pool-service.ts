@@ -229,11 +229,17 @@ export async function getPoolById(id: string): Promise<Pool | null> {
     ...dbPool,
     creator_name: dbPool.creator?.name || "Anonymous",
     creator_avatar_url: dbPool.creator?.avatar_url || null,
-    target_amount: targetAmount || Number(dbPool.target_amount) || 0,
-    min_commitment: minCommitment || Number(dbPool.min_commitment) || 0,
-    cap_amount: capAmount,
-    raised_amount: totalDeposits || 0,
-    revenue_accumulated: revenueAccumulated || 0,
+    target_amount:
+      targetAmount || Number(dbPool.target_amount) / 1_000_000 || 0,
+    min_commitment:
+      minCommitment || Number(dbPool.min_commitment) / 1_000_000 || 0,
+    cap_amount:
+      capAmount ||
+      (dbPool.cap_amount ? Number(dbPool.cap_amount) / 1_000_000 : 0),
+    raised_amount:
+      totalDeposits || Number(dbPool.raised_amount) / 1_000_000 || 0,
+    revenue_accumulated:
+      revenueAccumulated || Number(dbPool.revenue_accumulated) / 1_000_000 || 0,
     blockchain_status: Number(chainData.status || 0),
     status: getPoolStatusString(chainData.status),
     end_time: Number(chainData.endTime) || 0,

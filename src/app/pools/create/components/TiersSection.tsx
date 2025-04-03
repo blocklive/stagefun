@@ -344,8 +344,6 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
             }
           }
 
-          console.log("Tier UPDATES GO:", tier);
-          console.log("poolImage value:", poolImage);
           // Update image and metadata if not modified and pool image changes
           if (
             !tier.modifiedFields.has("imageUrl") &&
