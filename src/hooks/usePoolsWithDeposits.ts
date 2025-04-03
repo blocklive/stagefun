@@ -92,11 +92,17 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
         const from = (currentPage - 1) * POOLS_PER_PAGE;
         const to = from + POOLS_PER_PAGE - 1;
 
-        // First, get the pools from the pools table
-        let poolQuery = supabase.from("pools").select("*");
-
-        // Only show pools where display_public is true
-        poolQuery = poolQuery.eq("display_public", true);
+        // First, get the pools from the pools table - with creator join
+        // OPTIMIZATION 1: Join with users table directly instead of separate query
+        let poolQuery = supabase
+          .from("pools")
+          .select(
+            `
+            *,
+            creator:users!creator_id(id, name, avatar_url)
+          `
+          )
+          .eq("display_public", true);
 
         // Apply status filter based on the string status field
         if (status) {
@@ -121,7 +127,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
         // Get total count separately to avoid relationship issues
         const countQuery = supabase
           .from("pools")
-          .select("*", { count: "exact", head: true })
+          .select("id", { count: "exact", head: true })
           .eq("display_public", true);
 
         // Apply same status filter to count query if provided
@@ -151,8 +157,6 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           throw poolError;
         }
 
-        console.log("POOL DATA **", pools);
-
         // Check if there are more pools available
         setHasMore(count !== null && from + pools.length < count);
 
@@ -168,9 +172,8 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
         const poolAddresses = pools
           .map((pool) => pool.contract_address?.toLowerCase())
           .filter(Boolean);
-        console.log("Pool addresses (normalized):", poolAddresses);
 
-        // Skip user lookup if no poolAddresses exist
+        // Skip tier_commitments lookup if no poolAddresses exist
         if (poolAddresses.length === 0) {
           console.warn("No valid pool addresses found");
           return {
@@ -180,31 +183,8 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           };
         }
 
-        // Get creator IDs from the pools table (these are public.users.id values)
-        const creatorIds = pools.map((pool) => pool.creator_id).filter(Boolean);
-
-        console.log("Creator IDs:", creatorIds);
-
-        // Fetch all creators by their user IDs
-        const { data: users } =
-          creatorIds.length > 0
-            ? await supabase
-                .from("users")
-                .select("id, name, avatar_url")
-                .in("id", creatorIds)
-            : { data: [] };
-
-        console.log("Found creators:", users);
-
-        // Create a map of user profiles for easy lookup by ID
-        const userMap = new Map();
-        if (users) {
-          users.forEach((user) => {
-            userMap.set(user.id, user);
-          });
-        }
-
-        // Get deposits for all pools in a single query
+        // OPTIMIZATION 2: Get deposits for all pools in a single query
+        // This part needs to remain as a separate query since there's no FK relationship
         const { data: depositData } =
           poolAddresses.length > 0
             ? await supabase
@@ -212,8 +192,6 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
                 .select("pool_address, amount")
                 .in("pool_address", poolAddresses)
             : { data: [] };
-
-        console.log("DEPOSIT DATA **", depositData);
 
         // Group deposits by pool address (case insensitive)
         const depositsByPool = new Map();
@@ -246,29 +224,16 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           });
         }
 
-        // Log the deposit totals we've calculated
-        console.log(
-          "DEPOSIT TOTALS BY POOL:",
-          Array.from(depositsByPool.entries()).map(([addr, amount]) => ({
-            address: addr,
-            total: amount,
-          }))
-        );
-
         // Transform to the expected UI format with direct status mapping
         const transformedPools = pools.map((pool) => {
-          // Look up user by creator_id (public.users.id)
-          const user = pool.creator_id ? userMap.get(pool.creator_id) : null;
+          // OPTIMIZATION 3: Use the joined creator data directly
+          const user = pool.creator;
 
           // Look up deposits using normalized address (lowercase)
           const normalizedAddress = pool.contract_address?.toLowerCase();
           const totalDeposits = normalizedAddress
             ? depositsByPool.get(normalizedAddress) || 0
             : 0;
-
-          console.log(
-            `Pool ${pool.name} (${normalizedAddress}): deposits = ${totalDeposits}`
-          );
 
           return {
             id: pool.unique_id || pool.id,
@@ -288,8 +253,6 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
             creator_id: pool.creator_id || "",
           };
         });
-
-        console.log("TRANSFORMED POOLS **", transformedPools);
 
         // Store the successfully fetched data in our cache
         setCachedPools(transformedPools);
