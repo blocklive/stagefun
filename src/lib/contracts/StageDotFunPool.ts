@@ -286,7 +286,6 @@ export async function getPoolDetails(
 
     // Try to get the pool details - matches exactly with the ABI return values
     const details = await pool.getPoolDetails();
-    console.log("**** REAL details:", details);
 
     return {
       name: details._name,

@@ -209,7 +209,6 @@ export async function getPoolById(id: string): Promise<Pool | null> {
       });
 
       chainData = await getPoolDetails(provider, dbPool.contract_address);
-      console.log("**** Chain data:", chainData);
     } catch (error) {
       // Only log actual errors
       console.error("[Pool Details] Chain data error:", {

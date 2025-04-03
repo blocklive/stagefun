@@ -58,23 +58,19 @@ export default function FundedPoolView({
             <div className="flex items-center">
               <span className="text-xl text-gray-400">Funded {fundedDate}</span>
             </div>
-            {/* Don't show any cap messages if the pool is executing or if cap_amount is very small (like 0.1) or 0 */}
-            {!isExecuting &&
-              (pool.cap_amount && pool.cap_amount > 0.1 ? (
-                <div className="text-sm text-gray-400 mt-1">
-                  Still taking commitments up to{" "}
-                  <span className="text-[#836EF9] font-medium">
-                    ${pool.cap_amount.toLocaleString()}
-                  </span>
-                </div>
-              ) : (
-                <div className="text-sm text-gray-400 mt-1">
-                  Commitments are uncapped and accepted until{" "}
-                  <span className="text-[#836EF9] font-medium">
-                    {new Date(pool.ends_at).toLocaleDateString()}
-                  </span>
-                </div>
-              ))}
+            {/* Don't show any cap messages if the pool is executing */}
+            {!isExecuting && (
+              <div className="text-sm text-gray-400 mt-1">
+                Commitments are{" "}
+                {!pool.cap_amount
+                  ? "uncapped"
+                  : `capped at ${formatCurrency(Number(pool.cap_amount))}`}{" "}
+                and accepted until{" "}
+                <span className="text-[#836EF9] font-medium">
+                  {new Date(pool.ends_at).toLocaleDateString()}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Progress Bar with Overfunding Message */}

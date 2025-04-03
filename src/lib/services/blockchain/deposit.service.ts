@@ -68,23 +68,19 @@ export class DepositService {
         isNoCap: poolDetails._capAmount === BigInt(0),
       });
 
-      // Special rule: Allow variable price tiers with 0 amount to commit to funded but not capped pools
-      const notFundedRequirement = isZeroAmountVariableTier
-        ? !poolStatus.isCapped // For 0 amount variable price tiers, only check if it's not capped
-        : poolDetails._capAmount === BigInt(0)
-        ? !poolStatus.isCapped // For no cap pools, allow deposits as long as not capped
-        : !poolStatus.isFunded; // For capped pools, check if it's not funded
+      // Check if pool is accepting deposits (ACTIVE or FUNDED state)
+      const poolStatusValue = Number(poolDetails._status);
+      const canAcceptDeposits =
+        poolStatusValue === PoolStatus.ACTIVE ||
+        poolStatusValue === PoolStatus.FUNDED;
 
       const requirements: DepositRequirements = {
         tierIdValid: tierId < poolDetails._tierCount,
-        tierActive: targetTier.isActive, // Using named property instead of array index
-        poolActive:
-          Number(poolDetails._status) === PoolStatus.ACTIVE ||
-          Number(poolDetails._status) === PoolStatus.FUNDED,
-        notFunded: notFundedRequirement,
+        tierActive: targetTier.isActive,
+        poolActive: canAcceptDeposits,
+        notFunded: canAcceptDeposits, // Same as poolActive - we can accept deposits in both ACTIVE and FUNDED states
         notEnded: now <= Number(poolDetails._endTime),
         withinCap:
-          // If capAmount is 0, it means "no cap", so always pass this check
           poolDetails._capAmount === BigInt(0) ||
           poolDetails._totalDeposits + tierPrice <= poolDetails._capAmount,
         patronsCheck:
