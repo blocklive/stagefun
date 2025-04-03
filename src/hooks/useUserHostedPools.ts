@@ -7,7 +7,6 @@ export function useUserHostedPools(userId: string | null | undefined) {
     pools: allPools,
     isLoading,
     error,
-    isRpcError,
     refresh,
     isUsingCache,
   } = usePoolsWithDeposits();
@@ -32,7 +31,6 @@ export function useUserHostedPools(userId: string | null | undefined) {
     pools: userHostedPools,
     isLoading,
     error,
-    isRpcError,
     refresh,
     totalCount: userHostedPools.length,
     isUsingCache,

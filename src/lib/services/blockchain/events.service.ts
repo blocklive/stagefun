@@ -418,19 +418,13 @@ export async function handlePoolStatusUpdatedEvent(
       // The pool address is the contract that emitted the event
       const poolAddress = event.address.toLowerCase();
 
-      console.log(
-        `Updating pool ${poolAddress} status to ${statusString} (${statusNum})`
-      );
-
-      // Update the pool status in the database
+      // Update pool status using case-insensitive match
       const { error } = await supabase
         .from("pools")
         .update({
           status: statusString,
-          blockchain_status: statusNum,
-          last_updated: new Date().toISOString(),
         })
-        .eq("contract_address", poolAddress);
+        .ilike("contract_address", poolAddress);
 
       if (error) {
         console.error("Error updating pool status:", error);
@@ -440,19 +434,19 @@ export async function handlePoolStatusUpdatedEvent(
           action: "update",
           error: error.message,
         };
-      } else {
-        console.log(
-          `Successfully updated status for pool: ${poolAddress} to ${statusString}`
-        );
-        return {
-          event: "PoolStatusUpdated",
-          status: "success",
-          action: "update",
-          pool: poolAddress,
-          newStatus: statusString,
-          statusNum,
-        };
       }
+
+      console.log(
+        `Successfully updated status for pool: ${poolAddress} to ${statusString}`
+      );
+      return {
+        event: "PoolStatusUpdated",
+        status: "success",
+        action: "update",
+        pool: poolAddress,
+        newStatus: statusString,
+        statusNum,
+      };
     } catch (error: any) {
       console.error("Error processing PoolStatusUpdated event:", error);
       return {

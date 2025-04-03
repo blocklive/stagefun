@@ -179,19 +179,19 @@ export default function EditPoolPage() {
       // Upload image if selected
       let imageUrl = pool.image_url;
       if (selectedImage) {
-        const uploadedImageUrl = await uploadPoolImage(
+        const uploadResult = await uploadPoolImage(
           selectedImage,
           supabase,
           setIsUploadingImage
         );
 
         // Stop pool update if image upload failed
-        if (!uploadedImageUrl) {
+        if (!uploadResult?.imageUrl) {
           setIsSubmitting(false);
           return;
         }
 
-        imageUrl = uploadedImageUrl;
+        imageUrl = uploadResult.imageUrl;
       }
 
       // If image was removed, set to null
