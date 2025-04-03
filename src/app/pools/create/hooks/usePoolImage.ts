@@ -7,8 +7,9 @@ export const usePoolImage = (supabase: SupabaseClient | null) => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [metadataUrl, setMetadataUrl] = useState<string | null>(null);
+  const [finalImageUrl, setFinalImageUrl] = useState<string | null>(null);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // Check if user is authenticated
@@ -32,11 +33,31 @@ export const usePoolImage = (supabase: SupabaseClient | null) => {
       }
 
       setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+
+      // Upload the image immediately
+      try {
+        const result = await uploadImage(file);
+        if (result.imageUrl) {
+          setImagePreview(result.imageUrl);
+          setFinalImageUrl(result.imageUrl);
+        } else {
+          // If upload fails, still show preview but warn user
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setImagePreview(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+          console.warn("Image upload failed, using local preview");
+        }
+      } catch (error) {
+        // If upload fails, still show preview but warn user
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+        console.error("Error uploading image:", error);
+      }
     }
   };
 
@@ -44,6 +65,7 @@ export const usePoolImage = (supabase: SupabaseClient | null) => {
     setSelectedImage(null);
     setImagePreview(null);
     setMetadataUrl(null);
+    setFinalImageUrl(null);
   };
 
   const uploadImage = async (
@@ -75,6 +97,7 @@ export const usePoolImage = (supabase: SupabaseClient | null) => {
     selectedImage,
     imagePreview,
     metadataUrl,
+    finalImageUrl,
     isUploadingImage,
     setIsUploadingImage,
     handleImageSelect,

@@ -53,6 +53,7 @@ export const TierCard: React.FC<TierCardProps> = ({
   ) => {
     setIsUploadingImage(tierId, false);
     onAddRewardImage(imageUrl, metadataUrl, tierId);
+    console.log("Tier image uploaded:", imageUrl, metadataUrl, tierId);
   };
 
   // Handler for image upload error

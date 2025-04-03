@@ -140,199 +140,17 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
           imageUrl = result.imageUrl;
           metadataUrl = result.metadataUrl;
-        } else {
-          // If it's a regular URL (e.g., from Supabase storage)
-          try {
-            // Just use the existing URL without trying to fetch it (avoids CSP issues)
-            imageUrl = poolImage;
+        } else if (poolImage.startsWith("http")) {
+          // If it's already a proper URL, use it directly
+          imageUrl = poolImage;
 
-            // Create metadata JSON directly using the existing URL
-            const metadata = {
-              name: defaultName,
-              description: `${defaultName} Tier NFT`,
-              image: poolImage,
-              tier: defaultName,
-              attributes: [{ trait_type: "Tier", value: defaultName }],
-            };
-
-            // IMPORTANT: Always make sure we're using actual URLs for images, not base64 data
-            // Check if we have a base64 encoded image instead of a proper URL
-            if (poolImage && !poolImage.startsWith("http")) {
-              console.warn(
-                "Pool image is not a valid URL. It appears to be a base64 string. Tier will be created without an image."
-              );
-              imageUrl = ""; // Don't use the base64 data
-              showToast.error(
-                "Unable to use pool image for tier. Please upload a tier image manually."
-              );
-            }
-
-            // Upload metadata to Supabase storage
-            const metadataFileName = `${Math.random()
-              .toString(36)
-              .substring(2)}_${Date.now()}_metadata.json`;
-            const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
-              type: "application/json",
-            });
-            const metadataFile = new File([metadataBlob], metadataFileName, {
-              type: "application/json",
-            });
-
-            // Try standard upload for metadata
-            let metadataData;
-            let metadataError;
-
-            try {
-              const result = await supabase.storage
-                .from("pool-images")
-                .upload(metadataFileName, metadataFile, {
-                  cacheControl: "3600",
-                  upsert: false,
-                  contentType: "application/json",
-                });
-
-              metadataData = result.data;
-              metadataError = result.error;
-            } catch (uploadError) {
-              console.error(
-                "Initial metadata upload attempt failed:",
-                uploadError
-              );
-              metadataError = uploadError;
-            }
-
-            // If there's an error, try the fallback approach
-            if (
-              metadataError &&
-              typeof metadataError === "object" &&
-              "message" in metadataError &&
-              typeof metadataError.message === "string" &&
-              (metadataError.message.includes("security policy") ||
-                metadataError.message.includes("permission denied") ||
-                metadataError.message.includes("invalid algorithm"))
-            ) {
-              console.log(
-                "RLS policy error on metadata, trying alternative approach..."
-              );
-
-              // Create a FormData object for metadata
-              const metadataForm = new FormData();
-              metadataForm.append("file", metadataFile);
-
-              // Use fetch API to upload directly to Supabase Storage REST API
-              try {
-                // Get authentication token from user session
-                const {
-                  data: { session },
-                } = await supabase.auth.getSession();
-                const token = session?.access_token;
-
-                if (!token) {
-                  throw new Error("No authentication token available");
-                }
-
-                const uploadResponse = await fetch(
-                  `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/pool-images/${metadataFileName}`,
-                  {
-                    method: "POST",
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: metadataForm,
-                  }
-                );
-
-                if (!uploadResponse.ok) {
-                  throw new Error(
-                    `Upload failed with status: ${uploadResponse.status}`
-                  );
-                }
-
-                console.log("Metadata upload successful via REST API");
-                metadataError = null;
-              } catch (restError) {
-                console.error("REST API metadata upload failed:", restError);
-                metadataError = restError;
-              }
-            }
-
-            if (metadataError) {
-              const errorMessage =
-                typeof metadataError === "object" &&
-                metadataError !== null &&
-                "message" in metadataError
-                  ? String(metadataError.message)
-                  : "Unknown error";
-              throw new Error(`Failed to upload metadata: ${errorMessage}`);
-            }
-
-            // Get the public URL for the metadata
-            const {
-              data: { publicUrl: uploadedMetadataUrl },
-            } = supabase.storage
-              .from("pool-images")
-              .getPublicUrl(metadataFileName);
-
-            metadataUrl = uploadedMetadataUrl;
-          } catch (error) {
-            console.error("Error uploading tier metadata:", error);
-            showToast.error("Failed to upload tier metadata");
-            return;
-          }
-        }
-      } catch (error) {
-        console.error("Detailed error creating tier:", error);
-        showToast.error("Failed to upload tier image and metadata");
-        return; // Don't create the tier if image upload fails
-      }
-    }
-
-    const newTier: Tier = {
-      id: crypto.randomUUID(),
-      name: defaultName,
-      price: defaultPrice,
-      isActive: true,
-      nftMetadata: metadataUrl,
-      isVariablePrice: false,
-      minPrice: "0",
-      maxPrice: "0",
-      maxPatrons: defaultMaxPatrons,
-      description: "",
-      rewardItems: [],
-      imageUrl: imageUrl || poolImage,
-      modifiedFields: new Set(),
-    };
-    onTiersChange([...tiers, newTier]);
-  }, [
-    tiers,
-    generateTierName,
-    fundingGoal,
-    poolImage,
-    onTiersChange,
-    supabase,
-  ]);
-
-  // Create first tier automatically
-  useEffect(() => {
-    if (tiers.length === 0) {
-      addTier();
-    }
-  }, [tiers.length, addTier]);
-
-  // Update unmodified fields when dependencies change
-  useEffect(() => {
-    const updateTierMetadata = async (tier: Tier) => {
-      if (!tier.modifiedFields.has("imageUrl") && poolImage && !tier.imageUrl) {
-        try {
-          // Skip creation of a File from a data URL - it's blocked by CSP
-          // Instead, use the URL directly in the metadata
-          // Create metadata JSON
+          // Create metadata JSON directly using the existing URL
           const metadata = {
-            name: tier.name,
-            description: `${tier.name} Tier NFT`,
+            name: defaultName,
+            description: `${defaultName} Tier NFT`,
             image: poolImage,
-            tier: tier.name,
-            attributes: [{ trait_type: "Tier", value: tier.name }],
+            tier: defaultName,
+            attributes: [{ trait_type: "Tier", value: defaultName }],
           };
 
           // Upload metadata to Supabase storage
@@ -346,7 +164,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
             type: "application/json",
           });
 
-          // Try the standard upload first
+          // Try standard upload for metadata
           let metadataData;
           let metadataError;
 
@@ -369,7 +187,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
             metadataError = uploadError;
           }
 
-          // If there's an error, try an alternative approach
+          // If there's an error, try the fallback approach
           if (
             metadataError &&
             typeof metadataError === "object" &&
@@ -380,7 +198,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
               metadataError.message.includes("invalid algorithm"))
           ) {
             console.log(
-              "Error with standard upload, trying alternative approach..."
+              "RLS policy error on metadata, trying alternative approach..."
             );
 
             // Create a FormData object for metadata
@@ -416,10 +234,10 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                 );
               }
 
-              console.log("Upload successful via alternative method");
+              console.log("Metadata upload successful via REST API");
               metadataError = null;
             } catch (restError) {
-              console.error("Alternative upload failed:", restError);
+              console.error("REST API metadata upload failed:", restError);
               metadataError = restError;
             }
           }
@@ -436,24 +254,62 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
           // Get the public URL for the metadata
           const {
-            data: { publicUrl: metadataUrl },
+            data: { publicUrl: uploadedMetadataUrl },
           } = supabase.storage
             .from("pool-images")
             .getPublicUrl(metadataFileName);
 
-          return {
-            imageUrl: poolImage,
-            nftMetadata: metadataUrl,
-          };
-        } catch (error) {
-          console.error("Detailed error in updateTierMetadata:", error);
-          showToast.error("Failed to upload tier metadata");
-          return null;
+          metadataUrl = uploadedMetadataUrl;
+        } else {
+          // If it's not a blob or http URL, something went wrong
+          console.warn(
+            "Invalid image format received. Expected blob: or http: URL."
+          );
+          showToast.error("Invalid image format. Please try again.");
+          return;
         }
+      } catch (error) {
+        console.error("Detailed error creating tier:", error);
+        showToast.error("Failed to upload tier image and metadata");
+        return; // Don't create the tier if image upload fails
       }
-      return null;
-    };
+    }
 
+    const newTier: Tier = {
+      id: crypto.randomUUID(),
+      name: defaultName,
+      price: defaultPrice,
+      isActive: true,
+      nftMetadata: metadataUrl,
+      isVariablePrice: false,
+      minPrice: "0",
+      maxPrice: "0",
+      maxPatrons: defaultMaxPatrons,
+      description: "",
+      rewardItems: [],
+      imageUrl: imageUrl,
+      modifiedFields: new Set(),
+    };
+    console.log("New tier created:", newTier);
+    onTiersChange([...tiers, newTier]);
+  }, [
+    tiers,
+    generateTierName,
+    fundingGoal,
+    poolImage,
+    onTiersChange,
+    supabase,
+  ]);
+
+  // Create first tier automatically
+  useEffect(() => {
+    if (tiers.length === 0) {
+      addTier();
+    }
+  }, [tiers.length, addTier]);
+
+  // Update unmodified fields when dependencies change
+  useEffect(() => {
     const updateTiers = async () => {
       const updatedTiers = await Promise.all(
         tiers.map(async (tier, index) => {
@@ -488,16 +344,156 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
             }
           }
 
+          console.log("Tier UPDATES GO:", tier);
+          console.log("poolImage value:", poolImage);
           // Update image and metadata if not modified and pool image changes
-          const metadataUpdates = await updateTierMetadata(tier);
-          if (metadataUpdates) {
-            updates.imageUrl = metadataUpdates.imageUrl;
-            updates.nftMetadata = metadataUpdates.nftMetadata;
+          if (
+            !tier.modifiedFields.has("imageUrl") &&
+            poolImage &&
+            (!tier.imageUrl || tier.imageUrl === "")
+          ) {
+            console.log("Updating tier image:", { tierId: tier.id, poolImage });
+            try {
+              // Create metadata JSON using the poolImage URL
+              const metadata = {
+                name: tier.name,
+                description: `${tier.name} Tier NFT`,
+                image: poolImage,
+                tier: tier.name,
+                attributes: [{ trait_type: "Tier", value: tier.name }],
+              };
+
+              // Upload metadata to Supabase storage
+              const metadataFileName = `${Math.random()
+                .toString(36)
+                .substring(2)}_${Date.now()}_metadata.json`;
+              const metadataBlob = new Blob(
+                [JSON.stringify(metadata, null, 2)],
+                {
+                  type: "application/json",
+                }
+              );
+              const metadataFile = new File([metadataBlob], metadataFileName, {
+                type: "application/json",
+              });
+
+              // Try standard upload for metadata
+              let metadataData;
+              let metadataError;
+
+              try {
+                const result = await supabase.storage
+                  .from("pool-images")
+                  .upload(metadataFileName, metadataFile, {
+                    cacheControl: "3600",
+                    upsert: false,
+                    contentType: "application/json",
+                  });
+
+                metadataData = result.data;
+                metadataError = result.error;
+              } catch (uploadError) {
+                console.error(
+                  "Initial metadata upload attempt failed:",
+                  uploadError
+                );
+                metadataError = uploadError;
+              }
+
+              // If there's an error, try an alternative approach
+              if (
+                metadataError &&
+                typeof metadataError === "object" &&
+                "message" in metadataError &&
+                typeof metadataError.message === "string" &&
+                (metadataError.message.includes("security policy") ||
+                  metadataError.message.includes("permission denied") ||
+                  metadataError.message.includes("invalid algorithm"))
+              ) {
+                console.log(
+                  "Error with standard upload, trying alternative approach..."
+                );
+
+                // Create a FormData object for metadata
+                const metadataForm = new FormData();
+                metadataForm.append("file", metadataFile);
+
+                // Use fetch API to upload directly to Supabase Storage REST API
+                try {
+                  // Get authentication token from user session
+                  const {
+                    data: { session },
+                  } = await supabase.auth.getSession();
+                  const token = session?.access_token;
+
+                  if (!token) {
+                    throw new Error("No authentication token available");
+                  }
+
+                  const uploadResponse = await fetch(
+                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/pool-images/${metadataFileName}`,
+                    {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: metadataForm,
+                    }
+                  );
+
+                  if (!uploadResponse.ok) {
+                    throw new Error(
+                      `Upload failed with status: ${uploadResponse.status}`
+                    );
+                  }
+
+                  console.log("Upload successful via alternative method");
+                  metadataError = null;
+                } catch (restError) {
+                  console.error("Alternative upload failed:", restError);
+                  metadataError = restError;
+                }
+              }
+
+              if (metadataError) {
+                const errorMessage =
+                  typeof metadataError === "object" &&
+                  metadataError !== null &&
+                  "message" in metadataError
+                    ? String(metadataError.message)
+                    : "Unknown error";
+                throw new Error(`Failed to upload metadata: ${errorMessage}`);
+              }
+
+              // Get the public URL for the metadata
+              const {
+                data: { publicUrl: metadataUrl },
+              } = supabase.storage
+                .from("pool-images")
+                .getPublicUrl(metadataFileName);
+
+              updates.imageUrl = poolImage;
+              updates.nftMetadata = metadataUrl;
+              console.log("Set tier image and metadata:", {
+                tierId: tier.id,
+                imageUrl: updates.imageUrl,
+                metadataUrl: updates.nftMetadata,
+              });
+            } catch (error) {
+              console.error("Detailed error in updateTierMetadata:", error);
+              showToast.error("Failed to upload tier metadata");
+            }
           }
 
           // Only update if we have changes and they're different from current values
           if (Object.keys(updates).length > 0) {
             const updatedTier = { ...tier, ...updates };
+            console.log("Tier updates:", {
+              tierId: tier.id,
+              updates,
+              before: tier,
+              after: updatedTier,
+            });
             if (JSON.stringify(updatedTier) !== JSON.stringify(tier)) {
               return updatedTier;
             }
@@ -513,6 +509,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       );
 
       if (hasChanges) {
+        console.log("Updating tiers:", updatedTiers);
         onTiersChange(updatedTiers);
       }
     };
@@ -561,6 +558,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     tierId: string
   ) => {
     // Add both fields as modified when user uploads an image
+    console.log("Adding reward image:", imageUrl, metadataUrl, tierId);
     onTiersChange(
       tiers.map((tier) => {
         if (tier.id === tierId) {

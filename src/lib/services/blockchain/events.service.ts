@@ -113,7 +113,7 @@ export const EVENT_TOPICS = {
   TIER_COMMITTED:
     "0xd9861a9641141da7a608bb821575da486cc59cac5cf3f24e644633d8b9a051b5",
   POOL_STATUS_UPDATED:
-    "0x6c5c62a5182928fc8ea27e6a757cc772f42d690cea00ef3627c1aaec917493bf",
+    "0x83f00c5c08fb55fde46aa16f1732a744093b07a1ca3909114ec61b978d4e5458",
 };
 
 // Map from contract status numbers to database status strings

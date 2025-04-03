@@ -72,6 +72,7 @@ export default function CreatePoolPage() {
   const {
     selectedImage,
     imagePreview,
+    finalImageUrl,
     isUploadingImage,
     setIsUploadingImage,
     handleImageSelect,
@@ -375,7 +376,7 @@ export default function CreatePoolPage() {
                 supabase={supabase}
                 poolName={poolName}
                 fundingGoal={fundingGoal}
-                poolImage={imagePreview || undefined}
+                poolImage={finalImageUrl || undefined}
               />
             )}
             {!supabase && (

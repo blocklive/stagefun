@@ -54,7 +54,7 @@ const TIER_COMMITTED_TOPIC =
 
 // Status-related event topic hash
 const POOL_STATUS_UPDATED_TOPIC =
-  "0x6c5c62a5182928fc8ea27e6a757cc772f42d690cea00ef3627c1aaec917493bf";
+  "0x83f00c5c08fb55fde46aa16f1732a744093b07a1ca3909114ec61b978d4e5458";
 
 // The main function processes the stream data
 function main(stream) {
