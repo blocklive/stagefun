@@ -39,6 +39,13 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
       return;
     }
 
+    // IMPORTANT: Always upload images to Supabase storage!
+    // Never save base64 data directly to the database - this causes:
+    // 1. Extremely large DB entries (megabytes instead of a few bytes for a URL)
+    // 2. Poor performance for queries that return these fields
+    // 3. Difficulty managing/referencing these images later
+    // 4. Higher database costs
+
     onUploadStart(id);
 
     try {
@@ -50,6 +57,19 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
       );
 
       if (uploadedImageUrl && metadataUrl) {
+        if (!uploadedImageUrl.startsWith("http")) {
+          throw new Error(
+            "Image upload didn't return a valid URL. Got: " +
+              (typeof uploadedImageUrl === "string"
+                ? uploadedImageUrl.substring(0, 30) + "..."
+                : typeof uploadedImageUrl)
+          );
+        }
+
+        // IMPORTANT: Both the image URL and metadata URL are used
+        // These will be saved to the database in the tiers table:
+        // - image_url: URL to the actual image
+        // - nft_metadata: URL to the JSON metadata file used for NFTs
         onUploadComplete(id, uploadedImageUrl, metadataUrl);
       } else {
         throw new Error("Failed to get URLs after upload");

@@ -258,6 +258,8 @@ export async function POST(request: NextRequest) {
         max_supply: tier.maxPatrons === 0 ? null : tier.maxPatrons,
         current_supply: 0,
         is_active: tier.isActive !== undefined ? tier.isActive : true,
+        nft_metadata: tier.nftMetadata || null, // Save metadata URL to database
+        image_url: tier.imageUrl || null, // Save image URL to database
       }));
 
       const { data: dbTiers, error: tiersError } = await adminClient

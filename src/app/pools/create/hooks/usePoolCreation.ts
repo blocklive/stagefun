@@ -179,6 +179,7 @@ export const usePoolCreation = () => {
           maxPatrons: parseInt(tier.maxPatrons),
           description: tier.description || `${tier.name} tier`,
           rewardItems: tier.rewardItems,
+          imageUrl: tier.imageUrl,
         })),
       };
 

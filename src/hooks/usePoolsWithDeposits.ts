@@ -376,6 +376,5 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
     totalCount: poolsData?.allPoolsCount || 0,
     isUsingCache: poolsData?.isUsingCache || false,
   };
-  console.log("HOOK FINAL RETURN **", result);
   return result;
 }

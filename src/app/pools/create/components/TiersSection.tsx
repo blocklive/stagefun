@@ -155,6 +155,18 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
               attributes: [{ trait_type: "Tier", value: defaultName }],
             };
 
+            // IMPORTANT: Always make sure we're using actual URLs for images, not base64 data
+            // Check if we have a base64 encoded image instead of a proper URL
+            if (poolImage && !poolImage.startsWith("http")) {
+              console.warn(
+                "Pool image is not a valid URL. It appears to be a base64 string. Tier will be created without an image."
+              );
+              imageUrl = ""; // Don't use the base64 data
+              showToast.error(
+                "Unable to use pool image for tier. Please upload a tier image manually."
+              );
+            }
+
             // Upload metadata to Supabase storage
             const metadataFileName = `${Math.random()
               .toString(36)
@@ -556,6 +568,8 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
           modifiedFields.add("imageUrl");
           modifiedFields.add("nftMetadata");
 
+          // IMPORTANT: These values will be saved to the database in the API
+          // as image_url and nft_metadata fields in the tiers table
           return {
             ...tier,
             imageUrl,

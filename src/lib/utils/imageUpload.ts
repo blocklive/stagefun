@@ -3,11 +3,12 @@ import { SupabaseClient } from "@supabase/supabase-js";
 export async function uploadPoolImage(
   file: File,
   supabase: SupabaseClient,
-  setIsUploadingImage?: (isUploading: boolean) => void
-): Promise<string | null> {
+  setIsUploadingImage?: (isUploading: boolean) => void,
+  poolName?: string
+): Promise<{ imageUrl: string | null; metadataUrl: string | null }> {
   if (!supabase) {
     console.error("Supabase client not available");
-    return null;
+    return { imageUrl: null, metadataUrl: null };
   }
 
   try {
@@ -104,11 +105,121 @@ export async function uploadPoolImage(
 
     // Get the public URL
     const {
-      data: { publicUrl },
+      data: { publicUrl: imageUrl },
     } = supabase.storage.from("pool-images").getPublicUrl(filePath);
 
-    console.log("Generated public URL:", publicUrl);
-    return publicUrl;
+    console.log("Generated public URL:", imageUrl);
+
+    // METADATA CREATION: Also create and upload a metadata.json file
+    let metadataUrl = null;
+
+    if (imageUrl) {
+      try {
+        // Create metadata JSON
+        const metadata = {
+          name: poolName || "Pool",
+          description: poolName ? `${poolName} Pool` : "Pool",
+          image: imageUrl,
+          attributes: [
+            {
+              trait_type: "Type",
+              value: "Pool",
+            },
+          ],
+        };
+
+        // Upload metadata to Supabase storage
+        const metadataFileName = `${Math.random()
+          .toString(36)
+          .substring(2)}_${Date.now()}_metadata.json`;
+        const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
+          type: "application/json",
+        });
+        const metadataFile = new File([metadataBlob], metadataFileName, {
+          type: "application/json",
+        });
+
+        // Try to upload metadata
+        let metadataError;
+
+        try {
+          const result = await supabase.storage
+            .from("pool-images")
+            .upload(metadataFileName, metadataFile, {
+              cacheControl: "3600",
+              upsert: false,
+              contentType: "application/json",
+            });
+
+          metadataError = result.error;
+        } catch (uploadError) {
+          console.error("Initial metadata upload attempt failed:", uploadError);
+          metadataError = uploadError;
+        }
+
+        // If there's a metadata upload error, try alternative approach
+        if (metadataError) {
+          console.log("Trying alternative approach for metadata upload...");
+
+          // Create a FormData object for metadata
+          const metadataForm = new FormData();
+          metadataForm.append("file", metadataFile);
+
+          // Use fetch API for metadata upload
+          try {
+            // Get authentication token
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
+            if (!token) {
+              throw new Error("No authentication token available");
+            }
+
+            const uploadResponse = await fetch(
+              `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/pool-images/${metadataFileName}`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+                body: metadataForm,
+              }
+            );
+
+            if (!uploadResponse.ok) {
+              throw new Error(
+                `Metadata upload failed: ${uploadResponse.status}`
+              );
+            }
+
+            console.log("Metadata upload successful via REST API");
+            metadataError = null;
+          } catch (restError) {
+            console.error("REST API metadata upload failed:", restError);
+            metadataError = restError;
+          }
+        }
+
+        if (!metadataError) {
+          // Get the public URL for metadata
+          const {
+            data: { publicUrl },
+          } = supabase.storage
+            .from("pool-images")
+            .getPublicUrl(metadataFileName);
+
+          metadataUrl = publicUrl;
+          console.log("Generated metadata URL:", metadataUrl);
+        }
+      } catch (metadataError) {
+        console.error("Error creating metadata:", metadataError);
+        // Don't throw here - we still want to return the image URL even if metadata fails
+      }
+    }
+
+    return { imageUrl, metadataUrl };
   } catch (error: any) {
     console.error("Error uploading image:", error);
 
@@ -119,7 +230,7 @@ export async function uploadPoolImage(
     }
 
     alert(errorMessage);
-    return null;
+    return { imageUrl: null, metadataUrl: null };
   } finally {
     if (setIsUploadingImage) setIsUploadingImage(false);
   }
