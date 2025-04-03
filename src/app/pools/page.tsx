@@ -195,8 +195,12 @@ export default function PoolsPage() {
       return `${(amount / 1000000).toFixed(1)}M`;
     } else if (amount >= 1000) {
       return `${(amount / 1000).toFixed(1)}K`;
+    } else if (amount >= 0.01) {
+      return amount.toFixed(2);
+    } else if (amount > 0) {
+      return amount.toFixed(4);
     }
-    return amount.toString();
+    return "0";
   };
 
   // Get pool status indicator
