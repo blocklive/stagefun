@@ -52,6 +52,10 @@ const POOL_CREATED_TOPIC =
 const TIER_COMMITTED_TOPIC =
   "0xd9861a9641141da7a608bb821575da486cc59cac5cf3f24e644633d8b9a051b5";
 
+// Status-related event topic hash
+const POOL_STATUS_UPDATED_TOPIC =
+  "0x6c5c62a5182928fc8ea27e6a757cc772f42d690cea00ef3627c1aaec917493bf";
+
 // The main function processes the stream data
 function main(stream) {
   const allMatchingLogs = [];
@@ -90,14 +94,18 @@ function main(stream) {
 
         // Case 1: PoolCreated events from any contract (factory)
         if (eventTopic === POOL_CREATED_TOPIC) {
-          console.log("Found PoolCreated event");
           allMatchingLogs.push(log);
           continue;
         }
 
         // Case 2: TierCommitted events from any contract (pool)
         if (eventTopic === TIER_COMMITTED_TOPIC) {
-          console.log("Found TierCommitted event");
+          allMatchingLogs.push(log);
+          continue;
+        }
+
+        // Case 3: Status update events
+        if (eventTopic === POOL_STATUS_UPDATED_TOPIC) {
           allMatchingLogs.push(log);
           continue;
         }

@@ -91,18 +91,50 @@ const tierCommittedEventFragment = {
   type: "event",
 };
 
+// PoolStatusUpdated event fragment
+const poolStatusUpdatedEventFragment = {
+  anonymous: false,
+  inputs: [
+    {
+      indexed: false,
+      internalType: "uint8",
+      name: "newStatus",
+      type: "uint8",
+    },
+  ],
+  name: "PoolStatusUpdated",
+  type: "event",
+};
+
 // Define event constants
 export const EVENT_TOPICS = {
   POOL_CREATED:
     "0xa6f06b3ba9a7796573bab39bc2643d47c32efadc0a504262e58b54cd9d633e2e",
   TIER_COMMITTED:
     "0xd9861a9641141da7a608bb821575da486cc59cac5cf3f24e644633d8b9a051b5",
+  POOL_STATUS_UPDATED:
+    "0x6c5c62a5182928fc8ea27e6a757cc772f42d690cea00ef3627c1aaec917493bf",
+};
+
+// Map from contract status numbers to database status strings
+const STATUS_MAP: Record<number, string> = {
+  0: "INACTIVE",
+  1: "ACTIVE",
+  2: "PAUSED",
+  3: "CLOSED",
+  4: "FUNDED",
+  5: "FULLY_FUNDED",
+  6: "FAILED",
+  7: "EXECUTING",
+  8: "COMPLETED",
+  9: "CANCELLED",
 };
 
 // Initialize interface for decoding events
 const eventIface = new ethers.Interface([
   poolCreatedEventFragment,
   tierCommittedEventFragment,
+  poolStatusUpdatedEventFragment,
 ]);
 
 // Helper function to create a Supabase client
@@ -339,6 +371,100 @@ export async function handleTierCommittedEvent(
   }
 }
 
+// Handle PoolStatusUpdated events
+export async function handlePoolStatusUpdatedEvent(
+  supabase: any,
+  event: any,
+  isRemoved: boolean,
+  blockNumber: number
+) {
+  if (isRemoved) {
+    // Status events don't make sense to delete/revert since they're state changes
+    // We'll just log this occurrence but not take any action
+    console.log(
+      `Ignoring removed PoolStatusUpdated event in tx: ${event.transactionHash}`
+    );
+    return {
+      event: "PoolStatusUpdated",
+      status: "ignored",
+      action: "delete",
+      reason: "Status events are not reverted on chain reorgs",
+    };
+  } else {
+    try {
+      // Decode the event data to get the new status
+      const log = {
+        topics: event.topics,
+        data: event.data,
+      };
+
+      // Try to decode using ethers interface
+      let statusNum;
+      try {
+        const decodedLog = eventIface.parseLog(log);
+        if (!decodedLog) {
+          throw new Error("Failed to decode PoolStatusUpdated event");
+        }
+        statusNum = Number(decodedLog.args[0]);
+      } catch (decodeError) {
+        // Fallback to manual decoding if ethers fails
+        console.log("Falling back to manual decoding for status event");
+        const statusHex = event.data.slice(0, 66);
+        statusNum = parseInt(statusHex, 16);
+      }
+
+      const statusString = STATUS_MAP[statusNum] || "UNKNOWN";
+
+      // The pool address is the contract that emitted the event
+      const poolAddress = event.address.toLowerCase();
+
+      console.log(
+        `Updating pool ${poolAddress} status to ${statusString} (${statusNum})`
+      );
+
+      // Update the pool status in the database
+      const { error } = await supabase
+        .from("pools")
+        .update({
+          status: statusString,
+          blockchain_status: statusNum,
+          last_updated: new Date().toISOString(),
+        })
+        .eq("contract_address", poolAddress);
+
+      if (error) {
+        console.error("Error updating pool status:", error);
+        return {
+          event: "PoolStatusUpdated",
+          status: "error",
+          action: "update",
+          error: error.message,
+        };
+      } else {
+        console.log(
+          `Successfully updated status for pool: ${poolAddress} to ${statusString}`
+        );
+        return {
+          event: "PoolStatusUpdated",
+          status: "success",
+          action: "update",
+          pool: poolAddress,
+          newStatus: statusString,
+          statusNum,
+        };
+      }
+    } catch (error: any) {
+      console.error("Error processing PoolStatusUpdated event:", error);
+      return {
+        event: "PoolStatusUpdated",
+        status: "error",
+        action: "process",
+        error: error.message,
+      };
+    }
+  }
+}
+
 // Process webhook events
 export async function processWebhookEvents(events: any[]) {
   if (events.length === 0) {
@@ -386,6 +512,14 @@ export async function processWebhookEvents(events: any[]) {
           blockNumber
         );
         results.push(tierResult);
+      } else if (eventTopic === EVENT_TOPICS.POOL_STATUS_UPDATED) {
+        const statusResult = await handlePoolStatusUpdatedEvent(
+          supabase,
+          event,
+          isRemoved,
+          blockNumber
+        );
+        results.push(statusResult);
       }
     } catch (error: any) {
       console.error("Error processing event:", error);
