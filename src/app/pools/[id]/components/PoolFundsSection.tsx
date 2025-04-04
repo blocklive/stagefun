@@ -1,7 +1,7 @@
 "use client";
 
 import { Pool } from "../../../../lib/supabase";
-import { formatCurrency } from "../../../../lib/utils";
+import { formatCurrency, formatContractBalance } from "../../../../lib/utils";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { ethers } from "ethers";
 import { useSendTransaction, useWallets } from "@privy-io/react-auth";
@@ -22,10 +22,6 @@ import {
 import useSWR from "swr";
 import { usePoolPatrons } from "../../../../hooks/usePoolPatrons";
 import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
-import {
-  PoolStatus,
-  getPoolStatusFromNumber,
-} from "../../../../lib/contracts/types";
 import CreatorActions from "./CreatorActions";
 import NumberInput from "../../../components/NumberInput";
 import { useSmartWallet } from "../../../../hooks/useSmartWallet";
@@ -33,7 +29,6 @@ import { useSmartWalletBalance } from "../../../../hooks/useSmartWalletBalance";
 import { useRevenueDeposit } from "../../../../hooks/useRevenueDeposit";
 import WithdrawModal from "./WithdrawModal";
 import showToast from "@/utils/toast";
-import { usePoolDetails } from "../../../../hooks/usePoolDetails";
 import Tooltip from "../../../../components/Tooltip";
 import BeginExecutionButton from "./BeginExecutionButton";
 
@@ -157,9 +152,6 @@ export default function PoolFundsSection({
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [receiveAmount, setReceiveAmount] = useState("");
   const [distributeAmount, setDistributeAmount] = useState("");
-  const [onChainPoolStatus, setOnChainPoolStatus] = useState<number | null>(
-    null
-  );
   const { sendTransaction } = useSendTransaction();
   const { wallets } = useWallets();
   const { smartWalletAddress, callContractFunction } = useSmartWallet();
@@ -170,20 +162,6 @@ export default function PoolFundsSection({
   const modalRef = useRef<HTMLDivElement>(null);
   const receiveModalRef = useRef<HTMLDivElement>(null);
   const distributeModalRef = useRef<HTMLDivElement>(null);
-
-  // Get the on-chain pool data using usePoolDetails
-  const { pool: onChainPoolDetails, refresh: refreshPoolDetails } =
-    usePoolDetails(pool.id);
-
-  // Update onChainPoolStatus when onChainPoolDetails changes
-  useEffect(() => {
-    if (
-      onChainPoolDetails &&
-      onChainPoolDetails.blockchain_status !== undefined
-    ) {
-      setOnChainPoolStatus(onChainPoolDetails.blockchain_status);
-    }
-  }, [onChainPoolDetails]);
 
   // Determine if pool is uncapped (cap_amount is exactly 0)
   const isUncapped = useMemo(() => {
@@ -203,8 +181,12 @@ export default function PoolFundsSection({
 
   // Check if target is met
   const targetMet = useMemo(() => {
+    // If the pool is already FUNDED, we should consider the target as met
+    if (pool.status === "FUNDED") {
+      return true;
+    }
     return (pool.raised_amount || 0) >= (pool.target_amount || 0);
-  }, [pool.raised_amount, pool.target_amount]);
+  }, [pool.raised_amount, pool.target_amount, pool.status]);
 
   // Check if we're before the end time
   const isBeforeEndTime = useMemo(() => {
@@ -213,26 +195,21 @@ export default function PoolFundsSection({
 
   // Determine if we should show the Begin Execution button
   const canBeginExecution = useMemo(() => {
-    const statusToUse =
-      onChainPoolStatus !== null
-        ? onChainPoolStatus
-        : getPoolStatusFromNumber(pool.status || 0);
-
+    console.log("Begin Execution conditions:", {
+      isCreator,
+      poolStatus: pool.status,
+      targetMet,
+      isBeforeEndTime,
+      isBelowCap,
+    });
     return (
       isCreator &&
-      statusToUse === PoolStatus.FUNDED &&
+      pool.status === "FUNDED" &&
       targetMet &&
       isBeforeEndTime &&
       isBelowCap
     );
-  }, [
-    isCreator,
-    onChainPoolStatus,
-    pool.status,
-    targetMet,
-    isBeforeEndTime,
-    isBelowCap,
-  ]);
+  }, [isCreator, pool.status, targetMet, isBeforeEndTime, isBelowCap]);
 
   // Fetch on-chain data using SWR
   const {
@@ -279,10 +256,10 @@ export default function PoolFundsSection({
   // Raw values for calculations - use on-chain data if available
   const rawTotalFunds = useMemo(() => {
     if (onChainData) {
-      const totalDeposits = parseFloat(
+      const totalDeposits = Number(
         ethers.formatUnits(onChainData.totalDeposits, 6)
       );
-      const revenueAccumulated = parseFloat(
+      const revenueAccumulated = Number(
         ethers.formatUnits(onChainData.revenueAccumulated, 6)
       );
       return totalDeposits + revenueAccumulated;
@@ -293,18 +270,16 @@ export default function PoolFundsSection({
   // Format the values for display - memoized to prevent unnecessary recalculations
   const totalDeposits = useMemo(() => {
     if (onChainData) {
-      return formatCurrency(
-        parseFloat(ethers.formatUnits(onChainData.totalDeposits, 6))
-      );
+      const rawDeposits = ethers.formatUnits(onChainData.totalDeposits, 6);
+      return formatCurrency(Number(rawDeposits));
     }
     return formatCurrency(pool.raised_amount || 0);
   }, [onChainData, pool.raised_amount]);
 
   const revenueAccumulated = useMemo(() => {
     if (onChainData) {
-      return formatCurrency(
-        parseFloat(ethers.formatUnits(onChainData.revenueAccumulated, 6))
-      );
+      const rawRevenue = ethers.formatUnits(onChainData.revenueAccumulated, 6);
+      return formatCurrency(Number(rawRevenue));
     }
     return formatCurrency(pool.revenue_accumulated || 0);
   }, [onChainData, pool.revenue_accumulated]);
@@ -317,9 +292,9 @@ export default function PoolFundsSection({
   // Format the on-chain contract balance
   const contractBalance = useMemo(() => {
     if (onChainData) {
-      return formatCurrency(
-        parseFloat(ethers.formatUnits(onChainData.contractBalance, 6))
-      );
+      // Use ethers.formatUnits directly without parseFloat to preserve precision
+      const rawBalance = ethers.formatUnits(onChainData.contractBalance, 6);
+      return formatContractBalance(rawBalance);
     }
     return "Loading...";
   }, [onChainData]);
@@ -374,36 +349,21 @@ export default function PoolFundsSection({
     }
   }, [statusMessage]);
 
-  // Open receive revenue modal
+  // Open receive modal
   const openReceiveModal = async () => {
     if (!pool.contract_address) {
       showToast.error("Pool contract address not found");
       return;
     }
 
-    try {
-      // Check on-chain status first as the source of truth
-      const onChainStatus = await checkOnChainPoolStatus(pool.contract_address);
-      console.log(
-        "On-chain pool status (receive):",
-        onChainStatus,
-        PoolStatus[onChainStatus]
-      );
-
-      // If on-chain status is not EXECUTING, prevent revenue deposit
-      if (onChainStatus !== PoolStatus.EXECUTING) {
-        showToast.error(
-          `Pool must be in EXECUTING status to deposit revenue. On-chain status: ${PoolStatus[onChainStatus]}`
-        );
-        return;
-      }
-
-      setReceiveAmount("");
-      setShowReceiveModal(true);
-    } catch (error) {
-      console.error("Error checking on-chain pool status:", error);
-      showToast.error("Error checking pool status. See console for details.");
+    // Check if pool is in EXECUTING status
+    if (pool.status !== "EXECUTING") {
+      showToast.error("Pool must be in EXECUTING status to deposit revenue");
+      return;
     }
+
+    setReceiveAmount("");
+    setShowReceiveModal(true);
   };
 
   // Handle receive revenue
@@ -445,42 +405,44 @@ export default function PoolFundsSection({
       return;
     }
 
-    console.log("Pool status from database:", pool.status, typeof pool.status);
+    // Check if pool is in EXECUTING status
+    if (pool.status !== "EXECUTING") {
+      showToast.error("Pool must be in EXECUTING status to withdraw funds");
+      return;
+    }
 
-    try {
-      // Always check on-chain status first as the source of truth
-      const onChainStatus = await checkOnChainPoolStatus(pool.contract_address);
-      console.log(
-        "On-chain pool status:",
-        onChainStatus,
-        PoolStatus[onChainStatus]
+    // Set the withdrawal amount to the actual contract balance instead of total available funds
+    if (onChainData) {
+      // Use actual contract balance which represents what can actually be withdrawn
+      const actualBalance = parseFloat(
+        ethers.formatUnits(onChainData.contractBalance, 6)
       );
 
-      // Check if on-chain status is EXECUTING (not FUNDED)
-      if (onChainStatus !== PoolStatus.EXECUTING) {
-        showToast.error(
-          `Pool must be in EXECUTING status to withdraw funds. On-chain status: ${PoolStatus[onChainStatus]}`
-        );
+      // Format to 6 decimal places to avoid floating-point precision issues
+      const formattedBalance = Number(actualBalance.toFixed(6));
+
+      console.log("Setting withdraw amount to actual contract balance:", {
+        actualBalance,
+        formattedBalance,
+      });
+
+      setWithdrawAmount(formattedBalance.toString());
+
+      // If contract balance is zero, show a message and don't open the modal
+      if (formattedBalance <= 0) {
+        showToast.error("No funds available to withdraw");
         return;
       }
-
-      // If we get here, the on-chain status is EXECUTING, so we can proceed
-      console.log("Pool is EXECUTING on-chain, proceeding with withdrawal");
-
-      // Set the withdrawal amount to the actual contract balance instead of total available funds
-      if (onChainData) {
-        // Use actual contract balance which represents what can actually be withdrawn
-        const actualBalance = parseFloat(
-          ethers.formatUnits(onChainData.contractBalance, 6)
+    } else {
+      // Try to fetch fresh on-chain data before proceeding
+      try {
+        const provider = new ethers.JsonRpcProvider(
+          process.env.NEXT_PUBLIC_RPC_URL
         );
-
-        // Format to 6 decimal places to avoid floating-point precision issues
+        const usdcContract = getUSDCContract(provider);
+        const balance = await usdcContract.balanceOf(pool.contract_address);
+        const actualBalance = parseFloat(ethers.formatUnits(balance, 6));
         const formattedBalance = Number(actualBalance.toFixed(6));
-
-        console.log("Setting withdraw amount to actual contract balance:", {
-          actualBalance,
-          formattedBalance,
-        });
 
         setWithdrawAmount(formattedBalance.toString());
 
@@ -489,41 +451,19 @@ export default function PoolFundsSection({
           showToast.error("No funds available to withdraw");
           return;
         }
-      } else {
-        // Try to fetch fresh on-chain data before proceeding
-        try {
-          const provider = new ethers.JsonRpcProvider(
-            process.env.NEXT_PUBLIC_RPC_URL
-          );
-          const usdcContract = getUSDCContract(provider);
-          const balance = await usdcContract.balanceOf(pool.contract_address);
-          const actualBalance = parseFloat(ethers.formatUnits(balance, 6));
-          const formattedBalance = Number(actualBalance.toFixed(6));
+      } catch (error) {
+        console.error("Error fetching fresh balance:", error);
 
-          setWithdrawAmount(formattedBalance.toString());
-
-          // If contract balance is zero, show a message and don't open the modal
-          if (formattedBalance <= 0) {
-            showToast.error("No funds available to withdraw");
-            return;
-          }
-        } catch (error) {
-          console.error("Error fetching fresh balance:", error);
-
-          // If on-chain data isn't available, use pool data from database as fallback
-          // This is just a fallback and might not be accurate
-          const totalAvailable =
-            (pool.raised_amount || 0) + (pool.revenue_accumulated || 0);
-          // Also format database values to be safe
-          const formattedTotalAvailable = Number(totalAvailable.toFixed(6));
-          setWithdrawAmount(formattedTotalAvailable.toString());
-        }
+        // If on-chain data isn't available, use pool data from database as fallback
+        // This is just a fallback and might not be accurate
+        const totalAvailable =
+          (pool.raised_amount || 0) + (pool.revenue_accumulated || 0);
+        // Also format database values to be safe
+        const formattedTotalAvailable = Number(totalAvailable.toFixed(6));
+        setWithdrawAmount(formattedTotalAvailable.toString());
       }
-      setShowWithdrawModal(true);
-    } catch (error) {
-      console.error("Error checking on-chain pool status:", error);
-      showToast.error("Error checking pool status. See console for details.");
     }
+    setShowWithdrawModal(true);
   };
 
   // Add the contract interaction hook
@@ -536,49 +476,9 @@ export default function PoolFundsSection({
       return;
     }
 
-    // No need to check address validity since it's hardcoded to the smart wallet
-    // Check if the pool is in FUNDED status using the enum
-    console.log(
-      "Pool status before conversion (withdraw):",
-      pool.status,
-      typeof pool.status
-    );
-
-    try {
-      // First check on-chain status
-      const onChainStatus = await checkOnChainPoolStatus(pool.contract_address);
-      console.log(
-        "On-chain pool status (withdraw):",
-        onChainStatus,
-        PoolStatus[onChainStatus]
-      );
-
-      // If on-chain status is not EXECUTING, prevent withdrawal
-      if (onChainStatus !== PoolStatus.EXECUTING) {
-        showToast.error(
-          `Pool must be in EXECUTING status to withdraw funds. On-chain status: ${PoolStatus[onChainStatus]}`
-        );
-        return;
-      }
-
-      // Continue with local status check as a backup
-      const poolStatusEnum = getPoolStatusFromNumber(pool.status);
-      console.log(
-        "Pool status after conversion (withdraw):",
-        poolStatusEnum,
-        PoolStatus[poolStatusEnum]
-      );
-
-      if (poolStatusEnum !== PoolStatus.EXECUTING) {
-        console.log("Warning: Local status doesn't match on-chain status", {
-          localStatus: PoolStatus[poolStatusEnum],
-          onChainStatus: PoolStatus[onChainStatus],
-        });
-        // We'll continue anyway since on-chain status is EXECUTING
-      }
-    } catch (error) {
-      console.error("Error processing pool status (withdraw):", error);
-      showToast.error("Error checking pool status. See console for details.");
+    // Check if the pool is in EXECUTING status
+    if (pool.status !== "EXECUTING") {
+      showToast.error("Pool must be in EXECUTING status to withdraw funds");
       return;
     }
 
@@ -667,40 +567,35 @@ export default function PoolFundsSection({
       return;
     }
 
-    let loadingToast: string | undefined;
+    // Check if pool is in EXECUTING status
+    if (pool.status !== "EXECUTING") {
+      showToast.error("Pool must be in EXECUTING status to distribute revenue");
+      return;
+    }
+
+    // Check if there's any revenue to distribute - use actual contract balance
+    const availableRevenue = onChainData
+      ? parseFloat(ethers.formatUnits(onChainData.contractBalance, 6))
+      : 0;
+
+    if (availableRevenue <= 0) {
+      showToast.error("No revenue available to distribute");
+      return;
+    }
+
+    const loadingToast = showToast.loading("Preparing distribution...");
 
     try {
-      // First check on-chain status
-      const onChainStatus = await checkOnChainPoolStatus(pool.contract_address);
-      console.log(
-        "On-chain pool status (distribute):",
-        onChainStatus,
-        PoolStatus[onChainStatus]
-      );
-
-      // If on-chain status is not EXECUTING, prevent distribution
-      if (onChainStatus !== PoolStatus.EXECUTING) {
-        showToast.error(
-          `Pool must be in EXECUTING status to distribute revenue. On-chain status: ${PoolStatus[onChainStatus]}`
-        );
-        return;
-      }
-
-      // Check if there's any revenue to distribute
-      const availableRevenue = onChainData
-        ? parseFloat(ethers.formatUnits(onChainData.revenueAccumulated, 6))
-        : pool.revenue_accumulated || 0;
-
-      if (availableRevenue <= 0) {
-        showToast.error("No revenue available to distribute");
-        return;
-      }
-
-      setIsDistributing(true);
-      loadingToast = showToast.loading("Preparing distribution...");
+      // Log distribution details
+      console.log("Distribution parameters:", {
+        poolAddress: pool.contract_address,
+        contractBalance: availableRevenue,
+        revenueAccumulated: onChainData
+          ? parseFloat(ethers.formatUnits(onChainData.revenueAccumulated, 6))
+          : 0,
+      });
 
       // Use the distributeRevenue function from the hook
-      // Note: The contract function doesn't take an amount parameter, it distributes all available revenue
       const result = await distributeRevenue(pool.contract_address, 0); // Amount is ignored by the contract
 
       if (!result.success) {
@@ -733,8 +628,6 @@ export default function PoolFundsSection({
       try {
         // Refresh on-chain data
         await refreshOnChainData();
-        // Refresh pool details to get updated status
-        await refreshPoolDetails();
       } catch (error) {
         console.error("Error refreshing pool data:", error);
       }
@@ -763,27 +656,19 @@ export default function PoolFundsSection({
                 poolAddress={pool.contract_address || ""}
                 isCreator={isCreator}
                 refreshPoolData={refreshPoolData}
-                currentStatus={
-                  onChainPoolStatus !== null
-                    ? onChainPoolStatus
-                    : getPoolStatusFromNumber(pool.status || 0)
-                }
+                currentStatus={pool.status}
               />
             )}
 
             {/* Show CreatorActions if in EXECUTING state */}
-            {(onChainPoolStatus === PoolStatus.EXECUTING ||
-              getPoolStatusFromNumber(pool.status || 0) ===
-                PoolStatus.EXECUTING) && (
+            {pool.status === "EXECUTING" && (
               <CreatorActions
                 isDepositLoading={isRevenueDepositLoading}
                 isWithdrawing={isWithdrawing}
                 isDistributing={isDistributing}
                 rawTotalFunds={
                   onChainData
-                    ? parseFloat(
-                        ethers.formatUnits(onChainData.contractBalance, 6)
-                      )
+                    ? Number(ethers.formatUnits(onChainData.contractBalance, 6))
                     : rawTotalFunds
                 }
                 onReceiveClick={openReceiveModal}
@@ -791,16 +676,12 @@ export default function PoolFundsSection({
                 onDistributeClick={openDistributeModal}
                 revenueAccumulated={
                   onChainData
-                    ? parseFloat(
+                    ? Number(
                         ethers.formatUnits(onChainData.revenueAccumulated, 6)
                       )
                     : pool.revenue_accumulated || 0
                 }
-                poolStatus={
-                  onChainPoolStatus !== null
-                    ? onChainPoolStatus
-                    : getPoolStatusFromNumber(pool.status || 0)
-                }
+                poolStatus={pool.status}
                 targetMet={targetMet}
                 isBeforeEndTime={isBeforeEndTime}
                 belowCap={isBelowCap}
@@ -859,8 +740,8 @@ export default function PoolFundsSection({
                   </div>
                   <div className="text-4xl font-bold text-white">
                     {receiveAmount
-                      ? parseFloat(receiveAmount).toFixed(2)
-                      : "0.00"}
+                      ? formatCurrency(Number(receiveAmount))
+                      : formatCurrency(0)}
                   </div>
                 </div>
               </div>

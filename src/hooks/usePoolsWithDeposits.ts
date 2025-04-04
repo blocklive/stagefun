@@ -241,8 +241,12 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
             name: pool.name || "Unnamed Pool",
             creator_address: pool.creator_address || "",
             raised_amount: totalDeposits,
-            target_amount: parseFloat(pool.target_amount || "0"),
-            revenue_accumulated: parseFloat(pool.revenue_accumulated || "0"),
+            target_amount: fromUSDCBaseUnits(
+              parseFloat(pool.target_amount || "0")
+            ),
+            revenue_accumulated: fromUSDCBaseUnits(
+              parseFloat(pool.revenue_accumulated || "0")
+            ),
             ends_at: pool.ends_at || new Date().toISOString(),
             status: pool.status || "UNKNOWN", // Use status directly from DB
             creator_name: user?.name || "Unknown Creator",

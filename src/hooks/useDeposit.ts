@@ -74,7 +74,6 @@ export function useDeposit(): UseDepositResult {
       }
 
       // Check if amount is valid - allow 0 for variable price tiers
-      // We'll check if this is a variable price tier later in the flow
       if (amount < 0) {
         return {
           success: false,
@@ -109,34 +108,26 @@ export function useDeposit(): UseDepositResult {
 
         const tier = tierDetails.tier;
 
-        // If this is a variable price tier and amount is 0, this is valid
-        const isVariablePriceTier = tier.is_variable_price;
+        // Amount is already in base units, no need to convert
+        const commitAmount = BigInt(amount);
+
         console.log("Commit validation:", {
           amount,
-          isVariablePriceTier,
+          commitAmount: commitAmount.toString(),
+          isVariablePriceTier: tier.is_variable_price,
           tierPrice: tier.price.toString(),
           tierDetails: tier,
         });
 
-        // Allow 0 amount for any tier type - enabling free claims
-        // Both variable price tiers and fixed price tiers should support 0 amounts
-        // No validation needed here anymore
-
         // For 0 amount variable price tiers, we'll skip some validation requirements
-        const shouldSkipRequirements = amount === 0 && isVariablePriceTier;
+        const shouldSkipRequirements = amount === 0 && tier.is_variable_price;
 
-        if (shouldSkipRequirements) {
-          console.log(
-            "Using special validation for 0 amount variable price tier"
-          );
-        }
-
-        // Check deposit requirements, passing in a flag for zero-amount variable tiers
+        // Check deposit requirements
         const { requirements, error: requirementsError } =
           await depositService.checkDepositRequirements(
             poolAddress,
             tierId,
-            tier.price,
+            commitAmount, // Pass BigInt amount
             shouldSkipRequirements
           );
 
@@ -171,7 +162,7 @@ export function useDeposit(): UseDepositResult {
           console.error(errorMsg, {
             depositAmount: amount,
             isZeroAmount: amount === 0,
-            isVariablePriceTier,
+            isVariablePriceTier: tier.is_variable_price,
             shouldSkipRequirements,
             requirements,
           });
@@ -179,15 +170,6 @@ export function useDeposit(): UseDepositResult {
         }
 
         // Check USDC allowance
-        const commitAmount = ethers.parseUnits(amount.toString(), 6);
-        console.log("Commit amount calculation:", {
-          inputAmount: amount,
-          commitAmount: commitAmount.toString(),
-          tierPrice: tier.price.toString(),
-          isVariablePriceTier,
-        });
-
-        // Check if we have a smart wallet to use
         if (smartWalletAddress && callContractFunction) {
           console.log("Using smart wallet for deposit:", smartWalletAddress);
           showToast.loading("Using smart wallet with gas sponsorship...", {
@@ -195,10 +177,8 @@ export function useDeposit(): UseDepositResult {
           });
 
           // CRITICAL: Check if user has enough USDC balance in their smart wallet
-          // For 0 amount variable price tiers, we can skip this check
           if (amount > 0) {
             try {
-              // Refresh balance first to get the latest
               await refreshSmartWalletBalance();
               const userBalanceInWei = ethers.parseUnits(
                 smartWalletBalance || "0",
@@ -219,7 +199,6 @@ export function useDeposit(): UseDepositResult {
                 "Could not verify balance, proceeding with transaction anyway:",
                 balanceError
               );
-              // Don't block the transaction if balance check fails - the contract will enforce balance requirements
             }
           }
 

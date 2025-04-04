@@ -20,52 +20,44 @@ export default function PoolHeader({
   isCreator,
   handleEditClick,
 }: PoolHeaderProps) {
-  // Convert blockchain status to number
-  const blockchainStatus = pool.blockchain_status;
-
-  // Get the display status directly
+  // Get the display status that takes into account end time
   const displayStatus = getDisplayStatus(
-    blockchainStatus,
+    pool.status,
     pool.ends_at,
     pool.raised_amount,
     pool.target_amount
   );
 
-  // Determine the status text and color
+  // Determine the status text and color based on display status
   let statusText = "Accepting patrons";
   let statusColor = "#836EF9"; // Purple for default/accepting patrons
 
   switch (displayStatus) {
-    case PoolStatus.FUNDED:
+    case "FUNDED":
       statusText = "Funded";
       statusColor = "#A78BFA"; // Purple for funded
       break;
-    case PoolStatus.FAILED:
+    case "FAILED":
       statusText = "Unfunded";
       statusColor = "#F87171"; // Red for unfunded
       break;
-    case PoolStatus.EXECUTING:
+    case "EXECUTING":
       statusText = "Production";
       statusColor = "#22C55E"; // Green for executing
       break;
-    case PoolStatus.INACTIVE:
+    case "INACTIVE":
       statusText = "Inactive";
       break;
-    case PoolStatus.PAUSED:
+    case "PAUSED":
       statusText = "Paused";
       break;
-    case PoolStatus.CLOSED:
+    case "CLOSED":
       statusText = "Closed";
       break;
-    case PoolStatus.ACTIVE:
+    case "ACTIVE":
     default:
       // Keep default "Accepting patrons" for active pools
       break;
-  }
-
-  // Special case for pending status (blockchain_status === 0)
-  if (blockchainStatus === 0) {
-    statusText = "Pending";
   }
 
   return (

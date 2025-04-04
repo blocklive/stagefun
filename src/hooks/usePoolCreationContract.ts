@@ -277,19 +277,19 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         });
         let blockchainResult: BlockchainPoolResult;
         try {
-          // Prepare tier data for the contract (use base units)
+          // Prepare tier data for the contract (values already in base units)
           const tierInitDataForContract =
             poolData.tiers?.map((tier) => {
-              // Convert price to USDC base units (6 decimals) only for contract call
-              const priceBaseUnits = toUSDCBaseUnits(Number(tier.price));
+              // Values are already in base units from formattedPoolData
+              const priceBaseUnits = BigInt(tier.price);
               const minPriceBaseUnits = tier.isVariablePrice
-                ? toUSDCBaseUnits(Number(tier.minPrice))
+                ? BigInt(tier.minPrice)
                 : BigInt(0);
               const maxPriceBaseUnits = tier.isVariablePrice
-                ? toUSDCBaseUnits(Number(tier.maxPrice))
+                ? BigInt(tier.maxPrice)
                 : BigInt(0);
 
-              console.log("Converting tier price for contract:", {
+              console.log("Using tier price for contract:", {
                 original: tier.price,
                 converted: priceBaseUnits.toString(),
                 isVariablePrice: tier.isVariablePrice,
@@ -301,24 +301,23 @@ export function usePoolCreationContract(): PoolCreationHookResult {
 
               return {
                 name: tier.name,
-                price: priceBaseUnits, // Use base units for contract
+                price: priceBaseUnits, // Already in base units
                 nftMetadata: tier.nftMetadata || "",
                 isVariablePrice: tier.isVariablePrice || false,
-                minPrice: minPriceBaseUnits, // Use base units for contract
-                maxPrice: maxPriceBaseUnits, // Use base units for contract
+                minPrice: minPriceBaseUnits, // Already in base units
+                maxPrice: maxPriceBaseUnits, // Already in base units
                 maxPatrons: BigInt(tier.maxPatrons || 0),
               };
             }) || [];
 
-          // Convert target/cap amounts to base units only for contract call
-          const targetAmountBaseUnits = toUSDCBaseUnits(poolData.target_amount);
+          // Target/cap amounts are already in base units from formattedPoolData
+          const targetAmountBaseUnits = BigInt(poolData.target_amount);
           const capAmountBaseUnits =
-            // Check explicitly if cap_amount is 0 to distinguish between "no cap" (0) and "not specified" (undefined/null)
             poolData.cap_amount === 0
               ? BigInt(0) // Use 0 to indicate no cap for the contract
               : poolData.cap_amount && poolData.cap_amount > 0
-              ? toUSDCBaseUnits(poolData.cap_amount)
-              : targetAmountBaseUnits; // Use target amount base units if cap not specified
+              ? BigInt(poolData.cap_amount)
+              : targetAmountBaseUnits; // Use target amount if cap not specified
 
           console.log("Pool creation cap settings:", {
             rawCap: poolData.cap_amount,

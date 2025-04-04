@@ -5,7 +5,10 @@ import { Fragment, useState, useEffect } from "react";
 import { DBTier } from "../../../../hooks/usePoolTiers";
 import showToast from "@/utils/toast";
 import { ethers } from "ethers";
-import { toUSDCBaseUnits } from "@/lib/contracts/StageDotFunPool";
+import {
+  toUSDCBaseUnits,
+  fromUSDCBaseUnits,
+} from "@/lib/contracts/StageDotFunPool";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
 import { useSmartWalletBalance } from "@/hooks/useSmartWalletBalance";
 import Image from "next/image";
@@ -15,23 +18,23 @@ import { useDeposit } from "@/hooks/useDeposit";
 interface CommitModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCommit: (tierId: string, amount: string) => Promise<void>;
   commitAmount: string;
   setCommitAmount: (value: string) => void;
   isApproving: boolean;
   tiers: DBTier[] | null;
   isLoadingTiers: boolean;
+  poolAddress: string;
 }
 
 export default function CommitModal({
   isOpen,
   onClose,
-  onCommit,
   commitAmount,
   setCommitAmount,
   isApproving,
   tiers,
   isLoadingTiers,
+  poolAddress,
 }: CommitModalProps) {
   const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
   const selectedTier = selectedTierId
@@ -48,6 +51,8 @@ export default function CommitModal({
   const walletToUse = smartWalletAddress
     ? "Smart Wallet (Gas Free)"
     : "Embedded Wallet";
+
+  const { depositToPool, isLoading: isDepositing } = useDeposit();
 
   // Refresh balance when modal opens
   useEffect(() => {
@@ -73,32 +78,40 @@ export default function CommitModal({
       return;
     }
 
-    const amount = foundTier.is_variable_price
-      ? commitAmount
-      : foundTier.price.toString();
+    // For variable price tiers, convert human input to base units
+    // For fixed price tiers, use the base units price directly
+    const amountInBaseUnits = foundTier.is_variable_price
+      ? toUSDCBaseUnits(parseFloat(commitAmount))
+      : BigInt(foundTier.price);
+
+    // Get the contract tier ID (index in the array)
+    const contractTierId = tiers?.indexOf(foundTier) ?? -1;
+    if (contractTierId === -1) {
+      console.error("❌ Could not determine contract tier ID");
+      showToast.error("Invalid tier selected");
+      return;
+    }
 
     console.log("Handling commit with:", {
       selectedTierId,
+      contractTierId,
       isVariablePriced: foundTier.is_variable_price,
-      inputAmount: amount,
+      inputAmount: foundTier.is_variable_price
+        ? commitAmount
+        : fromUSDCBaseUnits(BigInt(foundTier.price)).toString(),
+      amountInBaseUnits: amountInBaseUnits.toString(),
       tierPrice: foundTier.price,
-      finalAmount: amount,
-      amountAsNumber: parseFloat(amount),
-      isNaN: isNaN(parseFloat(amount)),
-      isLessThanZero: parseFloat(amount) < 0,
-      isZero: parseFloat(amount) === 0,
-      isZeroVariablePrice:
-        parseFloat(amount) === 0 && foundTier.is_variable_price,
-      isZeroAndNotVariablePrice:
-        parseFloat(amount) === 0 && !foundTier.is_variable_price,
+      isNaN: isNaN(Number(amountInBaseUnits)),
+      isZero: amountInBaseUnits === BigInt(0),
       minPrice: foundTier.min_price,
       maxPrice: foundTier.max_price,
     });
 
     // Validate amount
     if (
-      !foundTier ||
-      (!amount && foundTier.price !== 0 && !foundTier.is_variable_price)
+      amountInBaseUnits < BigInt(0) ||
+      (!foundTier.is_variable_price &&
+        amountInBaseUnits !== BigInt(foundTier.price))
     ) {
       console.log("❌ Amount validation failed");
       showToast.error("Please enter a valid amount");
@@ -109,41 +122,52 @@ export default function CommitModal({
     if (foundTier.is_variable_price) {
       if (
         foundTier.min_price &&
-        parseFloat(amount) < foundTier.min_price &&
-        parseFloat(amount) !== 0
+        amountInBaseUnits < BigInt(foundTier.min_price) &&
+        amountInBaseUnits !== BigInt(0)
       ) {
         console.log("❌ Below minimum price constraint");
         showToast.error(
-          `Minimum commitment for this tier is ${foundTier.min_price} USDC`
+          `Minimum commitment for this tier is ${fromUSDCBaseUnits(
+            BigInt(foundTier.min_price)
+          )} USDC`
         );
         return;
       }
 
-      if (foundTier.max_price && parseFloat(amount) > foundTier.max_price) {
+      if (
+        foundTier.max_price &&
+        amountInBaseUnits > BigInt(foundTier.max_price)
+      ) {
         console.log("❌ Above maximum price constraint");
         showToast.error(
-          `Maximum commitment for this tier is ${foundTier.max_price} USDC`
+          `Maximum commitment for this tier is ${fromUSDCBaseUnits(
+            BigInt(foundTier.max_price)
+          )} USDC`
         );
         return;
       }
     }
 
-    console.log("🚀 Calling onCommit with:", {
-      tierId: selectedTierId,
-      amount: amount,
-    });
-
     try {
-      // Pass the human-readable amount to onCommit
-      console.log(
-        `🔥 Calling onCommit with tierId: ${selectedTierId}, amount: ${amount}, amountType: ${typeof amount}, parseFloat: ${parseFloat(
-          amount
-        )}`
+      // Call depositToPool with the pool address, amount in base units, and contract tier ID
+      const result = await depositToPool(
+        poolAddress,
+        Number(amountInBaseUnits), // Convert BigInt to number for the contract call
+        contractTierId // Use the array index as the contract tier ID
       );
-      await onCommit(selectedTierId, amount);
-      console.log("✅ onCommit completed successfully");
+
+      if (result.success) {
+        console.log("✅ Deposit completed successfully:", result);
+        onClose();
+      } else {
+        console.error("❌ Deposit failed:", result.error);
+        showToast.error(result.error || "Failed to deposit");
+      }
     } catch (error) {
-      console.error("❌ Error in onCommit:", error);
+      console.error("❌ Error in deposit:", error);
+      showToast.error(
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
     }
   };
 
@@ -163,8 +187,11 @@ export default function CommitModal({
         userBalance >= parseFloat(commitAmount)
       );
     } else {
-      // For fixed price tiers, check against the tier price
-      return userBalance >= selectedTier.price;
+      // For fixed price tiers, check against the tier price in human readable format
+      const tierPriceHuman = fromUSDCBaseUnits(
+        BigInt(selectedTier.price)
+      ).toString();
+      return userBalance >= parseFloat(tierPriceHuman);
     }
   };
 
@@ -199,8 +226,17 @@ export default function CommitModal({
                       <h3 className="font-medium">{tier.name}</h3>
                       <span className="text-[#836EF9]">
                         {tier.is_variable_price
-                          ? `${tier.min_price}-${tier.max_price} USDC`
-                          : `${tier.price} USDC`}
+                          ? `${ethers.formatUnits(
+                              tier.min_price?.toString() || "0",
+                              6
+                            )}-${ethers.formatUnits(
+                              tier.max_price?.toString() || "0",
+                              6
+                            )} USDC`
+                          : `${ethers.formatUnits(
+                              tier.price?.toString() || "0",
+                              6
+                            )} USDC`}
                       </span>
                     </div>
                     {tier.description && (
@@ -256,10 +292,15 @@ export default function CommitModal({
                   <>
                     {!selectedTier.is_variable_price &&
                       parseFloat(smartWalletBalance || "0") <
-                        selectedTier.price && (
+                        parseFloat(
+                          fromUSDCBaseUnits(
+                            BigInt(selectedTier.price)
+                          ).toString()
+                        ) && (
                         <div className="mt-2 text-xs text-amber-400">
                           Your balance is less than the required amount for this
-                          tier ({selectedTier.price} USDC)
+                          tier ({fromUSDCBaseUnits(BigInt(selectedTier.price))}{" "}
+                          USDC)
                         </div>
                       )}
 
@@ -292,15 +333,15 @@ export default function CommitModal({
                     (selectedTier?.is_variable_price &&
                       commitAmount !== "0" &&
                       !commitAmount) ||
-                    isApproving ||
+                    isDepositing ||
                     !hasSufficientFunds()
                   }
                   className="px-6 py-3 rounded-xl bg-[#836EF9] text-white hover:bg-[#6B4EF9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {isApproving ? (
+                  {isDepositing ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Committing...</span>
+                      <span>Depositing...</span>
                     </>
                   ) : !selectedTierId ? (
                     "Select a Tier"

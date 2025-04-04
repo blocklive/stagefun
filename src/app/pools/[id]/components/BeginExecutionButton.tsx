@@ -5,13 +5,12 @@ import { FaPlay, FaInfoCircle } from "react-icons/fa";
 import { usePoolExecutionTransition } from "../../../../hooks/usePoolExecutionTransition";
 import showToast from "@/utils/toast";
 import Tooltip from "../../../../components/Tooltip";
-import { PoolStatus } from "../../../../lib/contracts/types";
 
 interface BeginExecutionButtonProps {
   poolAddress: string;
   isCreator: boolean;
   refreshPoolData: () => Promise<void>;
-  currentStatus: PoolStatus;
+  currentStatus: string;
 }
 
 export default function BeginExecutionButton({
@@ -38,7 +37,7 @@ export default function BeginExecutionButton({
       return;
     }
 
-    if (currentStatus !== PoolStatus.FUNDED) {
+    if (currentStatus !== "FUNDED") {
       showToast.error("Pool must be in FUNDED state to begin execution");
       return;
     }

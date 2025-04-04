@@ -443,20 +443,28 @@ export default function ProfileComponent() {
   // Function to determine pool status
   const getPoolStatus = (pool: any) => {
     const displayStatus = getDisplayStatus(
-      pool.blockchain_status,
+      pool.status,
       pool.ends_at,
       pool.raised_amount,
       pool.target_amount
     );
 
     switch (displayStatus) {
-      case PoolStatus.FUNDED:
+      case "FUNDED":
+      case "FULLY_FUNDED":
         return { text: "Funded", colorClass: "bg-[#836EF9]" }; // Purple dot for Funded
-      case PoolStatus.FAILED:
+      case "EXECUTING":
+        return { text: "Production", colorClass: "bg-[#22C55E]" }; // Green dot for Executing
+      case "FAILED":
         return { text: "Unfunded", colorClass: "bg-[#F87171]" }; // Red dot for Unfunded
-      case PoolStatus.ACTIVE:
+      case "ACTIVE":
         return { text: "Raising", colorClass: "bg-[#00C48C]" }; // Green dot for Active
+      case "PAUSED":
+        return { text: "Paused", colorClass: "bg-[#F59E0B]" }; // Yellow dot for Paused
       default:
+        console.log(
+          `Pool ${pool.id} has unrecognized status: ${displayStatus}`
+        );
         return { text: "Inactive", colorClass: "bg-gray-400" }; // Gray dot for other states
     }
   };

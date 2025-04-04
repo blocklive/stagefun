@@ -86,43 +86,45 @@ export function getPoolStatusString(
 }
 
 /**
- * Get the display status for a pool, taking into account both on-chain status and end date
- * @param blockchainStatus - The numeric status from the blockchain (0-5)
- * @param endTime - The end timestamp from the blockchain
+ * Get the display status for a pool, taking into account both database status and end date
+ * @param status - The status string from the database (e.g. "ACTIVE", "FUNDED", etc.)
+ * @param endTime - The end timestamp from the database
  * @param raisedAmount - The amount raised so far
  * @param targetAmount - The target amount for the pool
- * @returns PoolStatus - The status to display in the UI
+ * @returns string - The status to display in the UI
  */
 export function getDisplayStatus(
-  blockchainStatus: number | bigint,
-  endTime: number | bigint | string,
+  status: string,
+  endTime: string,
   raisedAmount: number,
   targetAmount: number
-): PoolStatus {
-  // Convert inputs to appropriate types
-  const status =
-    typeof blockchainStatus === "bigint"
-      ? Number(blockchainStatus)
-      : blockchainStatus;
-  const endTimeNum =
-    typeof endTime === "bigint"
-      ? Number(endTime)
-      : typeof endTime === "string"
-      ? new Date(endTime).getTime() / 1000
-      : endTime;
-  const now = Math.floor(Date.now() / 1000); // Current time in seconds
+): string {
+  // If the pool is already marked with these statuses, respect them
+  if (
+    [
+      "FUNDED",
+      "FULLY_FUNDED",
+      "FAILED",
+      "EXECUTING",
+      "PAUSED",
+      "CLOSED",
+      "COMPLETED",
+      "CANCELLED",
+    ].includes(status)
+  ) {
+    return status;
+  }
 
-  // If the pool is already marked as FUNDED, FAILED, or EXECUTING, respect that status
-  if (status === PoolStatus.FUNDED) return PoolStatus.FUNDED;
-  if (status === PoolStatus.FAILED) return PoolStatus.FAILED;
-  if (status === PoolStatus.EXECUTING) return PoolStatus.EXECUTING;
+  // Check if the pool has ended
+  const endTimeNum = new Date(endTime).getTime() / 1000;
+  const now = Math.floor(Date.now() / 1000); // Current time in seconds
 
   // Check if the pool has ended
   if (now > endTimeNum) {
     // Pool has ended - check if it met its target
-    return raisedAmount >= targetAmount ? PoolStatus.FUNDED : PoolStatus.FAILED;
+    return raisedAmount >= targetAmount ? "FUNDED" : "FAILED";
   }
 
-  // If not ended, return the current blockchain status
-  return status as PoolStatus;
+  // If not ended, return the current status
+  return status;
 }

@@ -19,7 +19,11 @@ export function usePoolTimeLeft(pool: any) {
     // Function to calculate time left
     const calculateTimeLeft = () => {
       const now = Math.floor(Date.now() / 1000);
-      const endTime = Math.floor(new Date(pool.ends_at).getTime() / 1000);
+
+      // Convert ends_at to timestamp
+      const endsAtDate = new Date(pool.ends_at);
+      const endTime = Math.floor(endsAtDate.getTime() / 1000);
+
       const diff = endTime - now;
       const hasEnded = diff <= 0;
 

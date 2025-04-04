@@ -150,7 +150,7 @@ export function usePoints(
 
       return () => clearInterval(timer);
     }
-  }, [checkinData, canClaim, mutate]);
+  }, [checkinData, canClaim, mutate, timeUntilNextClaim]);
 
   // Initial data fetch if not using SWR
   useEffect(() => {
