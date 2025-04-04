@@ -236,8 +236,7 @@ export async function getPoolById(id: string): Promise<Pool | null> {
     cap_amount:
       capAmount ||
       (dbPool.cap_amount ? Number(dbPool.cap_amount) / 1_000_000 : 0),
-    raised_amount:
-      totalDeposits || Number(dbPool.raised_amount) / 1_000_000 || 0,
+    raised_amount: totalDeposits || dbPool.raised_amount || 0,
     revenue_accumulated:
       revenueAccumulated || Number(dbPool.revenue_accumulated) / 1_000_000 || 0,
     blockchain_status: Number(chainData.status || 0),

@@ -1,7 +1,7 @@
 "use client";
 
 import { Pool } from "../../../../lib/supabase";
-import { formatCurrency } from "../../../../lib/utils";
+import { formatCurrency, formatContractBalance } from "../../../../lib/utils";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { ethers } from "ethers";
 import { useSendTransaction, useWallets } from "@privy-io/react-auth";
@@ -256,10 +256,10 @@ export default function PoolFundsSection({
   // Raw values for calculations - use on-chain data if available
   const rawTotalFunds = useMemo(() => {
     if (onChainData) {
-      const totalDeposits = parseFloat(
+      const totalDeposits = Number(
         ethers.formatUnits(onChainData.totalDeposits, 6)
       );
-      const revenueAccumulated = parseFloat(
+      const revenueAccumulated = Number(
         ethers.formatUnits(onChainData.revenueAccumulated, 6)
       );
       return totalDeposits + revenueAccumulated;
@@ -270,18 +270,16 @@ export default function PoolFundsSection({
   // Format the values for display - memoized to prevent unnecessary recalculations
   const totalDeposits = useMemo(() => {
     if (onChainData) {
-      return formatCurrency(
-        parseFloat(ethers.formatUnits(onChainData.totalDeposits, 6))
-      );
+      const rawDeposits = ethers.formatUnits(onChainData.totalDeposits, 6);
+      return formatCurrency(Number(rawDeposits));
     }
     return formatCurrency(pool.raised_amount || 0);
   }, [onChainData, pool.raised_amount]);
 
   const revenueAccumulated = useMemo(() => {
     if (onChainData) {
-      return formatCurrency(
-        parseFloat(ethers.formatUnits(onChainData.revenueAccumulated, 6))
-      );
+      const rawRevenue = ethers.formatUnits(onChainData.revenueAccumulated, 6);
+      return formatCurrency(Number(rawRevenue));
     }
     return formatCurrency(pool.revenue_accumulated || 0);
   }, [onChainData, pool.revenue_accumulated]);
@@ -294,9 +292,10 @@ export default function PoolFundsSection({
   // Format the on-chain contract balance
   const contractBalance = useMemo(() => {
     if (onChainData) {
-      return formatCurrency(
-        parseFloat(ethers.formatUnits(onChainData.contractBalance, 6))
-      );
+      console.log("onchainbal", onChainData.contractBalance);
+      // Use ethers.formatUnits directly without parseFloat to preserve precision
+      const rawBalance = ethers.formatUnits(onChainData.contractBalance, 6);
+      return formatContractBalance(rawBalance);
     }
     return "Loading...";
   }, [onChainData]);
@@ -575,10 +574,10 @@ export default function PoolFundsSection({
       return;
     }
 
-    // Check if there's any revenue to distribute
+    // Check if there's any revenue to distribute - use actual contract balance
     const availableRevenue = onChainData
-      ? parseFloat(ethers.formatUnits(onChainData.revenueAccumulated, 6))
-      : pool.revenue_accumulated || 0;
+      ? parseFloat(ethers.formatUnits(onChainData.contractBalance, 6))
+      : 0;
 
     if (availableRevenue <= 0) {
       showToast.error("No revenue available to distribute");
@@ -590,8 +589,16 @@ export default function PoolFundsSection({
     loadingToast = showToast.loading("Preparing distribution...");
 
     try {
+      // Log distribution details
+      console.log("Distribution parameters:", {
+        poolAddress: pool.contract_address,
+        contractBalance: availableRevenue,
+        revenueAccumulated: onChainData
+          ? parseFloat(ethers.formatUnits(onChainData.revenueAccumulated, 6))
+          : 0,
+      });
+
       // Use the distributeRevenue function from the hook
-      // Note: The contract function doesn't take an amount parameter, it distributes all available revenue
       const result = await distributeRevenue(pool.contract_address, 0); // Amount is ignored by the contract
 
       if (!result.success) {
@@ -664,9 +671,7 @@ export default function PoolFundsSection({
                 isDistributing={isDistributing}
                 rawTotalFunds={
                   onChainData
-                    ? parseFloat(
-                        ethers.formatUnits(onChainData.contractBalance, 6)
-                      )
+                    ? Number(ethers.formatUnits(onChainData.contractBalance, 6))
                     : rawTotalFunds
                 }
                 onReceiveClick={openReceiveModal}
@@ -674,7 +679,7 @@ export default function PoolFundsSection({
                 onDistributeClick={openDistributeModal}
                 revenueAccumulated={
                   onChainData
-                    ? parseFloat(
+                    ? Number(
                         ethers.formatUnits(onChainData.revenueAccumulated, 6)
                       )
                     : pool.revenue_accumulated || 0
@@ -738,8 +743,8 @@ export default function PoolFundsSection({
                   </div>
                   <div className="text-4xl font-bold text-white">
                     {receiveAmount
-                      ? parseFloat(receiveAmount).toFixed(2)
-                      : "0.00"}
+                      ? formatCurrency(Number(receiveAmount))
+                      : formatCurrency(0)}
                   </div>
                 </div>
               </div>

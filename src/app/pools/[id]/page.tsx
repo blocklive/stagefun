@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
 import { usePoolDetailsV2 } from "../../../hooks/usePoolDetailsV2";
@@ -50,6 +50,14 @@ export default function PoolDetailsPage() {
 
   // Fetch pool data using our new hook
   const { pool, isLoading, error, mutate } = usePoolDetailsV2(id);
+
+  // Update showCommitButton based on pool status
+  useEffect(() => {
+    if (pool) {
+      // Hide commit button if pool is in EXECUTING status
+      setShowCommitButton(pool.status !== "EXECUTING");
+    }
+  }, [pool?.status]);
 
   // Get time left
   const { days, hours, minutes, seconds } = usePoolTimeLeft(pool?.ends_at);
@@ -119,6 +127,7 @@ export default function PoolDetailsPage() {
 
   // Render pool funds section
   const renderPoolFunds = () => {
+    console.log("pool*******", pool, isCreator);
     if (!pool || !isCreator) return null;
 
     return <PoolFundsSection pool={pool} isCreator={isCreator} />;
@@ -155,7 +164,7 @@ export default function PoolDetailsPage() {
       />
 
       {/* Main Content */}
-      {pool.status === "FUNDED" ? (
+      {pool.status === "FUNDED" || pool.status === "EXECUTING" ? (
         <FundedPoolView
           pool={pool}
           renderUserCommitment={renderUserCommitment}
@@ -226,14 +235,12 @@ export default function PoolDetailsPage() {
       <CommitModal
         isOpen={isCommitModalOpen}
         onClose={() => setIsCommitModalOpen(false)}
-        onCommit={async () => {
-          /* TODO: Implement commit */
-        }}
         commitAmount={commitAmount}
         setCommitAmount={setCommitAmount}
         isApproving={isCommitting}
         tiers={pool.tiers}
         isLoadingTiers={false}
+        poolAddress={pool.contract_address || ""}
       />
 
       <GetTokensModal

@@ -14,6 +14,7 @@ import {
   StageDotFunPoolABI,
   getPoolByName,
   getPoolContract,
+  StageDotFunLiquidityABI,
 } from "../lib/contracts/StageDotFunPool";
 import {
   getRecommendedGasParams,
@@ -636,9 +637,93 @@ export function useContractInteraction(): ContractInteractionHookResult {
           };
         }
 
-        console.log(`Preparing to distribute revenue for pool: ${poolAddress}`);
+        console.log("Distribution parameters:", {
+          poolAddress,
+          amount,
+          smartWalletAddress,
+        });
+
+        // Get pool contract to check status and details
+        const provider = new ethers.JsonRpcProvider(
+          process.env.NEXT_PUBLIC_RPC_URL
+        );
+        const poolContract = new ethers.Contract(
+          poolAddress,
+          StageDotFunPoolABI,
+          provider
+        );
+
+        // Get and log raw values first
+        const [status, rawRevenueAccumulated, lpTokenAddress] =
+          await Promise.all([
+            poolContract.status(),
+            poolContract.revenueAccumulated(),
+            poolContract.lpToken(),
+          ]);
+
+        // Get holders and their balances
+        const holders = await poolContract.getLpHolders();
+        const lpTokenContract = new ethers.Contract(
+          lpTokenAddress,
+          [
+            "function totalSupply() view returns (uint256)",
+            "function balanceOf(address) view returns (uint256)",
+          ],
+          provider
+        );
+
+        // Calculate distribution amounts
+        const totalSupply = await lpTokenContract.totalSupply();
+        const balances = await Promise.all(
+          holders.map(async (holder: string) => {
+            try {
+              return await lpTokenContract.balanceOf(holder);
+            } catch (error) {
+              console.error(
+                `Error getting balance for holder ${holder}:`,
+                error
+              );
+              return BigInt(0);
+            }
+          })
+        );
+
+        // Log distribution details
+        console.log("Distribution calculation:", {
+          totalRevenue: ethers.formatUnits(rawRevenueAccumulated, 6),
+          totalSupply: ethers.formatUnits(totalSupply, 6),
+          holders: holders.map((holder: string, i: number) => {
+            const balance = ethers.formatUnits(balances[i], 6);
+            const expectedAmount = ethers.formatUnits(
+              (rawRevenueAccumulated * balances[i]) / totalSupply,
+              6
+            );
+
+            // Format with more decimals if the number has them
+            const formatWithPrecision = (value: string) => {
+              const num = parseFloat(value);
+              // Check if number has more than 6 decimal places
+              if (
+                num.toString().includes(".") &&
+                num.toString().split(".")[1].length > 6
+              ) {
+                return num.toFixed(8); // Show 8 decimal places
+              }
+              return value;
+            };
+
+            return {
+              address: holder,
+              balance: formatWithPrecision(balance),
+              share: Number((balances[i] * BigInt(100)) / totalSupply),
+              expectedAmount: formatWithPrecision(expectedAmount),
+            };
+          }),
+        });
+
+        // Call distributeRevenue
         console.log(
-          "Using smart wallet for revenue distribution:",
+          "Preparing to distribute revenue using smart wallet:",
           smartWalletAddress
         );
 

@@ -3,6 +3,8 @@
 import { Pool } from "../../../../lib/supabase";
 import TabsAndSocial from "./TabsAndSocial";
 import { formatCurrency } from "../../../../lib/utils";
+import { useMemo } from "react";
+import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
 
 type TabType = "overview" | "patrons";
 
@@ -11,7 +13,7 @@ interface UnfundedPoolViewProps {
   renderUserCommitment: () => React.ReactNode;
   activeTab?: TabType;
   onTabChange?: (tab: TabType) => void;
-  raisedAmount: number;
+  raisedAmount: number | string | bigint;
   targetAmount: number;
 }
 
@@ -23,11 +25,43 @@ export default function UnfundedPoolView({
   raisedAmount,
   targetAmount,
 }: UnfundedPoolViewProps) {
+  // Format raised and target amounts
+  const displayRaisedAmount = useMemo(() => {
+    if (!raisedAmount) return "0";
+
+    try {
+      // Assume raisedAmount is in base units and convert to BigInt
+      const raisedAmountBigInt = BigInt(raisedAmount);
+
+      // Simple conversion from base units to human readable
+      return fromUSDCBaseUnits(raisedAmountBigInt).toLocaleString();
+    } catch (e) {
+      console.error("Error converting raised amount:", e, raisedAmount);
+      return "0";
+    }
+  }, [raisedAmount]);
+
+  const displayTargetAmount = useMemo(() => {
+    if (!targetAmount) return "0";
+    return fromUSDCBaseUnits(BigInt(targetAmount)).toLocaleString();
+  }, [targetAmount]);
+
   // Calculate percentage funded for the progress bar
-  const percentage =
-    targetAmount > 0
-      ? Math.min(Math.round((raisedAmount / targetAmount) * 100), 100)
-      : 0;
+  const percentage = useMemo(() => {
+    if (!targetAmount || !raisedAmount) return 0;
+
+    try {
+      const raisedNum = Number(displayRaisedAmount.replace(/,/g, ""));
+      const targetNum = Number(displayTargetAmount.replace(/,/g, ""));
+
+      return targetNum > 0
+        ? Math.min(Math.round((raisedNum / targetNum) * 100), 100)
+        : 0;
+    } catch (e) {
+      console.error("Error calculating percentage:", e);
+      return 0;
+    }
+  }, [displayRaisedAmount, displayTargetAmount, raisedAmount, targetAmount]);
 
   return (
     <>
@@ -47,11 +81,9 @@ export default function UnfundedPoolView({
               Funding Failed • Target Not Reached
             </div>
             <div className="flex items-center justify-between">
-              <div className="text-5xl font-bold">
-                ${targetAmount.toLocaleString()}
-              </div>
+              <div className="text-5xl font-bold">${displayTargetAmount}</div>
               <div className="text-xl text-gray-400">
-                {percentage.toFixed(1)}% • ${raisedAmount.toLocaleString()}
+                {percentage.toFixed(1)}% • ${displayRaisedAmount}
               </div>
             </div>
           </div>

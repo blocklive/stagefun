@@ -52,8 +52,9 @@ const fetcher = async (poolId: string) => {
   const { data: commitments, error: commitmentsError } = await supabase
     .from("tier_commitments")
     .select("*")
-    .eq("pool_address", poolData.contract_address);
+    .ilike("pool_address", poolData.contract_address);
 
+  console.log("commitments", commitments);
   if (commitmentsError) throw commitmentsError;
 
   // Get all users for these commitments
@@ -122,9 +123,31 @@ const fetcher = async (poolId: string) => {
       })) || [],
   };
 
-  console.log("processedData", processedData);
+  console.log("Raw commitments:", commitmentsWithUsers);
 
-  return processedData;
+  // Calculate total raised amount from all tier commitments
+  const totalRaised = commitmentsWithUsers.reduce((total, commitment) => {
+    // Convert string amounts to numbers, ensuring we keep base units
+    const amount = commitment.amount
+      ? typeof commitment.amount === "string"
+        ? parseInt(commitment.amount, 10)
+        : Number(commitment.amount)
+      : 0;
+
+    return total + amount;
+  }, 0);
+
+  console.log("Final total raised:", totalRaised);
+
+  // Override the raised_amount with our calculated total from commitments
+  const finalData = {
+    ...processedData,
+    raised_amount: totalRaised, // This is in base units (e.g. 10000 for 0.01 USDC)
+  };
+
+  console.log("Final processed data:", finalData);
+
+  return finalData;
 };
 
 export function usePoolDetailsV2(poolId: string): PoolDetailsV2 {

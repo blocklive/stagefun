@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Pool } from "../../../../lib/supabase";
+import { formatCurrency } from "../../../../lib/utils";
 import TabsAndSocial from "./TabsAndSocial";
+import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
 
 type TabType = "overview" | "patrons";
 
@@ -52,10 +54,11 @@ export default function OpenPoolView({
             </div>
             <div className="flex items-center justify-between">
               <div className="text-5xl font-bold">
-                ${targetAmount.toLocaleString()}
+                ${fromUSDCBaseUnits(BigInt(targetAmount)).toLocaleString()}
               </div>
               <div className="text-xl text-gray-400">
-                {percentage.toFixed(1)}% • ${raisedAmount.toLocaleString()}
+                {percentage.toFixed(1)}% • $
+                {fromUSDCBaseUnits(BigInt(raisedAmount)).toLocaleString()}
               </div>
             </div>
           </div>
