@@ -57,7 +57,7 @@ export default function PoolDetailsPage() {
       // Hide commit button if pool is in EXECUTING status
       setShowCommitButton(pool.status !== "EXECUTING");
     }
-  }, [pool?.status]);
+  }, [pool?.status, pool]);
 
   // Get time left - pass the entire pool object
   const { days, hours, minutes, seconds } = usePoolTimeLeft(pool);

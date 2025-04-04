@@ -116,6 +116,19 @@ export default function EditPoolPage() {
     }
   }, [pool, description]);
 
+  // When pool data is loaded, set the form fields
+  useEffect(() => {
+    if (pool) {
+      setPoolName(pool.name || "");
+      setDescription(pool.description || "");
+      setLocation(pool.location || "");
+      setSocialLinks(pool.social_links || {});
+      if (pool.image_url) {
+        setImagePreview(pool.image_url);
+      }
+    }
+  }, [pool]);
+
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {

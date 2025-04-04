@@ -20,6 +20,7 @@ import {
   getDisplayStatus,
 } from "../../lib/contracts/types";
 import UserAvatar from "../components/UserAvatar";
+import { USDC_DECIMAL_FACTOR } from "../../lib/contracts/StageDotFunPool";
 
 type TabType = "open" | "funded" | "unfunded";
 
@@ -191,14 +192,17 @@ export default function PoolsPage() {
 
   // Format amount for display
   const formatAmount = (amount: number) => {
-    if (amount >= 1000000) {
-      return `${(amount / 1000000).toFixed(1)}M`;
-    } else if (amount >= 1000) {
-      return `${(amount / 1000).toFixed(1)}K`;
-    } else if (amount >= 0.01) {
-      return amount.toFixed(2);
-    } else if (amount > 0) {
-      return amount.toFixed(4);
+    // No conversion needed - the hook already provides values in proper format
+    const displayAmount = amount;
+
+    if (displayAmount >= 1000000) {
+      return `${(displayAmount / 1000000).toFixed(1)}M`;
+    } else if (displayAmount >= 1000) {
+      return `${(displayAmount / 1000).toFixed(1)}K`;
+    } else if (displayAmount >= 0.01) {
+      return displayAmount.toFixed(2);
+    } else if (displayAmount > 0) {
+      return displayAmount.toFixed(4);
     }
     return "0";
   };

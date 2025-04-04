@@ -584,9 +584,7 @@ export default function PoolFundsSection({
       return;
     }
 
-    let loadingToast: string | undefined;
-    setIsDistributing(true);
-    loadingToast = showToast.loading("Preparing distribution...");
+    const loadingToast = showToast.loading("Preparing distribution...");
 
     try {
       // Log distribution details
