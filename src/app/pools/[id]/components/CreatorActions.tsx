@@ -10,7 +10,7 @@ interface CreatorActionsProps {
   onWithdrawClick: () => void;
   onDistributeClick: () => void;
   revenueAccumulated: number;
-  poolStatus: number;
+  poolStatus: string;
   targetMet: boolean;
   isBeforeEndTime: boolean;
   belowCap: boolean;
@@ -31,7 +31,7 @@ export default function CreatorActions({
   belowCap,
 }: CreatorActionsProps) {
   // Should show execution actions?
-  const isExecuting = poolStatus === PoolStatus.EXECUTING;
+  const isExecuting = poolStatus === "EXECUTING";
 
   return (
     <div className="flex justify-start space-x-4">

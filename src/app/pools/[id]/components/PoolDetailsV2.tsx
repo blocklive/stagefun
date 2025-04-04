@@ -1,35 +1,38 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useSupabase } from "../../../contexts/SupabaseContext";
-import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
-import { usePoolDetailsV2 } from "../../../hooks/usePoolDetailsV2";
-import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
-import { useSmartWallet } from "../../../hooks/useSmartWallet";
-import { User } from "../../../lib/supabase";
+import { useSupabase } from "../../../../contexts/SupabaseContext";
+import { useUSDCBalance } from "../../../../hooks/useUSDCBalance";
+import { usePoolDetailsV2 } from "../../../../hooks/usePoolDetailsV2";
+import { usePoolTimeLeft } from "../../../../hooks/usePoolTimeLeft";
+import { useSmartWallet } from "../../../../hooks/useSmartWallet";
+import { PoolStatus } from "../../../../lib/contracts/types";
+import { User } from "../../../../lib/supabase";
 
 // Import components
-import PoolHeader from "./components/PoolHeader";
-import OpenPoolView from "./components/OpenPoolView";
-import FundedPoolView from "./components/FundedPoolView";
-import TokenSection from "./components/TokenSection";
-import OrganizerSection from "./components/OrganizerSection";
-import UserCommitment from "./components/UserCommitment";
-import PatronsTab from "./components/PatronsTab";
-import PoolFundsSection from "./components/PoolFundsSection";
-import CommitModal from "./components/CommitModal";
-import GetTokensModal from "../../components/GetTokensModal";
-import PoolDescription from "./components/PoolDescription";
-import UnfundedPoolView from "./components/UnfundedPoolView";
-import PoolLocation from "./components/PoolLocation";
-import FixedBottomBar from "./components/FixedBottomBar";
-import InfoModal from "../../components/InfoModal";
+import PoolHeader from "./PoolHeader";
+import OpenPoolView from "./OpenPoolView";
+import FundedPoolView from "./FundedPoolView";
+import TokenSection from "./TokenSection";
+import OrganizerSection from "./OrganizerSection";
+import UserCommitment from "./UserCommitment";
+import PatronsTab from "./PatronsTab";
+import PoolFundsSection from "./PoolFundsSection";
+import CommitModal from "./CommitModal";
+import GetTokensModal from "../../../components/GetTokensModal";
+import PoolDescription from "./PoolDescription";
+import UnfundedPoolView from "./UnfundedPoolView";
+import PoolLocation from "./PoolLocation";
+import FixedBottomBar from "./FixedBottomBar";
+import InfoModal from "../../../components/InfoModal";
 
-export default function PoolDetailsPage() {
-  const { id } = useParams() as { id: string };
+interface PoolDetailsV2Props {
+  poolId: string;
+}
+
+export default function PoolDetailsV2({ poolId }: PoolDetailsV2Props) {
   const { user: privyUser } = usePrivy();
   const router = useRouter();
   const { dbUser } = useSupabase();
@@ -49,7 +52,7 @@ export default function PoolDetailsPage() {
   const [showInfoModal, setShowInfoModal] = useState(false);
 
   // Fetch pool data using our new hook
-  const { pool, isLoading, error, mutate } = usePoolDetailsV2(id);
+  const { pool, isLoading, error, mutate } = usePoolDetailsV2(poolId);
 
   // Get time left
   const { days, hours, minutes, seconds } = usePoolTimeLeft(pool?.ends_at);
@@ -60,7 +63,7 @@ export default function PoolDetailsPage() {
     : 0;
 
   // Determine if user is creator
-  const isCreator = dbUser?.id === (pool?.creator?.id || pool?.creator_id);
+  const isCreator = dbUser?.id === pool?.creator?.id;
 
   // Handle edit click
   const handleEditClick = () => {
@@ -69,33 +72,47 @@ export default function PoolDetailsPage() {
     }
   };
 
+  // Get user's commitment
+  const getUserCommitment = () => {
+    if (!dbUser || !pool?.tiers) return null;
+
+    // Check for commitments from both wallet addresses
+    const userAddresses = [
+      privyUser?.wallet?.address?.toLowerCase(),
+      smartWalletAddress?.toLowerCase(),
+    ].filter(Boolean);
+
+    if (userAddresses.length === 0) return null;
+
+    // Find commitment across all tiers
+    for (const tier of pool.tiers) {
+      const userCommitment = tier.commitments?.find((c) =>
+        userAddresses.includes(c.user_address.toLowerCase())
+      );
+      if (userCommitment) {
+        return {
+          user_id: dbUser.id,
+          pool_id: poolId,
+          amount: userCommitment.amount,
+          created_at: userCommitment.committed_at,
+          user: dbUser,
+          onChain: true,
+        };
+      }
+    }
+
+    return null;
+  };
+
   // Render user commitment section
   const renderUserCommitment = () => {
-    if (!pool || !privyUser) return null;
-
-    // Get user's commitment from the pool data
-    const userCommitment = pool.tiers?.flatMap(
-      (tier) =>
-        tier.commitments?.filter(
-          (c) =>
-            c.user_address.toLowerCase() === smartWalletAddress?.toLowerCase()
-        ) || []
-    )[0];
-
-    if (!userCommitment) return null;
+    const userCommitment = getUserCommitment();
 
     return (
       <UserCommitment
         pool={pool}
         dbUser={dbUser}
-        userCommitment={{
-          user_id: dbUser?.id || "",
-          pool_id: pool.id,
-          amount: userCommitment.amount,
-          created_at: userCommitment.committed_at,
-          user: dbUser || ({} as User),
-          onChain: true,
-        }}
+        userCommitment={userCommitment}
         isCommitmentsLoading={isLoading}
         commitmentsError={error}
         usdcBalance={usdcBalance}
@@ -108,7 +125,7 @@ export default function PoolDetailsPage() {
         }}
         setCommitAmount={setCommitAmount}
         refreshBalance={refreshBalance}
-        isUnfunded={pool.status === "FAILED"}
+        isUnfunded={pool?.blockchain_status === PoolStatus.FAILED}
         handleRefund={async () => {
           /* TODO: Implement refund */
         }}
@@ -119,30 +136,16 @@ export default function PoolDetailsPage() {
 
   // Render pool funds section
   const renderPoolFunds = () => {
-    if (!pool || !isCreator) return null;
-
+    if (!pool) return null;
     return <PoolFundsSection pool={pool} isCreator={isCreator} />;
   };
 
-  // Show loading state
   if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
-        </div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   if (error || !pool) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center text-red-500">
-          Error loading pool details. Please try again later.
-        </div>
-      </div>
-    );
+    return <div>Error loading pool details</div>;
   }
 
   return (
@@ -155,7 +158,8 @@ export default function PoolDetailsPage() {
       />
 
       {/* Main Content */}
-      {pool.status === "FUNDED" ? (
+      {pool.blockchain_status === PoolStatus.EXECUTING ||
+      pool.blockchain_status === PoolStatus.FUNDED ? (
         <FundedPoolView
           pool={pool}
           renderUserCommitment={renderUserCommitment}
@@ -165,7 +169,7 @@ export default function PoolDetailsPage() {
           raisedAmount={pool.raised_amount}
           targetReachedTimestamp={undefined}
         />
-      ) : pool.status === "FAILED" ? (
+      ) : pool.blockchain_status === PoolStatus.FAILED ? (
         <UnfundedPoolView
           pool={pool}
           renderUserCommitment={renderUserCommitment}

@@ -53,7 +53,7 @@ export default function FundedPoolView({
           <div className="mb-6">
             <h2 className="text-gray-400 mb-2">Total Raised</h2>
             <div className="text-5xl font-bold mb-2">
-              {formatCurrency(raisedAmount)}
+              {formatCurrency(pool.target_amount)}
             </div>
             <div className="flex items-center">
               <span className="text-xl text-gray-400">Funded {fundedDate}</span>
@@ -80,7 +80,7 @@ export default function FundedPoolView({
               style={{
                 width: `${Math.min(
                   100,
-                  (raisedAmount / (pool.target_amount || 1)) * 100
+                  (pool.target_amount / (pool.target_amount || 1)) * 100
                 )}%`,
               }}
             ></div>
@@ -88,7 +88,7 @@ export default function FundedPoolView({
             {pool.cap_amount !== undefined &&
               pool.cap_amount > 0.1 &&
               pool.cap_amount !== 0 &&
-              raisedAmount > pool.cap_amount && (
+              pool.target_amount > pool.cap_amount && (
                 <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-sm text-[#836EF9] font-medium">
                   Overfunded! Cap reached at{" "}
                   <span className="font-bold">
