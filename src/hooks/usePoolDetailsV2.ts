@@ -54,7 +54,6 @@ const fetcher = async (poolId: string) => {
     .select("*")
     .ilike("pool_address", poolData.contract_address);
 
-  console.log("commitments", commitments);
   if (commitmentsError) throw commitmentsError;
 
   // Get all users for these commitments
@@ -123,8 +122,6 @@ const fetcher = async (poolId: string) => {
       })) || [],
   };
 
-  console.log("Raw commitments:", commitmentsWithUsers);
-
   // Calculate total raised amount from all tier commitments
   const totalRaised = commitmentsWithUsers.reduce((total, commitment) => {
     // Convert string amounts to numbers, ensuring we keep base units
@@ -137,16 +134,13 @@ const fetcher = async (poolId: string) => {
     return total + amount;
   }, 0);
 
-  console.log("Final total raised:", totalRaised);
-
   // Override the raised_amount with our calculated total from commitments
   const finalData = {
     ...processedData,
     raised_amount: totalRaised, // This is in base units (e.g. 10000 for 0.01 USDC)
   };
 
-  console.log("Final processed data:", finalData);
-
+  console.log("Final data:", finalData);
   return finalData;
 };
 

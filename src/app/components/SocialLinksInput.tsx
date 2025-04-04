@@ -64,101 +64,53 @@ export default function SocialLinksInput({
   value,
   onChange,
 }: SocialLinksInputProps) {
-  // Initialize with empty values for each platform
-  const [links, setLinks] = useState<SocialLinksType>(value || {});
-  // Store usernames without prefixes for better UX
-  const [usernames, setUsernames] = useState<Record<string, string>>({});
-  // Store website without prefix
-  const [websiteInput, setWebsiteInput] = useState("");
+  // Extract usernames from URLs for display in input fields
+  const extractUsername = (platform: string, url?: string): string => {
+    if (!url) return "";
 
-  // Initialize usernames and website from existing links
-  useEffect(() => {
-    const initialUsernames: Record<string, string> = {};
-
-    Object.entries(value).forEach(([platform, url]) => {
-      if (platform === "website" && url) {
-        // Handle website separately
-        let websiteValue = url;
-        if (websiteValue.startsWith("https://")) {
-          websiteValue = websiteValue.substring(8);
-        } else if (websiteValue.startsWith("http://")) {
-          websiteValue = websiteValue.substring(7);
-        }
-        setWebsiteInput(websiteValue);
-      } else if (url) {
-        // Handle social platforms
-        const prefix =
-          SOCIAL_PLATFORMS[platform as keyof typeof SOCIAL_PLATFORMS]?.prefix ||
-          "";
-        if (prefix && url.startsWith(prefix)) {
-          initialUsernames[platform] = url.substring(prefix.length);
-        } else {
-          initialUsernames[platform] = url;
-        }
-      }
-    });
-
-    setUsernames(initialUsernames);
-    setLinks(value);
-  }, [value]);
-
-  // Update parent component when links change, but only if it's different from current value
-  useEffect(() => {
-    // Create deep comparison of links and value to avoid unnecessary updates
-    const hasChanged = JSON.stringify(links) !== JSON.stringify(value);
-
-    if (hasChanged) {
-      onChange(links);
+    if (platform === "website") {
+      if (url.startsWith("https://")) return url.substring(8);
+      if (url.startsWith("http://")) return url.substring(7);
+      return url;
     }
-  }, [links, onChange, value]);
 
-  // Handle input change for website (full URL)
-  const handleWebsiteChange = (input: string) => {
-    const newLinks = { ...links };
-    setWebsiteInput(input);
+    const prefix =
+      SOCIAL_PLATFORMS[platform as keyof typeof SOCIAL_PLATFORMS]?.prefix || "";
+    if (prefix && url.startsWith(prefix)) {
+      return url.substring(prefix.length);
+    }
 
-    // If URL is empty, remove the platform
-    if (!input.trim()) {
-      delete newLinks.website;
-    } else {
-      // Add https:// prefix if not present
-      let url = input.trim();
+    return url;
+  };
+
+  // Create the full URL when user inputs just the username
+  const createFullUrl = (platform: string, username: string): string => {
+    if (!username.trim()) return "";
+
+    if (platform === "website") {
+      let url = username.trim();
       if (!url.match(/^https?:\/\//)) {
         url = `https://${url}`;
       }
-      newLinks.website = url;
+      return url;
     }
 
-    setLinks(newLinks);
+    const prefix =
+      SOCIAL_PLATFORMS[platform as keyof typeof SOCIAL_PLATFORMS]?.prefix || "";
+    return `${prefix}${username.trim()}`;
   };
 
-  // Handle input change for username-based platforms
-  const handleUsernameChange = (platform: string, username: string) => {
-    // First update the username state
-    setUsernames((prev) => {
-      const newUsernames = { ...prev };
-      if (!username.trim()) {
-        delete newUsernames[platform];
-      } else {
-        newUsernames[platform] = username.trim();
-      }
-      return newUsernames;
-    });
+  // Handle input change for any platform
+  const handleInputChange = (platform: string, input: string) => {
+    const newLinks = { ...value };
 
-    // Then update the links state in a separate operation
-    setLinks((prev) => {
-      const newLinks = { ...prev };
-      const prefix =
-        SOCIAL_PLATFORMS[platform as keyof typeof SOCIAL_PLATFORMS]?.prefix ||
-        "";
+    if (!input.trim()) {
+      delete newLinks[platform];
+    } else {
+      newLinks[platform] = createFullUrl(platform, input);
+    }
 
-      if (!username.trim()) {
-        delete newLinks[platform];
-      } else {
-        newLinks[platform] = `${prefix}${username.trim()}`;
-      }
-      return newLinks;
-    });
+    onChange(newLinks);
   };
 
   return (
@@ -185,8 +137,8 @@ export default function SocialLinksInput({
           <input
             type="text"
             placeholder={SOCIAL_PLATFORMS.twitter.placeholder}
-            value={usernames.twitter || ""}
-            onChange={(e) => handleUsernameChange("twitter", e.target.value)}
+            value={extractUsername("twitter", value.twitter)}
+            onChange={(e) => handleInputChange("twitter", e.target.value)}
             className="w-full p-4 bg-[#FFFFFF14] rounded-r-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
           />
         </div>
@@ -209,8 +161,8 @@ export default function SocialLinksInput({
           <input
             type="text"
             placeholder={SOCIAL_PLATFORMS.discord.placeholder}
-            value={usernames.discord || ""}
-            onChange={(e) => handleUsernameChange("discord", e.target.value)}
+            value={extractUsername("discord", value.discord)}
+            onChange={(e) => handleInputChange("discord", e.target.value)}
             className="w-full p-4 bg-[#FFFFFF14] rounded-r-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
           />
         </div>
@@ -233,8 +185,8 @@ export default function SocialLinksInput({
           <input
             type="text"
             placeholder={SOCIAL_PLATFORMS.instagram.placeholder}
-            value={usernames.instagram || ""}
-            onChange={(e) => handleUsernameChange("instagram", e.target.value)}
+            value={extractUsername("instagram", value.instagram)}
+            onChange={(e) => handleInputChange("instagram", e.target.value)}
             className="w-full p-4 bg-[#FFFFFF14] rounded-r-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
           />
         </div>
@@ -254,8 +206,8 @@ export default function SocialLinksInput({
           <input
             type="text"
             placeholder={SOCIAL_PLATFORMS.website.placeholder}
-            value={websiteInput}
-            onChange={(e) => handleWebsiteChange(e.target.value)}
+            value={extractUsername("website", value.website)}
+            onChange={(e) => handleInputChange("website", e.target.value)}
             className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
           />
         </div>

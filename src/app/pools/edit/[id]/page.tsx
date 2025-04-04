@@ -29,7 +29,7 @@ import SocialLinksInput, {
 import RichTextEditor from "@/app/components/RichTextEditor";
 
 export default function EditPoolPage() {
-  const { user: privyUser } = usePrivy();
+  const { user: privyUser, getAccessToken } = usePrivy();
   const { dbUser } = useSupabase();
   const { supabase, isLoading: isClientLoading } = useAuthenticatedSupabase();
   const {
@@ -93,6 +93,7 @@ export default function EditPoolPage() {
       if (!location) {
         setLocation(pool.location || "");
       }
+      // Only set social links on first load
       if (Object.keys(socialLinks).length === 0) {
         setSocialLinks(pool.social_links || {});
       }
@@ -102,7 +103,7 @@ export default function EditPoolPage() {
         setImagePreview(pool.image_url);
       }
     }
-  }, [pool, poolId, poolName, minCommitment, location, socialLinks]); // Removed description from deps
+  }, [pool, poolId, poolName, minCommitment, location]); // Removed socialLinks from deps
 
   // Add debug logging for description
   useEffect(() => {
@@ -157,7 +158,7 @@ export default function EditPoolPage() {
   ) => {
     e.preventDefault();
 
-    if (!dbUser || !supabase || isClientLoading) {
+    if (!dbUser || isClientLoading) {
       showToast.error("Please wait for authentication to complete");
       return;
     }
@@ -181,7 +182,7 @@ export default function EditPoolPage() {
       if (selectedImage) {
         const uploadResult = await uploadPoolImage(
           selectedImage,
-          supabase,
+          supabase!,
           setIsUploadingImage
         );
 
@@ -200,93 +201,64 @@ export default function EditPoolPage() {
       }
 
       // Create the update object
-      const updateData = {
+      const updates = {
         name: pool.name,
         min_commitment: pool.min_commitment,
         image_url: imageUrl,
         description: description,
         location: location,
-        social_links: Object.keys(socialLinks).length > 0 ? socialLinks : null,
+        social_links:
+          Object.keys(socialLinks).length > 0
+            ? JSON.parse(JSON.stringify(socialLinks)) // Ensure clean JSON object
+            : null,
       };
 
       console.log("Update data:", {
         currentDescription: pool.description,
         newDescription: description,
         descriptionChanged: pool.description !== description,
+        socialLinks,
       });
 
-      // Then, update the database record
-      const { data, error } = await supabase
-        .from("pools")
-        .update(updateData)
-        .eq("id", pool.id)
-        .select();
-
-      if (error) {
-        // Check if it's an RLS permission error
-        if (
-          error.code === "42501" ||
-          error.message.includes("permission") ||
-          error.message.includes("policy")
-        ) {
-          showToast.error(
-            "You don't have permission to update this pool. Please contact support."
-          );
-        } else {
-          showToast.error(
-            `Failed to update pool in database: ${error.message}`
-          );
-        }
-
+      // Get Privy access token for authentication
+      const token = await getAccessToken();
+      if (!token) {
+        showToast.error("Authentication error. Please try again.");
         setIsSubmitting(false);
         return;
       }
 
-      // Verify that the update was successful by checking the returned data
-      if (!data || data.length === 0) {
-        showToast.error(
-          "Failed to update pool: No data returned from database"
-        );
+      // Call the API to update the pool
+      const response = await fetch("/api/pools/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          poolId: pool.id,
+          updates,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        showToast.error(result.error || "Failed to update pool");
         setIsSubmitting(false);
         return;
       }
 
-      const updatedPool = data[0];
-
-      // Check if any fields were actually updated
-      const fieldsUpdated = Object.keys(updateData).some((key) => {
-        const updateKey = key as keyof typeof updateData;
-        const poolKey = key as keyof typeof pool;
-
-        const valueChanged =
-          updateData[updateKey] !== null &&
-          (key === "description"
-            ? updateData[updateKey] !== pool[poolKey]
-            : JSON.stringify(updateData[updateKey]) !==
-              JSON.stringify(pool[poolKey]));
-
-        if (valueChanged) {
-          console.log(`Field ${key} changed:`, {
-            old: pool[poolKey],
-            new: updateData[updateKey],
-          });
-        }
-
-        return valueChanged;
-      });
-
-      if (!fieldsUpdated) {
-        showToast.error("No changes were detected in the pool data");
-      } else {
-        showToast.success("Pool updated successfully");
-      }
+      // Success - show message and navigate back
+      showToast.success("Pool updated successfully!");
 
       // Force a refresh of the pool data in the SWR cache
       refreshPool();
 
-      // Navigate back to pool details with a state parameter
+      // Navigate back to pool details
       router.push(`/pools/${pool.id}?refresh=true`);
     } catch (error) {
+      console.error("Error updating pool:", error);
       showToast.error("An error occurred while updating the pool");
     } finally {
       setIsSubmitting(false);

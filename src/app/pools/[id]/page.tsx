@@ -59,8 +59,8 @@ export default function PoolDetailsPage() {
     }
   }, [pool?.status]);
 
-  // Get time left
-  const { days, hours, minutes, seconds } = usePoolTimeLeft(pool?.ends_at);
+  // Get time left - pass the entire pool object
+  const { days, hours, minutes, seconds } = usePoolTimeLeft(pool);
 
   // Calculate percentage funded
   const percentage = pool
@@ -133,7 +133,7 @@ export default function PoolDetailsPage() {
     return <PoolFundsSection pool={pool} isCreator={isCreator} />;
   };
 
-  // Show loading state
+  // Always show loading state first when the data is loading
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -144,11 +144,24 @@ export default function PoolDetailsPage() {
     );
   }
 
-  if (error || !pool) {
+  // Only show error when we have a real error and we're not loading
+  if (error && !isLoading) {
+    console.error("Pool loading error:", error);
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center text-red-500">
           Error loading pool details. Please try again later.
+        </div>
+      </div>
+    );
+  }
+
+  // If no pool data yet but not in an error state, show loading
+  if (!pool && !error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
         </div>
       </div>
     );
