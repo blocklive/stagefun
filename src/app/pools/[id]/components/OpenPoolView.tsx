@@ -20,6 +20,8 @@ interface OpenPoolViewProps {
   renderUserCommitment: () => React.ReactNode;
   activeTab?: TabType;
   onTabChange?: (tab: TabType) => void;
+  isCreator?: boolean;
+  onManageClick?: () => void;
 }
 
 export default function OpenPoolView({
@@ -34,6 +36,8 @@ export default function OpenPoolView({
   renderUserCommitment,
   activeTab = "overview",
   onTabChange,
+  isCreator = false,
+  onManageClick,
 }: OpenPoolViewProps) {
   return (
     <>
@@ -42,6 +46,8 @@ export default function OpenPoolView({
         activeTab={activeTab}
         onTabChange={onTabChange}
         pool={pool}
+        isCreator={isCreator}
+        onManageClick={onManageClick}
       />
 
       {/* Only show the main content when the overview tab is selected */}

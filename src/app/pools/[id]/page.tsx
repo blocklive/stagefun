@@ -48,28 +48,9 @@ export default function PoolDetailsPage() {
   const [isRefunding, setIsRefunding] = useState(false);
   const [showTokensModal, setShowTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const [showError, setShowError] = useState(false);
 
   // Fetch pool data using our new hook
   const { pool, isLoading, error, mutate } = usePoolDetailsV2(id);
-
-  // Delay showing error to prevent flash during hard refresh
-  useEffect(() => {
-    let timeout: NodeJS.Timeout;
-
-    if (error && !isLoading) {
-      // Wait a short delay before showing error
-      timeout = setTimeout(() => {
-        setShowError(true);
-      }, 1000); // 1 second delay
-    } else {
-      setShowError(false);
-    }
-
-    return () => {
-      if (timeout) clearTimeout(timeout);
-    };
-  }, [error, isLoading]);
 
   // Debug pool data when patrons tab is active
   useEffect(() => {
@@ -164,8 +145,9 @@ export default function PoolDetailsPage() {
     return <PoolFundsSection pool={pool} isCreator={isCreator} />;
   };
 
-  // Always show loading state first when the data is loading
-  if (isLoading) {
+  // Show loading spinner during initial load or when refreshing after an error
+  // This ensures we don't flash an error during hard refresh
+  if (isLoading || (!pool && !error)) {
     return (
       <>
         <AppHeader
@@ -180,7 +162,7 @@ export default function PoolDetailsPage() {
           onInfoClick={() => setShowInfoModal(true)}
           onPointsClick={handlePointsClick}
         />
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-2">
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
           </div>
@@ -189,8 +171,9 @@ export default function PoolDetailsPage() {
     );
   }
 
-  // Only show error when we have a real error, we're not loading, and the delay passed
-  if (error && !isLoading && showError) {
+  // Only show error when we have a real error and we explicitly don't have data
+  // This prevents error flashing during hard refresh
+  if (error && !pool) {
     console.error("Pool loading error:", error);
     return (
       <>
@@ -215,31 +198,6 @@ export default function PoolDetailsPage() {
     );
   }
 
-  // If no pool data yet but not in an error state, show loading
-  if (!pool && !error) {
-    return (
-      <>
-        <AppHeader
-          showBackButton={true}
-          showTitle={false}
-          backgroundColor="#15161a"
-          showGetTokensButton={true}
-          showCreateButton={true}
-          showPointsButton={true}
-          onBackClick={() => router.push("/pools")}
-          onGetTokensClick={() => setShowTokensModal(true)}
-          onInfoClick={() => setShowInfoModal(true)}
-          onPointsClick={handlePointsClick}
-        />
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
-          </div>
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
       <AppHeader
@@ -254,7 +212,7 @@ export default function PoolDetailsPage() {
         onInfoClick={() => setShowInfoModal(true)}
         onPointsClick={handlePointsClick}
       />
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-2">
         {/* Pool Header */}
         <PoolHeader
           pool={pool}
@@ -272,6 +230,8 @@ export default function PoolDetailsPage() {
             onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
             raisedAmount={pool.raised_amount}
             targetReachedTimestamp={undefined}
+            isCreator={isCreator}
+            onManageClick={handleEditClick}
           />
         ) : pool.status === "FAILED" ? (
           <UnfundedPoolView
@@ -281,6 +241,8 @@ export default function PoolDetailsPage() {
             onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
             raisedAmount={pool.raised_amount}
             targetAmount={pool.target_amount}
+            isCreator={isCreator}
+            onManageClick={handleEditClick}
           />
         ) : (
           <OpenPoolView
@@ -295,6 +257,8 @@ export default function PoolDetailsPage() {
             renderUserCommitment={renderUserCommitment}
             activeTab={contentTab}
             onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
+            isCreator={isCreator}
+            onManageClick={handleEditClick}
           />
         )}
 

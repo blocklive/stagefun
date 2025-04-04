@@ -15,6 +15,8 @@ interface UnfundedPoolViewProps {
   onTabChange?: (tab: TabType) => void;
   raisedAmount: number | string | bigint;
   targetAmount: number;
+  isCreator?: boolean;
+  onManageClick?: () => void;
 }
 
 export default function UnfundedPoolView({
@@ -24,6 +26,8 @@ export default function UnfundedPoolView({
   onTabChange,
   raisedAmount,
   targetAmount,
+  isCreator = false,
+  onManageClick,
 }: UnfundedPoolViewProps) {
   // Format raised and target amounts
   const displayRaisedAmount = useMemo(() => {
@@ -70,6 +74,8 @@ export default function UnfundedPoolView({
         activeTab={activeTab}
         onTabChange={onTabChange}
         pool={pool}
+        isCreator={isCreator}
+        onManageClick={onManageClick}
       />
 
       {/* Only show the main content when the overview tab is selected */}

@@ -431,7 +431,7 @@ export default function CreatePoolPage() {
         </div>
 
         {/* Launch Button */}
-        <div className="fixed bottom-0 left-0 right-0 md:static md:mt-4 px-6 py-6 bg-[#15161a] md:px-0 md:py-0 z-10">
+        <div className="fixed bottom-16 left-0 right-0 md:static md:mt-4 px-6 py-6 bg-[#15161a] md:px-0 md:py-0 z-10">
           <button
             onClick={onSubmit}
             className="w-full py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors"

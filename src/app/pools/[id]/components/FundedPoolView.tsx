@@ -23,6 +23,8 @@ interface FundedPoolViewProps {
   onTabChange?: (tab: TabType) => void;
   raisedAmount: number | string | bigint;
   targetReachedTimestamp?: number;
+  isCreator?: boolean;
+  onManageClick?: () => void;
 }
 
 export default function FundedPoolView({
@@ -33,6 +35,8 @@ export default function FundedPoolView({
   onTabChange,
   raisedAmount,
   targetReachedTimestamp,
+  isCreator = false,
+  onManageClick,
 }: FundedPoolViewProps) {
   const fundedDate = targetReachedTimestamp
     ? new Date(targetReachedTimestamp * 1000).toLocaleDateString()
@@ -93,6 +97,8 @@ export default function FundedPoolView({
         activeTab={activeTab}
         onTabChange={onTabChange}
         pool={pool}
+        isCreator={isCreator}
+        onManageClick={onManageClick}
       />
 
       {/* Only show the main content when the overview tab is selected */}

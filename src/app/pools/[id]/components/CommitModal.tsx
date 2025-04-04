@@ -288,7 +288,13 @@ export default function CommitModal({
                     value={commitAmount}
                     onChange={(e) => setCommitAmount(e.target.value)}
                     className="w-full px-4 py-3 bg-[#FFFFFF0A] rounded-xl border border-[#FFFFFF1A] text-white placeholder-gray-500 focus:outline-none focus:border-[#836EF9] focus:ring-1 focus:ring-[#836EF9]"
-                    placeholder={`Enter amount (${selectedTier.min_price}-${selectedTier.max_price} USDC)`}
+                    placeholder={`Enter amount (${ethers.formatUnits(
+                      selectedTier.min_price?.toString() || "0",
+                      6
+                    )}-${ethers.formatUnits(
+                      selectedTier.max_price?.toString() || "0",
+                      6
+                    )} USDC)`}
                     min={0}
                     max={selectedTier.max_price || undefined}
                     step="0.01"
