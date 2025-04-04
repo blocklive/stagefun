@@ -1,7 +1,7 @@
 "use client";
 
 import { Dialog, Transition } from "@headlessui/react";
-import { Fragment, useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { DBTier } from "../../../../hooks/usePoolTiers";
 import showToast from "@/utils/toast";
 import { ethers } from "ethers";
@@ -21,7 +21,7 @@ interface CommitModalProps {
   commitAmount: string;
   setCommitAmount: (value: string) => void;
   isApproving: boolean;
-  tiers: DBTier[] | null;
+  tiers: any[] | null; // Changed type to accept tiers with commitments
   isLoadingTiers: boolean;
   poolAddress: string;
 }
@@ -60,6 +60,26 @@ export default function CommitModal({
       refreshBalance();
     }
   }, [isOpen, smartWalletAddress, refreshBalance]);
+
+  // Calculate tier stats using useMemo for performance
+  const tierStats = useMemo(() => {
+    if (!tiers) return new Map();
+
+    const stats = new Map();
+
+    tiers.forEach((tier) => {
+      // Get the current number of commitments for this tier
+      const currentPatrons = tier.commitments?.length || 0;
+
+      // Get the maximum supply for this tier
+      const maxPatrons = tier.max_supply || 100; // Default to 100 if not specified
+
+      // Store in map for quick lookup
+      stats.set(tier.id, { currentPatrons, maxPatrons });
+    });
+
+    return stats;
+  }, [tiers]);
 
   const handleCommitAndClose = async () => {
     if (!selectedTierId) {
@@ -211,7 +231,12 @@ export default function CommitModal({
           ) : tiers ? (
             <div className="space-y-4">
               {tiers.map((tier) => {
-                // Add logging for each tier being rendered
+                // Get stats for this tier
+                const stats = tierStats.get(tier.id) || {
+                  currentPatrons: 0,
+                  maxPatrons: tier.max_supply || 100,
+                };
+
                 return (
                   <div
                     key={tier.id}
@@ -246,8 +271,7 @@ export default function CommitModal({
                       />
                     )}
                     <div className="text-sm text-gray-400 mt-1">
-                      {(tier as any).currentPatrons} /{" "}
-                      {(tier as any).maxPatrons} spots taken
+                      {stats.currentPatrons} / {stats.maxPatrons} spots taken
                     </div>
                   </div>
                 );

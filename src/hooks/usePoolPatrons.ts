@@ -153,12 +153,6 @@ export function usePoolPatrons(poolAddress: string | null) {
           throw usersError;
         }
 
-        console.log(
-          "Found users with matching wallet addresses:",
-          users?.length || 0
-        );
-        console.log("User data from Supabase:", users);
-
         // Create a map of wallet address to user, checking both embedded and smart wallet addresses
         const walletToUserMap = new Map();
         if (users && users.length > 0) {
@@ -166,20 +160,12 @@ export function usePoolPatrons(poolAddress: string | null) {
             // Map embedded wallet
             if (user.wallet_address) {
               walletToUserMap.set(user.wallet_address.toLowerCase(), user);
-              console.log(
-                `Mapped embedded wallet ${user.wallet_address.toLowerCase()} to user:`,
-                user
-              );
             }
 
             // Map smart wallet
             if (user.smart_wallet_address) {
               walletToUserMap.set(
                 user.smart_wallet_address.toLowerCase(),
-                user
-              );
-              console.log(
-                `Mapped smart wallet ${user.smart_wallet_address.toLowerCase()} to user:`,
                 user
               );
             }

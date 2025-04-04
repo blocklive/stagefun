@@ -53,8 +53,18 @@ export const useOnboardingMissions = () => {
         .eq("user_id", userId);
 
       if (fetchError) {
-        console.error("Error fetching completed missions:", fetchError);
-        throw new Error(fetchError.message);
+        // Don't log expected network errors during initialization
+        if (!fetchError.message.includes("NetworkError")) {
+          console.error("Error fetching completed missions:", fetchError);
+        }
+
+        // If we have existing missions data, don't overwrite it on error
+        if (missions.length > 0) {
+          return;
+        }
+        // Otherwise, show default missions without completion status
+        setMissions(defaultMissions);
+        return;
       }
 
       // Create a set of completed mission IDs for quick lookup
@@ -73,7 +83,18 @@ export const useOnboardingMissions = () => {
 
       setMissions(updatedMissions);
     } catch (err) {
-      console.error("Error refreshing mission status:", err);
+      // Don't log expected network errors during initialization
+      const error = err as Error;
+      if (!error.message?.includes("NetworkError")) {
+        console.error("Error refreshing mission status:", err);
+      }
+
+      // If we have existing missions data, don't overwrite it on error
+      if (missions.length > 0) {
+        return;
+      }
+      // Otherwise, show default missions without completion status
+      setMissions(defaultMissions);
     }
   };
 
@@ -91,7 +112,17 @@ export const useOnboardingMissions = () => {
         // Mark data as loaded only after successful refresh
         setDataLoaded(true);
       } catch (err) {
-        console.error("Error loading mission status:", err);
+        // Don't log network errors during initialization as they're expected
+        // during page refreshes before connections are established
+
+        // Still need to set an error state for the UI
+        const isNetworkError =
+          err instanceof Error && err.message.includes("NetworkError");
+
+        if (!isNetworkError) {
+          console.error("Error loading mission status:", err);
+        }
+
         setError(
           err instanceof Error ? err.message : "Failed to load missions"
         );

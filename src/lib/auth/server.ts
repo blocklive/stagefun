@@ -12,6 +12,13 @@ import {
 // Supabase admin client for backend operations
 let supabaseAdmin: ReturnType<typeof createClient>;
 
+// Add user resolution cache with TTL
+const userResolutionCache = new Map<
+  string,
+  { userId: string; timestamp: number }
+>();
+const USER_CACHE_TTL = 300000; // 5 minutes (in milliseconds)
+
 /**
  * Get Supabase admin client for backend operations
  */
@@ -129,6 +136,20 @@ function extractAudienceFromToken(token: string): string | null {
 export async function resolveUserFromPrivyDid(
   privyDid: string
 ): Promise<UserResolutionResult> {
+  // Check cache first
+  if (userResolutionCache.has(privyDid)) {
+    const cached = userResolutionCache.get(privyDid)!;
+    if (Date.now() - cached.timestamp < USER_CACHE_TTL) {
+      console.log(
+        `Using cached user resolution for DID ${privyDid.substring(0, 10)}...`
+      );
+      return { success: true, userId: cached.userId };
+    } else {
+      // Cache expired, remove it
+      userResolutionCache.delete(privyDid);
+    }
+  }
+
   const supabase = getSupabaseAdmin();
 
   try {
@@ -140,6 +161,11 @@ export async function resolveUserFromPrivyDid(
       .maybeSingle();
 
     if (userByDid && userByDid.id) {
+      // Cache the successful result
+      userResolutionCache.set(privyDid, {
+        userId: String(userByDid.id),
+        timestamp: Date.now(),
+      });
       return { success: true, userId: String(userByDid.id) };
     }
 
@@ -162,6 +188,8 @@ export async function resolveUserFromPrivyDid(
 export async function authenticateRequest(
   request: NextRequest
 ): Promise<AuthResult> {
+  const authStartTime = Date.now();
+
   // Extract token
   const token = extractBearerToken(request);
   if (!token) {
@@ -171,9 +199,13 @@ export async function authenticateRequest(
       statusCode: 401,
     };
   }
+  console.log(`Token extraction took ${Date.now() - authStartTime}ms`);
 
   // Verify token
+  const verifyStartTime = Date.now();
   const tokenPayload = await verifyPrivyToken(token);
+  console.log(`Token verification took ${Date.now() - verifyStartTime}ms`);
+
   if (!tokenPayload) {
     return {
       authenticated: false,
@@ -186,7 +218,10 @@ export async function authenticateRequest(
   const privyDid = tokenPayload.sub;
 
   // Resolve user
+  const resolveStartTime = Date.now();
   const userResult = await resolveUserFromPrivyDid(privyDid);
+  console.log(`User resolution took ${Date.now() - resolveStartTime}ms`);
+
   if (!userResult.success) {
     return {
       authenticated: false,
@@ -194,6 +229,8 @@ export async function authenticateRequest(
       statusCode: 401,
     };
   }
+
+  console.log(`Total authentication took ${Date.now() - authStartTime}ms`);
 
   // Successfully authenticated
   return {

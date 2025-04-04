@@ -52,32 +52,73 @@ const fetcher = async (poolId: string) => {
   const { data: commitments, error: commitmentsError } = await supabase
     .from("tier_commitments")
     .select("*")
-    .ilike("pool_address", poolData.contract_address);
+    .ilike("pool_address", poolData.contract_address || "");
 
   if (commitmentsError) throw commitmentsError;
 
   // Get all users for these commitments
-  const userAddresses = commitments?.map((c) => c.user_address) || [];
-  const { data: users, error: usersError } = await supabase
-    .from("users")
-    .select("id, name, avatar_url, smart_wallet_address")
-    .in("smart_wallet_address", userAddresses);
+  const userAddresses =
+    commitments?.map((c) => c.user_address.toLowerCase()) || [];
 
-  if (usersError) throw usersError;
+  let users: any[] = [];
 
-  // Create a map of users by their wallet address
-  const usersByAddress =
-    users?.reduce((acc, user) => {
-      acc[user.smart_wallet_address] = user;
-      return acc;
-    }, {} as Record<string, any>) || {};
+  // If there are addresses to look up
+  if (userAddresses.length > 0) {
+    // Build a query that uses ILIKE for case-insensitive matching
+    // for each address, check both smart_wallet_address and wallet_address
+
+    // Build our OR conditions for each address
+    const orConditions = [];
+
+    for (const address of userAddresses) {
+      // Add conditions for smart wallet - match exact address
+      orConditions.push(`smart_wallet_address.ilike.${address}`);
+      // Add conditions for regular wallet - match exact address
+      orConditions.push(`wallet_address.ilike.${address}`);
+    }
+
+    // Join all conditions with OR
+    const query = orConditions.join(",");
+
+    // Execute the query
+    const { data: foundUsers, error: usersError } = await supabase
+      .from("users")
+      .select("id, name, avatar_url, smart_wallet_address, wallet_address")
+      .or(query);
+
+    if (usersError) {
+      console.error("Error fetching users:", usersError);
+    } else {
+      users = foundUsers || [];
+    }
+  }
+
+  // Create a map of users by their wallet address (both smart and regular)
+  const usersByAddress = {} as Record<string, any>;
+
+  users?.forEach((user) => {
+    // Add by smart wallet address (lowercase for case-insensitive comparison)
+    if (user.smart_wallet_address) {
+      usersByAddress[user.smart_wallet_address.toLowerCase()] = user;
+    }
+
+    // Also add by regular wallet address if available
+    if (user.wallet_address) {
+      usersByAddress[user.wallet_address.toLowerCase()] = user;
+    }
+  });
 
   // Combine commitments with user data
   const commitmentsWithUsers =
-    commitments?.map((commitment) => ({
-      ...commitment,
-      user: usersByAddress[commitment.user_address] || null,
-    })) || [];
+    commitments?.map((commitment) => {
+      const userAddress = commitment.user_address.toLowerCase();
+      const user = usersByAddress[userAddress];
+
+      return {
+        ...commitment,
+        user: user || null,
+      };
+    }) || [];
 
   // Get the pool with all its related data
   const { data, error } = await supabase
@@ -114,12 +155,39 @@ const fetcher = async (poolId: string) => {
   const processedData = {
     ...data,
     tiers:
-      data.tiers?.map((tier: any) => ({
-        ...tier,
-        commitments:
-          commitmentsWithUsers?.filter((c) => c.tier_id === tier.id) || [],
-        reward_items: tier.reward_items?.map((ri: any) => ri.reward) || [],
-      })) || [],
+      data.tiers?.map((tier: any, index: number) => {
+        // Find commitments for this tier - handle both string and numeric tier_ids
+        // Some commitments have numeric tier_id that corresponds to the tier index
+        // For tier_id of 0 or null with only one tier, assign to the first tier
+        const tierCommitments =
+          commitmentsWithUsers?.filter((c) => {
+            // Direct tier_id match
+            if (c.tier_id === tier.id) return true;
+
+            // Numeric index match (0-based)
+            if (c.tier_id === index) return true;
+
+            // String conversion match
+            if (c.tier_id?.toString() === index.toString()) return true;
+
+            // Special case for single tier pools - assign null and 0 tier_ids to first tier
+            if (
+              (c.tier_id === 0 || c.tier_id === null || c.tier_id === "0") &&
+              index === 0 &&
+              data.tiers.length === 1
+            ) {
+              return true;
+            }
+
+            return false;
+          }) || [];
+
+        return {
+          ...tier,
+          commitments: tierCommitments,
+          reward_items: tier.reward_items?.map((ri: any) => ri.reward) || [],
+        };
+      }) || [],
   };
 
   // Calculate total raised amount from all tier commitments
@@ -140,7 +208,7 @@ const fetcher = async (poolId: string) => {
     raised_amount: totalRaised, // This is in base units (e.g. 10000 for 0.01 USDC)
   };
 
-  console.log("Final data:", finalData);
+  console.log("Final data with commitments:", finalData);
   return finalData;
 };
 
