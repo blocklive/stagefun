@@ -2,7 +2,10 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { Pool, Tier } from "../../../../lib/types";
 import CommitConfirmModal from "./CommitConfirmModal";
-import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
+import {
+  fromUSDCBaseUnits,
+  formatUSDC,
+} from "../../../../lib/contracts/StageDotFunPool";
 import {
   STRINGS,
   REWARD_TYPES,
@@ -43,14 +46,6 @@ const TiersSection: React.FC<TiersSectionProps> = ({
 }) => {
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-
-  // Helper to format USDC amounts with 2 decimal places
-  const formatUSDC = (amount: number) => {
-    return amount.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
 
   // Helper function to get the appropriate icon for a reward type
   const getRewardIcon = (type: string) => {
@@ -98,12 +93,33 @@ const TiersSection: React.FC<TiersSectionProps> = ({
             ? fromUSDCBaseUnits(BigInt(tier.max_price))
             : null;
 
-          // Format price display based on tier type
-          let priceDisplay = `${formatUSDC(displayPrice)} USDC`;
-          if (isVariablePrice && minPrice !== null && maxPrice !== null) {
-            priceDisplay = `${formatUSDC(minPrice)}-${formatUSDC(
-              maxPrice
-            )} USDC`;
+          // Improved price display based on tier type
+          let priceDisplay: string;
+
+          if (isVariablePrice) {
+            if (minPrice !== null && maxPrice !== null) {
+              // Full range format for variable pricing
+              priceDisplay = `${formatUSDC(minPrice)}-${formatUSDC(
+                maxPrice
+              )} USDC`;
+            } else if (minPrice !== null) {
+              // Min price only
+              priceDisplay = `${formatUSDC(minPrice)}+ USDC`;
+            } else if (maxPrice !== null) {
+              // Max price only - simplified to just show the range without "From"
+              priceDisplay = `0-${formatUSDC(maxPrice)} USDC`;
+            } else {
+              // Fallback for fully flexible
+              priceDisplay = "Flexible USDC";
+            }
+          } else {
+            // Fixed price format
+            priceDisplay = `${formatUSDC(displayPrice)} USDC`;
+
+            // Special case for free tiers
+            if (displayPrice === 0) {
+              priceDisplay = "Free";
+            }
           }
 
           // Get the patron avatars - take just the first 3
@@ -199,6 +215,8 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                     >
                       {isVariablePrice
                         ? "Commit Flexible Amount"
+                        : displayPrice === 0
+                        ? "Join Free Tier"
                         : `Commit for ${formatUSDC(displayPrice)} USDC`}
                     </button>
                   )}

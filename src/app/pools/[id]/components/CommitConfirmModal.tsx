@@ -5,6 +5,7 @@ import Modal from "../../../components/Modal";
 import {
   fromUSDCBaseUnits,
   toUSDCBaseUnits,
+  formatUSDC,
 } from "../../../../lib/contracts/StageDotFunPool";
 import { useDeposit } from "../../../../hooks/useDeposit";
 import {
@@ -59,14 +60,6 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
     }
   }, [isOpen, tier.id]);
 
-  // Helper to format USDC amounts with 2 decimal places
-  const formatUSDC = (amount: number) => {
-    return amount.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
   // Helper function to get the appropriate icon for a reward type
   const getRewardIcon = (type: string) => {
     return REWARD_TYPE_ICONS[type] || REWARD_TYPE_ICONS.DEFAULT;
@@ -90,6 +83,22 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
     displayPrice = parseFloat(variableAmount);
   } else {
     displayPrice = fromUSDCBaseUnits(BigInt(tier.price));
+  }
+
+  // Generate price range display for variable price tiers
+  let priceRangeDisplay: string = "";
+  if (isVariablePrice) {
+    if (minPrice !== null && maxPrice !== null) {
+      priceRangeDisplay = `${formatUSDC(minPrice)}-${formatUSDC(
+        maxPrice
+      )} USDC`;
+    } else if (minPrice !== null) {
+      priceRangeDisplay = `${formatUSDC(minPrice)}+ USDC`;
+    } else if (maxPrice !== null) {
+      priceRangeDisplay = `0-${formatUSDC(maxPrice)} USDC`;
+    } else {
+      priceRangeDisplay = "Flexible USDC";
+    }
   }
 
   // Format user balance for display
@@ -208,7 +217,17 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Confirm commitment">
       <div className="p-4">
-        {!isVariablePrice && (
+        {/* Show price information at the top */}
+        {isVariablePrice ? (
+          <div className="mb-6 text-center">
+            <div className="text-lg font-medium mb-1">
+              Price Range: {priceRangeDisplay}
+            </div>
+            <div className="text-sm text-white/70">
+              Choose your contribution amount below
+            </div>
+          </div>
+        ) : (
           <div className="mb-6 text-center">
             <div className="text-3xl font-bold mb-1">
               {formatUSDC(displayPrice)}
@@ -232,6 +251,10 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
                   ? `Range: ${formatUSDC(minPrice)}-${formatUSDC(
                       maxPrice
                     )} USDC`
+                  : minPrice !== null
+                  ? `Min: ${formatUSDC(minPrice)} USDC`
+                  : maxPrice !== null
+                  ? `Max: ${formatUSDC(maxPrice)} USDC`
                   : "Flexible amount"}
               </span>
             )}
