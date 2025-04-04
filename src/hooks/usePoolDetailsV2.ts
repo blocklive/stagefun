@@ -54,20 +54,11 @@ const fetcher = async (poolId: string) => {
     .select("*")
     .ilike("pool_address", poolData.contract_address || "");
 
-  console.log(
-    `Fetching commitments for pool address: ${
-      poolData.contract_address || "null"
-    }`
-  );
-
   if (commitmentsError) throw commitmentsError;
-
-  console.log(`Found ${commitments?.length || 0} commitments:`, commitments);
 
   // Get all users for these commitments
   const userAddresses =
     commitments?.map((c) => c.user_address.toLowerCase()) || [];
-  console.log("Looking up users for addresses:", userAddresses);
 
   let users: any[] = [];
 
@@ -88,7 +79,6 @@ const fetcher = async (poolId: string) => {
 
     // Join all conditions with OR
     const query = orConditions.join(",");
-    console.log("Using OR query:", query);
 
     // Execute the query
     const { data: foundUsers, error: usersError } = await supabase
@@ -99,15 +89,9 @@ const fetcher = async (poolId: string) => {
     if (usersError) {
       console.error("Error fetching users:", usersError);
     } else {
-      console.log(
-        `Found ${foundUsers?.length || 0} users with ILIKE search:`,
-        foundUsers
-      );
       users = foundUsers || [];
     }
   }
-
-  console.log("Found users:", users);
 
   // Create a map of users by their wallet address (both smart and regular)
   const usersByAddress = {} as Record<string, any>;
@@ -116,21 +100,11 @@ const fetcher = async (poolId: string) => {
     // Add by smart wallet address (lowercase for case-insensitive comparison)
     if (user.smart_wallet_address) {
       usersByAddress[user.smart_wallet_address.toLowerCase()] = user;
-      console.log(
-        `Mapped user ${
-          user.name || user.id
-        } to smart wallet: ${user.smart_wallet_address.toLowerCase()}`
-      );
     }
 
     // Also add by regular wallet address if available
     if (user.wallet_address) {
       usersByAddress[user.wallet_address.toLowerCase()] = user;
-      console.log(
-        `Mapped user ${
-          user.name || user.id
-        } to wallet: ${user.wallet_address.toLowerCase()}`
-      );
     }
   });
 
@@ -139,17 +113,6 @@ const fetcher = async (poolId: string) => {
     commitments?.map((commitment) => {
       const userAddress = commitment.user_address.toLowerCase();
       const user = usersByAddress[userAddress];
-
-      // Log whether we found a user for this commitment
-      if (user) {
-        console.log(
-          `Found user ${
-            user.name || user.id
-          } for commitment address ${userAddress}`
-        );
-      } else {
-        console.log(`No user found for commitment address ${userAddress}`);
-      }
 
       return {
         ...commitment,
@@ -218,14 +181,6 @@ const fetcher = async (poolId: string) => {
 
             return false;
           }) || [];
-
-        // Log commitments to debug
-        console.log(
-          `Processing tier ${tier.id} (index ${index}), found ${tierCommitments.length} commitments`
-        );
-        if (tierCommitments.length > 0) {
-          console.log("Tier commitments:", tierCommitments);
-        }
 
         return {
           ...tier,

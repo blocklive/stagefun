@@ -2,17 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   authenticateRequest,
   extractBearerToken,
+  getSupabaseAdmin,
 } from "../../../../lib/auth/server";
-import { createClient } from "@supabase/supabase-js";
-
-// Create a Supabase client with the service role key for admin operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
   try {
     // Log request headers for debugging
     const authHeader = request.headers.get("Authorization");
@@ -34,7 +28,9 @@ export async function GET(request: NextRequest) {
 
     // Authenticate the request using Privy JWT
     console.log("Calling authenticateRequest...");
+    const authStartTime = Date.now();
     const authResult = await authenticateRequest(request);
+    console.log(`Authentication took ${Date.now() - authStartTime}ms`);
     console.log("Auth result:", {
       authenticated: authResult.authenticated,
       userId: authResult.userId,
@@ -51,12 +47,28 @@ export async function GET(request: NextRequest) {
 
     const { userId } = authResult;
 
-    // Fetch user points data
-    const { data: userPoints, error: pointsError } = await supabaseAdmin
-      .from("user_points")
-      .select("*")
-      .eq("user_id", userId)
-      .single();
+    // Get Supabase admin client from helper to reuse the client
+    const supabaseAdmin = getSupabaseAdmin();
+
+    // Fetch user points data and check-in data in parallel
+    const dbStartTime = Date.now();
+    const [pointsResult, checkinResult] = await Promise.all([
+      supabaseAdmin
+        .from("user_points")
+        .select("*")
+        .eq("user_id", userId as string)
+        .single(),
+      supabaseAdmin
+        .from("daily_checkins")
+        .select("*")
+        .eq("user_id", userId as string)
+        .single(),
+    ]);
+    console.log(`Database queries took ${Date.now() - dbStartTime}ms`);
+
+    // Extract data and handle errors
+    const { data: userPoints, error: pointsError } = pointsResult;
+    const { data: checkinData, error: checkinError } = checkinResult;
 
     if (pointsError && pointsError.code !== "PGRST116") {
       console.error("Error fetching user points:", pointsError);
@@ -65,13 +77,6 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    // Fetch daily check-in data
-    const { data: checkinData, error: checkinError } = await supabaseAdmin
-      .from("daily_checkins")
-      .select("*")
-      .eq("user_id", userId)
-      .single();
 
     if (checkinError && checkinError.code !== "PGRST116") {
       console.error("Error fetching daily check-in:", checkinError);
@@ -82,12 +87,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Return both datasets
-    return NextResponse.json({
+    const response = {
       points: userPoints || { user_id: userId, total_points: 0 },
       checkin: checkinData || null,
-    });
+    };
+
+    console.log(`Total API request took ${Date.now() - startTime}ms`);
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Error in user-data API:", error);
+    console.log(`Failed API request took ${Date.now() - startTime}ms`);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

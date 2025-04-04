@@ -121,15 +121,6 @@ export const ContractInteractionProvider: React.FC<{
     }
 
     try {
-      console.log(
-        "Available wallets:",
-        wallets.map((w) => ({
-          address: w.address,
-          type: w.walletClientType,
-          chainId: w.chainId,
-        }))
-      );
-
       const embeddedWallet = wallets.find(
         (wallet) => wallet.walletClientType === "privy"
       );

@@ -48,9 +48,28 @@ export default function PoolDetailsPage() {
   const [isRefunding, setIsRefunding] = useState(false);
   const [showTokensModal, setShowTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showError, setShowError] = useState(false);
 
   // Fetch pool data using our new hook
   const { pool, isLoading, error, mutate } = usePoolDetailsV2(id);
+
+  // Delay showing error to prevent flash during hard refresh
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+
+    if (error && !isLoading) {
+      // Wait a short delay before showing error
+      timeout = setTimeout(() => {
+        setShowError(true);
+      }, 1000); // 1 second delay
+    } else {
+      setShowError(false);
+    }
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [error, isLoading]);
 
   // Debug pool data when patrons tab is active
   useEffect(() => {
@@ -170,8 +189,8 @@ export default function PoolDetailsPage() {
     );
   }
 
-  // Only show error when we have a real error and we're not loading
-  if (error && !isLoading) {
+  // Only show error when we have a real error, we're not loading, and the delay passed
+  if (error && !isLoading && showError) {
     console.error("Pool loading error:", error);
     return (
       <>
