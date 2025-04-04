@@ -12,7 +12,7 @@ interface UserCommitmentProps {
   userCommitment: {
     user_id: string;
     pool_id: string;
-    amount: number;
+    amount: number | string;
     created_at: string;
     user: User;
     onChain: boolean;
@@ -127,7 +127,9 @@ export default function UserCommitment({
           <span className="text-gray-400">Amount:</span>
           <div className="flex items-center">
             <span className="text-xl font-bold mr-2">
-              {userCommitment.amount.toFixed(2)}
+              {formatCurrency(
+                parseFloat(userCommitment.amount.toString()) / 1000000
+              )}
             </span>
             <span className="text-sm font-medium" style={{ color: "#836EF9" }}>
               {pool.currency}

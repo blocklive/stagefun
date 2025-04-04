@@ -58,3 +58,28 @@ export function getFormattedCreatorName(
   if (!creator) return "Anonymous";
   return creator.name || "Anonymous";
 }
+
+/**
+ * Format an amount with appropriate formatting based on size
+ * Only shows decimal places when needed
+ * @param amount The number to format
+ * @returns Formatted string without currency symbol
+ */
+export function formatAmount(amount: number): string {
+  if (amount >= 1000000) {
+    // For millions, show one decimal if needed
+    const millions = amount / 1000000;
+    return `${Number.isInteger(millions) ? millions : millions.toFixed(1)}M`;
+  } else if (amount >= 1000) {
+    // For thousands, show one decimal if needed
+    const thousands = amount / 1000;
+    return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}K`;
+  } else if (amount >= 0.01) {
+    // For regular numbers, only show decimals if not a whole number
+    return Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
+  } else if (amount > 0) {
+    // For very small numbers, show up to 4 decimals
+    return amount.toFixed(4);
+  }
+  return "0";
+}

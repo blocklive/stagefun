@@ -21,6 +21,7 @@ import {
 } from "../../lib/contracts/types";
 import UserAvatar from "../components/UserAvatar";
 import { USDC_DECIMAL_FACTOR } from "../../lib/contracts/StageDotFunPool";
+import { formatAmount } from "../../lib/utils";
 
 type TabType = "open" | "funded" | "unfunded";
 
@@ -188,23 +189,6 @@ export default function PoolsPage() {
       100,
       Math.round((pool.raised_amount / pool.target_amount) * 100)
     );
-  };
-
-  // Format amount for display
-  const formatAmount = (amount: number) => {
-    // No conversion needed - the hook already provides values in proper format
-    const displayAmount = amount;
-
-    if (displayAmount >= 1000000) {
-      return `${(displayAmount / 1000000).toFixed(1)}M`;
-    } else if (displayAmount >= 1000) {
-      return `${(displayAmount / 1000).toFixed(1)}K`;
-    } else if (displayAmount >= 0.01) {
-      return displayAmount.toFixed(2);
-    } else if (displayAmount > 0) {
-      return displayAmount.toFixed(4);
-    }
-    return "0";
   };
 
   // Get pool status indicator

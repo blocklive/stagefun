@@ -1,18 +1,154 @@
 "use client";
 
-import { usePoolPatrons } from "../../../../hooks/usePoolPatrons";
 import Image from "next/image";
 import { ethers } from "ethers";
 import { useEffect } from "react";
 import React from "react";
 import UserAvatar from "@/app/components/UserAvatar";
+import { Pool } from "@/lib/supabase";
+import { useSupabase } from "@/contexts/SupabaseContext";
+import { usePrivy } from "@privy-io/react-auth";
 
 interface PatronsTabProps {
-  poolAddress: string | null;
+  pool: Pool & {
+    tiers: {
+      id: string;
+      commitments: {
+        user_address: string;
+        amount: number;
+        committed_at: string;
+        user: {
+          id: string;
+          name: string;
+          avatar_url: string;
+        };
+      }[];
+    }[];
+  };
+  isLoading: boolean;
+  error: any;
 }
 
-export default function PatronsTab({ poolAddress }: PatronsTabProps) {
-  const { patrons, loading, error } = usePoolPatrons(poolAddress);
+export default function PatronsTab({
+  pool,
+  isLoading,
+  error,
+}: PatronsTabProps) {
+  const { user: privyUser } = usePrivy();
+  const { dbUser } = useSupabase();
+
+  // Combine all commitments from all tiers and transform to patron format
+  const patrons = React.useMemo(() => {
+    console.log("Pool tiers in PatronsTab:", pool?.tiers);
+
+    if (!pool?.tiers) {
+      console.log("No tiers found in pool data");
+      return [];
+    }
+
+    // Extract all commitments from all tiers
+    const allCommitments = pool.tiers.flatMap((tier) => {
+      if (!tier) {
+        console.log("Found a null/undefined tier");
+        return [];
+      }
+
+      // Some tiers might have undefined commitments
+      if (!tier.commitments) {
+        console.log(`Tier ${tier.id} has no commitments array`);
+        return [];
+      }
+
+      console.log(`Tier ${tier.id} commitments:`, tier.commitments);
+      return tier.commitments || [];
+    });
+
+    console.log("All commitments combined:", allCommitments);
+
+    if (allCommitments.length === 0) {
+      console.log("No commitments found in any tiers");
+      return [];
+    }
+
+    // Combine duplicate users (in case someone committed to multiple tiers)
+    const patronsByAddress: Record<
+      string,
+      {
+        address: string;
+        balance: string;
+        userId?: string;
+        username?: string;
+        displayName?: string;
+        avatarUrl?: string;
+        isCurrentUser?: boolean;
+      }
+    > = {};
+
+    allCommitments.forEach((commitment) => {
+      const address = commitment.user_address.toLowerCase();
+      const user = commitment.user;
+      const currentUserWalletAddress =
+        privyUser?.wallet?.address?.toLowerCase();
+      const currentUserSmartWalletAddress =
+        dbUser?.smart_wallet_address?.toLowerCase();
+      const isCurrentUser: boolean =
+        Boolean(
+          currentUserWalletAddress && address === currentUserWalletAddress
+        ) ||
+        Boolean(
+          currentUserSmartWalletAddress &&
+            address === currentUserSmartWalletAddress
+        ) ||
+        Boolean(dbUser && user?.id === dbUser.id);
+
+      // Debug user info
+      console.log(`Processing commitment for address ${address}:`, {
+        hasUser: !!user,
+        userName: user?.name,
+        userAvatar: user?.avatar_url,
+        isCurrentUser,
+      });
+
+      // Convert amount to ethers-compatible string
+      // Assuming amount is stored in base units (e.g., 1000000 for 1 USDC)
+      const balanceAsString = commitment.amount.toString();
+
+      if (patronsByAddress[address]) {
+        // Add to existing balance
+        const existingBalance = ethers.getBigInt(
+          patronsByAddress[address].balance
+        );
+        const newBalance = ethers.getBigInt(balanceAsString);
+        patronsByAddress[address].balance = (
+          existingBalance + newBalance
+        ).toString();
+      } else {
+        // Create new patron entry
+        patronsByAddress[address] = {
+          address,
+          balance: balanceAsString,
+          userId: user?.id,
+          username: user?.name
+            ? user.name.replace(/\s+/g, "").toLowerCase()
+            : address.substring(0, 6),
+          displayName:
+            user?.name ||
+            `${address.substring(0, 6)}...${address.substring(
+              address.length - 4
+            )}`,
+          avatarUrl: user?.avatar_url,
+          isCurrentUser,
+        };
+      }
+    });
+
+    // Convert to array and sort by balance
+    return Object.values(patronsByAddress).sort((a, b) => {
+      const balanceA = ethers.getBigInt(a.balance);
+      const balanceB = ethers.getBigInt(b.balance);
+      return balanceB > balanceA ? 1 : -1;
+    });
+  }, [pool?.tiers, privyUser?.wallet?.address, dbUser]);
 
   // Format token balance
   const formatBalance = (balance: string) => {
@@ -47,7 +183,7 @@ export default function PatronsTab({ poolAddress }: PatronsTabProps) {
     }
   };
 
-  if (loading && patrons.length === 0) {
+  if (isLoading && patrons.length === 0) {
     return (
       <div className="flex justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
@@ -63,7 +199,7 @@ export default function PatronsTab({ poolAddress }: PatronsTabProps) {
     );
   }
 
-  if (patrons.length === 0 && !loading) {
+  if (patrons.length === 0 && !isLoading) {
     return (
       <div className="text-center py-8 text-gray-400">
         No patrons found for this pool yet.
@@ -73,7 +209,7 @@ export default function PatronsTab({ poolAddress }: PatronsTabProps) {
 
   return (
     <div className="rounded-[12px] bg-[#FFFFFF0F] p-4">
-      {loading ? (
+      {isLoading ? (
         <div className="flex justify-center py-4">
           <div
             className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2"

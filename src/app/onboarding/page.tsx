@@ -66,7 +66,8 @@ export default function OnboardingPage() {
       try {
         await refreshMissionStatus();
       } catch (err) {
-        console.error("Error refreshing mission status:", err);
+        // Silently handle error - no need to log during page load
+        // Network errors during page refresh are expected and shouldn't clutter console
       }
     };
 

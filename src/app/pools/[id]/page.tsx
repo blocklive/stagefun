@@ -27,6 +27,7 @@ import UnfundedPoolView from "./components/UnfundedPoolView";
 import PoolLocation from "./components/PoolLocation";
 import FixedBottomBar from "./components/FixedBottomBar";
 import InfoModal from "../../components/InfoModal";
+import AppHeader from "../../components/AppHeader";
 
 export default function PoolDetailsPage() {
   const { id } = useParams() as { id: string };
@@ -50,6 +51,13 @@ export default function PoolDetailsPage() {
 
   // Fetch pool data using our new hook
   const { pool, isLoading, error, mutate } = usePoolDetailsV2(id);
+
+  // Debug pool data when patrons tab is active
+  useEffect(() => {
+    if (contentTab === "patrons" && pool) {
+      console.log("Patron tab active - pool data:", pool);
+    }
+  }, [contentTab, pool]);
 
   // Update showCommitButton based on pool status
   useEffect(() => {
@@ -75,6 +83,11 @@ export default function PoolDetailsPage() {
     if (pool) {
       router.push(`/pools/edit/${pool.id}`);
     }
+  };
+
+  // Handle points click
+  const handlePointsClick = () => {
+    router.push("/onboarding");
   };
 
   // Render user commitment section
@@ -135,11 +148,25 @@ export default function PoolDetailsPage() {
   // Always show loading state first when the data is loading
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
+      <>
+        <AppHeader
+          showBackButton={true}
+          showTitle={false}
+          backgroundColor="#15161a"
+          showGetTokensButton={true}
+          showCreateButton={true}
+          showPointsButton={true}
+          onBackClick={() => router.push("/pools")}
+          onGetTokensClick={() => setShowTokensModal(true)}
+          onInfoClick={() => setShowInfoModal(true)}
+          onPointsClick={handlePointsClick}
+        />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -147,123 +174,165 @@ export default function PoolDetailsPage() {
   if (error && !isLoading) {
     console.error("Pool loading error:", error);
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center text-red-500">
-          Error loading pool details. Please try again later.
+      <>
+        <AppHeader
+          showBackButton={true}
+          showTitle={false}
+          backgroundColor="#15161a"
+          showGetTokensButton={true}
+          showCreateButton={true}
+          showPointsButton={true}
+          onBackClick={() => router.push("/pools")}
+          onGetTokensClick={() => setShowTokensModal(true)}
+          onInfoClick={() => setShowInfoModal(true)}
+          onPointsClick={handlePointsClick}
+        />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center text-red-500">
+            Error loading pool details. Please try again later.
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   // If no pool data yet but not in an error state, show loading
   if (!pool && !error) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
+      <>
+        <AppHeader
+          showBackButton={true}
+          showTitle={false}
+          backgroundColor="#15161a"
+          showGetTokensButton={true}
+          showCreateButton={true}
+          showPointsButton={true}
+          onBackClick={() => router.push("/pools")}
+          onGetTokensClick={() => setShowTokensModal(true)}
+          onInfoClick={() => setShowInfoModal(true)}
+          onPointsClick={handlePointsClick}
+        />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Pool Header */}
-      <PoolHeader
-        pool={pool}
-        isCreator={isCreator}
-        handleEditClick={handleEditClick}
+    <>
+      <AppHeader
+        showBackButton={true}
+        showTitle={false}
+        backgroundColor="#15161a"
+        showGetTokensButton={true}
+        showCreateButton={true}
+        showPointsButton={true}
+        onBackClick={() => router.push("/pools")}
+        onGetTokensClick={() => setShowTokensModal(true)}
+        onInfoClick={() => setShowInfoModal(true)}
+        onPointsClick={handlePointsClick}
       />
+      <div className="container mx-auto px-4 py-8">
+        {/* Pool Header */}
+        <PoolHeader
+          pool={pool}
+          isCreator={isCreator}
+          handleEditClick={handleEditClick}
+        />
 
-      {/* Main Content */}
-      {pool.status === "FUNDED" || pool.status === "EXECUTING" ? (
-        <FundedPoolView
-          pool={pool}
-          renderUserCommitment={renderUserCommitment}
-          renderPoolFunds={renderPoolFunds}
-          activeTab={contentTab}
-          onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
-          raisedAmount={pool.raised_amount}
-          targetReachedTimestamp={undefined}
-        />
-      ) : pool.status === "FAILED" ? (
-        <UnfundedPoolView
-          pool={pool}
-          renderUserCommitment={renderUserCommitment}
-          activeTab={contentTab}
-          onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
-          raisedAmount={pool.raised_amount}
-          targetAmount={pool.target_amount}
-        />
-      ) : (
-        <OpenPoolView
-          pool={pool}
-          days={days}
-          hours={hours}
-          minutes={minutes}
-          seconds={seconds}
-          targetAmount={pool.target_amount}
-          raisedAmount={pool.raised_amount}
-          percentage={percentage}
-          renderUserCommitment={renderUserCommitment}
-          activeTab={contentTab}
-          onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
-        />
-      )}
-
-      {/* Tab Content */}
-      {contentTab === "overview" && (
-        <div className="mt-6">
-          <PoolDescription pool={pool} />
-          <PoolLocation pool={pool} />
-          <TokenSection pool={pool} />
-          <OrganizerSection
-            creator={pool.creator as unknown as User}
-            dbUser={dbUser}
-            onNavigate={(userId) => router.push(`/profile/${userId}`)}
+        {/* Main Content */}
+        {pool.status === "FUNDED" || pool.status === "EXECUTING" ? (
+          <FundedPoolView
+            pool={pool}
+            renderUserCommitment={renderUserCommitment}
+            renderPoolFunds={renderPoolFunds}
+            activeTab={contentTab}
+            onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
+            raisedAmount={pool.raised_amount}
+            targetReachedTimestamp={undefined}
           />
-        </div>
-      )}
+        ) : pool.status === "FAILED" ? (
+          <UnfundedPoolView
+            pool={pool}
+            renderUserCommitment={renderUserCommitment}
+            activeTab={contentTab}
+            onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
+            raisedAmount={pool.raised_amount}
+            targetAmount={pool.target_amount}
+          />
+        ) : (
+          <OpenPoolView
+            pool={pool}
+            days={days}
+            hours={hours}
+            minutes={minutes}
+            seconds={seconds}
+            targetAmount={pool.target_amount}
+            raisedAmount={pool.raised_amount}
+            percentage={percentage}
+            renderUserCommitment={renderUserCommitment}
+            activeTab={contentTab}
+            onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
+          />
+        )}
 
-      {contentTab === "patrons" && (
-        <div className="mt-6">
-          <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
-            <h3 className="text-xl font-semibold mb-4">Patrons</h3>
-            <PatronsTab poolAddress={pool.contract_address || null} />
+        {/* Tab Content */}
+        {contentTab === "overview" && (
+          <div className="mt-6">
+            <PoolDescription pool={pool} />
+            <PoolLocation pool={pool} />
+            <TokenSection pool={pool} />
+            <OrganizerSection
+              creator={pool.creator as unknown as User}
+              dbUser={dbUser}
+              onNavigate={(userId) => router.push(`/profile/${userId}`)}
+            />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Fixed Bottom Bar */}
-      {showCommitButton && (
-        <FixedBottomBar
-          showCommitButton={true}
-          onCommitClick={() => setIsCommitModalOpen(true)}
-          commitButtonText="Commit"
+        {contentTab === "patrons" && (
+          <div className="mt-6">
+            <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
+              <h3 className="text-xl font-semibold mb-4">Patrons</h3>
+              <PatronsTab pool={pool} isLoading={isLoading} error={error} />
+            </div>
+          </div>
+        )}
+
+        {/* Fixed Bottom Bar */}
+        {showCommitButton && (
+          <FixedBottomBar
+            showCommitButton={true}
+            onCommitClick={() => setIsCommitModalOpen(true)}
+            commitButtonText="Commit"
+          />
+        )}
+
+        {/* Modals */}
+        <CommitModal
+          isOpen={isCommitModalOpen}
+          onClose={() => setIsCommitModalOpen(false)}
+          commitAmount={commitAmount}
+          setCommitAmount={setCommitAmount}
+          isApproving={isCommitting}
+          tiers={pool.tiers}
+          isLoadingTiers={false}
+          poolAddress={pool.contract_address || ""}
         />
-      )}
 
-      {/* Modals */}
-      <CommitModal
-        isOpen={isCommitModalOpen}
-        onClose={() => setIsCommitModalOpen(false)}
-        commitAmount={commitAmount}
-        setCommitAmount={setCommitAmount}
-        isApproving={isCommitting}
-        tiers={pool.tiers}
-        isLoadingTiers={false}
-        poolAddress={pool.contract_address || ""}
-      />
+        <GetTokensModal
+          isOpen={showTokensModal}
+          onClose={() => setShowTokensModal(false)}
+        />
 
-      <GetTokensModal
-        isOpen={showTokensModal}
-        onClose={() => setShowTokensModal(false)}
-      />
-
-      <InfoModal
-        isOpen={showInfoModal}
-        onClose={() => setShowInfoModal(false)}
-      />
-    </div>
+        <InfoModal
+          isOpen={showInfoModal}
+          onClose={() => setShowInfoModal(false)}
+        />
+      </div>
+    </>
   );
 }
