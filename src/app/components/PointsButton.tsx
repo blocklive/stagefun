@@ -33,7 +33,10 @@ const PointsButton: React.FC<PointsButtonProps> = ({ onClick }) => {
       {isLoading ? (
         <LoadingSpinner color="#FFDD50" size={14} />
       ) : (
-        <span className="font-medium text-sm">{formatPoints(points)} pts</span>
+        <span className="font-medium text-sm">
+          {formatPoints(points)}
+          <span className="hidden [@media(min-width:385px)]:inline"> pts</span>
+        </span>
       )}
     </button>
   );

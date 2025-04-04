@@ -2,6 +2,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
+import { StageDotFunPoolABI } from "../lib/contracts/StageDotFunPool";
 
 export function useSmartWallet() {
   const { user, ready } = usePrivy();

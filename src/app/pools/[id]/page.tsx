@@ -5,7 +5,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useSupabase } from "../../../contexts/SupabaseContext";
-import { useUSDCBalance } from "../../../hooks/useUSDCBalance";
+import { useSmartWalletBalance } from "../../../hooks/useSmartWalletBalance";
 import { usePoolDetailsV2 } from "../../../hooks/usePoolDetailsV2";
 import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
@@ -28,6 +28,7 @@ import PoolLocation from "./components/PoolLocation";
 import FixedBottomBar from "./components/FixedBottomBar";
 import InfoModal from "../../components/InfoModal";
 import AppHeader from "../../components/AppHeader";
+import TiersSection from "./components/TiersSection";
 
 export default function PoolDetailsPage() {
   const { id } = useParams() as { id: string };
@@ -35,7 +36,8 @@ export default function PoolDetailsPage() {
   const router = useRouter();
   const { dbUser } = useSupabase();
   const { smartWalletAddress } = useSmartWallet();
-  const { balance: usdcBalance, refresh: refreshBalance } = useUSDCBalance();
+  const { balance: usdcBalance, refresh: refreshBalance } =
+    useSmartWalletBalance();
 
   // State
   const [contentTab, setContentTab] = useState<"overview" | "patrons">(
@@ -145,8 +147,15 @@ export default function PoolDetailsPage() {
     return <PoolFundsSection pool={pool} isCreator={isCreator} />;
   };
 
+  // Log USDC balance when it changes
+  useEffect(() => {
+    console.log("USDC balance for TiersSection:", {
+      usdcBalance,
+      shouldBeNonZero: true,
+    });
+  }, [usdcBalance]);
+
   // Show loading spinner during initial load or when refreshing after an error
-  // This ensures we don't flash an error during hard refresh
   if (isLoading || (!pool && !error)) {
     return (
       <>
@@ -220,81 +229,115 @@ export default function PoolDetailsPage() {
           handleEditClick={handleEditClick}
         />
 
-        {/* Main Content */}
-        {pool.status === "FUNDED" || pool.status === "EXECUTING" ? (
-          <FundedPoolView
-            pool={pool}
-            renderUserCommitment={renderUserCommitment}
-            renderPoolFunds={renderPoolFunds}
-            activeTab={contentTab}
-            onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
-            raisedAmount={pool.raised_amount}
-            targetReachedTimestamp={undefined}
-            isCreator={isCreator}
-            onManageClick={handleEditClick}
-          />
-        ) : pool.status === "FAILED" ? (
-          <UnfundedPoolView
-            pool={pool}
-            renderUserCommitment={renderUserCommitment}
-            activeTab={contentTab}
-            onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
-            raisedAmount={pool.raised_amount}
-            targetAmount={pool.target_amount}
-            isCreator={isCreator}
-            onManageClick={handleEditClick}
-          />
-        ) : (
-          <OpenPoolView
-            pool={pool}
-            days={days}
-            hours={hours}
-            minutes={minutes}
-            seconds={seconds}
-            targetAmount={pool.target_amount}
-            raisedAmount={pool.raised_amount}
-            percentage={percentage}
-            renderUserCommitment={renderUserCommitment}
-            activeTab={contentTab}
-            onTabChange={(tab: "overview" | "patrons") => setContentTab(tab)}
-            isCreator={isCreator}
-            onManageClick={handleEditClick}
-          />
-        )}
+        {/* Responsive Layout - Uses grid for desktop and stack for mobile */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Left Column - Main Content */}
+          <div className="lg:col-span-2">
+            {/* Pool Status Views */}
+            {pool.status === "FUNDED" || pool.status === "EXECUTING" ? (
+              <FundedPoolView
+                pool={pool}
+                renderUserCommitment={renderUserCommitment}
+                renderPoolFunds={renderPoolFunds}
+                activeTab={contentTab}
+                onTabChange={(tab: "overview" | "patrons") =>
+                  setContentTab(tab)
+                }
+                raisedAmount={pool.raised_amount}
+                targetReachedTimestamp={undefined}
+                isCreator={isCreator}
+                onManageClick={handleEditClick}
+              />
+            ) : pool.status === "FAILED" ? (
+              <UnfundedPoolView
+                pool={pool}
+                renderUserCommitment={renderUserCommitment}
+                activeTab={contentTab}
+                onTabChange={(tab: "overview" | "patrons") =>
+                  setContentTab(tab)
+                }
+                raisedAmount={pool.raised_amount}
+                targetAmount={pool.target_amount}
+                isCreator={isCreator}
+                onManageClick={handleEditClick}
+              />
+            ) : (
+              <OpenPoolView
+                pool={pool}
+                days={days}
+                hours={hours}
+                minutes={minutes}
+                seconds={seconds}
+                targetAmount={pool.target_amount}
+                raisedAmount={pool.raised_amount}
+                percentage={percentage}
+                renderUserCommitment={renderUserCommitment}
+                activeTab={contentTab}
+                onTabChange={(tab: "overview" | "patrons") =>
+                  setContentTab(tab)
+                }
+                isCreator={isCreator}
+                onManageClick={handleEditClick}
+              />
+            )}
 
-        {/* Tab Content */}
-        {contentTab === "overview" && (
-          <div className="mt-6">
-            <PoolDescription pool={pool} />
-            <PoolLocation pool={pool} />
-            <TokenSection pool={pool} />
-            <OrganizerSection
-              creator={pool.creator as unknown as User}
-              dbUser={dbUser}
-              onNavigate={(userId) => router.push(`/profile/${userId}`)}
+            {/* Tab Content */}
+            {contentTab === "overview" && (
+              <div className="mt-6">
+                <PoolDescription pool={pool} />
+                <PoolLocation pool={pool} />
+                <TokenSection pool={pool} />
+                <OrganizerSection
+                  creator={pool.creator as unknown as User}
+                  dbUser={dbUser}
+                  onNavigate={(userId) => router.push(`/profile/${userId}`)}
+                />
+              </div>
+            )}
+
+            {contentTab === "patrons" && (
+              <div className="mt-6">
+                <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
+                  <h3 className="text-xl font-semibold mb-4">Patrons</h3>
+                  <PatronsTab pool={pool} isLoading={isLoading} error={error} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Tiers Section (hidden on mobile) */}
+          <div className="hidden lg:block">
+            <TiersSection
+              pool={pool}
+              tiers={pool.tiers || []}
+              isLoadingTiers={isLoading}
+              usdcBalance={usdcBalance}
+              onRefreshBalance={refreshBalance}
             />
           </div>
-        )}
+        </div>
 
-        {contentTab === "patrons" && (
-          <div className="mt-6">
-            <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
-              <h3 className="text-xl font-semibold mb-4">Patrons</h3>
-              <PatronsTab pool={pool} isLoading={isLoading} error={error} />
-            </div>
-          </div>
-        )}
+        {/* Mobile Tiers Section (only shown on mobile) */}
+        <div className="mt-6 lg:hidden">
+          <TiersSection
+            pool={pool}
+            tiers={pool.tiers || []}
+            isLoadingTiers={isLoading}
+            usdcBalance={usdcBalance}
+            onRefreshBalance={refreshBalance}
+          />
+        </div>
 
-        {/* Fixed Bottom Bar */}
-        {showCommitButton && (
+        {/* Fixed Bottom Bar - Now hidden as we have tiers with commit buttons */}
+        {/* {showCommitButton && (
           <FixedBottomBar
             showCommitButton={true}
             onCommitClick={() => setIsCommitModalOpen(true)}
             commitButtonText="Commit"
           />
-        )}
+        )} */}
 
-        {/* Modals */}
+        {/* Keep the original commit modal for reference but renamed */}
         <CommitModal
           isOpen={isCommitModalOpen}
           onClose={() => setIsCommitModalOpen(false)}
