@@ -3,6 +3,11 @@ import Image from "next/image";
 import { Pool, Tier } from "../../../../lib/types";
 import CommitConfirmModal from "./CommitConfirmModal";
 import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
+import {
+  STRINGS,
+  REWARD_TYPES,
+  REWARD_TYPE_ICONS,
+} from "../../../../lib/constants/strings";
 
 interface TiersSectionProps {
   pool: Pool;
@@ -45,6 +50,11 @@ const TiersSection: React.FC<TiersSectionProps> = ({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  };
+
+  // Helper function to get the appropriate icon for a reward type
+  const getRewardIcon = (type: string) => {
+    return REWARD_TYPE_ICONS[type] || REWARD_TYPE_ICONS.DEFAULT;
   };
 
   if (isLoadingTiers) {
@@ -99,7 +109,7 @@ const TiersSection: React.FC<TiersSectionProps> = ({
           // Get the patron avatars - take just the first 3
           const patronAvatars = tier.commitments
             ?.slice(0, 3)
-            .map((commitment) => commitment.user?.avatar_url)
+            .map((commitment: any) => commitment.user?.avatar_url)
             .filter(Boolean);
 
           return (
@@ -130,37 +140,54 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                   dangerouslySetInnerHTML={{ __html: tier.description }}
                 />
 
-                {/* Show rewards from reward_items instead of benefits */}
+                {/* Show rewards from reward_items with NFT Pass first */}
                 <div className="mb-4">
                   <p className="text-sm text-white/60 mb-1">
-                    Benefits {tier.reward_items?.length || 0}
+                    Benefits {(tier.reward_items?.length || 0) + 1}{" "}
+                    {/* +1 for NFT Pass */}
                   </p>
-                  {tier.reward_items && tier.reward_items.length > 0 ? (
-                    <ul className="space-y-2">
-                      {tier.reward_items.map(
-                        (reward: RewardItem, index: number) => (
-                          <li key={index} className="flex items-center">
-                            <span className="mr-2">🎁</span>
-                            <span>
-                              <span className="font-medium">{reward.name}</span>
-                              {reward.description && (
-                                <div
-                                  className="text-white/70 text-sm"
-                                  dangerouslySetInnerHTML={{
-                                    __html: reward.description,
-                                  }}
-                                />
-                              )}
-                            </span>
-                          </li>
+                  <ul className="space-y-2">
+                    {/* Always show Patron NFT Pass as the first benefit */}
+                    <li className="flex items-center">
+                      <span className="mr-2">
+                        {REWARD_TYPE_ICONS[REWARD_TYPES.NFT]}
+                      </span>
+                      <span>
+                        <span className="font-medium">
+                          {STRINGS.PATRON_PASS_NAME(tier.name)}
+                        </span>
+                        <div className="text-white/70 text-sm">
+                          {STRINGS.PATRON_PASS_DESCRIPTION}
+                        </div>
+                      </span>
+                    </li>
+
+                    {/* Show other reward items after the NFT Pass */}
+                    {tier.reward_items && tier.reward_items.length > 0
+                      ? tier.reward_items.map(
+                          (reward: RewardItem, index: number) => (
+                            <li key={index} className="flex items-center">
+                              <span className="mr-2">
+                                {getRewardIcon(reward.type)}
+                              </span>
+                              <span>
+                                <span className="font-medium">
+                                  {reward.name}
+                                </span>
+                                {reward.description && (
+                                  <div
+                                    className="text-white/70 text-sm"
+                                    dangerouslySetInnerHTML={{
+                                      __html: reward.description,
+                                    }}
+                                  />
+                                )}
+                              </span>
+                            </li>
+                          )
                         )
-                      )}
-                    </ul>
-                  ) : (
-                    <p className="text-white/50 text-sm">
-                      No benefits specified
-                    </p>
-                  )}
+                      : null}
+                  </ul>
                 </div>
 
                 {pool.status !== "EXECUTING" &&
@@ -180,7 +207,7 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                   <div className="flex -space-x-2">
                     {/* Show avatar images instead of gray circles */}
                     {patronAvatars && patronAvatars.length > 0
-                      ? patronAvatars.map((avatarUrl, i) => (
+                      ? patronAvatars.map((avatarUrl: any, i: number) => (
                           <div
                             key={i}
                             className="w-6 h-6 rounded-full border border-[#15161a] overflow-hidden relative"

@@ -7,6 +7,11 @@ import {
   toUSDCBaseUnits,
 } from "../../../../lib/contracts/StageDotFunPool";
 import { useDeposit } from "../../../../hooks/useDeposit";
+import {
+  STRINGS,
+  REWARD_TYPES,
+  REWARD_TYPE_ICONS,
+} from "../../../../lib/constants/strings";
 
 interface CommitConfirmModalProps {
   isOpen: boolean;
@@ -60,6 +65,11 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  };
+
+  // Helper function to get the appropriate icon for a reward type
+  const getRewardIcon = (type: string) => {
+    return REWARD_TYPE_ICONS[type] || REWARD_TYPE_ICONS.DEFAULT;
   };
 
   // Check if this is a variable price tier
@@ -233,14 +243,31 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
             dangerouslySetInnerHTML={{ __html: tier.description }}
           />
 
-          {/* Show rewards from reward_items instead of benefits */}
-          {tier.reward_items && tier.reward_items.length > 0 && (
-            <div>
-              <p className="text-sm font-medium mb-2">Benefits:</p>
-              <ul className="space-y-1">
-                {tier.reward_items.map((reward: RewardItem, index: number) => (
+          {/* Show NFT Pass and other rewards */}
+          <div>
+            <p className="text-sm font-medium mb-2">Benefits:</p>
+            <ul className="space-y-1">
+              {/* Always show Patron NFT Pass as the first benefit */}
+              <li className="text-sm text-white/70 flex">
+                <span className="mr-2">
+                  {REWARD_TYPE_ICONS[REWARD_TYPES.NFT]}
+                </span>
+                <span>
+                  <span className="font-medium">
+                    {STRINGS.PATRON_PASS_NAME(tier.name)}
+                  </span>
+                  <div className="text-white/70 text-sm">
+                    {STRINGS.PATRON_PASS_DESCRIPTION}
+                  </div>
+                </span>
+              </li>
+
+              {/* Show other reward items after the NFT Pass */}
+              {tier.reward_items &&
+                tier.reward_items.length > 0 &&
+                tier.reward_items.map((reward: RewardItem, index: number) => (
                   <li key={index} className="text-sm text-white/70 flex">
-                    <span className="mr-2">•</span>
+                    <span className="mr-2">{getRewardIcon(reward.type)}</span>
                     <span>
                       <span className="font-medium">{reward.name}</span>
                       {reward.description && (
@@ -254,9 +281,8 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
                     </span>
                   </li>
                 ))}
-              </ul>
-            </div>
-          )}
+            </ul>
+          </div>
         </div>
 
         {/* Variable price input moved here, right before the commit button */}

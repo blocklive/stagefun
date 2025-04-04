@@ -1,5 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getSupabaseAdmin } from "@/lib/auth/server";
+import { createClient } from "@supabase/supabase-js";
+import { createPool } from "@/lib/services/pool-service";
+import { REWARD_TYPES } from "@/lib/constants/strings";
+
+// Environment variables for Supabase Admin access
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error(
+    "Missing environment variables for Supabase URL or Service Role Key"
+  );
+}
+
+// Create a Supabase client with the service role key for admin privileges
+const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
 
 // Define expected request body structure
 interface CreatePoolRequestBody {
@@ -32,6 +53,25 @@ interface CreatePoolRequestBody {
   };
 }
 
+// Converts "NFT", "Merchandise", "Ticket" type names to our constant values
+function normalizeRewardType(type: string): string {
+  const typeLower = (type || "").toLowerCase();
+
+  switch (typeLower) {
+    case "nft":
+      return REWARD_TYPES.NFT;
+    case "merchandise":
+      return REWARD_TYPES.MERCH;
+    case "ticket":
+      return REWARD_TYPES.TICKET;
+    case "perk":
+    case "special perk":
+      return REWARD_TYPES.PERK;
+    default:
+      return REWARD_TYPES.PERK; // Default to PERK for anything else
+  }
+}
+
 // Backend version of reward item linking logic
 async function createAndLinkRewardItemsBackend(
   adminClient: any,
@@ -51,7 +91,7 @@ async function createAndLinkRewardItemsBackend(
             allFrontendRewardItemsMap.set(itemId, {
               name: tier.name,
               description: tier.description || tier.name,
-              type: "MERCH", // Default type
+              type: REWARD_TYPES.PERK, // Default to PERK type
               metadata: {},
               creator_id: poolCreatorId,
               is_active: true,
@@ -131,28 +171,26 @@ async function createAndLinkRewardItemsBackend(
       }
     });
 
-    if (tierRewardLinks.length > 0) {
-      console.log("Inserting tier reward links:", tierRewardLinks);
-      const { error: tierRewardLinksError } = await adminClient
-        .from("tier_reward_items")
-        .insert(tierRewardLinks);
-
-      if (tierRewardLinksError) {
-        console.error(
-          "Error creating tier reward links:",
-          tierRewardLinksError
-        );
-        return { success: false, error: "Failed to link rewards to tiers" };
-      }
-      console.log("Successfully inserted tier reward links.");
-    } else {
-      console.log("No tier reward links to insert.");
+    if (tierRewardLinks.length === 0) {
+      console.log("No tier-reward links to create");
+      return { success: true };
     }
 
+    console.log("Creating tier-reward links:", tierRewardLinks);
+    const { error: linkError } = await adminClient
+      .from("tier_reward_items")
+      .insert(tierRewardLinks);
+
+    if (linkError) {
+      console.error("Error creating tier-reward links:", linkError);
+      return { success: false, error: "Failed to link rewards to tiers" };
+    }
+
+    console.log("Successfully created tier-reward links");
     return { success: true };
-  } catch (error) {
-    console.error("Error in createAndLinkRewardItemsBackend:", error);
-    return { success: false, error: "Failed processing reward items" };
+  } catch (error: any) {
+    console.error("Unhandled error in reward item linking:", error);
+    return { success: false, error: `${error.message || "Unknown error"}` };
   }
 }
 

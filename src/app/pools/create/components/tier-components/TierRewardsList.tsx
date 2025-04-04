@@ -6,6 +6,11 @@ import {
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { Tier, RewardItem } from "../../types";
+import {
+  STRINGS,
+  REWARD_TYPES,
+  REWARD_TYPE_ICONS,
+} from "../../../../../lib/constants/strings";
 
 interface TierRewardsListProps {
   tier: Tier;
@@ -36,6 +41,11 @@ export const TierRewardsList: React.FC<TierRewardsListProps> = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Helper function to get the appropriate icon for a reward type
+  const getRewardIcon = (type: string) => {
+    return REWARD_TYPE_ICONS[type] || REWARD_TYPE_ICONS.DEFAULT;
+  };
 
   // Filter out rewards that are already added to the tier
   const getAvailableRewardsForTier = () => {
@@ -69,21 +79,21 @@ export const TierRewardsList: React.FC<TierRewardsListProps> = ({
         Rewards
       </label>
       <div className="space-y-2">
-        {/* Default NFT reward */}
+        {/* Default NFT reward - Updated to use constants */}
         <div className="flex items-center justify-between p-2 rounded-lg">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 flex items-center justify-center">
-              <CheckIcon className="w-4 h-4 text-[#836EF9]" />
+              {REWARD_TYPE_ICONS[REWARD_TYPES.NFT]}
             </div>
             <div>
               <div className="font-medium flex items-center gap-2">
-                {tier.name || "Tier"} Patron NFT
+                {STRINGS.PATRON_PASS_NAME(tier.name || "Tier")}
                 <span className="text-xs bg-[#836EF9] px-2 py-1 rounded">
                   Included
                 </span>
               </div>
               <div className="text-sm text-gray-400">
-                Unique NFT proving your membership in this tier
+                {STRINGS.PATRON_PASS_DESCRIPTION}
               </div>
             </div>
           </div>
@@ -100,7 +110,7 @@ export const TierRewardsList: React.FC<TierRewardsListProps> = ({
               >
                 <div className="flex items-center gap-2">
                   <div className="w-5 h-5 flex items-center justify-center">
-                    <CheckIcon className="w-4 h-4 text-[#836EF9]" />
+                    {getRewardIcon(item.type)}
                   </div>
                   <div>
                     <div className="font-medium">{item.name}</div>
@@ -170,10 +180,13 @@ export const TierRewardsList: React.FC<TierRewardsListProps> = ({
                         handleAddExistingReward(item.id);
                       }}
                     >
-                      <div className="flex-1 text-left">
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-sm text-gray-400 truncate">
-                          {item.description}
+                      <div className="flex items-center gap-2 flex-1 text-left">
+                        <span>{getRewardIcon(item.type)}</span>
+                        <div>
+                          <div className="font-medium">{item.name}</div>
+                          <div className="text-sm text-gray-400 truncate">
+                            {item.description}
+                          </div>
                         </div>
                       </div>
                     </div>
