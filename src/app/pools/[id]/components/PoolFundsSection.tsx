@@ -292,7 +292,6 @@ export default function PoolFundsSection({
   // Format the on-chain contract balance
   const contractBalance = useMemo(() => {
     if (onChainData) {
-      console.log("onchainbal", onChainData.contractBalance);
       // Use ethers.formatUnits directly without parseFloat to preserve precision
       const rawBalance = ethers.formatUnits(onChainData.contractBalance, 6);
       return formatContractBalance(rawBalance);

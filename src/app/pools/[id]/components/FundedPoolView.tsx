@@ -3,7 +3,10 @@
 import { Pool } from "../../../../lib/supabase";
 import TabsAndSocial from "./TabsAndSocial";
 import { formatCurrency } from "../../../../lib/utils";
-import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
+import {
+  fromUSDCBaseUnits,
+  USDC_DECIMAL_FACTOR,
+} from "../../../../lib/contracts/StageDotFunPool";
 import {
   PoolStatus,
   getPoolStatusFromNumber,
@@ -39,6 +42,27 @@ export default function FundedPoolView({
   const isExecuting =
     getPoolStatusFromNumber(pool.blockchain_status) === PoolStatus.EXECUTING;
 
+  // Get cap amount display for UI
+  const displayCapAmount = useMemo(() => {
+    if (!pool.cap_amount) return "";
+
+    // If cap amount is already in display form (decimal)
+    if (pool.cap_amount < 1000) {
+      return pool.cap_amount.toLocaleString();
+    }
+    // If it's in base units
+    else {
+      try {
+        return fromUSDCBaseUnits(
+          BigInt(Math.floor(pool.cap_amount))
+        ).toLocaleString();
+      } catch (e) {
+        console.error("Error formatting cap amount:", e);
+        return pool.cap_amount.toString();
+      }
+    }
+  }, [pool.cap_amount]);
+
   // Convert raised amount to human readable format
   const displayRaisedAmount = useMemo(() => {
     // If raisedAmount is falsy, show 0
@@ -55,6 +79,12 @@ export default function FundedPoolView({
       return "0";
     }
   }, [raisedAmount]);
+
+  // Check if target amount exceeds cap amount
+  const targetExceedsCap = useMemo(() => {
+    if (!pool.cap_amount || pool.cap_amount === 0) return false;
+    return pool.target_amount > pool.cap_amount;
+  }, [pool.target_amount, pool.cap_amount]);
 
   return (
     <>
@@ -83,9 +113,7 @@ export default function FundedPoolView({
                 Commitments are{" "}
                 {!pool.cap_amount
                   ? "uncapped"
-                  : `capped at ${formatCurrency(
-                      fromUSDCBaseUnits(BigInt(pool.cap_amount))
-                    )}`}{" "}
+                  : `capped at $${displayCapAmount}`}{" "}
                 and accepted until{" "}
                 <span className="text-[#836EF9] font-medium">
                   {new Date(pool.ends_at).toLocaleDateString()}
@@ -107,20 +135,14 @@ export default function FundedPoolView({
                 )}%`,
               }}
             ></div>
-            {/* Only show "Overfunded" message for pools with a significant cap (> 0.1) */}
+            {/* Only show "Overfunded" message for pools with a significant cap */}
             {pool.cap_amount !== undefined &&
               pool.cap_amount > 0.1 &&
               pool.cap_amount !== 0 &&
-              fromUSDCBaseUnits(BigInt(pool.target_amount)) >
-                fromUSDCBaseUnits(BigInt(pool.cap_amount)) && (
+              targetExceedsCap && (
                 <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-sm text-[#836EF9] font-medium">
                   Overfunded! Cap reached at{" "}
-                  <span className="font-bold">
-                    $
-                    {fromUSDCBaseUnits(
-                      BigInt(pool.cap_amount)
-                    ).toLocaleString()}
-                  </span>
+                  <span className="font-bold">${displayCapAmount}</span>
                 </div>
               )}
           </div>

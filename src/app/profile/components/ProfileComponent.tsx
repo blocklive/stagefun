@@ -451,12 +451,20 @@ export default function ProfileComponent() {
 
     switch (displayStatus) {
       case "FUNDED":
+      case "FULLY_FUNDED":
         return { text: "Funded", colorClass: "bg-[#836EF9]" }; // Purple dot for Funded
+      case "EXECUTING":
+        return { text: "Production", colorClass: "bg-[#22C55E]" }; // Green dot for Executing
       case "FAILED":
         return { text: "Unfunded", colorClass: "bg-[#F87171]" }; // Red dot for Unfunded
       case "ACTIVE":
         return { text: "Raising", colorClass: "bg-[#00C48C]" }; // Green dot for Active
+      case "PAUSED":
+        return { text: "Paused", colorClass: "bg-[#F59E0B]" }; // Yellow dot for Paused
       default:
+        console.log(
+          `Pool ${pool.id} has unrecognized status: ${displayStatus}`
+        );
         return { text: "Inactive", colorClass: "bg-gray-400" }; // Gray dot for other states
     }
   };

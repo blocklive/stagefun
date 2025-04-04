@@ -99,10 +99,21 @@ export function getDisplayStatus(
   raisedAmount: number,
   targetAmount: number
 ): string {
-  // If the pool is already marked as FUNDED, FAILED, or EXECUTING, respect that status
-  if (status === "FUNDED") return "FUNDED";
-  if (status === "FAILED") return "FAILED";
-  if (status === "EXECUTING") return "EXECUTING";
+  // If the pool is already marked with these statuses, respect them
+  if (
+    [
+      "FUNDED",
+      "FULLY_FUNDED",
+      "FAILED",
+      "EXECUTING",
+      "PAUSED",
+      "CLOSED",
+      "COMPLETED",
+      "CANCELLED",
+    ].includes(status)
+  ) {
+    return status;
+  }
 
   // Check if the pool has ended
   const endTimeNum = new Date(endTime).getTime() / 1000;

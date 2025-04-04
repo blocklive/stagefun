@@ -127,7 +127,6 @@ export default function PoolDetailsPage() {
 
   // Render pool funds section
   const renderPoolFunds = () => {
-    console.log("pool*******", pool, isCreator);
     if (!pool || !isCreator) return null;
 
     return <PoolFundsSection pool={pool} isCreator={isCreator} />;
