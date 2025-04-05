@@ -221,7 +221,7 @@ export default function PoolDetailsPage() {
         onInfoClick={() => setShowInfoModal(true)}
         onPointsClick={handlePointsClick}
       />
-      <div className="container mx-auto px-4 py-2">
+      <div className="container mx-auto px-4 py-2 pb-20">
         {/* Pool Header */}
         <PoolHeader
           pool={pool}
