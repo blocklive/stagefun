@@ -61,6 +61,7 @@ export default function AccessCodePage() {
           showCreateButton={false}
           showGetTokensButton={false}
           showInfoButton={false}
+          showLogo={false}
           backgroundColor="black"
           onInfoClick={handleInfoClick}
         />

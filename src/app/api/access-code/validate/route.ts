@@ -10,11 +10,25 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { code } = await request.json();
+    let { code } = await request.json();
 
     if (!code) {
       return NextResponse.json(
         { success: false, error: "Access code is required" },
+        { status: 400 }
+      );
+    }
+
+    // Ensure code is in SF-XXXXXX format
+    code = code.trim().toUpperCase();
+    if (!code.startsWith("SF-")) {
+      code = `SF-${code}`;
+    }
+
+    // Check if the code has the correct format
+    if (!code.match(/^SF-[A-Z0-9]{6}$/)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid access code format" },
         { status: 400 }
       );
     }

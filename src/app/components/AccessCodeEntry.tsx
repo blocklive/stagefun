@@ -66,6 +66,7 @@ export default function AccessCodeEntry() {
   const [rightPrices, setRightPrices] = useState<string[]>([]);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isSkullHovered, setIsSkullHovered] = useState(false);
+  const [isSkullFlipped, setIsSkullFlipped] = useState(false);
 
   // Add a ref to the first input for focus management
   const firstInputRef = React.useRef<HTMLInputElement>(null);
@@ -332,8 +333,14 @@ export default function AccessCodeEntry() {
 
     // Process any pasted data regardless of which input field was clicked
     if (pastedData.length > 0) {
-      // Clean the pasted text (remove spaces, only keep alphanumeric)
-      const cleanedPaste = pastedData.replace(/\s/g, "");
+      // Clean the pasted text and handle SF- prefix if present
+      let cleanedPaste = pastedData.replace(/\s/g, "");
+
+      // Remove SF- prefix if present
+      if (cleanedPaste.toUpperCase().startsWith("SF-")) {
+        cleanedPaste = cleanedPaste.substring(3);
+      }
+
       const validChars = cleanedPaste
         .split("")
         .filter((char) => /^[a-zA-Z0-9]$/.test(char))
@@ -398,7 +405,7 @@ export default function AccessCodeEntry() {
     setErrorMessage("");
 
     if (accessCode.some((digit) => digit === "")) {
-      setErrorMessage("Please enter all six digits");
+      setErrorMessage("Please enter all six characters for your SF code");
       return;
     }
 
@@ -410,7 +417,7 @@ export default function AccessCodeEntry() {
     try {
       const toastId = showToast.loading("Verifying access code...");
 
-      const code = accessCode.join("");
+      const code = "SF-" + accessCode.join("");
       const response = await fetch("/api/access-code/validate", {
         method: "POST",
         headers: {
@@ -474,10 +481,17 @@ export default function AccessCodeEntry() {
       {/* Code input container */}
       <div
         id="code-container"
-        className={`flex space-x-2 mb-8 w-full max-w-sm mx-auto ${
+        className={`flex items-center space-x-2 mb-8 w-full max-w-sm mx-auto ${
           isShaking ? "shake-animation" : ""
         }`}
       >
+        {/* SF- prefix */}
+        <div className="h-14 flex items-center justify-center">
+          <span className="text-2xl font-mono brand-purple font-bold tracking-widest pixel-text">
+            SF-
+          </span>
+        </div>
+
         {accessCode.map((digit, index) => (
           <div
             key={index}
@@ -530,10 +544,11 @@ export default function AccessCodeEntry() {
         className="absolute bottom-4 right-4 transition-all duration-300 logo-container w-12 h-12 flex items-center justify-center"
         onMouseEnter={() => setIsSkullHovered(true)}
         onMouseLeave={() => setIsSkullHovered(false)}
+        onClick={() => setIsSkullFlipped(!isSkullFlipped)}
       >
         <div
           className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
-            isSkullHovered ? "opacity-0" : "opacity-100"
+            isSkullHovered || isSkullFlipped ? "opacity-0" : "opacity-100"
           }`}
         >
           {/* Pixelated skull SVG */}
@@ -570,7 +585,7 @@ export default function AccessCodeEntry() {
 
         <div
           className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
-            isSkullHovered ? "opacity-100" : "opacity-0"
+            isSkullHovered || isSkullFlipped ? "opacity-100" : "opacity-0"
           }`}
         >
           <img

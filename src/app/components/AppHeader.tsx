@@ -14,6 +14,7 @@ interface AppHeaderProps {
   showPointsButton?: boolean;
   showRightButtons?: boolean;
   showInfoButton?: boolean;
+  showLogo?: boolean;
   onGetTokensClick?: () => void;
   onInfoClick?: () => void;
   onBackClick?: () => void;
@@ -32,6 +33,7 @@ export default function AppHeader({
   showPointsButton = true,
   showRightButtons = false,
   showInfoButton = true,
+  showLogo = true,
   onGetTokensClick,
   onInfoClick,
   onBackClick,
@@ -50,18 +52,20 @@ export default function AppHeader({
       <header className="flex justify-between items-center p-4">
         {/* Logo and Back Button */}
         <div className="flex items-center gap-3">
-          <div
-            className="h-10 md:hidden cursor-pointer"
-            onClick={() => router.push("/pools")}
-          >
-            <Image
-              src="/stagefunheader.png"
-              alt="StageFun Logo"
-              width={40}
-              height={40}
-              className="object-contain"
-            />
-          </div>
+          {showLogo && (
+            <div
+              className="h-10 md:hidden cursor-pointer"
+              onClick={() => router.push("/pools")}
+            >
+              <Image
+                src="/stagefunheader.png"
+                alt="StageFun Logo"
+                width={40}
+                height={40}
+                className="object-contain"
+              />
+            </div>
+          )}
           {showBackButton && (
             <button
               onClick={onBackClick || (() => router.back())}
