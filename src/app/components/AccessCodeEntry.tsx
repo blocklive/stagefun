@@ -31,7 +31,7 @@ const TradingNumbers = dynamic(
       }) => (
         <>
           {/* Random trading numbers on left */}
-          <div className="absolute top-0 left-2 text-purple-500 text-xs opacity-70 font-mono">
+          <div className="absolute top-0 left-2 brand-purple text-xs opacity-70 font-mono">
             {leftPrices.map((price, i) => (
               <div key={`left-${i}`} className="flex gap-4">
                 <span>{price}</span>
@@ -41,7 +41,7 @@ const TradingNumbers = dynamic(
           </div>
 
           {/* Random trading numbers on right */}
-          <div className="absolute top-0 right-2 text-purple-500 text-xs opacity-70 font-mono text-right">
+          <div className="absolute top-0 right-2 brand-purple text-xs opacity-70 font-mono text-right">
             {rightPrices.map((price, i) => (
               <div key={`right-${i}`} className="flex gap-4 justify-end">
                 <span>{price}</span>
@@ -65,6 +65,7 @@ export default function AccessCodeEntry() {
   const [leftPrices, setLeftPrices] = useState<string[]>([]);
   const [rightPrices, setRightPrices] = useState<string[]>([]);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isSkullHovered, setIsSkullHovered] = useState(false);
 
   // Add a ref to the first input for focus management
   const firstInputRef = React.useRef<HTMLInputElement>(null);
@@ -258,6 +259,27 @@ export default function AccessCodeEntry() {
         text-transform: uppercase;
         letter-spacing: 2px;
       }
+      .logo-container {
+        filter: drop-shadow(0 0 10px rgba(131, 110, 249, 0.5));
+        transition: all 0.3s ease;
+      }
+      .logo-container:hover {
+        filter: drop-shadow(0 0 15px rgba(131, 110, 249, 1));
+      }
+      .icon-transition {
+        transition: opacity 0.3s ease, transform 0.3s ease;
+      }
+      .fade-in {
+        opacity: 1;
+        transform: scale(1);
+      }
+      .fade-out {
+        opacity: 0;
+        transform: scale(0.8);
+      }
+      .brand-purple {
+        color: #836EF9;
+      }
     `;
     document.head.appendChild(styleElement);
 
@@ -443,7 +465,7 @@ export default function AccessCodeEntry() {
 
       <TradingNumbers leftPrices={leftPrices} rightPrices={rightPrices} />
 
-      <h1 className="pixel-text text-5xl font-bold text-center mb-12 text-purple-500 leading-relaxed">
+      <h1 className="pixel-text text-5xl font-bold text-center mb-12 brand-purple leading-relaxed">
         ENTER
         <br />
         ACCESS CODE
@@ -459,7 +481,7 @@ export default function AccessCodeEntry() {
         {accessCode.map((digit, index) => (
           <div
             key={index}
-            className="w-full h-14 border-2 border-purple-500 rounded-lg flex items-center justify-center relative bg-black/30 shadow-[0_0_10px_rgba(131,110,249,0.3)]"
+            className="w-full h-14 border-2 border-[#836EF9] rounded-lg flex items-center justify-center relative bg-black/30 shadow-[0_0_10px_rgba(131,110,249,0.3)]"
           >
             <input
               id={`code-${index}`}
@@ -470,12 +492,12 @@ export default function AccessCodeEntry() {
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={(e) => handlePaste(e, index)}
               maxLength={1}
-              className="w-full h-full text-center bg-transparent text-2xl font-mono text-purple-500 focus:outline-none caret-purple-500 z-10 pixel-text"
+              className="w-full h-full text-center bg-transparent text-2xl font-mono brand-purple focus:outline-none caret-[#836EF9] z-10 pixel-text"
               autoFocus={index === 0}
             />
             {digit === "" && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="h-6 w-0.5 bg-purple-500 blink-animation"></div>
+                <div className="h-6 w-0.5 bg-[#836EF9] blink-animation"></div>
               </div>
             )}
           </div>
@@ -494,8 +516,8 @@ export default function AccessCodeEntry() {
         <button
           onClick={handleSubmit}
           disabled={isSubmitting}
-          className="w-full py-4 px-8 rounded-lg border-2 border-purple-500 hover:bg-purple-500/10
-                    text-purple-500 font-mono text-xl transition-all duration-200
+          className="w-full py-4 px-8 rounded-lg border-2 border-[#836EF9] hover:bg-[#836EF9]/10
+                    brand-purple font-mono text-xl transition-all duration-200
                     disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest pixel-text
                     shadow-[0_0_10px_rgba(131,110,249,0.3)]"
         >
@@ -504,29 +526,59 @@ export default function AccessCodeEntry() {
       </div>
 
       {/* Hacker Skull Icon */}
-      <div className="absolute bottom-4 right-4 text-purple-500 text-2xl">
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
+      <div
+        className="absolute bottom-4 right-4 transition-all duration-300 logo-container w-12 h-12 flex items-center justify-center"
+        onMouseEnter={() => setIsSkullHovered(true)}
+        onMouseLeave={() => setIsSkullHovered(false)}
+      >
+        <div
+          className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+            isSkullHovered ? "opacity-0" : "opacity-100"
+          }`}
         >
-          <path
-            d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z"
-            stroke="currentColor"
+          {/* Pixelated skull SVG */}
+          <svg
+            width="36"
+            height="36"
+            viewBox="0 0 24 24"
             fill="none"
-            strokeWidth="1"
+            xmlns="http://www.w3.org/2000/svg"
+            className="brand-purple"
+          >
+            {/* Pixelated skull outline */}
+            <path
+              d="M8 3H16V4H18V6H19V8H20V14H19V16H18V17H16V18H14V20H10V18H8V17H6V16H5V14H4V8H5V6H6V4H8V3Z"
+              stroke="none"
+              fill="currentColor"
+            />
+            {/* Eye holes - square pixel style */}
+            <path
+              d="M9 9H12V12H9V9Z M14 9H17V12H14V9Z"
+              stroke="none"
+              fill="black"
+            />
+            {/* Nose */}
+            <path d="M12 13H13V14H12V13Z" stroke="none" fill="black" />
+            {/* Teeth row */}
+            <path
+              d="M9 16H10V17H11V16H12V17H13V16H14V17H15V16H16V17H14V18H10V17H9V16Z"
+              stroke="none"
+              fill="black"
+            />
+          </svg>
+        </div>
+
+        <div
+          className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+            isSkullHovered ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <img
+            src="/stagefunheader.png"
+            alt="StageFun Logo"
+            className="object-contain w-10 h-10"
           />
-          <rect x="9" y="9" width="2" height="2" fill="currentColor" />
-          <rect x="13" y="9" width="2" height="2" fill="currentColor" />
-          <path
-            d="M9 18h6l-1 4H10l-1-4z"
-            stroke="currentColor"
-            fill="none"
-            strokeWidth="1"
-          />
-        </svg>
+        </div>
       </div>
 
       {/* Login notice for existing users */}
@@ -534,7 +586,7 @@ export default function AccessCodeEntry() {
         Already have an account?{" "}
         <button
           onClick={handleLogin}
-          className="text-purple-500 hover:underline"
+          className="text-[#836EF9] hover:underline"
         >
           Log in
         </button>
