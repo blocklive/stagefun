@@ -7,6 +7,17 @@ import showToast from "@/utils/toast";
 import React from "react";
 import dynamic from "next/dynamic";
 
+// Helper function to format numbers with k/M suffixes
+const formatNumber = (num: number): string => {
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(2)}M`;
+  } else if (num >= 1000) {
+    return `${(num / 1000).toFixed(2)}k`;
+  } else {
+    return num.toFixed(2);
+  }
+};
+
 // Create a client-only component for the numbers display
 const TradingNumbers = dynamic(
   () =>
@@ -24,7 +35,7 @@ const TradingNumbers = dynamic(
             {leftPrices.map((price, i) => (
               <div key={`left-${i}`} className="flex gap-4">
                 <span>{price}</span>
-                <span>{(i * 0.1 + 0.1).toFixed(1)}</span>
+                <span>{(Math.random() * 2 + 0.1).toFixed(1)}</span>
               </div>
             ))}
           </div>
@@ -34,7 +45,7 @@ const TradingNumbers = dynamic(
             {rightPrices.map((price, i) => (
               <div key={`right-${i}`} className="flex gap-4 justify-end">
                 <span>{price}</span>
-                <span>{(i * 0.1 + 0.1).toFixed(1)}</span>
+                <span>{(Math.random() * 2 + 0.1).toFixed(1)}</span>
               </div>
             ))}
           </div>
@@ -73,12 +84,26 @@ export default function AccessCodeEntry() {
       // Update multiple random prices for more activity
       for (let i = 0; i < 3; i++) {
         const randomIndex = Math.floor(Math.random() * newPrices.length);
-        const basePrice = parseFloat(newPrices[randomIndex] || "100");
-        // Create slightly different value based on previous one
-        newPrices[randomIndex] = (
-          basePrice +
-          (Math.random() - 0.5) * 10
-        ).toFixed(2);
+
+        // Generate a much more varied price - potentially large numbers
+        let newValue: number;
+        const range = Math.random();
+
+        if (range < 0.3) {
+          // Small numbers (1-100)
+          newValue = Math.random() * 100 + 1;
+        } else if (range < 0.6) {
+          // Medium numbers (100-9999)
+          newValue = Math.random() * 9900 + 100;
+        } else if (range < 0.85) {
+          // Large numbers (10k-999k)
+          newValue = Math.random() * 990000 + 10000;
+        } else {
+          // Very large numbers (1M-10M)
+          newValue = Math.random() * 9000000 + 1000000;
+        }
+
+        newPrices[randomIndex] = formatNumber(newValue);
       }
 
       return newPrices;
@@ -90,12 +115,26 @@ export default function AccessCodeEntry() {
       // Update multiple random prices for more activity
       for (let i = 0; i < 3; i++) {
         const randomIndex = Math.floor(Math.random() * newPrices.length);
-        const basePrice = parseFloat(newPrices[randomIndex] || "100");
-        // Create slightly different value based on previous one
-        newPrices[randomIndex] = (
-          basePrice +
-          (Math.random() - 0.5) * 10
-        ).toFixed(2);
+
+        // Generate a much more varied price - potentially large numbers
+        let newValue: number;
+        const range = Math.random();
+
+        if (range < 0.3) {
+          // Small numbers (1-100)
+          newValue = Math.random() * 100 + 1;
+        } else if (range < 0.6) {
+          // Medium numbers (100-9999)
+          newValue = Math.random() * 9900 + 100;
+        } else if (range < 0.85) {
+          // Large numbers (10k-999k)
+          newValue = Math.random() * 990000 + 10000;
+        } else {
+          // Very large numbers (1M-10M)
+          newValue = Math.random() * 9000000 + 1000000;
+        }
+
+        newPrices[randomIndex] = formatNumber(newValue);
       }
 
       return newPrices;
@@ -105,10 +144,26 @@ export default function AccessCodeEntry() {
   // Random price data for the background charts
   const generateRandomPrices = () => {
     const prices = [];
-    let price = 100 + Math.random() * 50;
     for (let i = 0; i < 20; i++) {
-      price = price + (Math.random() - 0.5) * 10;
-      prices.push(price.toFixed(2));
+      // Generate varied price ranges
+      let value: number;
+      const range = Math.random();
+
+      if (range < 0.3) {
+        // Small numbers (1-100)
+        value = Math.random() * 100 + 1;
+      } else if (range < 0.6) {
+        // Medium numbers (100-9999)
+        value = Math.random() * 9900 + 100;
+      } else if (range < 0.85) {
+        // Large numbers (10k-999k)
+        value = Math.random() * 990000 + 10000;
+      } else {
+        // Very large numbers (1M-10M)
+        value = Math.random() * 9000000 + 1000000;
+      }
+
+      prices.push(formatNumber(value));
     }
     return prices;
   };

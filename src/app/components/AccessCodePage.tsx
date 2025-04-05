@@ -14,7 +14,6 @@ export default function AccessCodePage() {
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
-  console.log("PRIVY:", authenticated, ready);
   // Check if user is authenticated and redirect to pools
   useEffect(() => {
     if (ready && authenticated) {
