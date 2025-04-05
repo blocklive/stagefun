@@ -400,7 +400,46 @@ export function toUSDCBaseUnits(amount: number): bigint {
   return BigInt(Math.round(amount * USDC_DECIMAL_FACTOR));
 }
 
-// Format token amount for display
+/**
+ * Formats USDC amounts for display with appropriate precision
+ * - Shows 2 decimal places for normal amounts (≥0.01)
+ * - Shows more decimal places for small amounts (<0.01) to display meaningful values
+ * - Automatically determines appropriate precision based on amount
+ *
+ * @param amount The USDC amount to format
+ * @returns Formatted string with appropriate decimal places
+ */
+export function formatUSDC(amount: number): string {
+  // For very small amounts, show more decimal places (up to 6)
+  if (amount < 0.01 && amount > 0) {
+    // Count leading zeros after decimal point
+    const amountStr = amount.toString();
+    const decimalPart = amountStr.split(".")[1] || "";
+    let leadingZeros = 0;
+    for (let i = 0; i < decimalPart.length; i++) {
+      if (decimalPart[i] === "0") {
+        leadingZeros++;
+      } else {
+        break;
+      }
+    }
+
+    // Show at least 2 significant digits after the leading zeros
+    const significantDigits = Math.max(leadingZeros + 2, 2);
+    return amount.toLocaleString(undefined, {
+      minimumFractionDigits: Math.min(significantDigits, 6),
+      maximumFractionDigits: Math.min(significantDigits, 6),
+    });
+  }
+
+  // Standard case for normal amounts
+  return amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+// Format token amount for display (legacy function, consider using formatUSDC instead)
 export function formatToken(amount: bigint): string {
   return (Number(amount) / USDC_DECIMAL_FACTOR).toLocaleString(undefined, {
     minimumFractionDigits: 2,

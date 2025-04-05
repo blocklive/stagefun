@@ -8,6 +8,9 @@ export default {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
+      screens: {
+        xs: "430px", // Custom breakpoint at 430px
+      },
     },
   },
   plugins: [require("@tailwindcss/typography")],

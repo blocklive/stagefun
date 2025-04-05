@@ -5,6 +5,7 @@ import { Pool } from "../../../../lib/supabase";
 import { formatCurrency } from "../../../../lib/utils";
 import TabsAndSocial from "./TabsAndSocial";
 import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
+import CountdownTimer from "../../../components/CountdownTimer";
 
 type TabType = "overview" | "patrons";
 
@@ -79,29 +80,14 @@ export default function OpenPoolView({
             ></div>
           </div>
 
-          {/* Time Left */}
-          <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Time left</h2>
-              <div className="flex space-x-2">
-                <div className="bg-[#FFFFFF0F] px-4 py-2 rounded-[12px] text-center">
-                  <div className="text-2xl font-bold">{days}</div>
-                </div>
-                <div className="text-xl font-bold flex items-center">:</div>
-                <div className="bg-[#FFFFFF0F] px-4 py-2 rounded-[12px] text-center">
-                  <div className="text-2xl font-bold">{hours}</div>
-                </div>
-                <div className="text-xl font-bold flex items-center">:</div>
-                <div className="bg-[#FFFFFF0F] px-4 py-2 rounded-[12px] text-center">
-                  <div className="text-2xl font-bold">{minutes}</div>
-                </div>
-                <div className="text-xl font-bold flex items-center">:</div>
-                <div className="bg-[#FFFFFF0F] px-4 py-2 rounded-[12px] text-center">
-                  <div className="text-2xl font-bold">{seconds}</div>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Time Left - Using the responsive CountdownTimer component */}
+          <CountdownTimer
+            days={days}
+            hours={hours}
+            minutes={minutes}
+            seconds={seconds}
+            className="mb-6"
+          />
 
           {/* User's Commitment */}
           {renderUserCommitment()}

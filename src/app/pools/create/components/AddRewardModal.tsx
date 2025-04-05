@@ -1,5 +1,9 @@
 import React, { useState } from "react";
-import { FaChevronLeft } from "react-icons/fa";
+import { FaChevronLeft, FaChevronDown } from "react-icons/fa";
+import {
+  REWARD_TYPES,
+  REWARD_TYPE_ICONS,
+} from "../../../../lib/constants/strings";
 
 interface RewardItem {
   id: string;
@@ -16,7 +20,37 @@ interface AddRewardModalProps {
 export function AddRewardModal({ onClose, onAdd }: AddRewardModalProps) {
   const [newItemName, setNewItemName] = useState("");
   const [newItemDescription, setNewItemDescription] = useState("");
-  const [newItemType, setNewItemType] = useState("NFT");
+  const [newItemType, setNewItemType] = useState(REWARD_TYPES.NFT);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Create an array of reward types for rendering
+  const rewardTypeOptions = [
+    {
+      value: REWARD_TYPES.NFT,
+      label: "NFT",
+      icon: REWARD_TYPE_ICONS[REWARD_TYPES.NFT],
+    },
+    {
+      value: REWARD_TYPES.MERCH,
+      label: "Merchandise",
+      icon: REWARD_TYPE_ICONS[REWARD_TYPES.MERCH],
+    },
+    {
+      value: REWARD_TYPES.TICKET,
+      label: "Ticket",
+      icon: REWARD_TYPE_ICONS[REWARD_TYPES.TICKET],
+    },
+    {
+      value: REWARD_TYPES.PERK,
+      label: "Special Perk",
+      icon: REWARD_TYPE_ICONS[REWARD_TYPES.PERK],
+    },
+  ];
+
+  // Find the currently selected option
+  const selectedOption =
+    rewardTypeOptions.find((option) => option.value === newItemType) ||
+    rewardTypeOptions[0];
 
   const handleSubmit = () => {
     if (!newItemName.trim()) return;
@@ -28,6 +62,15 @@ export function AddRewardModal({ onClose, onAdd }: AddRewardModalProps) {
     });
 
     onClose();
+  };
+
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
+  };
+
+  const selectType = (type: string) => {
+    setNewItemType(type);
+    setIsDropdownOpen(false);
   };
 
   return (
@@ -62,15 +105,47 @@ export function AddRewardModal({ onClose, onAdd }: AddRewardModalProps) {
 
           <div>
             <label className="block text-sm font-medium mb-2">Type</label>
-            <select
-              value={newItemType}
-              onChange={(e) => setNewItemType(e.target.value)}
-              className="w-full px-4 py-2 bg-[#FFFFFF14] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#836EF9] text-white"
-            >
-              <option value="NFT">NFT</option>
-              <option value="Merchandise">Merchandise</option>
-              <option value="Ticket">Ticket</option>
-            </select>
+
+            {/* Custom dropdown with icons */}
+            <div className="relative">
+              {/* Dropdown Button */}
+              <button
+                type="button"
+                onClick={toggleDropdown}
+                className="w-full px-4 py-2 bg-[#FFFFFF14] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#836EF9] text-white flex items-center justify-between"
+              >
+                <div className="flex items-center">
+                  <span className="mr-2">{selectedOption.icon}</span>
+                  <span>{selectedOption.label}</span>
+                </div>
+                <FaChevronDown
+                  className={`transition-transform duration-300 ${
+                    isDropdownOpen ? "transform rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute z-10 w-full mt-1 bg-[#1E1F25] border border-[#FFFFFF1A] rounded-lg shadow-lg overflow-hidden">
+                  {rewardTypeOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => selectType(option.value)}
+                      className={`w-full px-4 py-3 text-left flex items-center hover:bg-[#FFFFFF14] transition-colors ${
+                        newItemType === option.value
+                          ? "bg-[#FFFFFF0A] text-[#836EF9]"
+                          : "text-white"
+                      }`}
+                    >
+                      <span className="mr-3 text-lg">{option.icon}</span>
+                      <span>{option.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
