@@ -25,6 +25,16 @@ const nextConfig = {
     // Exclude Supabase Edge Functions from TypeScript checking
     ignoreBuildErrors: true,
   },
+  // Add redirect from /login to root
+  async redirects() {
+    return [
+      {
+        source: "/login",
+        destination: "/",
+        permanent: true,
+      },
+    ];
+  },
   // Add Privy-recommended Content Security Policy
   // https://docs.privy.io/guide/security/implementation/csp
   async headers() {
