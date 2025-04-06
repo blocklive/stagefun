@@ -44,7 +44,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ""}
       config={{
-        loginMethods: ["twitter"],
+        loginMethods: ["twitter", "email"],
         appearance: {
           theme: "dark",
           accentColor: "#8364FF",

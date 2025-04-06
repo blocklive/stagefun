@@ -462,6 +462,7 @@ export default function AccessCodeEntry() {
 
   const handleLogin = () => {
     // Open Privy login modal in login-only mode (disableSignup true)
+    // WE DO NOT WANT TO ALLOW SIGNUPS HERE - USER MUST HAVE AN ACCESS CODE
     login({ disableSignup: true });
   };
 

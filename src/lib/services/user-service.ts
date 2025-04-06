@@ -1,32 +1,5 @@
 import { supabase, User } from "../supabase";
 
-export async function createOrUpdateUser(
-  userData: Partial<User>
-): Promise<User> {
-  try {
-    console.log("Creating or updating user with data:", userData);
-
-    // Use the standard client for user operations since we might not have
-    // an authenticated client yet during initial user creation
-    const { data, error } = await supabase
-      .from("users")
-      .upsert(userData)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error creating/updating user:", error);
-      throw error;
-    }
-
-    console.log("User created/updated successfully:", data);
-    return data as User;
-  } catch (error) {
-    console.error("Error in createOrUpdateUser:", error);
-    throw error;
-  }
-}
-
 export async function getUserById(userId: string): Promise<User | null> {
   try {
     const { data, error } = await supabase

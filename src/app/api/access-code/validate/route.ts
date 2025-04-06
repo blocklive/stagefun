@@ -10,7 +10,7 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    let { code } = await request.json();
+    const { code } = await request.json();
 
     if (!code) {
       return NextResponse.json(
@@ -20,13 +20,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure code is in SF-XXXXXX format
-    code = code.trim().toUpperCase();
-    if (!code.startsWith("SF-")) {
-      code = `SF-${code}`;
+    let formattedCode = code.trim().toUpperCase();
+    if (!formattedCode.startsWith("SF-")) {
+      formattedCode = `SF-${formattedCode}`;
     }
 
     // Check if the code has the correct format
-    if (!code.match(/^SF-[A-Z0-9]{6}$/)) {
+    if (!formattedCode.match(/^SF-[A-Z0-9]{6}$/)) {
       return NextResponse.json(
         { success: false, error: "Invalid access code format" },
         { status: 400 }
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     const { data: codeData, error: codeError } = await supabaseAdmin
       .from("access_codes")
       .select("*")
-      .ilike("code", code)
+      .ilike("code", formattedCode)
       .eq("is_active", true)
       .single();
 
@@ -57,29 +57,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Increment the usage count (but don't mark it as used by a specific user yet)
-    const { error: updateError } = await supabaseAdmin
-      .from("access_codes")
-      .update({
-        usage_count: codeData.usage_count + 1,
-        // If we've reached max uses after this increment, deactivate the code
-        is_active: codeData.usage_count + 1 < codeData.max_uses,
-      })
-      .eq("id", codeData.id);
-
-    if (updateError) {
-      console.error("Error updating access code usage:", updateError);
+    // Check if the code is already fully utilized by a user
+    if (codeData.fully_utilized) {
       return NextResponse.json(
-        { success: false, error: "Failed to process access code" },
-        { status: 500 }
+        { success: false, error: "Access code has already been used" },
+        { status: 400 }
       );
     }
+
+    // Don't update usage_count or is_active here at all
+    // Just set the cookies and let complete-login handle all updates
 
     // Store the code in the session cookie
     const response = NextResponse.json({ success: true });
 
     // Set a cookie to track that the user has entered a valid code
-    response.cookies.set("access_code", code, {
+    response.cookies.set("access_code", formattedCode, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
@@ -99,8 +92,12 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Error validating access code:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "An error occurred while validating the code";
     return NextResponse.json(
-      { success: false, error: "An error occurred while validating the code" },
+      { success: false, error: errorMessage },
       { status: 500 }
     );
   }
