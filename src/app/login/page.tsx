@@ -11,19 +11,51 @@ import AutoScroller from "@/app/components/AutoScroller";
 import PoolScroller from "@/app/components/PoolScroller";
 import AppHeader from "@/app/components/AppHeader";
 import InfoModal from "@/app/components/InfoModal";
+import showToast from "@/utils/toast";
 
 export default function LoginPage() {
-  const { login, authenticated } = usePrivy();
+  const { login, authenticated, ready } = usePrivy();
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [hasAccessCode, setHasAccessCode] = useState(false);
 
-  // Use useEffect to handle navigation after render
+  // Check if user has access code cookie
   useEffect(() => {
-    if (authenticated) {
-      router.push("/pools");
+    // Simple check for the cookie existence - the actual validation happens in the middleware
+    const cookies = document.cookie.split(";").map((cookie) => cookie.trim());
+    const hasAccessCookie = cookies.some((cookie) =>
+      cookie.startsWith("access_code=")
+    );
+    setHasAccessCode(hasAccessCookie);
+  }, []);
+
+  // Use useEffect to handle navigation after authentication
+  useEffect(() => {
+    const recordAccessCodeUsage = async () => {
+      if (authenticated) {
+        try {
+          // Record that the user has used an access code
+          await fetch("/api/access-code/use", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              // Privy Auth token is automatically added by the browser
+            },
+          });
+        } catch (error) {
+          console.error("Error recording access code usage:", error);
+        }
+
+        // Navigate to pools page
+        router.push("/pools");
+      }
+    };
+
+    if (ready && authenticated) {
+      recordAccessCodeUsage();
     }
-  }, [authenticated, router]);
+  }, [authenticated, ready, router]);
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -48,6 +80,15 @@ export default function LoginPage() {
 
   const handleCloseInfoModal = () => {
     setIsInfoModalOpen(false);
+  };
+
+  const handleLogin = () => {
+    if (!hasAccessCode) {
+      showToast.error("You need an access code to create an account");
+      router.push("/");
+      return;
+    }
+    login();
   };
 
   return (
@@ -90,7 +131,7 @@ export default function LoginPage() {
         {/* Login Button */}
         <div className="px-6 mt-12 mb-8">
           <button
-            onClick={login}
+            onClick={handleLogin}
             className="w-full bg-purple-500 py-4 rounded-full text-white text-lg font-medium"
           >
             Log in with 𝕏

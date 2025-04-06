@@ -67,6 +67,23 @@ export default function UnfundedPoolView({
     }
   }, [displayRaisedAmount, displayTargetAmount, raisedAmount, targetAmount]);
 
+  // Calculate the number of patrons
+  const patronCount = useMemo(() => {
+    if (!pool || !pool.tiers) return 0;
+
+    // Get unique patron addresses across all tiers
+    const uniquePatrons = new Set();
+    pool.tiers.forEach((tier) => {
+      if (tier.commitments) {
+        tier.commitments.forEach((commitment) => {
+          uniquePatrons.add(commitment.user_address.toLowerCase());
+        });
+      }
+    });
+
+    return uniquePatrons.size;
+  }, [pool]);
+
   return (
     <>
       {/* Tabs and Social Links */}
@@ -76,6 +93,7 @@ export default function UnfundedPoolView({
         pool={pool}
         isCreator={isCreator}
         onManageClick={onManageClick}
+        patronCount={patronCount}
       />
 
       {/* Only show the main content when the overview tab is selected */}

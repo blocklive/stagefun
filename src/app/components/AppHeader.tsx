@@ -13,6 +13,8 @@ interface AppHeaderProps {
   showGetTokensButton?: boolean;
   showPointsButton?: boolean;
   showRightButtons?: boolean;
+  showInfoButton?: boolean;
+  showLogo?: boolean;
   onGetTokensClick?: () => void;
   onInfoClick?: () => void;
   onBackClick?: () => void;
@@ -30,6 +32,8 @@ export default function AppHeader({
   showGetTokensButton = false,
   showPointsButton = true,
   showRightButtons = false,
+  showInfoButton = true,
+  showLogo = true,
   onGetTokensClick,
   onInfoClick,
   onBackClick,
@@ -48,18 +52,20 @@ export default function AppHeader({
       <header className="flex justify-between items-center p-4">
         {/* Logo and Back Button */}
         <div className="flex items-center gap-3">
-          <div
-            className="h-10 md:hidden cursor-pointer"
-            onClick={() => router.push("/pools")}
-          >
-            <Image
-              src="/stagefunheader.png"
-              alt="StageFun Logo"
-              width={40}
-              height={40}
-              className="object-contain"
-            />
-          </div>
+          {showLogo && (
+            <div
+              className="h-10 md:hidden cursor-pointer"
+              onClick={() => router.push("/pools")}
+            >
+              <Image
+                src="/stagefunheader.png"
+                alt="StageFun Logo"
+                width={40}
+                height={40}
+                className="object-contain"
+              />
+            </div>
+          )}
           {showBackButton && (
             <button
               onClick={onBackClick || (() => router.back())}
@@ -76,12 +82,14 @@ export default function AppHeader({
           {showPointsButton && <PointsButton onClick={onPointsClick} />}
 
           {/* Info Button - Always visible */}
-          <button
-            onClick={onInfoClick}
-            className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
-          >
-            <BiInfoCircle className="text-white w-5 h-5" />
-          </button>
+          {showInfoButton && (
+            <button
+              onClick={onInfoClick}
+              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
+            >
+              <BiInfoCircle className="text-white w-5 h-5" />
+            </button>
+          )}
 
           {showGetTokensButton && (
             <button

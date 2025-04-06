@@ -76,8 +76,8 @@ export const TierCard: React.FC<TierCardProps> = ({
       </div>
 
       <div className="flex flex-col md:flex-row gap-6 w-full">
-        {/* Right side - Tier image - Moved up and reordered for mobile */}
-        <div className="order-first md:order-last">
+        {/* Left side - Tier image */}
+        <div className="order-first md:order-first md:w-80">
           <TierImageUploader
             id={tier.id}
             imageUrl={tier.imageUrl}
@@ -90,8 +90,8 @@ export const TierCard: React.FC<TierCardProps> = ({
           />
         </div>
 
-        {/* Left side - Tier details form */}
-        <div className="order-last md:order-first flex-grow">
+        {/* Right side - Tier details form */}
+        <div className="order-last md:order-last flex-grow">
           <TierDetailsForm tier={tier} onUpdateTier={onUpdateTier} />
         </div>
       </div>

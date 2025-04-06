@@ -249,7 +249,8 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                         ))}
                   </div>
                   <span className="ml-2 text-sm text-white/70">
-                    {tier.commitments?.length || 0} patrons
+                    {tier.commitments?.length || 0}{" "}
+                    {tier.commitments?.length === 1 ? "patron" : "patrons"}
                   </span>
                 </div>
               </div>

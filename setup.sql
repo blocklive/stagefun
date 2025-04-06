@@ -12,6 +12,23 @@ CREATE TABLE IF NOT EXISTS users (
   twitter_username TEXT
 );
 
+-- Access codes table
+CREATE TABLE IF NOT EXISTS access_codes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  code TEXT UNIQUE NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  used_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  used_at TIMESTAMP WITH TIME ZONE,
+  max_uses INTEGER NOT NULL DEFAULT 1,
+  usage_count INTEGER NOT NULL DEFAULT 0
+);
+
+-- Create index for access code lookups
+CREATE INDEX IF NOT EXISTS idx_access_codes_code ON access_codes(code);
+CREATE INDEX IF NOT EXISTS idx_access_codes_created_by ON access_codes(created_by_user_id);
+
 -- Pools table
 CREATE TABLE IF NOT EXISTS pools (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -54,6 +71,7 @@ CREATE INDEX IF NOT EXISTS idx_patrons_pool_id ON patrons(pool_id);
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pools ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patrons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE access_codes ENABLE ROW LEVEL SECURITY;
 
 -- Users policies
 CREATE POLICY "Users can view all users" 
@@ -63,6 +81,19 @@ CREATE POLICY "Users can view all users"
 CREATE POLICY "Users can update their own data" 
   ON users FOR UPDATE 
   USING (auth.uid() = id);
+
+-- Access codes policies
+CREATE POLICY "Anyone can view access codes" 
+  ON access_codes FOR SELECT 
+  USING (true);
+
+CREATE POLICY "Admin users can create access codes" 
+  ON access_codes FOR INSERT 
+  WITH CHECK (true); -- Note: This will be further restricted by application logic
+
+CREATE POLICY "Admin users can update access codes" 
+  ON access_codes FOR UPDATE 
+  USING (true); -- Note: This will be further restricted by application logic
 
 -- Pools policies
 CREATE POLICY "Anyone can view pools" 
