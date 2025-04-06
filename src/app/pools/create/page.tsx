@@ -271,7 +271,8 @@ export default function CreatePoolPage() {
         tiers,
         location,
         socialLinks,
-        Math.floor(endDate.getTime() / 1000)
+        Math.floor(endDate.getTime() / 1000),
+        rewardItems
       );
     } catch (error: any) {
       console.error("Error creating pool:", error);
@@ -324,9 +325,20 @@ export default function CreatePoolPage() {
         {/* Main content */}
         <div className="px-6" style={{ paddingBottom: "40px" }}>
           {/* Pool Details, Funding, and Image Section */}
-          <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] gap-x-8 gap-y-6 md:gap-y-0 mt-8">
-            {/* Left Column: Pool Details and Funding */}
-            <div className="space-y-6 order-2 md:order-1">
+          <div className="grid grid-cols-1 md:grid-cols-[auto,1fr] gap-x-8 gap-y-6 md:gap-y-0 mt-8">
+            {/* Left Column: Pool Image */}
+            <div className="w-full md:w-[400px] order-1 md:order-1">
+              <PoolImageSection
+                imagePreview={imagePreview}
+                isUploadingImage={isUploadingImage}
+                showValidation={showValidation}
+                onImageSelect={handleImageSelect}
+                onRemoveImage={handleRemoveImage}
+              />
+            </div>
+
+            {/* Right Column: Pool Details and Funding */}
+            <div className="space-y-6 order-2 md:order-2">
               <PoolDetailsSection
                 poolName={poolName}
                 ticker={ticker}
@@ -339,17 +351,6 @@ export default function CreatePoolPage() {
                 capAmount={capAmount}
                 onFundingGoalChange={setFundingGoal}
                 onCapAmountChange={setCapAmount}
-              />
-            </div>
-
-            {/* Right Column: Pool Image */}
-            <div className="w-full md:w-[400px] order-1 md:order-2">
-              <PoolImageSection
-                imagePreview={imagePreview}
-                isUploadingImage={isUploadingImage}
-                showValidation={showValidation}
-                onImageSelect={handleImageSelect}
-                onRemoveImage={handleRemoveImage}
               />
             </div>
           </div>

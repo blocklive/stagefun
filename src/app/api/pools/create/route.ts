@@ -83,20 +83,23 @@ async function createAndLinkRewardItemsBackend(
     // Extract unique reward items defined across all tiers from the frontend data
     const allFrontendRewardItemsMap = new Map();
     frontendTiers.forEach((tier) => {
-      if (tier.rewardItems?.length) {
-        tier.rewardItems.forEach((itemId: string) => {
+      if (tier.rewardItemsData?.length) {
+        tier.rewardItemsData.forEach((rewardItem: any) => {
           // Skip NFT rewards
-          if (itemId !== "nft" && !allFrontendRewardItemsMap.has(itemId)) {
-            // Create reward item object using the tier info as fallback
-            allFrontendRewardItemsMap.set(itemId, {
-              name: tier.name,
-              description: tier.description || tier.name,
-              type: REWARD_TYPES.PERK, // Default to PERK type
+          if (
+            rewardItem.id !== "nft" &&
+            !allFrontendRewardItemsMap.has(rewardItem.id)
+          ) {
+            // Use the actual reward item data
+            allFrontendRewardItemsMap.set(rewardItem.id, {
+              name: rewardItem.name,
+              description: rewardItem.description,
+              type: rewardItem.type || REWARD_TYPES.PERK,
               metadata: {},
               creator_id: poolCreatorId,
               is_active: true,
               // Track the original frontend ID
-              frontendId: itemId,
+              frontendId: rewardItem.id,
             });
           }
         });
@@ -155,10 +158,10 @@ async function createAndLinkRewardItemsBackend(
         return; // Skip if tier mapping failed
       }
 
-      if (feTier.rewardItems?.length) {
-        feTier.rewardItems.forEach((feRewardItemId: string) => {
-          if (feRewardItemId && feRewardItemId !== "nft") {
-            const dbRewardItemId = rewardIdMap.get(feRewardItemId);
+      if (feTier.rewardItemsData?.length) {
+        feTier.rewardItemsData.forEach((feRewardItem: any) => {
+          if (feRewardItem.id && feRewardItem.id !== "nft") {
+            const dbRewardItemId = rewardIdMap.get(feRewardItem.id);
             if (dbRewardItemId) {
               tierRewardLinks.push({
                 tier_id: dbTierId,

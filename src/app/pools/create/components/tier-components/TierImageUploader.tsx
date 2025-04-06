@@ -87,7 +87,7 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
   };
 
   return (
-    <div className="w-full md:w-[200px] h-[200px]">
+    <div className="w-full md:w-[280px] h-[280px]">
       <div className="relative w-full h-full rounded-lg overflow-hidden bg-[#FFFFFF14] group">
         {imageUrl ? (
           <Image
@@ -95,7 +95,7 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
             alt={`${name} tier image`}
             fill
             className="object-cover"
-            sizes="(max-width: 768px) 100vw, 200px"
+            sizes="(max-width: 768px) 100vw, 280px"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-center p-4">

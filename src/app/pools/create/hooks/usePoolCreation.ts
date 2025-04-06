@@ -37,7 +37,13 @@ export const usePoolCreation = () => {
     tiers: any[],
     location: string,
     socialLinks: any,
-    endTimeUnix: number
+    endTimeUnix: number,
+    availableRewards: Array<{
+      id: string;
+      name: string;
+      description: string;
+      type: string;
+    }>
   ) => {
     // Validate required fields
     if (!poolName || !poolName.trim()) {
@@ -174,21 +180,105 @@ export const usePoolCreation = () => {
         raised_amount: 0,
         image_url: imagePreview,
         social_links: socialLinks,
-        tiers: tiers.map((tier) => ({
-          name: tier.name,
-          price: tier.isVariablePrice
-            ? Number(toUSDCBaseUnits(parseFloat(tier.minPrice))) // Store in base units in DB
-            : Number(toUSDCBaseUnits(parseFloat(tier.price))), // Store in base units in DB
-          isActive: tier.isActive,
-          nftMetadata: tier.nftMetadata,
-          isVariablePrice: tier.isVariablePrice,
-          minPrice: Number(toUSDCBaseUnits(parseFloat(tier.minPrice))), // Store in base units in DB
-          maxPrice: Number(toUSDCBaseUnits(parseFloat(tier.maxPrice))), // Store in base units in DB
-          maxPatrons: parseInt(tier.maxPatrons),
-          description: tier.description || `${tier.name} tier`,
-          rewardItems: tier.rewardItems,
-          imageUrl: tier.imageUrl,
-        })),
+        tiers: tiers.map((tier) => {
+          // Validate tier price and minPrice/maxPrice
+          const price = parseFloat(tier.price);
+          const minPrice = parseFloat(tier.minPrice);
+          const maxPrice = parseFloat(tier.maxPrice);
+          const maxPatrons = parseInt(tier.maxPatrons);
+
+          if (!tier.name || isNaN(price) || isNaN(maxPatrons)) {
+            throw new Error(
+              "All required tier fields (name, price, max patrons) must be filled"
+            );
+          }
+
+          if (
+            tier.imageUrl &&
+            tier.imageUrl.startsWith("data:image") &&
+            tier.imageUrl.includes("base64")
+          ) {
+            throw new Error(
+              `Cannot store base64 image in database for tier "${tier.name}". Upload to storage first.`
+            );
+          }
+
+          // Validate min/max prices only if this is a variable price tier
+          if (tier.isVariablePrice) {
+            if (isNaN(minPrice) || minPrice <= 0) {
+              throw new Error(
+                `Please enter a valid minimum price for tier "${tier.name}"`
+              );
+            }
+
+            if (isNaN(maxPrice) || maxPrice <= 0) {
+              throw new Error(
+                `Please enter a valid maximum price for tier "${tier.name}"`
+              );
+            }
+
+            if (minPrice >= maxPrice) {
+              throw new Error(
+                `Maximum price must be greater than minimum price for tier "${tier.name}"`
+              );
+            }
+          } else if (isNaN(price) || price <= 0) {
+            showToast.error(
+              `Please enter a valid price for tier "${tier.name}"`
+            );
+            throw new Error(
+              `Please enter a valid price for tier "${tier.name}"`
+            );
+          }
+
+          if (isNaN(maxPatrons) || maxPatrons <= 0) {
+            throw new Error(
+              `Please enter a valid maximum number of patrons for tier "${tier.name}"`
+            );
+          }
+
+          if (!tier.imageUrl) {
+            showToast.error(`Please upload an image for tier "${tier.name}"`);
+            throw new Error(`Please upload an image for tier "${tier.name}"`);
+          }
+
+          // Get full reward item data for each ID in the tier
+          const rewardItemsData = tier.rewardItems
+            .map((id: string) =>
+              availableRewards.find(
+                (reward: { id: string }) => reward.id === id
+              )
+            )
+            .filter(
+              (
+                item:
+                  | {
+                      id: string;
+                      name: string;
+                      description: string;
+                      type: string;
+                    }
+                  | undefined
+              ) => item !== undefined
+            ) as typeof availableRewards;
+
+          return {
+            name: tier.name,
+            price: tier.isVariablePrice
+              ? Number(toUSDCBaseUnits(parseFloat(tier.minPrice))) // Store in base units in DB
+              : Number(toUSDCBaseUnits(parseFloat(tier.price))), // Store in base units in DB
+            isActive: tier.isActive !== false, // Default to true if not explicitly false
+            nftMetadata: tier.nftMetadata || "",
+            isVariablePrice: tier.isVariablePrice || false,
+            minPrice: Number(toUSDCBaseUnits(parseFloat(tier.minPrice))), // Store in base units in DB
+            maxPrice: Number(toUSDCBaseUnits(parseFloat(tier.maxPrice))), // Store in base units in DB
+            maxPatrons,
+            description: tier.description || `${tier.name} tier`,
+            rewardItems: tier.rewardItems,
+            rewardItemsData, // Include full reward item data
+            imageUrl: tier.imageUrl,
+          };
+        }),
       };
 
       // Create pool on blockchain and database
