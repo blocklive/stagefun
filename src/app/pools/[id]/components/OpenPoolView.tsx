@@ -6,6 +6,7 @@ import { formatCurrency } from "../../../../lib/utils";
 import TabsAndSocial from "./TabsAndSocial";
 import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
 import CountdownTimer from "../../../components/CountdownTimer";
+import React from "react";
 
 type TabType = "overview" | "patrons";
 
@@ -40,6 +41,23 @@ export default function OpenPoolView({
   isCreator = false,
   onManageClick,
 }: OpenPoolViewProps) {
+  // Calculate the number of patrons
+  const patronCount = React.useMemo(() => {
+    if (!pool || !pool.tiers) return 0;
+
+    // Get unique patron addresses across all tiers
+    const uniquePatrons = new Set();
+    pool.tiers.forEach((tier) => {
+      if (tier.commitments) {
+        tier.commitments.forEach((commitment) => {
+          uniquePatrons.add(commitment.user_address.toLowerCase());
+        });
+      }
+    });
+
+    return uniquePatrons.size;
+  }, [pool]);
+
   return (
     <>
       {/* Tabs and Social Links */}
@@ -49,6 +67,7 @@ export default function OpenPoolView({
         pool={pool}
         isCreator={isCreator}
         onManageClick={onManageClick}
+        patronCount={patronCount}
       />
 
       {/* Only show the main content when the overview tab is selected */}

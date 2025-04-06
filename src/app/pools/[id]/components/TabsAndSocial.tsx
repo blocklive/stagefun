@@ -15,6 +15,7 @@ interface TabsAndSocialProps {
   pool?: Pool;
   isCreator?: boolean;
   onManageClick?: () => void;
+  patronCount?: number;
 }
 
 // Fallback icons if SOCIAL_PLATFORMS is not available
@@ -31,6 +32,7 @@ export default function TabsAndSocial({
   pool,
   isCreator = false,
   onManageClick,
+  patronCount = 0,
 }: TabsAndSocialProps) {
   const handleTabClick = (tab: TabType) => {
     if (onTabChange) {
@@ -69,6 +71,9 @@ export default function TabsAndSocial({
               onClick={() => handleTabClick("patrons")}
             >
               Patrons
+              {activeTab !== "patrons" && patronCount > 0 && (
+                <span className="ml-1 text-gray-400">{patronCount}</span>
+              )}
             </button>
           </div>
         </div>
