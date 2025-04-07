@@ -45,17 +45,10 @@ export default function OpenPoolView({
   const patronCount = React.useMemo(() => {
     if (!pool || !pool.tiers) return 0;
 
-    // Get unique patron addresses across all tiers
-    const uniquePatrons = new Set();
-    pool.tiers.forEach((tier) => {
-      if (tier.commitments) {
-        tier.commitments.forEach((commitment) => {
-          uniquePatrons.add(commitment.user_address.toLowerCase());
-        });
-      }
-    });
-
-    return uniquePatrons.size;
+    // Count total commitments across all tiers
+    return (pool.tiers as any[]).reduce((total: number, tier: any) => {
+      return total + (tier.commitments?.length || 0);
+    }, 0);
   }, [pool]);
 
   return (

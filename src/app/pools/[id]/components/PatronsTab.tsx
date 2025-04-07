@@ -37,8 +37,8 @@ export default function PatronsTab({
   const { user: privyUser } = usePrivy();
   const { dbUser } = useSupabase();
 
-  // Combine all commitments from all tiers and transform to patron format
-  const patrons = React.useMemo(() => {
+  // Transform all commitments to a flat list with tier info
+  const allCommitments = React.useMemo(() => {
     console.log("Pool tiers in PatronsTab:", pool?.tiers);
 
     if (!pool?.tiers) {
@@ -46,109 +46,54 @@ export default function PatronsTab({
       return [];
     }
 
-    // Extract all commitments from all tiers
-    const allCommitments = pool.tiers.flatMap((tier) => {
+    // Extract all commitments from all tiers with tier info
+    const commitments = pool.tiers.flatMap((tier) => {
       if (!tier) {
         console.log("Found a null/undefined tier");
         return [];
       }
 
-      // Some tiers might have undefined commitments
       if (!tier.commitments) {
         console.log(`Tier ${tier.id} has no commitments array`);
         return [];
       }
 
-      console.log(`Tier ${tier.id} commitments:`, tier.commitments);
-      return tier.commitments || [];
+      return tier.commitments.map((commitment) => ({
+        ...commitment,
+        tierName: tier.name,
+        tierId: tier.id,
+      }));
     });
 
-    console.log("All commitments combined:", allCommitments);
+    // Sort by most recent first
+    return commitments.sort((a, b) => {
+      return (
+        new Date(b.committed_at).getTime() - new Date(a.committed_at).getTime()
+      );
+    });
+  }, [pool?.tiers]);
 
-    if (allCommitments.length === 0) {
-      console.log("No commitments found in any tiers");
-      return [];
+  // Format date to relative time (e.g., "2 hours ago")
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) {
+      return "just now";
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes}m ago`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours}h ago`;
+    } else if (diffInSeconds < 2592000) {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days}d ago`;
+    } else {
+      return date.toLocaleDateString();
     }
-
-    // Combine duplicate users (in case someone committed to multiple tiers)
-    const patronsByAddress: Record<
-      string,
-      {
-        address: string;
-        balance: string;
-        userId?: string;
-        username?: string;
-        displayName?: string;
-        avatarUrl?: string;
-        isCurrentUser?: boolean;
-      }
-    > = {};
-
-    allCommitments.forEach((commitment) => {
-      const address = commitment.user_address.toLowerCase();
-      const user = commitment.user;
-      const currentUserWalletAddress =
-        privyUser?.wallet?.address?.toLowerCase();
-      const currentUserSmartWalletAddress =
-        dbUser?.smart_wallet_address?.toLowerCase();
-      const isCurrentUser: boolean =
-        Boolean(
-          currentUserWalletAddress && address === currentUserWalletAddress
-        ) ||
-        Boolean(
-          currentUserSmartWalletAddress &&
-            address === currentUserSmartWalletAddress
-        ) ||
-        Boolean(dbUser && user?.id === dbUser.id);
-
-      // Debug user info
-      console.log(`Processing commitment for address ${address}:`, {
-        hasUser: !!user,
-        userName: user?.name,
-        userAvatar: user?.avatar_url,
-        isCurrentUser,
-      });
-
-      // Convert amount to ethers-compatible string
-      // Assuming amount is stored in base units (e.g., 1000000 for 1 USDC)
-      const balanceAsString = commitment.amount.toString();
-
-      if (patronsByAddress[address]) {
-        // Add to existing balance
-        const existingBalance = ethers.getBigInt(
-          patronsByAddress[address].balance
-        );
-        const newBalance = ethers.getBigInt(balanceAsString);
-        patronsByAddress[address].balance = (
-          existingBalance + newBalance
-        ).toString();
-      } else {
-        // Create new patron entry
-        patronsByAddress[address] = {
-          address,
-          balance: balanceAsString,
-          userId: user?.id,
-          username: user?.name
-            ? user.name.replace(/\s+/g, "").toLowerCase()
-            : address.substring(0, 6),
-          displayName:
-            user?.name ||
-            `${address.substring(0, 6)}...${address.substring(
-              address.length - 4
-            )}`,
-          avatarUrl: user?.avatar_url,
-          isCurrentUser,
-        };
-      }
-    });
-
-    // Convert to array and sort by balance
-    return Object.values(patronsByAddress).sort((a, b) => {
-      const balanceA = ethers.getBigInt(a.balance);
-      const balanceB = ethers.getBigInt(b.balance);
-      return balanceB > balanceA ? 1 : -1;
-    });
-  }, [pool?.tiers, privyUser?.wallet?.address, dbUser]);
+  };
 
   // Format token balance
   const formatBalance = (balance: string) => {
@@ -183,7 +128,7 @@ export default function PatronsTab({
     }
   };
 
-  if (isLoading && patrons.length === 0) {
+  if (isLoading && allCommitments.length === 0) {
     return (
       <div className="flex justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
@@ -199,7 +144,7 @@ export default function PatronsTab({
     );
   }
 
-  if (patrons.length === 0 && !isLoading) {
+  if (allCommitments.length === 0 && !isLoading) {
     return (
       <div className="text-center py-8 text-gray-400">
         No patrons found for this pool yet.
@@ -220,60 +165,88 @@ export default function PatronsTab({
         <div className="text-center py-4 text-red-400">
           Failed to load patrons. Please try again later.
         </div>
-      ) : patrons.length === 0 ? (
+      ) : allCommitments.length === 0 ? (
         <div className="text-center py-4 text-gray-400">
           No patrons yet. Be the first to commit!
         </div>
       ) : (
         <div className="space-y-4">
-          {patrons.map((patron, index) => (
-            <div
-              key={index}
-              className="flex justify-between items-center py-2 border-b border-[#FFFFFF14] last:border-0"
-            >
-              <div className="flex items-center">
-                <UserAvatar
-                  avatarUrl={patron.avatarUrl}
-                  name={
-                    patron.displayName ||
-                    patron.username ||
-                    patron.address.substring(0, 6)
-                  }
-                  size={32}
-                  className="mr-3"
-                />
-                <div>
-                  <div className="flex items-center">
-                    <p className="font-semibold">
-                      {patron.displayName ||
-                        patron.username ||
-                        `${patron.address.substring(
-                          0,
-                          6
-                        )}...${patron.address.substring(38)}`}
-                    </p>
-                    {patron.isCurrentUser && (
-                      <span className="text-blue-400 ml-2 text-sm">You</span>
-                    )}
+          {allCommitments.map((commitment, index) => {
+            const currentUserWalletAddress =
+              privyUser?.wallet?.address?.toLowerCase();
+            const currentUserSmartWalletAddress =
+              dbUser?.smart_wallet_address?.toLowerCase();
+            const isCurrentUser =
+              Boolean(
+                currentUserWalletAddress &&
+                  commitment.user_address.toLowerCase() ===
+                    currentUserWalletAddress
+              ) ||
+              Boolean(
+                currentUserSmartWalletAddress &&
+                  commitment.user_address.toLowerCase() ===
+                    currentUserSmartWalletAddress
+              ) ||
+              Boolean(dbUser && commitment.user?.id === dbUser.id);
+
+            return (
+              <div
+                key={`${commitment.user_address}-${commitment.committed_at}-${index}`}
+                className="flex justify-between items-center py-2 border-b border-[#FFFFFF14] last:border-0"
+              >
+                <div className="flex items-center space-x-4">
+                  <UserAvatar
+                    avatarUrl={commitment.user?.avatar_url}
+                    name={
+                      commitment.user?.name ||
+                      commitment.user_address.substring(0, 6)
+                    }
+                    size={32}
+                  />
+                  <div>
+                    <div className="flex items-center">
+                      <p className="font-semibold">
+                        {commitment.user?.name ||
+                          `${commitment.user_address.substring(
+                            0,
+                            6
+                          )}...${commitment.user_address.substring(38)}`}
+                      </p>
+                      {isCurrentUser && (
+                        <span className="text-blue-400 ml-2 text-sm">You</span>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-400">
+                      <span>
+                        @
+                        {commitment.user?.name
+                          ?.replace(/\s+/g, "")
+                          .toLowerCase() ||
+                          commitment.user_address.substring(0, 6)}
+                      </span>
+                      <span>•</span>
+                      <span>{formatDate(commitment.committed_at)}</span>
+                      <span>•</span>
+                      <span className="text-purple-400">
+                        {commitment.tierName}
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-400">
-                    @{patron.username || `${patron.address.substring(0, 6)}`}
-                  </p>
+                </div>
+                <div className="flex items-center">
+                  <span className="text-lg font-bold mr-2">
+                    {formatBalance(commitment.amount.toString())}
+                  </span>
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: "#836EF9" }}
+                  >
+                    USDC
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center">
-                <span className="text-lg font-bold mr-2">
-                  {formatBalance(patron.balance)}
-                </span>
-                <span
-                  className="text-sm font-medium"
-                  style={{ color: "#836EF9" }}
-                >
-                  USDC
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

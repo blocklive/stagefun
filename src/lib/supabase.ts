@@ -28,49 +28,31 @@ export type Pool = {
   id: string;
   created_at?: string;
   name: string;
-  status: string;
   description: string;
-  funding_stage: string;
-  ends_at: string;
+  image_url?: string;
   target_amount: number;
-  cap_amount?: number; // Optional cap amount for the pool
-  raised_amount: number;
+  cap_amount: number;
+  end_date: string;
   currency: string;
-  token_amount: number;
-  token_symbol: string;
-  location?: string;
-  venue?: string;
-  image_url?: string | null;
   creator_id: string;
-  creator_name?: string;
-  creator_avatar_url?: string;
-  min_commitment?: number;
-  ticker?: string;
-  // Blockchain fields
-  blockchain_tx_hash?: string;
-  blockchain_block_number?: number;
-  blockchain_status: number;
-  blockchain_network?: string;
-  blockchain_explorer_url?: string;
-  contract_address?: string; // Address of the deployed pool contract
-  lp_token_address?: string;
-  // Additional fields
-  revenue_accumulated?: number;
-  patron_count?: number;
-  patrons_number?: number;
-  lp_holders?: any[];
-  milestones?: any[];
-  emergency_mode?: boolean;
-  emergency_withdrawal_request_time?: number;
-  authorized_withdrawer?: string;
-  // Social links
-  social_links?: {
-    website?: string;
-    twitter?: string;
-    discord?: string;
-    instagram?: string;
-    [key: string]: string | undefined;
-  } | null;
+  creator?: User;
+  status: string;
+  location?: string;
+  social_links?: Record<string, string>;
+  tiers?: {
+    id: string;
+    name: string;
+    commitments?: {
+      user_address: string;
+      amount: number;
+      committed_at: string;
+      user: {
+        id: string;
+        name: string;
+        avatar_url: string;
+      };
+    }[];
+  }[];
 };
 
 export type Patron = {

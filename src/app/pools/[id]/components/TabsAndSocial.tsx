@@ -71,9 +71,13 @@ export default function TabsAndSocial({
               onClick={() => handleTabClick("patrons")}
             >
               Patrons
-              {activeTab !== "patrons" && patronCount > 0 && (
-                <span className="ml-1 text-gray-400">{patronCount}</span>
-              )}
+              <span
+                className={`ml-1 ${
+                  activeTab === "patrons" ? "text-black/70" : "text-gray-400"
+                }`}
+              >
+                {patronCount}
+              </span>
             </button>
           </div>
         </div>
