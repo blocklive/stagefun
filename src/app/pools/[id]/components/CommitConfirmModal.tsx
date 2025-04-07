@@ -13,6 +13,7 @@ import {
   REWARD_TYPES,
   REWARD_TYPE_ICONS,
 } from "../../../../lib/constants/strings";
+import { formatAmount } from "@/lib/utils";
 
 interface CommitConfirmModalProps {
   isOpen: boolean;
@@ -89,13 +90,13 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
   let priceRangeDisplay: string = "";
   if (isVariablePrice) {
     if (minPrice !== null && maxPrice !== null) {
-      priceRangeDisplay = `${formatUSDC(minPrice)}-${formatUSDC(
+      priceRangeDisplay = `${formatAmount(minPrice)}-${formatAmount(
         maxPrice
       )} USDC`;
     } else if (minPrice !== null) {
-      priceRangeDisplay = `${formatUSDC(minPrice)}+ USDC`;
+      priceRangeDisplay = `${formatAmount(minPrice)}+ USDC`;
     } else if (maxPrice !== null) {
-      priceRangeDisplay = `0-${formatUSDC(maxPrice)} USDC`;
+      priceRangeDisplay = `0-${formatAmount(maxPrice)} USDC`;
     } else {
       priceRangeDisplay = "Flexible USDC";
     }
@@ -215,49 +216,16 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Confirm commitment">
-      <div className="p-4">
-        {/* Show price information at the top */}
-        {isVariablePrice ? (
-          <div className="mb-6 text-center">
-            <div className="text-lg font-medium mb-1">
-              Price Range: {priceRangeDisplay}
-            </div>
-            <div className="text-sm text-white/70">
-              Choose your contribution amount below
-            </div>
-          </div>
-        ) : (
-          <div className="mb-6 text-center">
-            <div className="text-3xl font-bold mb-1">
-              {formatUSDC(displayPrice)}
-            </div>
-            <div className="text-sm text-white/70">USDC</div>
-          </div>
-        )}
-
-        {/* Display wallet balance */}
-        <div className="mb-6 text-center">
-          <div className="text-sm text-white/70">Your wallet balance:</div>
-          <div className="text-lg font-medium">{displayBalance} USDC</div>
-        </div>
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <div className="p-6 max-w-lg w-full bg-[#15161A] rounded-[24px]">
+        <h2 className="text-2xl font-semibold mb-4 text-center">
+          Confirm commitment
+        </h2>
 
         <div className="bg-[#FFFFFF0A] p-4 rounded-lg mb-6">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-lg font-medium">{tier.name}</h3>
-            {isVariablePrice && (
-              <span className="text-sm text-white/70">
-                {minPrice !== null && maxPrice !== null
-                  ? `Range: ${formatUSDC(minPrice)}-${formatUSDC(
-                      maxPrice
-                    )} USDC`
-                  : minPrice !== null
-                  ? `Min: ${formatUSDC(minPrice)} USDC`
-                  : maxPrice !== null
-                  ? `Max: ${formatUSDC(maxPrice)} USDC`
-                  : "Flexible amount"}
-              </span>
-            )}
+            <span className="text-lg font-semibold">{priceRangeDisplay}</span>
           </div>
 
           {/* Render tier description as HTML with proper styling */}
@@ -279,9 +247,6 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
                   <span className="font-medium">
                     {STRINGS.PATRON_PASS_NAME(tier.name)}
                   </span>
-                  <div className="text-white/70 text-sm">
-                    {STRINGS.PATRON_PASS_DESCRIPTION}
-                  </div>
                 </span>
               </li>
 
@@ -308,20 +273,24 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
           </div>
         </div>
 
-        {/* Variable price input moved here, right before the commit button */}
         {isVariablePrice && (
           <div className="mb-6">
-            <label className="block text-sm font-medium text-white/70 mb-2">
-              Enter amount (USDC)
-            </label>
+            <div className="flex justify-between items-baseline mb-2">
+              <label className="text-sm font-medium text-white/70">
+                Enter amount (USDC)
+              </label>
+              <div className="text-sm text-white/70">
+                Balance: {formatAmount(walletBalanceFloat)} USDC
+              </div>
+            </div>
             <input
               type="number"
               value={variableAmount}
               onChange={(e) => setVariableAmount(e.target.value)}
               className="w-full px-4 py-3 bg-[#FFFFFF0A] rounded-lg border border-[#FFFFFF1A] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
               placeholder={`Enter amount (${
-                minPrice ? formatUSDC(minPrice) : "0"
-              }-${maxPrice ? formatUSDC(maxPrice) : "∞"} USDC)`}
+                minPrice ? formatAmount(minPrice) : "0"
+              }-${maxPrice ? formatAmount(maxPrice) : "∞"} USDC)`}
               min={minPrice !== null ? minPrice : 0}
               max={maxPrice !== null ? maxPrice : undefined}
               step="0.01"
@@ -329,9 +298,9 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
             {!isVariableAmountValid && variableAmount && (
               <p className="text-red-500 text-sm mt-1">
                 {minPrice && variableAmountFloat < minPrice
-                  ? `Minimum amount is ${formatUSDC(minPrice)} USDC`
+                  ? `Minimum amount is ${formatAmount(minPrice)} USDC`
                   : maxPrice && variableAmountFloat > maxPrice
-                  ? `Maximum amount is ${formatUSDC(maxPrice)} USDC`
+                  ? `Maximum amount is ${formatAmount(maxPrice)} USDC`
                   : "Please enter a valid amount"}
               </p>
             )}
@@ -363,7 +332,7 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
 
         {insufficientFunds && (
           <p className="text-red-500 text-sm mt-2 text-center">
-            You need {formatUSDC(displayPrice - walletBalanceFloat)} more USDC
+            You need {formatAmount(displayPrice - walletBalanceFloat)} more USDC
             to commit to this tier
           </p>
         )}

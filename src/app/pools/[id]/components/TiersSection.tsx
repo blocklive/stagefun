@@ -11,6 +11,7 @@ import {
   REWARD_TYPES,
   REWARD_TYPE_ICONS,
 } from "../../../../lib/constants/strings";
+import { formatAmount } from "@/lib/utils";
 
 interface TiersSectionProps {
   pool: Pool;
@@ -98,23 +99,23 @@ const TiersSection: React.FC<TiersSectionProps> = ({
 
           if (isVariablePrice) {
             if (minPrice !== null && maxPrice !== null) {
-              // Full range format for variable pricing
-              priceDisplay = `${formatUSDC(minPrice)}-${formatUSDC(
+              // Full range format for variable pricing with K/M formatting
+              priceDisplay = `${formatAmount(minPrice)}-${formatAmount(
                 maxPrice
               )} USDC`;
             } else if (minPrice !== null) {
-              // Min price only
-              priceDisplay = `${formatUSDC(minPrice)}+ USDC`;
+              // Min price only with K/M formatting
+              priceDisplay = `${formatAmount(minPrice)}+ USDC`;
             } else if (maxPrice !== null) {
-              // Max price only - simplified to just show the range without "From"
-              priceDisplay = `0-${formatUSDC(maxPrice)} USDC`;
+              // Max price only with K/M formatting
+              priceDisplay = `0-${formatAmount(maxPrice)} USDC`;
             } else {
               // Fallback for fully flexible
               priceDisplay = "Flexible USDC";
             }
           } else {
-            // Fixed price format
-            priceDisplay = `${formatUSDC(displayPrice)} USDC`;
+            // Fixed price format with K/M formatting
+            priceDisplay = `${formatAmount(displayPrice)} USDC`;
 
             // Special case for free tiers
             if (displayPrice === 0) {
@@ -122,11 +123,25 @@ const TiersSection: React.FC<TiersSectionProps> = ({
             }
           }
 
-          // Get the patron avatars - take just the first 3
-          const patronAvatars = tier.commitments
-            ?.slice(0, 3)
-            .map((commitment: any) => commitment.user?.avatar_url)
+          // Get unique patrons and their avatars
+          const uniquePatrons = new Map();
+          const totalCommitments = tier.commitments?.length || 0;
+          tier.commitments?.forEach((commitment: any) => {
+            const address = commitment.user_address.toLowerCase();
+            if (!uniquePatrons.has(address)) {
+              uniquePatrons.set(address, commitment.user);
+            }
+          });
+
+          // Get up to 5 unique patron avatars
+          const patronAvatars = Array.from(uniquePatrons.values())
+            .slice(0, 5)
+            .map((user: any) => user?.avatar_url)
             .filter(Boolean);
+
+          // Get patron count and max patrons
+          const maxPatrons = tier.max_supply;
+          const hasMaxPatrons = maxPatrons && maxPatrons > 0;
 
           return (
             <div
@@ -145,9 +160,12 @@ const TiersSection: React.FC<TiersSectionProps> = ({
               )}
 
               <div className="p-4">
-                <div className="flex justify-between items-center mb-2">
+                {/* Flex container that wraps only when needed */}
+                <div className="flex flex-wrap justify-between items-baseline gap-2 mb-2">
                   <h3 className="text-lg font-medium">{tier.name}</h3>
-                  <span className="text-lg font-semibold">{priceDisplay}</span>
+                  <span className="text-lg font-semibold text-white/90">
+                    {priceDisplay}
+                  </span>
                 </div>
 
                 {/* Render tier description as HTML with proper styling */}
@@ -172,9 +190,6 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                         <span className="font-medium">
                           {STRINGS.PATRON_PASS_NAME(tier.name)}
                         </span>
-                        <div className="text-white/70 text-sm">
-                          {STRINGS.PATRON_PASS_DESCRIPTION}
-                        </div>
                       </span>
                     </li>
 
@@ -221,37 +236,33 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                     </button>
                   )}
 
-                <div className="mt-3 flex items-center">
-                  <div className="flex -space-x-2">
-                    {/* Show avatar images instead of gray circles */}
-                    {patronAvatars && patronAvatars.length > 0
-                      ? patronAvatars.map((avatarUrl: any, i: number) => (
-                          <div
-                            key={i}
-                            className="w-6 h-6 rounded-full border border-[#15161a] overflow-hidden relative"
-                          >
-                            <Image
-                              src={avatarUrl}
-                              alt="Patron"
-                              layout="fill"
-                              objectFit="cover"
-                            />
-                          </div>
-                        ))
-                      : // Fallback if no avatars
-                        Array.from({
-                          length: Math.min(3, tier.commitments?.length || 0),
-                        }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="w-6 h-6 rounded-full bg-gray-400 border border-[#15161a]"
-                          ></div>
-                        ))}
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="flex -space-x-2">
+                      {/* Show avatar images only for unique patrons */}
+                      {patronAvatars.map((avatarUrl, i) => (
+                        <div
+                          key={i}
+                          className="w-6 h-6 rounded-full border border-[#15161a] overflow-hidden relative"
+                        >
+                          <Image
+                            src={avatarUrl}
+                            alt="Patron"
+                            layout="fill"
+                            objectFit="cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <span className="ml-2 text-sm text-white/70">
+                      {totalCommitments}
+                      {hasMaxPatrons ? `/${maxPatrons}` : ""}{" "}
+                      {totalCommitments === 1 ? "patron" : "patrons"}
+                    </span>
                   </div>
-                  <span className="ml-2 text-sm text-white/70">
-                    {tier.commitments?.length || 0}{" "}
-                    {tier.commitments?.length === 1 ? "patron" : "patrons"}
-                  </span>
+                  {hasMaxPatrons && totalCommitments >= maxPatrons && (
+                    <span className="text-sm text-white/50">Tier full</span>
+                  )}
                 </div>
               </div>
             </div>

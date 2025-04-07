@@ -9,17 +9,27 @@ export interface Benefit {
 export interface Tier {
   id: string;
   name: string;
+  price: string;
   description: string;
-  price: number;
   image_url?: string;
+  commitments?: any[];
+  is_variable_price?: boolean;
+  min_price?: string;
+  max_price?: string;
+  max_supply?: number;
+  reward_items?: RewardItem[];
   pool_id: string;
   benefits?: Benefit[];
   patron_count?: number;
-  commitments?: {
-    user_address: string;
-    amount: number;
-    committed_at: string;
-  }[];
+}
+
+export interface RewardItem {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  is_active: boolean;
+  metadata?: any;
 }
 
 export interface Pool {
