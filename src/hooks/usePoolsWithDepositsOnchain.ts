@@ -7,6 +7,8 @@ import {
   fromUSDCBaseUnits,
 } from "../lib/contracts/StageDotFunPool";
 import { createClient } from "@supabase/supabase-js";
+import { getDisplayStatus } from "../lib/contracts/types";
+import { STATUS_MAP } from "./usePoolsWithDeposits";
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -106,6 +108,14 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           // Look up matching Supabase data
           const supabaseData = supabasePoolsMap.get(item.uniqueId);
 
+          // Calculate display status taking into account end time
+          const displayStatus = getDisplayStatus(
+            item.status === 1 ? "ACTIVE" : "INACTIVE",
+            new Date(Number(item.endTime) * 1000).toISOString(),
+            fromUSDCBaseUnits(item.totalDeposits),
+            fromUSDCBaseUnits(item.targetAmount)
+          );
+
           return {
             id: item.uniqueId, // Use uniqueId as the primary identifier
             contract_address: item.lpTokenAddress,
@@ -115,7 +125,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
             target_amount: fromUSDCBaseUnits(item.targetAmount),
             revenue_accumulated: fromUSDCBaseUnits(item.revenueAccumulated),
             ends_at: new Date(Number(item.endTime) * 1000).toISOString(), // Convert to ISO string
-            status: item.status === 1 ? "active" : "inactive",
+            status: displayStatus, // Use the computed display status
             // Use Supabase data if available, otherwise use defaults
             creator_name: supabaseData?.creator?.name || "On-chain Pool",
             creator_avatar_url: supabaseData?.creator?.avatar_url || null,
@@ -136,7 +146,13 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
 
         // Filter by status if needed
         const filteredPools = status
-          ? uniquePools.filter((pool) => pool.status === status)
+          ? uniquePools.filter((pool) => {
+              const statusKey = status.toLowerCase();
+              const statusValues = STATUS_MAP[statusKey];
+              return statusValues && statusValues.length > 0
+                ? statusValues.includes(pool.status)
+                : true;
+            })
           : uniquePools;
 
         // Sort by most recent (we don't have created_at from blockchain, so we'll use address as a proxy)

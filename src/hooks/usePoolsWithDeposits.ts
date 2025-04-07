@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import useSWR from "swr";
 import { createClient } from "@supabase/supabase-js";
+import { getDisplayStatus } from "../lib/contracts/types";
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -45,7 +46,7 @@ export type TransformedPool = {
 };
 
 // Map from UI filter terms to database status strings
-const STATUS_MAP: Record<string, string[]> = {
+export const STATUS_MAP: Record<string, string[]> = {
   // Main filters
   active: ["ACTIVE"],
   open: ["ACTIVE"],
@@ -104,46 +105,6 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           )
           .eq("display_public", true);
 
-        // Apply status filter based on the string status field
-        if (status) {
-          const statusKey = status.toLowerCase();
-          const statusValues = STATUS_MAP[statusKey];
-          console.log(
-            `Filter status: "${status}" (key: "${statusKey}"), maps to DB values:`,
-            statusValues
-          );
-
-          if (statusValues && statusValues.length > 0) {
-            poolQuery = poolQuery.in("status", statusValues);
-          } else {
-            // If we don't recognize the filter, log a warning but don't filter
-            // This ensures pools still show up even with unknown filters
-            console.warn(
-              `Unknown status filter: "${status}" - showing all pools`
-            );
-          }
-        }
-
-        // Get total count separately to avoid relationship issues
-        const countQuery = supabase
-          .from("pools")
-          .select("id", { count: "exact", head: true })
-          .eq("display_public", true);
-
-        // Apply same status filter to count query if provided
-        if (status) {
-          const statusKey = status.toLowerCase();
-          const statusValues = STATUS_MAP[statusKey];
-
-          if (statusValues && statusValues.length > 0) {
-            countQuery.in("status", statusValues);
-          }
-          // Don't filter if unknown status (same as main query)
-        }
-
-        // Run count query
-        const { count } = await countQuery;
-
         // Add pagination and ordering to main query
         poolQuery = poolQuery
           .order("created_at", { ascending: false })
@@ -155,17 +116,6 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
         if (poolError) {
           console.error("Error fetching pools from database:", poolError);
           throw poolError;
-        }
-
-        // Check if there are more pools available
-        setHasMore(count !== null && from + pools.length < count);
-
-        if (!pools || pools.length === 0) {
-          return {
-            pools: [],
-            allPoolsCount: 0,
-            isUsingCache: false,
-          };
         }
 
         // Get all pool addresses to use in queries - normalize to lowercase
@@ -235,6 +185,14 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
             ? depositsByPool.get(normalizedAddress) || 0
             : 0;
 
+          // Calculate display status taking into account end time
+          const displayStatus = getDisplayStatus(
+            pool.status || "UNKNOWN",
+            pool.ends_at || new Date().toISOString(),
+            totalDeposits,
+            fromUSDCBaseUnits(parseFloat(pool.target_amount || "0"))
+          );
+
           return {
             id: pool.unique_id || pool.id,
             contract_address: pool.contract_address || "",
@@ -248,7 +206,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
               parseFloat(pool.revenue_accumulated || "0")
             ),
             ends_at: pool.ends_at || new Date().toISOString(),
-            status: pool.status || "UNKNOWN", // Use status directly from DB
+            status: displayStatus, // Use the computed display status
             creator_name: user?.name || "Unknown Creator",
             creator_avatar_url: user?.avatar_url || null,
             created_at: pool.created_at || new Date().toISOString(),
@@ -258,13 +216,34 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           };
         });
 
+        // Filter by status if needed
+        let filteredPools = transformedPools;
+        if (status) {
+          const statusKey = status.toLowerCase();
+          const statusValues = STATUS_MAP[statusKey];
+
+          if (statusValues && statusValues.length > 0) {
+            filteredPools = transformedPools.filter((pool) =>
+              statusValues.includes(pool.status)
+            );
+          } else {
+            // If we don't recognize the filter, log a warning but don't filter
+            console.warn(
+              `Unknown status filter: "${status}" - showing all pools`
+            );
+          }
+        }
+
+        // Get total count after filtering
+        const count = filteredPools.length;
+
         // Store the successfully fetched data in our cache
-        setCachedPools(transformedPools);
+        setCachedPools(filteredPools);
         retryCountRef.current = 0; // Reset retry count on successful fetch
 
         const result = {
-          pools: transformedPools,
-          allPoolsCount: count || transformedPools.length,
+          pools: filteredPools,
+          allPoolsCount: count,
           isUsingCache: false,
         };
         console.log("RETURNING FROM HOOK **", result);

@@ -22,28 +22,26 @@ export default function CommitmentBanner({
   const [isPulsating, setIsPulsating] = useState(false);
 
   useEffect(() => {
-    console.log("showShake changed:", showShake);
     if (showShake) {
-      console.log("Setting shaking and pulsating to true");
       setIsShaking(true);
       setIsPulsating(true);
       // Stop shaking after 15 seconds if user hasn't clicked
       const timer = setTimeout(() => {
-        console.log("15 seconds elapsed, stopping shake");
         setIsShaking(false);
         setIsPulsating(false);
-        triggerFireworks();
+        // Only trigger fireworks if we're still shaking (user hasn't clicked)
+        if (isShaking) {
+          triggerFireworks();
+        }
       }, 15000);
       return () => clearTimeout(timer);
     } else {
-      console.log("Setting shaking and pulsating to false");
       setIsShaking(false);
       setIsPulsating(false);
     }
-  }, [showShake]);
+  }, [showShake, isShaking]);
 
   const triggerFireworks = () => {
-    console.log("Triggering fireworks");
     // Create a canvas element for confetti
     const canvas = document.createElement("canvas");
     canvas.style.position = "fixed";
@@ -121,7 +119,6 @@ export default function CommitmentBanner({
   };
 
   const handleClick = () => {
-    console.log("Banner clicked, isShaking:", isShaking);
     if (isShaking) {
       setIsShaking(false);
       setIsPulsating(false);
