@@ -102,3 +102,100 @@ body {
 .auto-scroll-pools:hover {
   animation-play-state: paused;
 }
+
+/* Firework styles */
+.firework {
+  position: absolute;
+  bottom: 0;
+  animation: firework-rise 0.7s ease-out;
+  transform-origin: bottom;
+}
+
+.firework::before {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  top: 0;
+  left: 0;
+  background: white;
+  border-radius: 50%;
+  animation: firework-explode 0.6s ease-out 0.7s;
+}
+
+@keyframes firework-rise {
+  0% {
+    transform: translateY(100%) scale(1);
+  }
+  100% {
+    transform: translateY(0%) scale(1);
+  }
+}
+
+@keyframes firework-explode {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0 0 white, 0 0 0 0 white, 0 0 0 0 white, 0 0 0 0 white,
+      0 0 0 0 white, 0 0 0 0 white, 0 0 0 0 white, 0 0 0 0 white;
+  }
+  100% {
+    transform: scale(0);
+    opacity: 0;
+    box-shadow: -50px -100px 0 3px #836ef9, 50px -100px 0 3px #6f5bd0,
+      -100px -50px 0 3px #836ef9, 100px -50px 0 3px #6f5bd0,
+      -100px 50px 0 3px #836ef9, 100px 50px 0 3px #6f5bd0,
+      -50px 100px 0 3px #836ef9, 50px 100px 0 3px #6f5bd0;
+  }
+}
+
+/* Random delays for each firework */
+.firework:nth-child(1)::before {
+  animation-delay: 0.7s;
+}
+
+.firework:nth-child(2)::before {
+  animation-delay: 0.8s;
+}
+
+.firework:nth-child(3)::before {
+  animation-delay: 0.9s;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-3px) rotate(-0.5deg);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(3px) rotate(0.5deg);
+  }
+}
+
+@keyframes subtlePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+.animate-shake {
+  animation: shake 0.6s ease-in-out infinite;
+}
+
+.animate-subtle-pulse {
+  animation: subtlePulse 2s ease-in-out infinite;
+}

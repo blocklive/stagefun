@@ -11,6 +11,23 @@ export default {
       screens: {
         xs: "430px", // Custom breakpoint at 430px
       },
+      keyframes: {
+        shake: {
+          "0%, 100%": { transform: "translateX(0)" },
+          "10%, 30%, 50%, 70%, 90%": {
+            transform: "translateX(-3px) rotate(-0.5deg)",
+          },
+          "20%, 40%, 60%, 80%": { transform: "translateX(3px) rotate(0.5deg)" },
+        },
+        subtlePulse: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.95" },
+        },
+      },
+      animation: {
+        shake: "shake 0.6s ease-in-out infinite",
+        "subtle-pulse": "subtlePulse 2s ease-in-out infinite",
+      },
     },
   },
   plugins: [require("@tailwindcss/typography")],

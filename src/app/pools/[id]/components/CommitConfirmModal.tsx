@@ -14,6 +14,8 @@ import {
   REWARD_TYPE_ICONS,
 } from "../../../../lib/constants/strings";
 import { formatAmount } from "@/lib/utils";
+import showToast from "@/utils/toast";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface CommitConfirmModalProps {
   isOpen: boolean;
@@ -22,6 +24,7 @@ interface CommitConfirmModalProps {
   pool: Pool;
   usdcBalance: string;
   onRefreshBalance: () => void;
+  onCommitSuccess?: () => void;
 }
 
 // Define the benefit interface to fix type issues
@@ -48,6 +51,7 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
   pool,
   usdcBalance,
   onRefreshBalance,
+  onCommitSuccess,
 }) => {
   const [isCommitting, setIsCommitting] = useState(false);
   const { smartWalletAddress } = useSmartWallet();
@@ -164,7 +168,7 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
   ]);
 
   const handleCommit = async () => {
-    if (!tier || !pool || !smartWalletAddress) return;
+    if (!tier || !pool || isCommitting) return;
 
     if (isVariablePrice && !isVariableAmountValid) {
       return;
@@ -203,13 +207,18 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
         // Refresh balance after commitment
         onRefreshBalance();
 
-        // Close modal after successful commitment
+        // Close modal
         onClose();
+
+        // Call success callback if provided
+        onCommitSuccess?.();
       } else {
         console.error("Deposit failed:", result.error);
+        showToast.error("Failed to commit. Please try again.");
       }
     } catch (error) {
       console.error("Error committing to pool:", error);
+      showToast.error("Failed to commit. Please try again.");
     } finally {
       setIsCommitting(false);
     }
@@ -273,7 +282,7 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
           </div>
         </div>
 
-        {isVariablePrice && (
+        {isVariablePrice ? (
           <div className="mb-6">
             <div className="flex justify-between items-baseline mb-2">
               <label className="text-sm font-medium text-white/70">
@@ -305,21 +314,35 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
               </p>
             )}
           </div>
+        ) : (
+          <div className="mb-6">
+            <div className="flex justify-between items-baseline">
+              <div className="text-sm font-medium text-white/70">
+                Commit amount
+              </div>
+              <div className="text-sm text-white/70">
+                Balance: {formatAmount(walletBalanceFloat)} USDC
+              </div>
+            </div>
+            <div className="mt-2 px-4 py-3 bg-[#FFFFFF0A] rounded-lg border border-[#FFFFFF1A] text-white">
+              {formatAmount(displayPrice)} USDC
+            </div>
+          </div>
         )}
 
         <button
           onClick={handleCommit}
           disabled={isCommitDisabled}
-          className={`w-full py-3 rounded-lg font-medium ${
-            isCommitDisabled
-              ? "bg-gray-600 cursor-not-allowed"
-              : "bg-[#836EF9] hover:bg-[#6F5BD0]"
+          className={`w-full py-3 px-6 font-medium rounded-lg flex items-center justify-center transition-all duration-200 ${
+            isCommitting
+              ? "bg-gray-400 text-gray-700 opacity-70 transform scale-95 cursor-default shadow-inner border-2 border-gray-500"
+              : "bg-white hover:bg-gray-100 text-[#15161A] hover:shadow-sm border border-transparent"
           }`}
         >
-          {isCommitting || isDepositLoading ? (
-            <div className="flex justify-center items-center">
-              <div className="animate-spin h-5 w-5 border-t-2 border-b-2 border-white rounded-full mr-2"></div>
-              Processing...
+          {isCommitting ? (
+            <div className="flex items-center">
+              <LoadingSpinner color="#666666" size={14} />
+              <span className="ml-2">Processing...</span>
             </div>
           ) : insufficientFunds ? (
             "Insufficient funds"

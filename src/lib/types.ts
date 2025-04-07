@@ -34,24 +34,21 @@ export interface RewardItem {
 
 export interface Pool {
   id: string;
+  created_at?: string;
+  name: string;
   title: string;
   description: string;
   image_url?: string;
   target_amount: number;
-  raised_amount: number;
-  start_date?: string;
-  end_date?: string;
-  status: "OPEN" | "FUNDED" | "EXECUTING" | "FAILED";
+  cap_amount: number;
+  end_date: string;
+  currency: string;
   creator_id: string;
   creator?: User;
-  contract_address?: string;
-  token_address?: string;
-  token_symbol?: string;
-  token_name?: string;
-  token_decimals?: number;
-  token_supply?: number;
-  token_logo_url?: string;
+  status: string;
   location?: string;
-  location_details?: string;
-  tiers?: Tier[];
+  social_links?: Record<string, string>;
+  tiers?: (Tier & {})[];
+  raised_amount?: number;
+  contract_address?: string;
 }

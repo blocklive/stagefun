@@ -3,13 +3,14 @@
 import { useParams } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { useSmartWalletBalance } from "../../../hooks/useSmartWalletBalance";
 import { usePoolDetailsV2 } from "../../../hooks/usePoolDetailsV2";
 import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import { User } from "../../../lib/supabase";
+import { Pool, Tier } from "../../../lib/types";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -29,6 +30,7 @@ import FixedBottomBar from "./components/FixedBottomBar";
 import InfoModal from "../../components/InfoModal";
 import AppHeader from "../../components/AppHeader";
 import TiersSection from "./components/TiersSection";
+import CommitmentBanner from "./components/CommitmentBanner";
 
 export default function PoolDetailsPage() {
   const { id } = useParams() as { id: string };
@@ -50,6 +52,7 @@ export default function PoolDetailsPage() {
   const [isRefunding, setIsRefunding] = useState(false);
   const [showTokensModal, setShowTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showShake, setShowShake] = useState(false);
 
   // Fetch pool data using our new hook
   const { pool, isLoading, error, mutate } = usePoolDetailsV2(id);
@@ -155,6 +158,32 @@ export default function PoolDetailsPage() {
     });
   }, [usdcBalance]);
 
+  // Calculate user's commitments for the banner
+  const userCommitments = useMemo(() => {
+    if (!pool || !pool.tiers || !dbUser?.id) return [];
+
+    const commitments: { tier: Tier; amount: string }[] = [];
+    (pool.tiers as any[]).forEach((tier) => {
+      tier.commitments?.forEach((commitment: any) => {
+        if (commitment.user?.id === dbUser.id) {
+          commitments.push({ tier, amount: commitment.amount.toString() });
+        }
+      });
+    });
+    return commitments;
+  }, [pool, dbUser]);
+
+  // Add this function to handle successful commits
+  const handleCommitSuccess = () => {
+    // First scroll to top
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // Wait for scroll to complete before triggering shake
+    setTimeout(() => {
+      setShowShake(true);
+    }, 500); // Wait for scroll to complete
+  };
+
   // Show loading spinner during initial load or when refreshing after an error
   if (isLoading || (!pool && !error)) {
     return (
@@ -221,6 +250,16 @@ export default function PoolDetailsPage() {
         onInfoClick={() => setShowInfoModal(true)}
         onPointsClick={handlePointsClick}
       />
+
+      {/* Commitment Banner - Show only if user has committed */}
+      {userCommitments.length > 0 && (
+        <CommitmentBanner
+          pool={pool}
+          userCommitments={userCommitments}
+          showShake={showShake}
+        />
+      )}
+
       <div className="container mx-auto px-4 py-2 pb-20">
         {/* Pool Header */}
         <PoolHeader
@@ -309,10 +348,12 @@ export default function PoolDetailsPage() {
           <div className="hidden lg:block">
             <TiersSection
               pool={pool}
-              tiers={pool.tiers || []}
+              tiers={(pool.tiers as any[]) || []}
               isLoadingTiers={isLoading}
               usdcBalance={usdcBalance}
               onRefreshBalance={refreshBalance}
+              userId={dbUser?.id}
+              onCommitSuccess={handleCommitSuccess}
             />
           </div>
         </div>
@@ -321,10 +362,12 @@ export default function PoolDetailsPage() {
         <div className="mt-6 lg:hidden">
           <TiersSection
             pool={pool}
-            tiers={pool.tiers || []}
+            tiers={(pool.tiers as any[]) || []}
             isLoadingTiers={isLoading}
             usdcBalance={usdcBalance}
             onRefreshBalance={refreshBalance}
+            userId={dbUser?.id}
+            onCommitSuccess={handleCommitSuccess}
           />
         </div>
 
