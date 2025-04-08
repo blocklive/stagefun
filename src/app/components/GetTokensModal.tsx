@@ -1,15 +1,19 @@
 import { useState } from "react";
 import { useSmartWallet } from "../../hooks/useSmartWallet";
+import { useRouter } from "next/navigation";
 
 interface GetTokensModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isAuthenticated?: boolean;
 }
 
 export default function GetTokensModal({
   isOpen,
   onClose,
+  isAuthenticated = true, // Default to true for backward compatibility
 }: GetTokensModalProps) {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [waitTime, setWaitTime] = useState<string | null>(null);
@@ -17,6 +21,13 @@ export default function GetTokensModal({
   const { smartWalletAddress } = useSmartWallet();
 
   const handleGetTokens = async () => {
+    // If not authenticated, redirect to login
+    if (!isAuthenticated) {
+      router.push("/");
+      onClose();
+      return;
+    }
+
     if (!smartWalletAddress) {
       setError("Smart wallet not ready");
       return;
@@ -96,15 +107,20 @@ export default function GetTokensModal({
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-white">Get testnet USDC</h2>
+          <h2 className="text-2xl font-bold text-white">
+            {isAuthenticated ? "Get testnet USDC" : "Login Required"}
+          </h2>
           <p className="text-gray-400 text-center mt-2">
-            Testnet tokens are for development purposes only, they do not have
-            real value.
+            {isAuthenticated
+              ? "Testnet tokens are for development purposes only, they do not have real value."
+              : "You need to log in to get testnet tokens for your wallet."}
           </p>
-          <p className="text-gray-500 text-sm text-center mt-2">
-            Limited to one request every 24 hours per wallet.
-          </p>
-          {smartWalletAddress && (
+          {isAuthenticated && (
+            <p className="text-gray-500 text-sm text-center mt-2">
+              Limited to one request every 24 hours per wallet.
+            </p>
+          )}
+          {isAuthenticated && smartWalletAddress && (
             <div className="mt-4 text-sm text-gray-400 border border-gray-800 rounded-lg p-3 w-full">
               <div className="font-semibold text-gray-300 mb-1">
                 Wallet Address:
@@ -114,7 +130,7 @@ export default function GetTokensModal({
           )}
         </div>
 
-        {error && (
+        {error && isAuthenticated && (
           <div className="bg-red-900 bg-opacity-30 border border-red-700 text-red-200 p-3 rounded-lg mb-4">
             {error}
             {waitTime && <p className="mt-1 text-sm">{waitTime}</p>}
@@ -132,14 +148,18 @@ export default function GetTokensModal({
 
         <button
           onClick={handleGetTokens}
-          disabled={isLoading || !!waitTime || !smartWalletAddress}
+          disabled={
+            isAuthenticated && (isLoading || !!waitTime || !smartWalletAddress)
+          }
           className={`w-full py-3 ${
-            isLoading || waitTime || !smartWalletAddress
+            isAuthenticated && (isLoading || waitTime || !smartWalletAddress)
               ? "bg-gray-700 text-gray-400"
               : "bg-white text-black"
           } font-medium rounded-lg flex items-center justify-center`}
         >
-          {isLoading ? (
+          {!isAuthenticated ? (
+            "Log In"
+          ) : isLoading ? (
             <svg
               className="animate-spin h-5 w-5 text-gray-400"
               xmlns="http://www.w3.org/2000/svg"

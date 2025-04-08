@@ -6,10 +6,23 @@ import { IoFlash } from "react-icons/io5";
 
 interface SideNavbarProps {
   activeTab: "party" | "portfolio";
+  isAuthenticated?: boolean;
 }
 
-export default function SideNavbar({ activeTab }: SideNavbarProps) {
+export default function SideNavbar({
+  activeTab,
+  isAuthenticated = true, // Default to true for backward compatibility
+}: SideNavbarProps) {
   const router = useRouter();
+
+  const handlePortfolioClick = () => {
+    // If not authenticated, redirect to login page
+    if (!isAuthenticated) {
+      router.push("/");
+    } else {
+      router.push("/profile");
+    }
+  };
 
   return (
     <nav className="hidden md:flex flex-col h-screen fixed left-0 top-0 w-64 bg-[#15161a] border-r border-gray-800 py-4 px-4">
@@ -51,7 +64,7 @@ export default function SideNavbar({ activeTab }: SideNavbarProps) {
         {/* Portfolio */}
         <div
           className="flex items-center cursor-pointer px-4 py-3 rounded-full hover:bg-[#FFFFFF14] transition-colors"
-          onClick={() => router.push("/profile")}
+          onClick={handlePortfolioClick}
         >
           <div
             className={`text-2xl mr-4 ${

@@ -45,7 +45,7 @@ type OnChainPool = {
 };
 
 export default function PoolsPage() {
-  const { logout } = usePrivy();
+  const { logout, authenticated } = usePrivy();
   const { dbUser } = useSupabase();
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
@@ -290,17 +290,18 @@ export default function PoolsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#15161a] text-white">
+    <div
+      className="bg-[#15161A] min-h-screen text-white pb-6"
+      style={{ minHeight: viewportHeight }}
+    >
       <AppHeader
-        showBackButton={false}
         showTitle={false}
-        backgroundColor="#15161a"
-        showGetTokensButton={true}
         showCreateButton={true}
-        showPointsButton={true}
-        onPointsClick={handlePointsClick}
+        showGetTokensButton={true}
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
+        onPointsClick={handlePointsClick}
+        isAuthenticated={authenticated}
       />
 
       {/* Main Content */}
@@ -559,12 +560,11 @@ export default function PoolsPage() {
       </div>
 
       {/* Modals */}
-      {showTokensModal && (
-        <GetTokensModal
-          isOpen={showTokensModal}
-          onClose={() => setShowTokensModal(false)}
-        />
-      )}
+      <GetTokensModal
+        isOpen={showTokensModal}
+        onClose={() => setShowTokensModal(false)}
+        isAuthenticated={authenticated}
+      />
       <InfoModal
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FaPlus, FaDollarSign, FaArrowLeft } from "react-icons/fa";
+import { FaPlus, FaDollarSign, FaArrowLeft, FaUser } from "react-icons/fa";
 import { BiInfoCircle } from "react-icons/bi";
 import Image from "next/image";
 import PointsButton from "./PointsButton";
@@ -25,6 +25,7 @@ interface AppHeaderProps {
   className?: string;
   backgroundColor?: string;
   renderBackButton?: boolean;
+  isAuthenticated?: boolean;
 }
 
 export default function AppHeader({
@@ -44,6 +45,7 @@ export default function AppHeader({
   className = "",
   backgroundColor = "transparent",
   renderBackButton = true,
+  isAuthenticated = true,
 }: AppHeaderProps) {
   const router = useRouter();
 
@@ -79,8 +81,10 @@ export default function AppHeader({
 
         {/* Action Buttons */}
         <div className="flex gap-3 items-center">
-          {/* Points Button */}
-          {showPointsButton && <PointsButton onClick={onPointsClick} />}
+          {/* Points Button - Only show when authenticated */}
+          {showPointsButton && isAuthenticated && (
+            <PointsButton onClick={onPointsClick} />
+          )}
 
           {/* Info Button - Always visible */}
           {showInfoButton && (
@@ -106,6 +110,7 @@ export default function AppHeader({
             />
           )}
 
+          {/* Create button is always visible but has different behavior based on auth status */}
           {showCreateButton && (
             <ResponsiveButton
               icon={
@@ -126,7 +131,11 @@ export default function AppHeader({
                 </svg>
               }
               label="Create pool"
-              onClick={() => router.push("/pools/create")}
+              onClick={() =>
+                isAuthenticated
+                  ? router.push("/pools/create")
+                  : router.push("/")
+              }
             />
           )}
         </div>

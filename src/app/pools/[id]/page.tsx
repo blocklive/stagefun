@@ -36,7 +36,7 @@ import CommitmentBanner from "./components/CommitmentBanner";
 
 export default function PoolDetailsPage() {
   const { id } = useParams() as { id: string };
-  const { user: privyUser } = usePrivy();
+  const { user: privyUser, authenticated } = usePrivy();
   const router = useRouter();
   const { dbUser } = useSupabase();
   const { smartWalletAddress } = useSmartWallet();
@@ -229,12 +229,19 @@ export default function PoolDetailsPage() {
           onGetTokensClick={() => setShowTokensModal(true)}
           onInfoClick={() => setShowInfoModal(true)}
           onPointsClick={handlePointsClick}
+          isAuthenticated={authenticated}
         />
         <div className="container mx-auto px-4 py-2">
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
           </div>
         </div>
+
+        <GetTokensModal
+          isOpen={showTokensModal}
+          onClose={() => setShowTokensModal(false)}
+          isAuthenticated={authenticated}
+        />
       </>
     );
   }
@@ -256,12 +263,19 @@ export default function PoolDetailsPage() {
           onGetTokensClick={() => setShowTokensModal(true)}
           onInfoClick={() => setShowInfoModal(true)}
           onPointsClick={handlePointsClick}
+          isAuthenticated={authenticated}
         />
         <div className="container mx-auto px-4 py-8">
           <div className="text-center text-red-500">
             Error loading pool details. Please try again later.
           </div>
         </div>
+
+        <GetTokensModal
+          isOpen={showTokensModal}
+          onClose={() => setShowTokensModal(false)}
+          isAuthenticated={authenticated}
+        />
       </>
     );
   }
@@ -279,6 +293,7 @@ export default function PoolDetailsPage() {
         onGetTokensClick={() => setShowTokensModal(true)}
         onInfoClick={() => setShowInfoModal(true)}
         onPointsClick={handlePointsClick}
+        isAuthenticated={authenticated}
       />
 
       {/* Commitment Banner - Show only if user has committed */}
@@ -392,6 +407,7 @@ export default function PoolDetailsPage() {
               onRefreshBalance={refreshBalance}
               userId={dbUser?.id}
               onCommitSuccess={handleCommitSuccess}
+              isAuthenticated={authenticated}
             />
           </div>
         </div>
@@ -406,6 +422,7 @@ export default function PoolDetailsPage() {
             onRefreshBalance={refreshBalance}
             userId={dbUser?.id}
             onCommitSuccess={handleCommitSuccess}
+            isAuthenticated={authenticated}
           />
         </div>
 
@@ -433,6 +450,7 @@ export default function PoolDetailsPage() {
         <GetTokensModal
           isOpen={showTokensModal}
           onClose={() => setShowTokensModal(false)}
+          isAuthenticated={authenticated}
         />
 
         <InfoModal

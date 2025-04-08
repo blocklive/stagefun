@@ -14,6 +14,7 @@ import {
 import { formatAmount } from "@/lib/utils";
 import UserAvatar from "@/app/components/UserAvatar";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 interface TiersSectionProps {
   pool: Pool;
@@ -23,6 +24,7 @@ interface TiersSectionProps {
   onRefreshBalance?: () => void;
   userId?: string;
   onCommitSuccess?: () => void;
+  isAuthenticated?: boolean;
 }
 
 // Define the benefit interface to fix type issues
@@ -50,7 +52,9 @@ const TiersSection: React.FC<TiersSectionProps> = ({
   onRefreshBalance,
   userId,
   onCommitSuccess,
+  isAuthenticated = true, // Default to true for backward compatibility
 }) => {
+  const router = useRouter();
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [showAllTiers, setShowAllTiers] = useState(false);
@@ -99,6 +103,13 @@ const TiersSection: React.FC<TiersSectionProps> = ({
   }
 
   const handleCommit = (tier: Tier) => {
+    // If not authenticated, redirect to login page
+    if (!isAuthenticated) {
+      router.push("/");
+      return;
+    }
+
+    // Otherwise proceed with normal flow
     setSelectedTier(tier);
     setIsConfirmModalOpen(true);
   };

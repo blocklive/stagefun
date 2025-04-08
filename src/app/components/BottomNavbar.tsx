@@ -5,10 +5,23 @@ import { IoFlash } from "react-icons/io5";
 
 interface BottomNavbarProps {
   activeTab: "party" | "portfolio";
+  isAuthenticated?: boolean;
 }
 
-export default function BottomNavbar({ activeTab }: BottomNavbarProps) {
+export default function BottomNavbar({
+  activeTab,
+  isAuthenticated = true, // Default to true for backward compatibility
+}: BottomNavbarProps) {
   const router = useRouter();
+
+  const handlePortfolioClick = () => {
+    // If not authenticated, redirect to login page
+    if (!isAuthenticated) {
+      router.push("/");
+    } else {
+      router.push("/profile");
+    }
+  };
 
   return (
     <div
@@ -41,7 +54,7 @@ export default function BottomNavbar({ activeTab }: BottomNavbarProps) {
 
       <div
         className="flex flex-col items-center"
-        onClick={() => router.push("/profile")}
+        onClick={handlePortfolioClick}
       >
         <div
           className={`text-2xl ${
