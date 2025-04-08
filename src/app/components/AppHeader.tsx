@@ -6,6 +6,7 @@ import { FaPlus, FaDollarSign, FaArrowLeft } from "react-icons/fa";
 import { BiInfoCircle } from "react-icons/bi";
 import Image from "next/image";
 import PointsButton from "./PointsButton";
+import ResponsiveButton from "./ResponsiveButton";
 
 interface AppHeaderProps {
   showBackButton?: boolean;
@@ -83,48 +84,50 @@ export default function AppHeader({
 
           {/* Info Button - Always visible */}
           {showInfoButton && (
-            <button
+            <ResponsiveButton
+              icon={<BiInfoCircle className="text-white w-5 h-5" />}
+              label="How it works"
               onClick={onInfoClick}
-              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
-            >
-              <BiInfoCircle className="text-white w-5 h-5" />
-            </button>
+            />
           )}
 
           {showGetTokensButton && (
-            <button
-              onClick={onGetTokensClick}
-              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
-            >
-              <Image
-                src="/icons/ic-droop.svg"
-                alt="Get Tokens"
-                width={20}
-                height={20}
-              />
-            </button>
-          )}
-          {showCreateButton && (
-            <button
-              onClick={() => router.push("/pools/create")}
-              className="w-10 h-10 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full flex items-center justify-center transition-colors"
-            >
-              <svg
-                className="w-5 h-5 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.5"
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            <ResponsiveButton
+              icon={
+                <Image
+                  src="/icons/ic-droop.svg"
+                  alt="Get Tokens"
+                  width={20}
+                  height={20}
                 />
-              </svg>
-            </button>
+              }
+              label="Faucet"
+              onClick={onGetTokensClick}
+            />
+          )}
+
+          {showCreateButton && (
+            <ResponsiveButton
+              icon={
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.5"
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+              }
+              label="Create pool"
+              onClick={() => router.push("/pools/create")}
+            />
           )}
         </div>
       </header>
