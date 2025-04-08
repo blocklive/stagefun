@@ -191,8 +191,20 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                 <div className="p-4 bg-[#FFFFFF0A] rounded-[16px]">
                   {/* Show "You're in!" badge for committed tiers */}
                   {isCommitted && (
-                    <div className="mb-3 px-3 py-1.5 bg-[#836EF9] text-white rounded-lg inline-block">
-                      You're in!
+                    <div className="mb-3 px-3 py-2 bg-[#1E1F23] text-white rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Image
+                          src="/icons/ic-verification-checkmark.svg"
+                          alt="Success"
+                          width={20}
+                          height={20}
+                        />
+                        <div className="font-medium">You're In!</div>
+                      </div>
+                      <div className="text-sm text-white/70">
+                        Congratulations! Your LP tokens have been allocated and
+                        Patron Pass minted for this pool.
+                      </div>
                     </div>
                   )}
 
@@ -299,7 +311,7 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                       <span className="ml-2 text-sm text-white/70">
                         {totalCommitments}
                         {hasMaxPatrons ? `/${maxPatrons}` : ""}{" "}
-                        {totalCommitments === 1 ? "patron" : "patrons"}
+                        {totalCommitments === 1 ? "commit" : "commits"}
                       </span>
                     </div>
                     {hasMaxPatrons && totalCommitments >= maxPatrons && (
@@ -346,8 +358,8 @@ const TiersSection: React.FC<TiersSectionProps> = ({
           tier={selectedTier}
           pool={pool}
           usdcBalance={usdcBalance}
-          onRefreshBalance={onRefreshBalance}
-          onCommitSuccess={onCommitSuccess}
+          onRefreshBalance={onRefreshBalance || (() => {})}
+          onCommitSuccess={onCommitSuccess || (() => {})}
         />
       )}
     </div>

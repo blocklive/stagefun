@@ -65,8 +65,8 @@ const DailyCheckin = () => {
 
   return (
     <div className="w-full p-4 bg-[#FFFFFF0A] rounded-lg flex flex-col md:flex-row gap-4 md:gap-0 md:items-center md:justify-between">
-      <div>
-        <div className="text-xl font-semibold text-white flex items-center gap-2">
+      <div className="mb-2 md:mb-0">
+        <div className="text-xl font-semibold text-white">
           {streakCount} day streak
         </div>
         <div className="text-sm text-gray-400 mt-1">
@@ -95,12 +95,14 @@ const DailyCheckin = () => {
             )}
           </button>
         ) : (
-          <div className="w-full py-3 px-6 bg-gray-300 text-[#15161A] font-medium rounded-lg flex items-center gap-2 justify-center">
+          <div className="w-full py-3 px-6 bg-gray-300 text-[#15161A] font-medium rounded-lg flex items-center justify-center">
             <FaClock
-              className="text-gray-500 animate-pulse flex-shrink-0"
+              className="text-gray-500 animate-pulse flex-shrink-0 mr-2"
               size={14}
             />
-            <span className="font-mono">{displayTime}</span>
+            <span className="font-mono text-sm md:text-base whitespace-nowrap">
+              {displayTime}
+            </span>
           </div>
         )}
       </div>

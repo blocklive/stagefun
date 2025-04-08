@@ -17,6 +17,7 @@ interface UnfundedPoolViewProps {
   targetAmount: number;
   isCreator?: boolean;
   onManageClick?: () => void;
+  patronCount?: number;
 }
 
 export default function UnfundedPoolView({
@@ -28,6 +29,7 @@ export default function UnfundedPoolView({
   targetAmount,
   isCreator = false,
   onManageClick,
+  patronCount: externalPatronCount,
 }: UnfundedPoolViewProps) {
   // Format raised and target amounts
   const displayRaisedAmount = useMemo(() => {
@@ -69,6 +71,10 @@ export default function UnfundedPoolView({
 
   // Calculate the number of patrons
   const patronCount = useMemo(() => {
+    if (externalPatronCount !== undefined) {
+      return externalPatronCount;
+    }
+
     if (!pool || !pool.tiers) return 0;
 
     // Get unique patron addresses across all tiers
@@ -82,7 +88,7 @@ export default function UnfundedPoolView({
     });
 
     return uniquePatrons.size;
-  }, [pool]);
+  }, [pool, externalPatronCount]);
 
   return (
     <>

@@ -55,6 +55,7 @@ export default function PoolDetailsPage() {
   const [showTokensModal, setShowTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showShake, setShowShake] = useState(false);
+  const [patronCount, setPatronCount] = useState<number | undefined>(undefined);
 
   // Fetch pool data using our new hook
   const { pool: rawPool, isLoading, error, mutate } = usePoolDetailsV2(id);
@@ -289,7 +290,7 @@ export default function PoolDetailsPage() {
         />
       )}
 
-      <div className="container mx-auto px-4 py-2 pb-20">
+      <div className="container mx-auto px-4 pt-5 pb-24">
         {/* Pool Header */}
         <PoolHeader
           pool={pool}
@@ -315,6 +316,7 @@ export default function PoolDetailsPage() {
                 targetReachedTimestamp={undefined}
                 isCreator={isCreator}
                 onManageClick={handleEditClick}
+                patronCount={patronCount}
               />
             ) : pool.status === "FAILED" ? (
               <UnfundedPoolView
@@ -328,6 +330,7 @@ export default function PoolDetailsPage() {
                 targetAmount={pool.target_amount}
                 isCreator={isCreator}
                 onManageClick={handleEditClick}
+                patronCount={patronCount}
               />
             ) : (
               <OpenPoolView
@@ -346,6 +349,7 @@ export default function PoolDetailsPage() {
                 }
                 isCreator={isCreator}
                 onManageClick={handleEditClick}
+                patronCount={patronCount}
               />
             )}
 
@@ -367,7 +371,12 @@ export default function PoolDetailsPage() {
               <div className="mt-6">
                 <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
                   <h3 className="text-xl font-semibold mb-4">Patrons</h3>
-                  <PatronsTab pool={pool} isLoading={isLoading} error={error} />
+                  <PatronsTab
+                    pool={pool}
+                    isLoading={isLoading}
+                    error={error}
+                    onPatronCountChange={setPatronCount}
+                  />
                 </div>
               </div>
             )}

@@ -25,6 +25,7 @@ interface FundedPoolViewProps {
   targetReachedTimestamp?: number;
   isCreator?: boolean;
   onManageClick?: () => void;
+  patronCount?: number;
 }
 
 export default function FundedPoolView({
@@ -37,6 +38,7 @@ export default function FundedPoolView({
   targetReachedTimestamp,
   isCreator = false,
   onManageClick,
+  patronCount: externalPatronCount,
 }: FundedPoolViewProps) {
   const fundedDate = targetReachedTimestamp
     ? new Date(targetReachedTimestamp * 1000).toLocaleDateString()
@@ -92,13 +94,28 @@ export default function FundedPoolView({
 
   // Calculate the number of patrons
   const patronCount = useMemo(() => {
+    if (externalPatronCount !== undefined) {
+      return externalPatronCount;
+    }
+
     if (!pool || !pool.tiers) return 0;
 
-    // Count total commitments across all tiers
-    return (pool.tiers as any[]).reduce((total: number, tier: any) => {
-      return total + (tier.commitments?.length || 0);
-    }, 0);
-  }, [pool]);
+    // Track unique patron addresses to avoid counting the same patron multiple times
+    const uniquePatrons = new Set();
+
+    // Gather unique user addresses across all tiers
+    (pool.tiers as any[]).forEach((tier: any) => {
+      if (tier.commitments && Array.isArray(tier.commitments)) {
+        tier.commitments.forEach((commitment: any) => {
+          if (commitment.user_address) {
+            uniquePatrons.add(commitment.user_address.toLowerCase());
+          }
+        });
+      }
+    });
+
+    return uniquePatrons.size;
+  }, [pool, externalPatronCount]);
 
   return (
     <>
