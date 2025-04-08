@@ -64,7 +64,7 @@ const DailyCheckin = () => {
   const displayTime = formatTime(localTime);
 
   return (
-    <div className="w-full p-4 bg-[#FFFFFF0A] rounded-lg flex items-center justify-between">
+    <div className="w-full p-4 bg-[#FFFFFF0A] rounded-lg flex flex-col md:flex-row gap-4 md:gap-0 md:items-center md:justify-between">
       <div>
         <div className="text-xl font-semibold text-white flex items-center gap-2">
           {streakCount} day streak
@@ -74,7 +74,7 @@ const DailyCheckin = () => {
         </div>
       </div>
 
-      <div className="w-[180px] flex justify-end">
+      <div className="w-full md:w-[180px] flex justify-end">
         {canClaim ? (
           <button
             onClick={handleClaim}
@@ -95,12 +95,12 @@ const DailyCheckin = () => {
             )}
           </button>
         ) : (
-          <div className="w-full py-3 px-6 bg-gray-300 text-[#15161A] font-medium rounded-lg flex items-center justify-between">
+          <div className="w-full py-3 px-6 bg-gray-300 text-[#15161A] font-medium rounded-lg flex items-center gap-2 justify-center">
             <FaClock
               className="text-gray-500 animate-pulse flex-shrink-0"
               size={14}
             />
-            <span className="font-mono text-right">{displayTime}</span>
+            <span className="font-mono">{displayTime}</span>
           </div>
         )}
       </div>

@@ -12,6 +12,7 @@ import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import { User } from "../../../lib/supabase";
 import { Pool, Tier } from "../../../lib/types";
 import { DBTier } from "../../../hooks/usePoolTiers";
+import { scrollToTop } from "../../../utils/scrollHelper";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -202,14 +203,14 @@ export default function PoolDetailsPage() {
 
   // Add this function to handle successful commits
   const handleCommitSuccess = () => {
-    // First scroll to top - use window.scrollTo with 0 offset
-    window.scrollTo(0, 0);
+    // Scroll to top using our helper function for better mobile compatibility
+    scrollToTop();
 
     // Reset showShake first, then set it true to trigger animation
     setShowShake(false);
     setTimeout(() => {
       setShowShake(true);
-    }, 10);
+    }, 100); // Slightly longer delay to ensure scroll has completed
   };
 
   // Show loading spinner during initial load or when refreshing after an error
