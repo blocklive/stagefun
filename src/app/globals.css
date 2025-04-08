@@ -221,3 +221,23 @@ body {
     perspective: 1000;
   }
 }
+
+/* Handle long URLs and links in prose content */
+.prose a {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* Style links in the dark theme */
+.prose-invert a {
+  color: #836ef9;
+  transition: all 0.2s ease;
+}
+
+.prose-invert a:hover {
+  color: #a78dff;
+}

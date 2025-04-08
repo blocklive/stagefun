@@ -14,7 +14,12 @@ export default function PoolDescription({ pool }: PoolDescriptionProps) {
       <h3 className="text-xl font-semibold mb-4">About Pool</h3>
       <div className="p-4 rounded-[12px] bg-[#FFFFFF0F]">
         <div
-          className="text-white prose prose-invert max-w-none"
+          className="text-white prose prose-invert max-w-none break-words"
+          style={{
+            wordWrap: "break-word",
+            overflowWrap: "break-word",
+            hyphens: "auto",
+          }}
           dangerouslySetInnerHTML={{ __html: pool.description }}
         />
       </div>
