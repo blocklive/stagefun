@@ -284,7 +284,7 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
 
         {isVariablePrice ? (
           <div className="mb-6">
-            <div className="flex justify-between items-baseline mb-2">
+            <div className="flex flex-col-reverse xs:flex-row xs:justify-between xs:items-baseline mb-2 gap-1">
               <label className="text-sm font-medium text-white/70">
                 Enter amount (USDC)
               </label>
@@ -316,7 +316,7 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
           </div>
         ) : (
           <div className="mb-6">
-            <div className="flex justify-between items-baseline">
+            <div className="flex flex-col-reverse xs:flex-row xs:justify-between xs:items-baseline gap-1 mb-2">
               <div className="text-sm font-medium text-white/70">
                 Commit amount
               </div>
@@ -324,7 +324,7 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
                 Balance: {formatAmount(walletBalanceFloat)} USDC
               </div>
             </div>
-            <div className="mt-2 px-4 py-3 bg-[#FFFFFF0A] rounded-lg border border-[#FFFFFF1A] text-white">
+            <div className="px-4 py-3 bg-[#FFFFFF0A] rounded-lg border border-[#FFFFFF1A] text-white">
               {formatAmount(displayPrice)} USDC
             </div>
           </div>

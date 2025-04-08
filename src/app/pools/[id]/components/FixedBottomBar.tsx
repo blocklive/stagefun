@@ -38,7 +38,16 @@ export default function FixedBottomBar({
       )}
 
       {/* Bottom Navigation - Mobile only */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#15161a] border-t border-gray-800 md:hidden">
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 bg-[#15161a] border-t border-gray-800 md:hidden"
+        style={{
+          transform: "translateZ(0)",
+          backfaceVisibility: "hidden",
+          perspective: 1000,
+          willChange: "transform",
+          isolation: "isolate",
+        }}
+      >
         <BottomNavbar activeTab="party" />
       </div>
 

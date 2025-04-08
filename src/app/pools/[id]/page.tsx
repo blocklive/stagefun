@@ -11,6 +11,7 @@ import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import { User } from "../../../lib/supabase";
 import { Pool, Tier } from "../../../lib/types";
+import { DBTier } from "../../../hooks/usePoolTiers";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -55,7 +56,33 @@ export default function PoolDetailsPage() {
   const [showShake, setShowShake] = useState(false);
 
   // Fetch pool data using our new hook
-  const { pool, isLoading, error, mutate } = usePoolDetailsV2(id);
+  const { pool: rawPool, isLoading, error, mutate } = usePoolDetailsV2(id);
+
+  // Cast pool to include required properties
+  const pool = rawPool as Pool & {
+    raised_amount: number;
+    target_amount: number;
+    contract_address: string;
+    title: string;
+    creator: {
+      id: string;
+      name: string;
+      avatar_url: string;
+    };
+    tiers: (DBTier & {
+      commitments: {
+        user_address: string;
+        amount: number;
+        committed_at: string;
+        user: {
+          id: string;
+          name: string;
+          avatar_url: string;
+        };
+      }[];
+      reward_items: any[];
+    })[];
+  };
 
   // Debug pool data when patrons tab is active
   useEffect(() => {
@@ -175,13 +202,14 @@ export default function PoolDetailsPage() {
 
   // Add this function to handle successful commits
   const handleCommitSuccess = () => {
-    // First scroll to top
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // First scroll to top - use window.scrollTo with 0 offset
+    window.scrollTo(0, 0);
 
-    // Wait for scroll to complete before triggering shake
+    // Reset showShake first, then set it true to trigger animation
+    setShowShake(false);
     setTimeout(() => {
       setShowShake(true);
-    }, 500); // Wait for scroll to complete
+    }, 10);
   };
 
   // Show loading spinner during initial load or when refreshing after an error

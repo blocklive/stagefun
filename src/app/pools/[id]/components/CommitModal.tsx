@@ -280,9 +280,20 @@ export default function CommitModal({
               {/* Only show amount input for variable price tiers */}
               {selectedTier?.is_variable_price && (
                 <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Amount (USDC)
-                  </label>
+                  <div className="flex flex-col-reverse xs:flex-row xs:justify-between xs:items-baseline gap-1 mb-2">
+                    <label className="text-sm font-medium text-gray-300">
+                      Amount (USDC)
+                    </label>
+                    <div className="text-sm text-gray-400">
+                      Balance:{" "}
+                      {isLoadingBalance ? (
+                        <span className="inline-block w-16 h-4 bg-gray-700 animate-pulse rounded"></span>
+                      ) : (
+                        smartWalletBalance || "0"
+                      )}{" "}
+                      USDC
+                    </div>
+                  </div>
                   <input
                     type="number"
                     value={commitAmount}
@@ -299,53 +310,59 @@ export default function CommitModal({
                     max={selectedTier.max_price || undefined}
                     step="0.01"
                   />
+
+                  {/* Warning for variable price tiers */}
+                  {selectedTier &&
+                    selectedTier.is_variable_price &&
+                    commitAmount &&
+                    parseFloat(commitAmount) > 0 &&
+                    parseFloat(smartWalletBalance || "0") <
+                      parseFloat(commitAmount) && (
+                      <div className="mt-2 text-xs text-amber-400">
+                        Your balance is less than the amount you entered
+                      </div>
+                    )}
                 </div>
               )}
 
-              {/* Balance always shown */}
-              <div className="mt-4 p-3 bg-[#FFFFFF08] rounded-lg">
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-gray-400">Your balance:</div>
-                  <div className="flex items-center">
-                    <span className="text-sm font-medium">
+              {/* Balance section for non-variable price tiers */}
+              {!selectedTier?.is_variable_price && (
+                <div className="mt-6">
+                  <div className="flex flex-col-reverse xs:flex-row xs:justify-between xs:items-baseline gap-1 mb-2">
+                    <div className="text-sm font-medium text-gray-300">
+                      Commit amount
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      Balance:{" "}
                       {isLoadingBalance ? (
                         <span className="inline-block w-16 h-4 bg-gray-700 animate-pulse rounded"></span>
                       ) : (
-                        `${smartWalletBalance || "0"} USDC`
-                      )}
-                    </span>
+                        smartWalletBalance || "0"
+                      )}{" "}
+                      USDC
+                    </div>
                   </div>
+                  {selectedTier && (
+                    <div className="px-4 py-3 bg-[#FFFFFF0A] rounded-xl border border-[#FFFFFF1A] text-white">
+                      {fromUSDCBaseUnits(BigInt(selectedTier.price))} USDC
+                    </div>
+                  )}
+
+                  {/* Warning for fixed price tiers */}
+                  {selectedTier &&
+                    !selectedTier.is_variable_price &&
+                    parseFloat(smartWalletBalance || "0") <
+                      parseFloat(
+                        fromUSDCBaseUnits(BigInt(selectedTier.price)).toString()
+                      ) && (
+                      <div className="mt-2 text-xs text-amber-400">
+                        Your balance is less than the required amount for this
+                        tier ({fromUSDCBaseUnits(BigInt(selectedTier.price))}{" "}
+                        USDC)
+                      </div>
+                    )}
                 </div>
-
-                {/* Only show warnings if a tier is selected */}
-                {selectedTier && selectedTier.id === selectedTierId && (
-                  <>
-                    {!selectedTier.is_variable_price &&
-                      parseFloat(smartWalletBalance || "0") <
-                        parseFloat(
-                          fromUSDCBaseUnits(
-                            BigInt(selectedTier.price)
-                          ).toString()
-                        ) && (
-                        <div className="mt-2 text-xs text-amber-400">
-                          Your balance is less than the required amount for this
-                          tier ({fromUSDCBaseUnits(BigInt(selectedTier.price))}{" "}
-                          USDC)
-                        </div>
-                      )}
-
-                    {selectedTier.is_variable_price &&
-                      commitAmount &&
-                      parseFloat(commitAmount) > 0 &&
-                      parseFloat(smartWalletBalance || "0") <
-                        parseFloat(commitAmount) && (
-                        <div className="mt-2 text-xs text-amber-400">
-                          Your balance is less than the amount you entered
-                        </div>
-                      )}
-                  </>
-                )}
-              </div>
+              )}
 
               <div className="mt-6 flex justify-end space-x-3">
                 <button

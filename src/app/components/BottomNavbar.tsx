@@ -11,7 +11,16 @@ export default function BottomNavbar({ activeTab }: BottomNavbarProps) {
   const router = useRouter();
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#15161a] border-t border-gray-800 flex items-center justify-around px-4 z-10">
+    <div
+      className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#15161a] border-t border-gray-800 flex items-center justify-around px-4 z-10"
+      style={{
+        transform: "translateZ(0)",
+        backfaceVisibility: "hidden",
+        perspective: 1000,
+        willChange: "transform",
+        isolation: "isolate",
+      }}
+    >
       <div
         className="flex flex-col items-center"
         onClick={() => router.push("/pools")}

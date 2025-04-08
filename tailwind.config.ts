@@ -13,7 +13,7 @@ export default {
       },
       keyframes: {
         shake: {
-          "0%, 100%": { transform: "translateX(0)" },
+          "0%, 100%": { transform: "translateX(0) rotate(0)" },
           "10%, 30%, 50%, 70%, 90%": {
             transform: "translateX(-3px) rotate(-0.5deg)",
           },

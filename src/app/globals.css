@@ -165,7 +165,7 @@ body {
 @keyframes shake {
   0%,
   100% {
-    transform: translateX(0);
+    transform: translateX(0) rotate(0);
   }
   10%,
   30%,
@@ -194,8 +194,30 @@ body {
 
 .animate-shake {
   animation: shake 0.6s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
+  isolation: isolate;
 }
 
 .animate-subtle-pulse {
   animation: subtlePulse 2s ease-in-out infinite;
+}
+
+/* Prevent unwanted shaking on mobile devices */
+@media (max-width: 768px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  body {
+    position: relative;
+  }
+
+  /* Ensure fixed elements stay fixed during animations */
+  .fixed {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000;
+  }
 }

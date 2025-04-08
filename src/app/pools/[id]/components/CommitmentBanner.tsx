@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Pool, Tier } from "@/lib/types";
 import { formatAmount } from "@/lib/utils";
 import { fromUSDCBaseUnits } from "@/lib/contracts/StageDotFunPool";
@@ -20,29 +20,55 @@ export default function CommitmentBanner({
 }: CommitmentBannerProps) {
   const [isShaking, setIsShaking] = useState(false);
   const [isPulsating, setIsPulsating] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Effect to handle initial shake and timer setup
   useEffect(() => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // If showShake is true, start shaking
     if (showShake) {
       setIsShaking(true);
       setIsPulsating(true);
-      // Stop shaking after 15 seconds if user hasn't clicked
-      const timer = setTimeout(() => {
+
+      // Set timer for auto-stop after 15 seconds
+      timerRef.current = setTimeout(() => {
         setIsShaking(false);
         setIsPulsating(false);
-        // Only trigger fireworks if we're still shaking (user hasn't clicked)
-        if (isShaking) {
-          triggerFireworks();
-        }
+        triggerFireworks();
       }, 15000);
-      return () => clearTimeout(timer);
-    } else {
-      setIsShaking(false);
-      setIsPulsating(false);
     }
-  }, [showShake, isShaking]);
+
+    // Cleanup function to clear timer when component unmounts or showShake changes
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [showShake]); // Only depend on showShake
+
+  const handleClick = () => {
+    // Only handle click if banner is shaking
+    if (!isShaking) return;
+
+    // Clear the timer to prevent fireworks from happening again
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // Stop animations and trigger fireworks
+    setIsShaking(false);
+    setIsPulsating(false);
+    triggerFireworks();
+  };
 
   const triggerFireworks = () => {
-    // Create a canvas element for confetti
     const canvas = document.createElement("canvas");
     canvas.style.position = "fixed";
     canvas.style.top = "0";
@@ -53,13 +79,11 @@ export default function CommitmentBanner({
     canvas.style.zIndex = "1000";
     document.body.appendChild(canvas);
 
-    // Initialize confetti with the canvas
     const myConfetti = confetti.create(canvas, {
       resize: true,
-      useWorker: false, // Disable worker to avoid CSP issues
+      useWorker: false,
     });
 
-    // Fire multiple bursts of confetti
     const count = 5;
     const defaults = {
       startVelocity: 30,
@@ -80,7 +104,6 @@ export default function CommitmentBanner({
       });
     };
 
-    // Stagger the fireworks with more immediate initial burst
     fire(0.35, {
       spread: 100,
       decay: 0.91,
@@ -112,18 +135,9 @@ export default function CommitmentBanner({
       }, i * 150);
     }
 
-    // Remove canvas after animation
     setTimeout(() => {
       document.body.removeChild(canvas);
     }, 5000);
-  };
-
-  const handleClick = () => {
-    if (isShaking) {
-      setIsShaking(false);
-      setIsPulsating(false);
-      triggerFireworks();
-    }
   };
 
   const totalAmount = userCommitments.reduce(
@@ -131,7 +145,6 @@ export default function CommitmentBanner({
     0
   );
 
-  // Convert from base units and format
   const displayAmount = formatAmount(fromUSDCBaseUnits(BigInt(totalAmount)));
   const tierNames = userCommitments.map((c) => c.tier.name).join(", ");
 
@@ -139,12 +152,17 @@ export default function CommitmentBanner({
     <div
       onClick={handleClick}
       className={`relative w-full bg-gradient-to-r from-[#836EF9] to-[#6F5BD0] text-white ${
-        isShaking ? "cursor-pointer animate-shake" : ""
+        isShaking ? "cursor-pointer" : ""
       } ${isPulsating ? "animate-subtle-pulse" : ""}`}
       style={{
         animation: isShaking ? "shake 0.6s ease-in-out infinite" : "",
         opacity: isPulsating ? "0.95" : "1",
         transition: "opacity 2s ease-in-out",
+        position: "relative",
+        zIndex: 10,
+        isolation: "isolate",
+        transformOrigin: "center",
+        willChange: isShaking ? "transform" : "auto",
       }}
     >
       <div className="container mx-auto px-4 py-6">
@@ -156,7 +174,6 @@ export default function CommitmentBanner({
           </p>
         </div>
       </div>
-      {/* Add a subtle gradient fade at the bottom */}
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
     </div>
   );
