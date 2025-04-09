@@ -28,6 +28,7 @@ import FundingSection from "./components/FundingSection";
 import EndTimeSection from "./components/EndTimeSection";
 import { TiersSection } from "./components/TiersSection";
 import { Tier, RewardItem } from "./types";
+import FundingSummary from "./components/FundingSummary";
 
 // Import our new hooks
 import usePoolImage from "./hooks/usePoolImage";
@@ -36,6 +37,7 @@ import useFunding from "./hooks/useFunding";
 import useEndTime from "./hooks/useEndTime";
 import usePoolCreation from "./hooks/usePoolCreation";
 import { supabase } from "@/lib/supabase";
+import { calculateMaxPossibleFunding } from "./hooks/calculateMaxFunding";
 
 // Helper function to format a date for datetime-local input
 function formatDateForInput(date: Date): string {
@@ -228,6 +230,17 @@ export default function CreatePoolPage() {
         }
       }
 
+      // Check if funding goal is achievable with current tier configuration
+      const { maxPossibleFunding } = calculateMaxPossibleFunding(tiers);
+      if (maxPossibleFunding < goal) {
+        // Show a toast error message and prevent submission
+        showToast.error(
+          `You can only raise ${maxPossibleFunding.toLocaleString()} USDC based on your current tier configuration toward your goal of ${goal.toLocaleString()} USDC. Please adjust your tiers or funding goal.`
+        );
+        setIsLoading(false);
+        return;
+      }
+
       // IMPORTANT: Always upload images to Supabase storage first!
       // Never save base64 data directly to the database - this causes:
       // 1. Extremely large DB entries (megabytes instead of a few bytes for a URL)
@@ -283,6 +296,18 @@ export default function CreatePoolPage() {
     }
   };
 
+  // Modified to handle tiers state with logging
+  const handleTiersChange = (newTiers: Tier[]) => {
+    console.log(`Tiers updated: ${newTiers.length} tiers`);
+    setTiers(newTiers);
+
+    // Calculate and log the maximum funding possible
+    const { maxPossibleFunding } = calculateMaxPossibleFunding(newTiers);
+    console.log(
+      `Maximum possible funding with current tiers: ${maxPossibleFunding} USDC`
+    );
+  };
+
   // Add reward item handler
   const handleAddRewardItem = (item: Omit<RewardItem, "id">) => {
     const newId = crypto.randomUUID();
@@ -323,7 +348,7 @@ export default function CreatePoolPage() {
         </div>
 
         {/* Main content */}
-        <div className="px-6" style={{ paddingBottom: "40px" }}>
+        <div className="px-6">
           {/* Pool Details, Funding, and Image Section */}
           <div className="grid grid-cols-1 md:grid-cols-[auto,1fr] gap-x-8 gap-y-6 md:gap-y-0 mt-8">
             {/* Left Column: Pool Image */}
@@ -351,6 +376,7 @@ export default function CreatePoolPage() {
                 capAmount={capAmount}
                 onFundingGoalChange={setFundingGoal}
                 onCapAmountChange={setCapAmount}
+                tiers={tiers}
               />
             </div>
           </div>
@@ -371,7 +397,7 @@ export default function CreatePoolPage() {
             {supabase && (
               <TiersSection
                 tiers={tiers}
-                onTiersChange={setTiers}
+                onTiersChange={handleTiersChange}
                 availableRewardItems={rewardItems}
                 onAddRewardItem={handleAddRewardItem}
                 supabase={supabase}
@@ -429,6 +455,12 @@ export default function CreatePoolPage() {
               onEndDateChange={handleEndDateChange}
             />
           </form>
+        </div>
+
+        {/* Funding Summary Section */}
+        <div className="px-6 mb-16">
+          <h2 className="text-2xl font-bold mb-4">Funding Summary</h2>
+          <FundingSummary tiers={tiers} fundingGoal={fundingGoal} />
         </div>
 
         {/* Launch Button */}
