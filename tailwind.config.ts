@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { colors } from "./src/lib/theme";
 
 export default {
   content: ["./src/app/**/*.{js,ts,jsx,tsx,mdx}"],
@@ -7,6 +8,11 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        primary: colors.primary,
+        success: colors.success,
+        error: colors.error,
+        warning: colors.warning,
+        info: colors.info,
       },
       screens: {
         xs: "430px", // Custom breakpoint at 430px

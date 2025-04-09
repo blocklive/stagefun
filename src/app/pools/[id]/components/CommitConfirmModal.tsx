@@ -335,7 +335,7 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
           disabled={isCommitDisabled}
           className={`w-full py-3 px-6 font-medium rounded-lg flex items-center justify-center transition-all duration-200 ${
             isCommitting
-              ? "bg-gray-400 text-gray-700 opacity-70 transform scale-95 cursor-default shadow-inner border-2 border-gray-500"
+              ? "bg-gray-400 text-gray-700 opacity-70 cursor-default shadow-inner border-2 border-gray-500"
               : "bg-white hover:bg-gray-100 text-[#15161A] hover:shadow-sm border border-transparent"
           }`}
         >

@@ -4,6 +4,7 @@ import { toast, ToastOptions, ToastPosition } from "react-hot-toast";
 import React from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { FaCheck } from "react-icons/fa";
+import { colors } from "@/lib/theme";
 
 // Base toast style object to be used for all toast types
 const baseToastStyle: ToastOptions = {
@@ -40,8 +41,8 @@ const successToastStyle: ToastOptions = {
   ...baseToastStyle,
   style: {
     ...baseToastStyle.style,
-    background: "#0F2417", // Darker green
-    borderLeft: "4px solid #10B981", // Green accent
+    background: colors.success.bg, // Dark success background
+    borderLeft: `4px solid ${colors.success.DEFAULT}`, // Success accent
   },
   icon: "✓",
 };
@@ -51,8 +52,8 @@ const errorToastStyle: ToastOptions = {
   ...baseToastStyle,
   style: {
     ...baseToastStyle.style,
-    background: "#2D1A1A", // Darker red
-    borderLeft: "4px solid #EF4444", // Red accent
+    background: colors.error.bg, // Darker red
+    borderLeft: `4px solid ${colors.error.DEFAULT}`, // Red accent
   },
   icon: "❌",
 };
@@ -62,8 +63,8 @@ const infoToastStyle: ToastOptions = {
   ...baseToastStyle,
   style: {
     ...baseToastStyle.style,
-    background: "#1A2235", // Darker blue
-    borderLeft: "4px solid #3B82F6", // Blue accent
+    background: colors.info.bg, // Darker blue
+    borderLeft: `4px solid ${colors.info.DEFAULT}`, // Blue accent
   },
   icon: "ℹ️",
 };
@@ -104,12 +105,12 @@ const customSuccessToast = (message: string, options?: ToastOptions) => {
           ...baseToastStyle.style,
           display: "flex",
           alignItems: "center",
-          background: "#0F2417",
-          borderLeft: "4px solid #10B981",
+          background: colors.success.bg,
+          borderLeft: `4px solid ${colors.success.DEFAULT}`,
           padding: "16px",
         }}
       >
-        <FaCheck color="#10B981" size={16} />
+        <FaCheck color={colors.success.DEFAULT} size={16} />
         <span style={{ marginLeft: "12px" }}>{message}</span>
       </div>
     ),

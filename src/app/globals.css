@@ -5,6 +5,17 @@
 :root {
   --foreground: 255, 255, 255;
   --background: 0, 0, 0;
+
+  /* Success colors */
+  --success: #9eeb00;
+  --success-dark: #88ce00;
+  --success-light: #b4ff00;
+  --success-bg: #0f1a00;
+
+  /* Primary colors */
+  --primary: #836ef9;
+  --primary-dark: #6f5bd0;
+  --primary-light: #a78dff;
 }
 
 body {
