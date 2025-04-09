@@ -8,7 +8,7 @@ import { getFormattedCreatorName } from "../../../../lib/utils";
 interface OrganizerSectionProps {
   creator: User | null;
   dbUser: User | null;
-  onNavigate: (userId: string) => void;
+  onNavigate: (userId: string, username?: string) => void;
 }
 
 export default function OrganizerSection({
@@ -18,12 +18,20 @@ export default function OrganizerSection({
 }: OrganizerSectionProps) {
   if (!creator) return null;
 
+  const handleNavigate = () => {
+    if (creator.username) {
+      onNavigate(creator.id, creator.username);
+    } else {
+      onNavigate(creator.id);
+    }
+  };
+
   return (
     <div className="mt-6 p-4 bg-[#FFFFFF0A] rounded-[16px]">
       <h3 className="text-xl font-semibold mb-4">Organizer</h3>
       <div
         className="p-4 rounded-[12px] bg-[#FFFFFF0F] cursor-pointer hover:bg-[#FFFFFF1A] transition-colors"
-        onClick={() => onNavigate(creator.id)}
+        onClick={handleNavigate}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center">

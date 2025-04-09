@@ -18,6 +18,7 @@ export interface User {
   smart_wallet_address?: string;
   privy_did?: string;
   name: string;
+  username?: string;
   email?: string;
   twitter_username?: string;
   avatar_url?: string;

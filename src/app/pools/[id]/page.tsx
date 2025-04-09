@@ -13,6 +13,7 @@ import { User } from "../../../lib/supabase";
 import { Pool, Tier } from "../../../lib/types";
 import { DBTier } from "../../../hooks/usePoolTiers";
 import { scrollToTop } from "../../../utils/scrollHelper";
+import { getUserById } from "../../../lib/services/user-service";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -56,6 +57,7 @@ export default function PoolDetailsPage() {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showShake, setShowShake] = useState(false);
   const [patronCount, setPatronCount] = useState<number | undefined>(undefined);
+  const [creatorData, setCreatorData] = useState<User | null>(null);
 
   // Fetch pool data using our new hook
   const { pool: rawPool, isLoading, error, mutate } = usePoolDetailsV2(id);
@@ -213,6 +215,30 @@ export default function PoolDetailsPage() {
       setShowShake(true);
     }, 100); // Slightly longer delay to ensure scroll has completed
   };
+
+  // Fetch complete creator data when pool is loaded
+  useEffect(() => {
+    async function fetchCreatorData() {
+      if (pool?.creator?.id) {
+        try {
+          const userData = await getUserById(pool.creator.id);
+          if (userData) {
+            setCreatorData(userData);
+            console.log(
+              "Fetched creator data with username:",
+              userData.username
+            );
+          }
+        } catch (err) {
+          console.error("Error fetching creator data:", err);
+        }
+      }
+    }
+
+    if (!isLoading && pool) {
+      fetchCreatorData();
+    }
+  }, [pool, isLoading]);
 
   // Show loading spinner during initial load or when refreshing after an error
   if (isLoading || (!pool && !error)) {
@@ -375,9 +401,15 @@ export default function PoolDetailsPage() {
                 <PoolLocation pool={pool} />
                 <TokenSection pool={pool} />
                 <OrganizerSection
-                  creator={pool.creator as unknown as User}
+                  creator={(creatorData || pool.creator) as unknown as User}
                   dbUser={dbUser}
-                  onNavigate={(userId) => router.push(`/profile/${userId}`)}
+                  onNavigate={(userId, username) => {
+                    if (username) {
+                      router.push(`/user/${username}`);
+                    } else {
+                      router.push(`/profile/${userId}`);
+                    }
+                  }}
                 />
               </div>
             )}

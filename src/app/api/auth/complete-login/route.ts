@@ -138,6 +138,9 @@ export async function POST(request: NextRequest) {
         email: privyUserData.email?.address,
         twitter_username: privyUserData.twitter?.username || undefined,
         avatar_url: privyUserData.avatar || undefined,
+        username: privyUserData.twitter?.username
+          ? privyUserData.twitter.username.toLowerCase()
+          : undefined,
       };
 
       console.log("New user data:", newUser);
@@ -203,6 +206,16 @@ export async function POST(request: NextRequest) {
 
       if (privyTwitter && privyTwitter !== existingUser.twitter_username) {
         updatedFields.twitter_username = privyTwitter;
+        needsUpdate = true;
+      }
+
+      // Set username to Twitter username if Twitter username is available and username is not set
+      if (
+        privyTwitter &&
+        (!existingUser.username ||
+          existingUser.username !== privyTwitter.toLowerCase())
+      ) {
+        updatedFields.username = privyTwitter.toLowerCase();
         needsUpdate = true;
       }
 

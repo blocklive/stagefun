@@ -85,3 +85,32 @@ export async function getUserBySmartWalletAddress(
     throw error;
   }
 }
+
+export async function getUserByUsername(
+  username: string
+): Promise<User | null> {
+  console.log("Getting user by username:", username);
+
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("username", username.toLowerCase())
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") {
+        // No rows returned (user not found)
+        console.log("User not found with username:", username);
+        return null;
+      }
+      console.error("Supabase error:", error);
+      throw error;
+    }
+
+    return data as User;
+  } catch (error) {
+    console.error("Error in getUserByUsername:", error);
+    throw error;
+  }
+}

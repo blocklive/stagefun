@@ -17,7 +17,10 @@ import { IoFlash } from "react-icons/io5";
 import Image from "next/image";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { User } from "../../../lib/supabase";
-import { getUserById } from "../../../lib/services/user-service";
+import {
+  getUserById,
+  getUserByUsername,
+} from "../../../lib/services/user-service";
 import { useUserAssets } from "../../../hooks/useUserAssets";
 import AppHeader from "../../components/AppHeader";
 import { useUserHostedPools } from "../../../hooks/useUserHostedPools";
@@ -29,7 +32,13 @@ import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import UserAvatar from "../../components/UserAvatar";
 import showToast from "@/utils/toast";
 
-export default function ProfileComponent() {
+interface ProfileComponentProps {
+  isUsernameRoute?: boolean;
+}
+
+export default function ProfileComponent({
+  isUsernameRoute = false,
+}: ProfileComponentProps) {
   const router = useRouter();
   const params = useParams();
   const {
@@ -54,12 +63,17 @@ export default function ProfileComponent() {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get the user ID from the URL if present
-  const profileUserId = params?.id as string;
+  // Get the user identifier from the URL
+  const profileUserId = isUsernameRoute ? null : (params?.id as string);
+  const profileUsername = isUsernameRoute ? (params?.username as string) : null;
 
   // Determine if the user is viewing their own profile
   const isOwnProfile =
-    !profileUserId || (dbUser && profileUserId === dbUser.id);
+    (!profileUserId && !profileUsername) ||
+    (dbUser &&
+      ((profileUserId && profileUserId === dbUser.id) ||
+        (profileUsername &&
+          profileUsername.toLowerCase() === dbUser.username?.toLowerCase())));
 
   // Get the user to display (either the current user or the profile being viewed)
   const [profileUser, setProfileUser] = useState<User | null>(null);
@@ -105,26 +119,44 @@ export default function ProfileComponent() {
   // Fetch profile user data if viewing someone else's profile
   useEffect(() => {
     async function fetchProfileUser() {
-      if (!profileUserId) {
-        console.log("No profile user ID, using current user");
+      if (!profileUserId && !profileUsername) {
+        console.log("No profile identifier, using current user");
         setProfileUser(dbUser);
         return;
       }
 
-      if (dbUser && profileUserId === dbUser.id) {
-        console.log("Profile ID matches current user, using current user");
+      if (
+        dbUser &&
+        ((profileUserId && profileUserId === dbUser.id) ||
+          (profileUsername &&
+            profileUsername.toLowerCase() === dbUser.username?.toLowerCase()))
+      ) {
+        console.log(
+          "Profile identifier matches current user, using current user"
+        );
         setProfileUser(dbUser);
         return;
       }
 
-      console.log("Fetching profile for user ID:", profileUserId);
       setIsLoadingProfileUser(true);
       try {
-        const user = await getUserById(profileUserId);
+        let user = null;
+
+        if (isUsernameRoute && profileUsername) {
+          console.log("Fetching profile for username:", profileUsername);
+          user = await getUserByUsername(profileUsername);
+        } else if (profileUserId) {
+          console.log("Fetching profile for user ID:", profileUserId);
+          user = await getUserById(profileUserId);
+        }
+
         console.log("Fetched profile user:", user);
 
         if (!user) {
-          console.error("User not found with ID:", profileUserId);
+          console.error(
+            "User not found with identifier:",
+            isUsernameRoute ? profileUsername : profileUserId
+          );
           // Redirect to 404 or home page if user not found
           router.push("/");
           return;
@@ -143,7 +175,7 @@ export default function ProfileComponent() {
     if (ready && dbUser) {
       fetchProfileUser();
     }
-  }, [profileUserId, dbUser, ready, router]);
+  }, [profileUserId, profileUsername, isUsernameRoute, dbUser, ready, router]);
 
   // Add a useEffect for handling redirects when not authenticated
   useEffect(() => {
