@@ -22,6 +22,7 @@ import AppHeader from "../../components/AppHeader";
 import { useUserHostedPools } from "../../../hooks/useUserHostedPools";
 import GetTokensModal from "../../components/GetTokensModal";
 import InfoModal from "../../components/InfoModal";
+import WithdrawAssetModal from "../../components/WithdrawAssetModal";
 import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import UserAvatar from "../../components/UserAvatar";
@@ -80,6 +81,14 @@ export default function ProfileComponent() {
     isLoading: isUserAssetsLoading,
     refreshUsdcBalance,
   } = useUserAssets();
+
+  // Withdraw state
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<{
+    name: string;
+    symbol: string;
+    balance: string;
+  } | null>(null);
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -474,6 +483,16 @@ export default function ProfileComponent() {
     router.push("/onboarding");
   };
 
+  const handleWithdrawClick = (asset: any, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent click event from bubbling up
+    setSelectedAsset({
+      name: asset.name,
+      symbol: asset.symbol,
+      balance: asset.balance,
+    });
+    setShowWithdrawModal(true);
+  };
+
   return (
     <>
       <AppHeader
@@ -652,7 +671,7 @@ export default function ProfileComponent() {
 
         {/* Balance and Assets Section */}
         {isOwnProfile && (
-          <div className="px-4 py-6 bg-black">
+          <div className="px-4 py-6">
             <h2 className="text-xl text-gray-400 mb-2">Balance</h2>
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-5xl font-bold">${totalBalance}</h1>
@@ -664,26 +683,38 @@ export default function ProfileComponent() {
                 {assets.map((asset, index) => (
                   <div
                     key={index}
-                    className="flex justify-between items-center py-4 px-4 bg-[#1D1C2A] rounded-lg"
+                    className="flex justify-between items-center py-4 px-4 bg-[#FFFFFF0A] rounded-xl hover:bg-[#2A2640] transition-colors"
                   >
                     <div className="flex items-center">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          asset.type === "token"
-                            ? "bg-blue-800"
-                            : asset.type === "pool"
-                            ? "bg-purple-800"
-                            : "bg-green-800"
-                        }`}
-                      >
-                        {asset.type === "token" ? (
-                          <FaDollarSign className="text-white" />
-                        ) : asset.type === "pool" ? (
-                          <FaUsers className="text-white" />
-                        ) : (
-                          <IoFlash className="text-white" />
-                        )}
-                      </div>
+                      {asset.type === "token" && asset.symbol === "USDC" ? (
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center">
+                          <Image
+                            src="/icons/usdc-logo.svg"
+                            alt="USDC"
+                            width={32}
+                            height={32}
+                            className="w-8 h-8"
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            asset.type === "token"
+                              ? "bg-blue-800"
+                              : asset.type === "pool"
+                              ? "bg-purple-800"
+                              : "bg-green-800"
+                          }`}
+                        >
+                          {asset.type === "token" ? (
+                            <FaDollarSign className="text-white" />
+                          ) : asset.type === "pool" ? (
+                            <FaUsers className="text-white" />
+                          ) : (
+                            <IoFlash className="text-white" />
+                          )}
+                        </div>
+                      )}
 
                       <div className="ml-3">
                         <div className="flex items-center">
@@ -699,8 +730,16 @@ export default function ProfileComponent() {
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold">${asset.value.toFixed(2)}</p>
+                    <div className="flex items-center">
+                      <div className="text-right mr-4">
+                        <p className="font-bold">${asset.value.toFixed(2)}</p>
+                      </div>
+                      <button
+                        onClick={(e) => handleWithdrawClick(asset, e)}
+                        className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors"
+                      >
+                        Withdraw
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -744,7 +783,7 @@ export default function ProfileComponent() {
               {userHostedPools.map((pool) => (
                 <div
                   key={pool.id}
-                  className="bg-[#1C1B1F] rounded-xl overflow-hidden cursor-pointer hover:bg-[#28262C] transition-colors p-4"
+                  className="bg-[#FFFFFF0A] rounded-xl overflow-hidden cursor-pointer hover:bg-[#2A2640] transition-colors p-4"
                   onClick={() => router.push(`/pools/${pool.id}`)}
                 >
                   <div className="flex items-center">
@@ -802,6 +841,14 @@ export default function ProfileComponent() {
       <InfoModal
         isOpen={showInfoModal}
         onClose={() => setShowInfoModal(false)}
+      />
+
+      {/* Withdraw Asset Modal */}
+      <WithdrawAssetModal
+        isOpen={showWithdrawModal}
+        onClose={() => setShowWithdrawModal(false)}
+        asset={selectedAsset}
+        onSuccess={() => refreshUsdcBalance()}
       />
     </>
   );

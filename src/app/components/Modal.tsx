@@ -38,23 +38,23 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
             >
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-[#15161a] text-white p-6 text-left align-middle shadow-xl transition-all">
                 <div className="flex items-center justify-between mb-4">
-                  {title && (
-                    <Dialog.Title
-                      as="h3"
-                      className="text-lg font-medium leading-6 w-full text-center"
-                    >
-                      {title}
-                    </Dialog.Title>
-                  )}
                   <button
                     type="button"
-                    className={`rounded-full bg-[#FFFFFF0A] p-1 hover:bg-[#FFFFFF1A] focus:outline-none ${
-                      title ? "absolute right-4 top-4" : ""
-                    }`}
+                    className="rounded-full bg-[#FFFFFF0A] p-1 hover:bg-[#FFFFFF1A] focus:outline-none"
                     onClick={onClose}
                   >
                     <XMarkIcon className="h-5 w-5" aria-hidden="true" />
                   </button>
+                  {title && (
+                    <Dialog.Title
+                      as="h3"
+                      className="text-lg font-medium leading-6 flex-grow text-center"
+                    >
+                      {title}
+                    </Dialog.Title>
+                  )}
+                  <div className="w-5"></div>{" "}
+                  {/* Spacer to balance the layout */}
                 </div>
                 {children}
               </Dialog.Panel>
