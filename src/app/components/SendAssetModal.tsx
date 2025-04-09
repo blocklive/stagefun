@@ -14,7 +14,7 @@ import showToast from "@/utils/toast";
 import Modal from "./Modal";
 import { formatAmount } from "@/lib/utils";
 
-interface WithdrawAssetModalProps {
+interface SendAssetModalProps {
   isOpen: boolean;
   onClose: () => void;
   asset: {
@@ -25,19 +25,21 @@ interface WithdrawAssetModalProps {
   onSuccess?: () => void;
 }
 
-export default function WithdrawAssetModal({
+export default function SendAssetModal({
   isOpen,
   onClose,
   asset,
   onSuccess,
-}: WithdrawAssetModalProps) {
+}: SendAssetModalProps) {
   const [destinationAddress, setDestinationAddress] = useState("");
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [addressError, setAddressError] = useState("");
   const [amountError, setAmountError] = useState("");
   const [copied, setCopied] = useState(false);
   const { smartWalletAddress, callContractFunction } = useSmartWallet();
   const [amount, setAmount] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -135,7 +137,15 @@ export default function WithdrawAssetModal({
     setAmountError(""); // Clear any errors when using Max button
   };
 
-  const handleWithdraw = async () => {
+  // Focus the input when clicking on the display area
+  const handleAmountClick = () => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+      setIsFocused(true);
+    }
+  };
+
+  const handleSend = async () => {
     if (!asset || !smartWalletAddress) {
       showToast.error("No asset or smart wallet available");
       return;
@@ -146,14 +156,14 @@ export default function WithdrawAssetModal({
     }
 
     // Validate amount
-    const withdrawAmount = parseFloat(amount);
-    if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
+    const sendAmount = parseFloat(amount);
+    if (isNaN(sendAmount) || sendAmount <= 0) {
       setAmountError("Please enter a valid amount");
       return;
     }
 
     const maxAmount = parseFloat(asset.balance);
-    if (withdrawAmount > maxAmount) {
+    if (sendAmount > maxAmount) {
       setAmountError(
         `Maximum amount is ${formatAmount(maxAmount)} ${asset.symbol}`
       );
@@ -161,8 +171,8 @@ export default function WithdrawAssetModal({
     }
 
     try {
-      setIsWithdrawing(true);
-      const loadingToast = showToast.loading("Processing withdrawal...");
+      setIsSending(true);
+      const loadingToast = showToast.loading("Processing transfer...");
 
       // Get the RPC provider
       const provider = new ethers.JsonRpcProvider(
@@ -174,7 +184,7 @@ export default function WithdrawAssetModal({
       const usdcTokenAddress = await usdcContract.getAddress();
 
       // Convert amount to USDC base units (6 decimals)
-      const amountInBaseUnits = ethers.parseUnits(withdrawAmount.toString(), 6);
+      const amountInBaseUnits = ethers.parseUnits(sendAmount.toString(), 6);
 
       // Use the smart wallet to transfer the funds
       const result = await callContractFunction(
@@ -182,42 +192,66 @@ export default function WithdrawAssetModal({
         ["function transfer(address to, uint256 amount) returns (bool)"],
         "transfer",
         [destinationAddress, amountInBaseUnits],
-        `Transferring ${withdrawAmount} ${asset.symbol} to ${destinationAddress}`
+        `Transferring ${sendAmount} ${asset.symbol} to ${destinationAddress}`
       );
 
       if (result.success) {
-        showToast.success("Asset successfully withdrawn!", {
+        showToast.success("Asset successfully sent!", {
           id: loadingToast,
         });
         onClose();
         onSuccess?.();
       } else {
-        throw new Error(result.error || "Failed to withdraw asset");
+        throw new Error(result.error || "Failed to send asset");
       }
     } catch (error) {
-      console.error("Error withdrawing asset:", error);
+      console.error("Error sending asset:", error);
       showToast.error(
-        error instanceof Error ? error.message : "Failed to withdraw asset"
+        error instanceof Error ? error.message : "Failed to send asset"
       );
     } finally {
-      setIsWithdrawing(false);
+      setIsSending(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Withdraw">
+    <Modal isOpen={isOpen} onClose={onClose} title="Send">
       <div className="pt-2">
         {/* Direct Amount Input with Currency Display */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center text-5xl font-bold text-white mb-2">
+          <div className="flex justify-center w-full mb-2">
+            <div
+              className="flex justify-center items-center cursor-text"
+              onClick={handleAmountClick}
+            >
+              <div className="inline-flex gap-2 items-center">
+                <span
+                  className={`text-5xl font-bold text-white opacity-70 ${
+                    isFocused ? "relative" : ""
+                  }`}
+                >
+                  {amount || "0"}
+                  {isFocused && (
+                    <span className="absolute right-0 top-0 h-full w-0.5 bg-white animate-blink-caret"></span>
+                  )}
+                </span>
+                <span className="text-5xl font-bold text-white">
+                  {asset?.symbol || "USDC"}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="opacity-0 h-0 overflow-hidden pointer-events-none">
             <input
+              ref={inputRef}
               type="text"
               value={amount}
               onChange={handleAmountChange}
               placeholder="0"
-              className="bg-transparent text-right border-none focus:outline-none w-40 text-5xl font-bold text-white placeholder-gray-600"
+              className="bg-transparent border-none focus:outline-none"
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
             />
-            <span className="text-white ml-2">{asset?.symbol || "USDC"}</span>
           </div>
           {asset && (
             <div className="text-sm text-gray-400">
@@ -285,11 +319,11 @@ export default function WithdrawAssetModal({
           </div>
         </div>
 
-        {/* Withdraw Button */}
+        {/* Send Button */}
         <button
-          onClick={handleWithdraw}
+          onClick={handleSend}
           disabled={
-            isWithdrawing ||
+            isSending ||
             !destinationAddress ||
             !!addressError ||
             !!amountError ||
@@ -298,13 +332,13 @@ export default function WithdrawAssetModal({
           }
           className="w-full bg-white text-black py-3 px-4 h-11 rounded-full font-semibold transition-colors disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
         >
-          {isWithdrawing ? (
+          {isSending ? (
             <span className="flex items-center justify-center">
               <LoadingSpinner color="#666666" size={14} />
               <span className="ml-2">Processing...</span>
             </span>
           ) : (
-            "Withdraw"
+            "Send"
           )}
         </button>
       </div>

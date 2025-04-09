@@ -11,6 +11,7 @@ import {
   FaKey,
   FaDollarSign,
   FaUsers,
+  FaCheck,
 } from "react-icons/fa";
 import { IoFlash } from "react-icons/io5";
 import Image from "next/image";
@@ -22,7 +23,7 @@ import AppHeader from "../../components/AppHeader";
 import { useUserHostedPools } from "../../../hooks/useUserHostedPools";
 import GetTokensModal from "../../components/GetTokensModal";
 import InfoModal from "../../components/InfoModal";
-import WithdrawAssetModal from "../../components/WithdrawAssetModal";
+import SendAssetModal from "../../components/SendAssetModal";
 import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import UserAvatar from "../../components/UserAvatar";
@@ -83,7 +84,7 @@ export default function ProfileComponent() {
   } = useUserAssets();
 
   // Withdraw state
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showSendModal, setShowSendModal] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<{
     name: string;
     symbol: string;
@@ -483,14 +484,14 @@ export default function ProfileComponent() {
     router.push("/onboarding");
   };
 
-  const handleWithdrawClick = (asset: any, e: React.MouseEvent) => {
+  const handleSendClick = (asset: any, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent click event from bubbling up
     setSelectedAsset({
       name: asset.name,
       symbol: asset.symbol,
       balance: asset.balance,
     });
-    setShowWithdrawModal(true);
+    setShowSendModal(true);
   };
 
   return (
@@ -571,7 +572,7 @@ export default function ProfileComponent() {
 
           {/* Twitter handle if available */}
           {user?.twitter_username && (
-            <div className="flex items-center mt-1">
+            <div className="flex items-center mt-1 mb-3">
               <a
                 href={`https://x.com/${user.twitter_username}`}
                 target="_blank"
@@ -581,6 +582,66 @@ export default function ProfileComponent() {
                 <FaTwitter className="mr-2" />
                 <span>@{user.twitter_username}</span>
               </a>
+            </div>
+          )}
+
+          {/* Smart Wallet Address - only show if available */}
+          {user?.smart_wallet_address && (
+            <div className="mt-2 mb-3 flex justify-center">
+              <div className="flex items-center px-4 py-2 bg-[#FFFFFF0A] rounded-lg">
+                <span className="text-gray-500 text-sm mr-2">Account</span>
+                <span className="text-gray-300 text-sm">
+                  {user.smart_wallet_address &&
+                    `${user.smart_wallet_address.substring(
+                      0,
+                      6
+                    )}...${user.smart_wallet_address.substring(
+                      user.smart_wallet_address.length - 4
+                    )}`}
+                </span>
+                <button
+                  onClick={() => {
+                    if (user.smart_wallet_address) {
+                      navigator.clipboard.writeText(user.smart_wallet_address);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }
+                  }}
+                  className="ml-2 p-1"
+                >
+                  {copied ? (
+                    <FaCheck className="text-[#9EEB00] text-sm" />
+                  ) : (
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="text-gray-400"
+                    >
+                      <rect
+                        x="9"
+                        y="9"
+                        width="13"
+                        height="13"
+                        rx="2"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
           )}
 
@@ -735,10 +796,10 @@ export default function ProfileComponent() {
                         <p className="font-bold">${asset.value.toFixed(2)}</p>
                       </div>
                       <button
-                        onClick={(e) => handleWithdrawClick(asset, e)}
+                        onClick={(e) => handleSendClick(asset, e)}
                         className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors"
                       >
-                        Withdraw
+                        Send
                       </button>
                     </div>
                   </div>
@@ -843,10 +904,10 @@ export default function ProfileComponent() {
         onClose={() => setShowInfoModal(false)}
       />
 
-      {/* Withdraw Asset Modal */}
-      <WithdrawAssetModal
-        isOpen={showWithdrawModal}
-        onClose={() => setShowWithdrawModal(false)}
+      {/* Send Asset Modal */}
+      <SendAssetModal
+        isOpen={showSendModal}
+        onClose={() => setShowSendModal(false)}
         asset={selectedAsset}
         onSuccess={() => refreshUsdcBalance()}
       />

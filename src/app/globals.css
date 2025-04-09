@@ -252,3 +252,18 @@ body {
 .prose-invert a:hover {
   color: #a78dff;
 }
+
+/* Add the blinking cursor animation for SendAssetModal */
+@keyframes blink-caret {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-blink-caret {
+  animation: blink-caret 1s step-end infinite;
+}
