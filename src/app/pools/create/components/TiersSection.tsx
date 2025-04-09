@@ -93,22 +93,17 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     const tierNumber = tiers.length + 1;
     const defaultName = generateTierName(tierNumber);
 
-    // Calculate default price as 1% of funding goal
+    // Default to 20 patrons
+    const defaultMaxPatrons = "20";
+
+    // Calculate price needed to reach funding goal with 20 patrons
     let defaultPrice = "0";
     if (fundingGoal) {
       const goalAmount = parseFloat(fundingGoal);
       if (!isNaN(goalAmount)) {
-        defaultPrice = (goalAmount * 0.01).toString();
-      }
-    }
-
-    // Calculate default max patrons based on funding goal and price
-    let defaultMaxPatrons = "0";
-    if (fundingGoal && defaultPrice) {
-      const goalAmount = parseFloat(fundingGoal);
-      const priceAmount = parseFloat(defaultPrice);
-      if (!isNaN(goalAmount) && !isNaN(priceAmount) && priceAmount > 0) {
-        defaultMaxPatrons = Math.ceil(goalAmount / priceAmount).toString();
+        // Calculate price as goal divided by default patron count
+        const patronCount = parseInt(defaultMaxPatrons);
+        defaultPrice = (goalAmount / patronCount).toFixed(2).toString();
       }
     }
 
@@ -321,26 +316,19 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
           }
 
           // Update price and max patrons if not modified and funding goal changes
-          if (
-            !tier.modifiedFields.has("price") &&
-            fundingGoal &&
-            (!tier.price || tier.price === "0")
-          ) {
+          if (!tier.modifiedFields.has("price") && fundingGoal) {
             const goalAmount = parseFloat(fundingGoal);
             if (!isNaN(goalAmount)) {
-              updates.price = (goalAmount * 0.01).toString();
-
-              if (
-                !tier.modifiedFields.has("maxPatrons") &&
-                (!tier.maxPatrons || tier.maxPatrons === "0")
-              ) {
-                const priceAmount = parseFloat(updates.price);
-                if (!isNaN(priceAmount) && priceAmount > 0) {
-                  updates.maxPatrons = Math.ceil(
-                    goalAmount / priceAmount
-                  ).toString();
-                }
+              // Set default max patrons to 20 if not modified
+              if (!tier.modifiedFields.has("maxPatrons")) {
+                updates.maxPatrons = "20";
               }
+
+              // Calculate price based on goal and patron count (either the default 20 or current value)
+              const patronCount = parseInt(
+                updates.maxPatrons || tier.maxPatrons || "20"
+              );
+              updates.price = (goalAmount / patronCount).toFixed(2).toString();
             }
           }
 

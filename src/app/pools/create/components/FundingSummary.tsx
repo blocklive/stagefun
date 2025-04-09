@@ -7,11 +7,13 @@ import { colors } from "@/lib/theme";
 interface FundingSummaryProps {
   tiers: Tier[];
   fundingGoal: string;
+  capAmount?: string;
 }
 
 export const FundingSummary: React.FC<FundingSummaryProps> = ({
   tiers,
   fundingGoal,
+  capAmount = "0",
 }) => {
   const { maxPossibleFunding, tierBreakdown } = useMemo(() => {
     return calculateMaxPossibleFunding(tiers);
@@ -23,6 +25,19 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
   });
 
   const goalAmount = parseFloat(fundingGoal || "0");
+  const capValue = parseFloat(capAmount || "0");
+  const formattedGoal = goalAmount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const formattedCap =
+    capValue > 0
+      ? capValue.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }) + " USDC"
+      : "No Cap";
+
   const isGoalReachable =
     !isNaN(goalAmount) && maxPossibleFunding >= goalAmount;
   const percentOfGoal =
@@ -84,18 +99,27 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
 
   return (
     <div className="mt-4 p-6 bg-[#FFFFFF0A] rounded-lg border border-[#FFFFFF1A] shadow-lg">
-      <div className="flex justify-end items-center mb-3">
-        <div className="flex items-center">
-          <span className="text-sm text-gray-300 mr-2">
-            Maximum Possible Funding:
-          </span>
-          <span
+      {/* Funding Statistics */}
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="p-3 bg-[#FFFFFF08] rounded-md">
+          <div className="text-xs text-gray-400 mb-1">Target Goal</div>
+          <div className="text-md font-semibold text-white">
+            {formattedGoal} USDC
+          </div>
+        </div>
+        <div className="p-3 bg-[#FFFFFF08] rounded-md">
+          <div className="text-xs text-gray-400 mb-1">Funding Cap</div>
+          <div className="text-md font-semibold text-white">{formattedCap}</div>
+        </div>
+        <div className="p-3 bg-[#FFFFFF08] rounded-md">
+          <div className="text-xs text-gray-400 mb-1">Maximum Funding</div>
+          <div
             className={`text-md font-semibold ${
               isGoalReachable ? "text-[#9EEB00]" : "text-[#F87171]"
             }`}
           >
             {formattedMax} USDC
-          </span>
+          </div>
         </div>
       </div>
 

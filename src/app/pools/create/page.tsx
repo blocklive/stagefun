@@ -460,7 +460,11 @@ export default function CreatePoolPage() {
         {/* Funding Summary Section */}
         <div className="px-6 mb-16">
           <h2 className="text-2xl font-bold mb-4">Funding Summary</h2>
-          <FundingSummary tiers={tiers} fundingGoal={fundingGoal} />
+          <FundingSummary
+            tiers={tiers}
+            fundingGoal={fundingGoal}
+            capAmount={capAmount}
+          />
         </div>
 
         {/* Launch Button */}
