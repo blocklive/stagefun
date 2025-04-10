@@ -228,6 +228,23 @@ export default function CreatePoolPage() {
         if (tierPrice <= 0) {
           throw new Error(`Tier price must be greater than 0`);
         }
+
+        // Validate that tier price does not exceed cap amount (if cap is set)
+        if (cap > 0 && tierPrice > cap) {
+          throw new Error(
+            `Tier "${tier.name}" price (${tierPrice}) exceeds the funding cap (${cap})`
+          );
+        }
+
+        // For variable price tiers, also check max price
+        if (tier.isVariablePrice) {
+          const maxPrice = parseFloat(tier.maxPrice);
+          if (cap > 0 && maxPrice > cap) {
+            throw new Error(
+              `Tier "${tier.name}" max price (${maxPrice}) exceeds the funding cap (${cap})`
+            );
+          }
+        }
       }
 
       // Check if funding goal is achievable with current tier configuration

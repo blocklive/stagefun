@@ -115,9 +115,9 @@ export default function RichTextEditor({
       }
 
       // Upload the image using the existing uploadPoolImage function
-      const imageUrl = await uploadPoolImage(file, supabase);
+      const result = await uploadPoolImage(file, supabase);
 
-      if (!imageUrl) {
+      if (!result.imageUrl) {
         throw new Error("Failed to upload image");
       }
 
@@ -127,7 +127,7 @@ export default function RichTextEditor({
         .focus()
         .insertContent({
           type: "image",
-          attrs: { src: imageUrl },
+          attrs: { src: result.imageUrl },
         })
         .run();
     } catch (error) {

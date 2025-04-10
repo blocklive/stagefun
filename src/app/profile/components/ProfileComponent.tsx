@@ -639,7 +639,7 @@ export default function ProfileComponent({
                       setTimeout(() => setCopied(false), 2000);
                     }
                   }}
-                  className="ml-2 p-1"
+                  className="ml-2 p-1 w-6 h-6 flex items-center justify-center"
                 >
                   {copied ? (
                     <FaCheck className="text-[#9EEB00] text-sm" />

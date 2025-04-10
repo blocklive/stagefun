@@ -25,6 +25,16 @@ interface TierCardProps {
   setIsUploadingImage: (id: string, isUploading: boolean) => void;
   availableRewardItems: RewardItem[];
   onCreateNewReward: (tierId: string) => void;
+  onAddReward: (tierId: string) => void;
+  onRemoveReward: (tierId: string, rewardId: string) => void;
+  onUpdateReward: (
+    tierId: string,
+    rewardId: string,
+    field: keyof Reward,
+    value: string
+  ) => void;
+  disabled?: boolean;
+  capAmount?: string;
 }
 
 export const TierCard: React.FC<TierCardProps> = ({
@@ -39,6 +49,11 @@ export const TierCard: React.FC<TierCardProps> = ({
   setIsUploadingImage,
   availableRewardItems,
   onCreateNewReward,
+  onAddReward,
+  onRemoveReward,
+  onUpdateReward,
+  disabled = false,
+  capAmount = "0",
 }) => {
   // Handler for image upload start
   const handleUploadStart = (tierId: string) => {
@@ -92,7 +107,11 @@ export const TierCard: React.FC<TierCardProps> = ({
 
         {/* Right side - Tier details form */}
         <div className="order-last md:order-last flex-grow">
-          <TierDetailsForm tier={tier} onUpdateTier={onUpdateTier} />
+          <TierDetailsForm
+            tier={tier}
+            onUpdateTier={onUpdateTier}
+            capAmount={capAmount}
+          />
         </div>
       </div>
 

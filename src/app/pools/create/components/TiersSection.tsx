@@ -652,6 +652,10 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
             setIsUploadingImage={handleSetIsUploadingImage}
             availableRewardItems={availableRewardItems}
             onCreateNewReward={handleCreateNewReward}
+            capAmount={fundingGoal}
+            onAddReward={() => {}}
+            onRemoveReward={() => {}}
+            onUpdateReward={() => {}}
           />
         ))}
       </div>
