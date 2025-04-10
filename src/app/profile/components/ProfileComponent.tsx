@@ -35,6 +35,10 @@ import showToast from "@/utils/toast";
 import TabComponent from "./TabComponent";
 import PoolList from "./PoolList";
 import { ensureSmartWallet } from "../../../lib/utils/smartWalletUtils";
+import AccountSetupMessage from "./AccountSetupMessage";
+import AccountSetupBadge from "./AccountSetupBadge";
+import { useSmartWalletInitializer } from "../../../hooks/useSmartWalletInitializer";
+import { useAvatarUpload } from "../../../hooks/useAvatarUpload";
 
 interface ProfileComponentProps {
   isUsernameRoute?: boolean;
@@ -63,10 +67,16 @@ export default function ProfileComponent({
   // Avatar upload state
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showGetTokensModal, setShowGetTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Use our custom hook for avatar uploads
+  const { isUploading, uploadAvatar } = useAvatarUpload(
+    dbUser,
+    privyUser,
+    refreshUser
+  );
 
   // Get the user identifier from the URL
   const profileUserId = isUsernameRoute ? null : (params?.id as string);
@@ -131,67 +141,54 @@ export default function ProfileComponent({
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
-  // Check for smart wallet on page load and initialize if needed
-  useEffect(() => {
-    const initializeSmartWallet = async () => {
-      // Only check for own profile
-      if (!isOwnProfile || !privyUser || !dbUser) return;
-
-      // Check if we already have a smart wallet
-      if (dbUser.smart_wallet_address && smartWalletAddress) {
-        console.log("Smart wallet already available:", smartWalletAddress);
-        return;
-      }
-
-      console.log("Checking smart wallet on profile page load");
-      const result = await ensureSmartWallet(privyUser);
-
-      if (result.success) {
-        console.log("Smart wallet initialized:", result.smartWalletAddress);
-        // Refresh user data to update UI with new wallet info
-        await refreshUser();
-      } else {
-        console.log("Smart wallet initialization skipped:", result.error);
-      }
-    };
-
-    if (ready && authenticated && dbUser) {
-      initializeSmartWallet();
-    }
-  }, [
-    isOwnProfile,
+  // Initialize smart wallet if needed using our custom hook
+  useSmartWalletInitializer({
+    isOwnProfile: Boolean(isOwnProfile),
     privyUser,
     dbUser,
     smartWalletAddress,
-    ready,
-    authenticated,
     refreshUser,
-  ]);
+    authenticated,
+    ready,
+  });
+
+  // Reset profile data when URL parameters change to prevent showing cached data
+  useEffect(() => {
+    // Clear profile user data when URL parameters change
+    setProfileUser(null);
+  }, [profileUserId, profileUsername, isUsernameRoute]);
 
   // Fetch profile user data if viewing someone else's profile
   useEffect(() => {
     async function fetchProfileUser() {
-      if (!profileUserId && !profileUsername) {
-        console.log("No profile identifier, using current user");
-        setProfileUser(dbUser);
-        return;
-      }
-
-      if (
-        dbUser &&
-        ((profileUserId && profileUserId === dbUser.id) ||
-          (profileUsername &&
-            profileUsername.toLowerCase() === dbUser.username?.toLowerCase()))
-      ) {
-        console.log(
-          "Profile identifier matches current user, using current user"
-        );
-        setProfileUser(dbUser);
-        return;
-      }
-
+      // Always start with loading state when fetching profile
       setIsLoadingProfileUser(true);
+
       try {
+        // Case 1: No ID or username in URL - viewing own profile
+        if (!profileUserId && !profileUsername) {
+          console.log("No profile identifier, using current user");
+          setProfileUser(dbUser);
+          setIsLoadingProfileUser(false);
+          return;
+        }
+
+        // Case 2: ID or username matches current user - viewing own profile
+        if (
+          dbUser &&
+          ((profileUserId && profileUserId === dbUser.id) ||
+            (profileUsername &&
+              profileUsername.toLowerCase() === dbUser.username?.toLowerCase()))
+        ) {
+          console.log(
+            "Profile identifier matches current user, using current user"
+          );
+          setProfileUser(dbUser);
+          setIsLoadingProfileUser(false);
+          return;
+        }
+
+        // Case 3: Viewing someone else's profile - must fetch from database
         let user = null;
 
         if (isUsernameRoute && profileUsername) {
@@ -214,6 +211,7 @@ export default function ProfileComponent({
           return;
         }
 
+        // Important: Set the profile user data with what we fetched
         setProfileUser(user);
       } catch (error) {
         console.error("Error fetching profile user:", error);
@@ -256,8 +254,57 @@ export default function ProfileComponent({
     );
   }
 
+  // Show loading state when fetching profile user
+  if (
+    isLoadingProfileUser ||
+    (profileUser === null && (profileUserId || profileUsername))
+  ) {
+    return (
+      <>
+        <AppHeader
+          showBackButton={true}
+          showTitle={false}
+          backgroundColor="#15161a"
+          showGetTokensButton={false}
+          showCreateButton={true}
+          showPointsButton={true}
+          onBackClick={() => router.back()}
+        />
+        <div className="flex items-center justify-center h-[80vh] bg-[#121212]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        </div>
+      </>
+    );
+  }
+
+  // Make sure we have profile data
+  if (!profileUser) {
+    return (
+      <>
+        <AppHeader
+          showBackButton={true}
+          showTitle={false}
+          backgroundColor="#15161a"
+          showGetTokensButton={false}
+          showCreateButton={true}
+          showPointsButton={true}
+          onBackClick={() => router.back()}
+        />
+        <div className="flex items-center justify-center h-[80vh] bg-[#121212] flex-col">
+          <div className="text-white mb-4">Profile not found</div>
+          <button
+            onClick={() => router.back()}
+            className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white transition-colors"
+          >
+            Go back
+          </button>
+        </div>
+      </>
+    );
+  }
+
   // Use the appropriate user data for display
-  const user = profileUser || dbUser;
+  const user = profileUser;
   const displayName = user?.name || "Anonymous";
 
   // Handle image selection
@@ -283,8 +330,12 @@ export default function ProfileComponent({
       };
       reader.readAsDataURL(file);
 
-      // Upload the image immediately
-      uploadImage(file);
+      // Upload the image immediately using our custom hook
+      uploadAvatar(file).then((url) => {
+        if (url) {
+          setImagePreview(url);
+        }
+      });
     }
   };
 
@@ -292,225 +343,6 @@ export default function ProfileComponent({
   const handleRemoveImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
-  };
-
-  // Upload image to Supabase
-  const uploadImage = async (file: File) => {
-    if (!dbUser || !privyUser) {
-      showToast.error("You must be logged in to upload an avatar");
-      return;
-    }
-
-    const loadingToast = showToast.loading("Uploading avatar...");
-
-    try {
-      setIsUploadingImage(true);
-      console.log("Starting avatar upload...");
-
-      // Create a unique file name
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${dbUser.id}_${Date.now()}.${fileExt}`;
-      // Use just the filename without any prefix
-      const filePath = fileName;
-
-      console.log(`Uploading to path: ${filePath}`);
-
-      // Get Supabase client from window object
-      const supabase = (window as any).supabase;
-
-      if (!supabase) {
-        throw new Error("Supabase client not available");
-      }
-
-      // Try direct fetch upload first
-      try {
-        console.log("Trying direct fetch upload...");
-        showToast.loading("Processing image...", { id: loadingToast });
-
-        // Create a FormData object
-        const formData = new FormData();
-        formData.append("file", file);
-
-        // Get the anon key from the environment
-        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-        if (!anonKey) {
-          throw new Error("Supabase anon key not available");
-        }
-
-        // Use fetch API to upload directly to Supabase Storage REST API
-        // Note: The correct URL format is /storage/v1/object/user-images (without 'public/')
-        const uploadResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/user-images/${filePath}`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${anonKey}`,
-            },
-            body: formData,
-          }
-        );
-
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error("Direct fetch upload failed:", errorText);
-          throw new Error(`Upload failed: ${errorText}`);
-        }
-
-        console.log("Upload successful via direct fetch");
-
-        // Get the public URL - use the correct format
-        const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/user-images/${filePath}`;
-
-        console.log("Generated public URL:", publicUrl);
-
-        // Update user avatar directly in the UI first
-        setImagePreview(publicUrl);
-
-        // Update the user record directly using Supabase client
-        console.log("Updating user record directly with Supabase client");
-        const { data: updateData, error: updateError } = await supabase
-          .from("users")
-          .update({ avatar_url: publicUrl })
-          .eq("id", dbUser.id)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error("Direct update failed:", updateError);
-
-          // Try the API route as a fallback
-          try {
-            console.log("Trying API route as fallback...");
-            const updateResponse = await fetch("/api/update-user-avatar", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                userId: dbUser.id,
-                avatarUrl: publicUrl,
-              }),
-            });
-
-            if (!updateResponse.ok) {
-              const responseText = await updateResponse.text();
-              console.error("API route update failed:", responseText);
-              throw new Error(`API update failed: ${responseText}`);
-            }
-
-            console.log("User updated via API route");
-          } catch (apiError) {
-            console.error("API route update failed:", apiError);
-            // Continue anyway since the image was uploaded
-          }
-        } else {
-          console.log("User updated successfully:", updateData);
-        }
-
-        // Refresh user data in context
-        await refreshUser();
-
-        // Show success message
-        showToast.success("Avatar updated successfully!", { id: loadingToast });
-        return;
-      } catch (fetchError) {
-        console.error("Direct fetch upload failed:", fetchError);
-        // Continue to try other methods
-      }
-
-      // Try to upload with the authenticated client
-      try {
-        console.log("Trying Supabase client upload...");
-        showToast.loading("Processing image...", { id: loadingToast });
-
-        const { data, error } = await supabase.storage
-          .from("user-images")
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: true, // Overwrite if exists
-          });
-
-        if (error) {
-          console.error("Supabase client upload error:", error);
-          throw error;
-        }
-
-        console.log("Upload successful via Supabase client:", data);
-
-        // Get the public URL
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("user-images").getPublicUrl(filePath);
-
-        console.log("Generated public URL:", publicUrl);
-
-        // Update user avatar directly in the UI
-        setImagePreview(publicUrl);
-
-        // Update the user record directly using Supabase client
-        console.log("Updating user record directly with Supabase client");
-        const { data: updateData, error: updateError } = await supabase
-          .from("users")
-          .update({ avatar_url: publicUrl })
-          .eq("id", dbUser.id)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error("Direct update failed:", updateError);
-
-          // Try the API route as a fallback
-          try {
-            console.log("Trying API route as fallback...");
-            const updateResponse = await fetch("/api/update-user-avatar", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                userId: dbUser.id,
-                avatarUrl: publicUrl,
-              }),
-            });
-
-            if (!updateResponse.ok) {
-              const responseText = await updateResponse.text();
-              console.error("API route update failed:", responseText);
-              throw new Error(`API update failed: ${responseText}`);
-            }
-
-            console.log("User updated via API route");
-          } catch (apiError) {
-            console.error("API route update failed:", apiError);
-            // Continue anyway since the image was uploaded
-          }
-        } else {
-          console.log("User updated successfully:", updateData);
-        }
-
-        // Refresh user data in context
-        await refreshUser();
-
-        // Show success message
-        showToast.success("Avatar updated successfully!", { id: loadingToast });
-      } catch (supabaseError) {
-        console.error("Supabase client upload error:", supabaseError);
-        showToast.error("Failed to upload avatar. Please try again.", {
-          id: loadingToast,
-        });
-      }
-    } catch (error) {
-      console.error("Error uploading avatar:", error);
-      showToast.error("Failed to upload avatar. Please try again.", {
-        id: loadingToast,
-      });
-    } finally {
-      setIsUploadingImage(false);
-      // Don't reset the image preview so the user can see the uploaded image
-      // setSelectedImage(null);
-      // setImagePreview(null);
-    }
   };
 
   // Function to handle export wallet - fix to export the embedded wallet
@@ -581,7 +413,7 @@ export default function ProfileComponent({
   return (
     <>
       <AppHeader
-        showBackButton={false}
+        showBackButton={true}
         showTitle={false}
         backgroundColor="#15161a"
         showGetTokensButton={true}
@@ -594,18 +426,6 @@ export default function ProfileComponent({
 
       {/* Main Content */}
       <div className="px-4 pb-24 md:pb-8">
-        {/* Back button if needed */}
-        {!isOwnProfile && (
-          <div className="py-2">
-            <button
-              onClick={() => router.back()}
-              className="w-12 h-12 bg-[#FFFFFF14] rounded-full flex items-center justify-center text-white hover:bg-[#FFFFFF1A] transition-colors"
-            >
-              <FaArrowLeft />
-            </button>
-          </div>
-        )}
-
         {/* Profile Header with Avatar and Name */}
         <div className="relative pt-12 pb-8 flex flex-col items-center bg-gradient-to-b from-[#1A0B3E] to-[#4A2A9A]">
           {/* Avatar with Edit Button */}
@@ -624,7 +444,7 @@ export default function ProfileComponent({
                 <UserAvatar user={user} size={112} />
               )}
 
-              {isUploadingImage && (
+              {isUploading && (
                 <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full">
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
                 </div>
@@ -731,94 +551,10 @@ export default function ProfileComponent({
 
           {/* Show account setup in progress if we don't have a smart wallet */}
           {isOwnProfile && !user?.smart_wallet_address && (
-            <div className="mt-2 mb-3 flex flex-col items-center">
-              <div className="flex items-center px-4 py-2 bg-[#FFFFFF0A] rounded-lg mb-2">
-                <span className="text-amber-400 text-sm flex items-center">
-                  <svg
-                    className="w-4 h-4 mr-1"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M12 8V12"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M12 16H12.01"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  Account setup in progress
-                </span>
-              </div>
-              <button
-                onClick={async () => {
-                  const loadingToast = showToast.loading(
-                    "Checking account status..."
-                  );
-                  const result = await ensureSmartWallet(
-                    privyUser,
-                    loadingToast
-                  );
-                  if (result.success) {
-                    showToast.success("Account initialized successfully!", {
-                      id: loadingToast,
-                    });
-                    await refreshUser();
-                  } else {
-                    showToast.error(
-                      result.error || "Failed to initialize account",
-                      { id: loadingToast }
-                    );
-                  }
-                }}
-                className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors flex items-center"
-              >
-                <svg
-                  className="w-4 h-4 mr-1"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M23 4V10H17"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M1 20V14H7"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M3.51 9.00001C4.01717 7.56328 4.87913 6.2763 6.01547 5.27543C7.1518 4.27455 8.52547 3.59073 10.0083 3.29028C11.4911 2.98983 13.0348 3.08326 14.4761 3.56327C15.9175 4.04328 17.2124 4.89345 18.24 6.00001L23 10M1 14L5.76 18C6.78761 19.1066 8.08254 19.9567 9.52387 20.4367C10.9652 20.9168 12.5089 21.0102 13.9917 20.7097C15.4745 20.4093 16.8482 19.7255 17.9845 18.7246C19.1209 17.7237 19.9828 16.4367 20.49 15"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                Refresh account status
-              </button>
-            </div>
+            <AccountSetupBadge
+              privyUser={privyUser}
+              onSmartWalletReady={refreshUser}
+            />
           )}
 
           {/* Only show Wallet Action Buttons if viewing own profile */}
@@ -989,49 +725,63 @@ export default function ProfileComponent({
           </div>
         )}
 
-        {/* Pool Tabs - Make full width without padding */}
-        <TabComponent
-          tabs={[
-            { id: "hosted", label: "Hosted" },
-            { id: "funded", label: "Funded" },
-          ]}
-          activeTab={activeTab}
-          onTabChange={(tabId) => setActiveTab(tabId as "hosted" | "funded")}
-        />
+        {/* Pool Tabs - Only show if user has a smart wallet */}
+        {user.smart_wallet_address ? (
+          <>
+            <TabComponent
+              tabs={[
+                { id: "hosted", label: "Hosted" },
+                { id: "funded", label: "Funded" },
+              ]}
+              activeTab={activeTab}
+              onTabChange={(tabId) =>
+                setActiveTab(tabId as "hosted" | "funded")
+              }
+            />
 
-        {/* Pool List */}
-        <div className="flex-1 p-4 pb-32">
-          {activeTab === "hosted" ? (
-            <PoolList
-              pools={userHostedPools}
-              isLoading={userPoolsLoading}
-              error={userPoolsError}
-              isUsingCache={isHostedUsingCache}
-              emptyMessage={
-                isOwnProfile
-                  ? "You haven't created any pools yet."
-                  : `${displayName} hasn't created any pools yet.`
-              }
-              getPoolStatus={getPoolStatus}
-              isOwnProfile={isOwnProfile ? true : false}
-              profileName={displayName}
-            />
-          ) : (
-            <PoolList
-              pools={userFundedPools}
-              isLoading={fundedPoolsLoading}
-              error={fundedPoolsError}
-              emptyMessage={
-                isOwnProfile
-                  ? "You haven't funded any pools yet."
-                  : `${displayName} hasn't funded any pools yet.`
-              }
-              getPoolStatus={getPoolStatus}
-              isOwnProfile={isOwnProfile ? true : false}
-              profileName={displayName}
-            />
-          )}
-        </div>
+            {/* Pool List */}
+            <div className="flex-1 p-4 pb-32">
+              {activeTab === "hosted" ? (
+                <PoolList
+                  pools={userHostedPools}
+                  isLoading={userPoolsLoading}
+                  error={userPoolsError}
+                  isUsingCache={isHostedUsingCache}
+                  emptyMessage={
+                    isOwnProfile
+                      ? "You haven't created any pools yet."
+                      : `${displayName} hasn't created any pools yet.`
+                  }
+                  getPoolStatus={getPoolStatus}
+                  isOwnProfile={Boolean(isOwnProfile)}
+                  profileName={displayName}
+                />
+              ) : (
+                <PoolList
+                  pools={userFundedPools}
+                  isLoading={fundedPoolsLoading}
+                  error={fundedPoolsError}
+                  emptyMessage={
+                    isOwnProfile
+                      ? "You haven't funded any pools yet."
+                      : `${displayName} hasn't funded any pools yet.`
+                  }
+                  getPoolStatus={getPoolStatus}
+                  isOwnProfile={Boolean(isOwnProfile)}
+                  profileName={displayName}
+                />
+              )}
+            </div>
+          </>
+        ) : (
+          <AccountSetupMessage
+            user={user}
+            displayName={displayName}
+            isOwnProfile={Boolean(isOwnProfile)}
+            privyUser={privyUser}
+            onSmartWalletReady={refreshUser}
+          />
+        )}
       </div>
 
       {/* Modals */}
