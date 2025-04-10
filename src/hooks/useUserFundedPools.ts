@@ -171,7 +171,7 @@ const fetchFundedPools = async (userWalletAddress: string) => {
     );
 
     // Use a default tier name since we're not fetching tier names
-    let tierName = "Backer";
+    const tierName = "Backer";
 
     // Calculate display status
     const displayStatus = getDisplayStatus(
