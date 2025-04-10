@@ -24,6 +24,7 @@ import {
 import { useUserAssets } from "../../../hooks/useUserAssets";
 import AppHeader from "../../components/AppHeader";
 import { useUserHostedPools } from "../../../hooks/useUserHostedPools";
+import { useUserFundedPools } from "../../../hooks/useUserFundedPools";
 import GetTokensModal from "../../components/GetTokensModal";
 import InfoModal from "../../components/InfoModal";
 import SendAssetModal from "../../components/SendAssetModal";
@@ -31,6 +32,8 @@ import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import UserAvatar from "../../components/UserAvatar";
 import showToast from "@/utils/toast";
+import TabComponent from "./TabComponent";
+import PoolList from "./PoolList";
 
 interface ProfileComponentProps {
   isUsernameRoute?: boolean;
@@ -53,6 +56,7 @@ export default function ProfileComponent({
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [isLoadingPools, setIsLoadingPools] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<"hosted" | "funded">("hosted");
   const { smartWalletAddress } = useSmartWallet();
 
   // Avatar upload state
@@ -86,8 +90,18 @@ export default function ProfileComponent({
     isLoading: userPoolsLoading,
     error: userPoolsError,
     refresh: refreshUserPools,
-    isUsingCache,
+    isUsingCache: isHostedUsingCache,
   } = useUserHostedPools(userId);
+
+  // For funded pools, we need the user's wallet address
+  const userWalletAddress =
+    profileUser?.smart_wallet_address || dbUser?.smart_wallet_address;
+  const {
+    pools: userFundedPools,
+    isLoading: fundedPoolsLoading,
+    error: fundedPoolsError,
+    refresh: refreshFundedPools,
+  } = useUserFundedPools(userWalletAddress);
 
   // Get user assets
   const {
@@ -845,79 +859,47 @@ export default function ProfileComponent({
           </div>
         )}
 
-        {/* Heading for Hosted Pools */}
-        <div className="px-4 py-4 border-b border-gray-800">
-          <h2 className="text-xl font-bold">
-            {isOwnProfile ? "My Hosted Pools" : `${displayName}'s Hosted Pools`}
-          </h2>
-        </div>
+        {/* Pool Tabs - Make full width without padding */}
+        <TabComponent
+          tabs={[
+            { id: "hosted", label: "Hosted" },
+            { id: "funded", label: "Funded" },
+          ]}
+          activeTab={activeTab}
+          onTabChange={(tabId) => setActiveTab(tabId as "hosted" | "funded")}
+        />
 
         {/* Pool List */}
         <div className="flex-1 p-4 pb-32">
-          {userPoolsLoading ? (
-            <div className="flex justify-center py-8">
-              <div
-                className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2"
-                style={{ borderColor: "#836EF9" }}
-              ></div>
-            </div>
-          ) : userPoolsError ? (
-            <div className="text-center py-8 text-red-400">
-              <p>Error loading pools. Please try again.</p>
-              {isUsingCache && (
-                <p className="text-sm mt-1">
-                  There was an issue connecting to the blockchain. Using cached
-                  data if available.
-                </p>
-              )}
-            </div>
-          ) : userHostedPools.length > 0 ? (
-            <div className="space-y-4">
-              {userHostedPools.map((pool) => (
-                <div
-                  key={pool.id}
-                  className="bg-[#FFFFFF0A] rounded-xl overflow-hidden cursor-pointer hover:bg-[#2A2640] transition-colors p-4"
-                  onClick={() => router.push(`/pools/${pool.id}`)}
-                >
-                  <div className="flex items-center">
-                    <div
-                      className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                      style={{ backgroundColor: "#2A2640" }}
-                    >
-                      {pool.image_url ? (
-                        <Image
-                          src={pool.image_url}
-                          alt={pool.name}
-                          width={48}
-                          height={48}
-                          className="w-full h-full object-cover"
-                          unoptimized={true}
-                        />
-                      ) : null}
-                    </div>
-                    <div className="ml-4 flex-1">
-                      <h3 className="font-bold">{pool.name}</h3>
-                      <div className="flex items-center text-sm">
-                        <span className={`text-gray-400 flex items-center`}>
-                          <span
-                            className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                              getPoolStatus(pool).colorClass
-                            }`}
-                          ></span>
-                          {getPoolStatus(pool).text}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          {activeTab === "hosted" ? (
+            <PoolList
+              pools={userHostedPools}
+              isLoading={userPoolsLoading}
+              error={userPoolsError}
+              isUsingCache={isHostedUsingCache}
+              emptyMessage={
+                isOwnProfile
+                  ? "You haven't created any pools yet."
+                  : `${displayName} hasn't created any pools yet.`
+              }
+              getPoolStatus={getPoolStatus}
+              isOwnProfile={isOwnProfile ? true : false}
+              profileName={displayName}
+            />
           ) : (
-            <div className="text-center py-8 text-gray-400">
-              {isOwnProfile
-                ? "You haven't created any pools yet."
-                : `${displayName} hasn't created any pools yet.`}
-            </div>
+            <PoolList
+              pools={userFundedPools}
+              isLoading={fundedPoolsLoading}
+              error={fundedPoolsError}
+              emptyMessage={
+                isOwnProfile
+                  ? "You haven't funded any pools yet."
+                  : `${displayName} hasn't funded any pools yet.`
+              }
+              getPoolStatus={getPoolStatus}
+              isOwnProfile={isOwnProfile ? true : false}
+              profileName={displayName}
+            />
           )}
         </div>
       </div>
