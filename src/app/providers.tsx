@@ -4,6 +4,7 @@ import { PrivyProvider } from "@privy-io/react-auth";
 import { SmartWalletsProvider } from "@privy-io/react-auth/smart-wallets";
 import { SupabaseProvider } from "../contexts/SupabaseContext";
 import { ContractInteractionProvider } from "../contexts/ContractInteractionContext";
+import SmartWalletInitializer from "../components/SmartWalletInitializer";
 
 // Define the chain configuration once to ensure consistency
 const MONAD_TESTNET = {
@@ -83,7 +84,10 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
         }}
       >
         <SupabaseProvider>
-          <ContractInteractionProvider>{children}</ContractInteractionProvider>
+          <ContractInteractionProvider>
+            <SmartWalletInitializer />
+            {children}
+          </ContractInteractionProvider>
         </SupabaseProvider>
       </SmartWalletsProvider>
     </PrivyProvider>

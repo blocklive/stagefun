@@ -19,6 +19,11 @@ import {
 import { CONTRACT_ADDRESSES } from "../lib/contracts/addresses";
 import { useSmartWallet } from "./useSmartWallet";
 import showToast from "@/utils/toast";
+import {
+  ensureSmartWallet,
+  validateSmartWallet,
+  standardizeSmartWalletError,
+} from "../lib/utils/smartWalletUtils";
 
 // Define the interface for pool creation data
 interface PoolCreationData {
@@ -181,9 +186,21 @@ export function usePoolCreationContract(): PoolCreationHookResult {
           throw new Error("User not logged in");
         }
 
-        if (!smartWalletAddress) {
+        // Ensure smart wallet is available, with DB synchronization
+        const loadingToast = showToast.loading("Preparing pool creation...");
+        const smartWalletResult = await ensureSmartWallet(user, loadingToast);
+
+        if (!smartWalletResult.success) {
           throw new Error(
-            "Smart wallet not available. Please contact support."
+            smartWalletResult.error ||
+              "Smart wallet sync in progress, please retry"
+          );
+        }
+
+        // Now that we've verified wallet exists, use the original smartWalletAddress from the hook
+        if (!smartWalletAddress || !callContractFunction) {
+          throw new Error(
+            "Smart wallet functions not available. Please try again later."
           );
         }
 
@@ -218,6 +235,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         );
 
         console.log("Pool creation completed successfully:", result);
+        showToast.dismiss(loadingToast);
 
         return {
           receipt: result.receipt,
@@ -227,13 +245,24 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         };
       } catch (err: any) {
         console.error("Error creating pool:", err);
-        setError(err.message || "Error creating pool on chain");
+
+        // Use the standardized error message utility
+        const errorMessage = err.message || "Error creating pool on chain";
+        const standardizedError = standardizeSmartWalletError(errorMessage);
+
+        // If it's a smart wallet error (different from original), handle accordingly
+        if (standardizedError !== errorMessage) {
+          setError(standardizedError);
+        } else {
+          setError(errorMessage);
+        }
+
         throw err;
       } finally {
         setIsLoading(false);
       }
     },
-    [user, smartWalletAddress, callContractFunction, getProvider]
+    [user, callContractFunction, getProvider, smartWalletAddress]
   );
 
   // Create a pool on the blockchain and then call the backend API
@@ -250,11 +279,16 @@ export function usePoolCreationContract(): PoolCreationHookResult {
           throw new Error("User not logged in");
         }
 
-        if (!smartWalletAddress) {
-          showToast.error("Smart wallet not ready", { id: loadingToast });
-          throw new Error(
-            "Smart wallet not available. Please contact support."
-          );
+        // Validate smart wallet is available using the new utility
+        const walletValidation = await validateSmartWallet(
+          user,
+          loadingToast,
+          smartWalletAddress || undefined,
+          callContractFunction
+        );
+
+        if (!walletValidation.success) {
+          throw new Error(walletValidation.error);
         }
 
         console.log(
@@ -448,22 +482,29 @@ export function usePoolCreationContract(): PoolCreationHookResult {
             poolAddress: blockchainResult.poolAddress,
           };
         }
-      } catch (err: any) {
-        console.error("Error in createPoolWithDatabase (outer catch):", err);
-        setError(err.message || "Error creating pool");
-        showToast.error(err.message || "Error creating pool", {
-          id: loadingToast, // Update the final error toast
-        });
-        return {
-          success: false,
-          error: err.message || "Unknown error in pool creation process",
-        };
+      } catch (error: any) {
+        console.error("Error in createPoolWithDatabase:", error);
+
+        // Use the standardized error message utility
+        const errorMessage = error.message || "Unknown error occurred";
+        const standardizedError = standardizeSmartWalletError(errorMessage);
+
+        // If it's a smart wallet error (different from original), handle accordingly
+        if (standardizedError !== errorMessage) {
+          setError(standardizedError);
+          showToast.error(standardizedError, { id: loadingToast });
+          return { success: false, error: standardizedError };
+        }
+
+        setError(errorMessage);
+        showToast.error(errorMessage, { id: loadingToast });
+        return { success: false, error: errorMessage };
       } finally {
         setIsLoading(false);
       }
     },
-    // Update dependencies: remove supabase-related things, add getAccessToken
-    [user, createPool, getAccessToken, smartWalletAddress] // Keep smartWalletAddress check at start
+    // Include smartWalletAddress in dependencies to match what we're checking
+    [user, createPool, getAccessToken, smartWalletAddress]
   );
 
   return {

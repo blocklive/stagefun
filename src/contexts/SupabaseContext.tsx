@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { supabase, User } from "../lib/supabase";
+import { waitForSmartWalletDuringLogin } from "../lib/utils/smartWalletUtils";
 
 // Make supabase available globally for direct access
 if (typeof window !== "undefined") {
@@ -98,6 +99,17 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
+      // Try to wait for smart wallet creation before proceeding
+      // This will retry up to 3 times with 1-second delays
+      console.log("Checking for smart wallet during login...");
+      const smartWalletAddress = await waitForSmartWalletDuringLogin(privyUser);
+
+      if (smartWalletAddress) {
+        console.log("Smart wallet found during login:", smartWalletAddress);
+      } else {
+        console.log("No smart wallet found during login, continuing anyway");
+      }
+
       // Call our secure backend endpoint for user creation/update instead of direct DB access
       const response = await fetch("/api/auth/complete-login", {
         method: "POST",
@@ -118,7 +130,6 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      console.log("User authenticated and updated successfully:", result.user);
       setDbUser(result.user);
     } catch (error) {
       console.error("Error fetching user:", error);

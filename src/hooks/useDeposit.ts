@@ -10,6 +10,10 @@ import { StageDotFunPoolABI } from "../lib/contracts/StageDotFunPool";
 import { useSmartWallet } from "./useSmartWallet";
 import { useSmartWalletBalance } from "./useSmartWalletBalance";
 import { getUSDCContract } from "../lib/contracts/StageDotFunPool";
+import {
+  ensureSmartWallet,
+  standardizeSmartWalletError,
+} from "../lib/utils/smartWalletUtils";
 
 export interface UseDepositResult {
   isLoading: boolean;
@@ -169,245 +173,258 @@ export function useDeposit(): UseDepositResult {
           throw new Error(errorMsg);
         }
 
-        // Check USDC allowance
-        if (smartWalletAddress && callContractFunction) {
-          console.log("Using smart wallet for deposit:", smartWalletAddress);
-          showToast.loading("Using smart wallet with gas sponsorship...", {
-            id: loadingToast,
-          });
+        // Ensure smart wallet is available, with DB synchronization
+        const smartWalletResult = await ensureSmartWallet(user, loadingToast);
 
-          // CRITICAL: Check if user has enough USDC balance in their smart wallet
-          if (amount > 0) {
-            try {
-              await refreshSmartWalletBalance();
-              const userBalanceInWei = ethers.parseUnits(
-                smartWalletBalance || "0",
-                6
-              );
+        if (!smartWalletResult.success) {
+          throw new Error(
+            smartWalletResult.error ||
+              "Smart wallet sync in progress, please retry"
+          );
+        }
 
-              if (userBalanceInWei < commitAmount) {
-                const errorMessage = `Insufficient USDC balance. You have ${smartWalletBalance} USDC but need ${ethers.formatUnits(
-                  commitAmount,
-                  6
-                )} USDC.`;
-                console.error(errorMessage);
-                showToast.error(errorMessage, { id: loadingToast });
-                return { success: false, error: errorMessage };
-              }
-            } catch (balanceError) {
-              console.warn(
-                "Could not verify balance, proceeding with transaction anyway:",
-                balanceError
-              );
-            }
-          }
+        // Now that we've verified wallet exists, use the original smartWalletAddress from the hook
+        // This ensures we're using the same instance that callContractFunction is tied to
+        if (!smartWalletAddress || !callContractFunction) {
+          throw new Error(
+            "Smart wallet functions not available. Please try again later."
+          );
+        }
 
-          // Use smart wallet address for allowance check
-          let hasEnoughAllowance = false;
-          let currentAllowance = BigInt(0);
+        console.log("Using smart wallet for deposit:", smartWalletAddress);
+        showToast.loading("Using smart wallet with gas sponsorship...", {
+          id: loadingToast,
+        });
 
+        // CRITICAL: Check if user has enough USDC balance in their smart wallet
+        if (amount > 0) {
           try {
-            const allowanceCheck = await depositService.checkUSDCAllowance(
-              smartWalletAddress,
-              poolAddress,
-              commitAmount
+            await refreshSmartWalletBalance();
+            const userBalanceInWei = ethers.parseUnits(
+              smartWalletBalance || "0",
+              6
             );
-            hasEnoughAllowance = allowanceCheck.hasEnoughAllowance;
-            currentAllowance = allowanceCheck.currentAllowance;
 
-            console.log("USDC allowance check (smart wallet):", {
-              hasEnoughAllowance,
-              currentAllowance: currentAllowance.toString(),
-              requiredAmount: commitAmount.toString(),
-            });
-          } catch (allowanceError) {
-            console.warn(
-              "Error checking allowance, will attempt approval if needed:",
-              allowanceError
-            );
-            // If allowance check fails, we'll assume we need to approve
-            hasEnoughAllowance = false;
-          }
-
-          // Approve USDC if needed - skip for 0 amount variable price tiers
-          if (!hasEnoughAllowance && amount > 0) {
-            showToast.loading("Approving USDC...", { id: loadingToast });
-            console.log("Approving USDC with smart wallet:", {
-              poolAddress,
-              commitAmount: commitAmount.toString(),
-            });
-
-            try {
-              const approvalResult =
-                await depositService.approveUSDCWithSmartWallet(
-                  callContractFunction,
-                  poolAddress,
-                  commitAmount
-                );
-
-              if (!approvalResult.success) {
-                throw new Error(
-                  approvalResult.error || "Failed to approve USDC"
-                );
-              }
-
-              console.log("USDC approval result:", approvalResult);
-              // Wait for approval transaction to be mined
-              await provider.waitForTransaction(
-                approvalResult.txHash as string
-              );
-
-              // We'll proceed without double-checking the allowance as it might fail again
-            } catch (approvalError) {
-              console.error("USDC approval error:", approvalError);
-              const errorMessage =
-                approvalError instanceof Error
-                  ? approvalError.message
-                  : "Failed to approve USDC";
+            if (userBalanceInWei < commitAmount) {
+              const errorMessage = `Insufficient USDC balance. You have ${smartWalletBalance} USDC but need ${ethers.formatUnits(
+                commitAmount,
+                6
+              )} USDC.`;
+              console.error(errorMessage);
               showToast.error(errorMessage, { id: loadingToast });
               return { success: false, error: errorMessage };
             }
+          } catch (balanceError) {
+            console.warn(
+              "Could not verify balance, proceeding with transaction anyway:",
+              balanceError
+            );
           }
+        }
 
-          // Commit to tier
-          showToast.loading("Initiating deposit transaction...", {
-            id: loadingToast,
-          });
-          console.log("Committing to tier with smart wallet:", {
+        // Use smart wallet address for allowance check
+        let hasEnoughAllowance = false;
+        let currentAllowance = BigInt(0);
+
+        try {
+          const allowanceCheck = await depositService.checkUSDCAllowance(
+            smartWalletAddress,
             poolAddress,
-            tierId,
-            commitAmount: commitAmount.toString(),
-            amount: amount,
-            isZero: amount === 0,
-            shouldSkipRequirements,
-          });
-
-          // For 0 amount variable price tiers, we'll modify the commit process to bypass contract checks
-          console.log(
-            `Preparing to commit ${
-              amount === 0 ? "FREE tier (0 amount)" : "PAID tier"
-            }`
-          );
-
-          const commitResult = await depositService.commitToTierWithSmartWallet(
-            callContractFunction,
-            poolAddress,
-            tierId,
             commitAmount
           );
+          hasEnoughAllowance = allowanceCheck.hasEnoughAllowance;
+          currentAllowance = allowanceCheck.currentAllowance;
 
-          console.log("Commit result:", commitResult);
-
-          if (!commitResult.success) {
-            throw new Error(commitResult.error || "Failed to commit to tier");
-          }
-
-          // Wait for transaction confirmation
-          showToast.loading("Waiting for transaction confirmation...", {
-            id: loadingToast,
+          console.log("USDC allowance check (smart wallet):", {
+            hasEnoughAllowance,
+            currentAllowance: currentAllowance.toString(),
+            requiredAmount: commitAmount.toString(),
           });
-          const receipt = await provider.waitForTransaction(
-            commitResult.txHash as string
+        } catch (allowanceError) {
+          console.warn(
+            "Error checking allowance, will attempt approval if needed:",
+            allowanceError
           );
+          // If allowance check fails, we'll assume we need to approve
+          hasEnoughAllowance = false;
+        }
 
-          // Verify transaction was successful
-          if (!receipt || receipt.status === 0) {
-            throw new Error("Transaction failed on-chain");
-          }
-
-          // Verify balance changes - with timeout and error handling
-          showToast.loading("Verifying deposit...", { id: loadingToast });
-
-          // Wait a bit for blockchain state to update
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-
-          // Use a single verification attempt with timeout
-          let verificationSuccess = false;
+        // Approve USDC if needed - skip for 0 amount variable price tiers
+        if (!hasEnoughAllowance && amount > 0) {
+          showToast.loading("Approving USDC...", { id: loadingToast });
+          console.log("Approving USDC with smart wallet:", {
+            poolAddress,
+            commitAmount: commitAmount.toString(),
+          });
 
           try {
-            // Set a timeout for verification
-            const verificationPromise = new Promise(async (resolve, reject) => {
-              try {
-                // Check if user's tier commitment was recorded
-                const userTiersResult =
-                  await depositService.getUserTierCommitments(
-                    poolAddress,
-                    smartWalletAddress
-                  );
-
-                // Only consider it successful if we got a result with commitments
-                if (
-                  userTiersResult.success &&
-                  userTiersResult.commitments &&
-                  userTiersResult.commitments.length > 0
-                ) {
-                  console.log(
-                    "User tier commitments after transaction:",
-                    userTiersResult.commitments
-                  );
-                  verificationSuccess = true;
-                  resolve(true);
-                } else {
-                  // No tier commitments found, might be a transaction failure
-                  reject(
-                    new Error("No tier commitments found after transaction")
-                  );
-                }
-              } catch (error) {
-                reject(error);
-              }
-            });
-
-            // Set a timeout for verification
-            const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(
-                () => reject(new Error("Verification timed out")),
-                10000
-              )
-            );
-
-            // Race the verification against timeout
-            await Promise.race([verificationPromise, timeoutPromise]);
-
-            // If we get here, verification succeeded
-            showToast.success("Successfully committed to tier!", {
-              id: loadingToast,
-            });
-            return { success: true, txHash: commitResult.txHash };
-          } catch (verificationError) {
-            console.warn("Verification error or timeout:", verificationError);
-
-            // Even if verification fails, assume success if the transaction was confirmed
-            if (receipt && receipt.status === 1) {
-              showToast.success(
-                "Transaction confirmed on-chain! You have successfully committed to the tier.",
-                { id: loadingToast }
+            const approvalResult =
+              await depositService.approveUSDCWithSmartWallet(
+                callContractFunction,
+                poolAddress,
+                commitAmount
               );
-              return { success: true, txHash: commitResult.txHash };
-            } else {
-              // This is unusual - transaction says it confirmed but verification failed completely
-              showToast.error(
-                "Transaction appears to have completed, but verification failed. Please check your commitments later.",
-                { id: loadingToast }
-              );
-              return {
-                success: true,
-                txHash: commitResult.txHash,
-                error: "Verification failed, please check later",
-              };
+
+            if (!approvalResult.success) {
+              throw new Error(approvalResult.error || "Failed to approve USDC");
             }
+
+            console.log("USDC approval result:", approvalResult);
+            // Wait for approval transaction to be mined
+            await provider.waitForTransaction(approvalResult.txHash as string);
+
+            // We'll proceed without double-checking the allowance as it might fail again
+          } catch (approvalError) {
+            console.error("USDC approval error:", approvalError);
+            const errorMessage =
+              approvalError instanceof Error
+                ? approvalError.message
+                : "Failed to approve USDC";
+            showToast.error(errorMessage, { id: loadingToast });
+            return { success: false, error: errorMessage };
           }
-        } else {
-          // If no smart wallet is available, show an error
-          const errorMessage = "Smart wallet is required for deposits";
-          console.error(errorMessage);
-          showToast.error(errorMessage, { id: loadingToast });
-          return { success: false, error: errorMessage };
+        }
+
+        // Commit to tier
+        showToast.loading("Initiating deposit transaction...", {
+          id: loadingToast,
+        });
+        console.log("Committing to tier with smart wallet:", {
+          poolAddress,
+          tierId,
+          commitAmount: commitAmount.toString(),
+          amount: amount,
+          isZero: amount === 0,
+          shouldSkipRequirements,
+        });
+
+        // For 0 amount variable price tiers, we'll modify the commit process to bypass contract checks
+        console.log(
+          `Preparing to commit ${
+            amount === 0 ? "FREE tier (0 amount)" : "PAID tier"
+          }`
+        );
+
+        const commitResult = await depositService.commitToTierWithSmartWallet(
+          callContractFunction,
+          poolAddress,
+          tierId,
+          commitAmount
+        );
+
+        console.log("Commit result:", commitResult);
+
+        if (!commitResult.success) {
+          throw new Error(commitResult.error || "Failed to commit to tier");
+        }
+
+        // Wait for transaction confirmation
+        showToast.loading("Waiting for transaction confirmation...", {
+          id: loadingToast,
+        });
+        const receipt = await provider.waitForTransaction(
+          commitResult.txHash as string
+        );
+
+        // Verify transaction was successful
+        if (!receipt || receipt.status === 0) {
+          throw new Error("Transaction failed on-chain");
+        }
+
+        // Verify balance changes - with timeout and error handling
+        showToast.loading("Verifying deposit...", { id: loadingToast });
+
+        // Wait a bit for blockchain state to update
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Use a single verification attempt with timeout
+        let verificationSuccess = false;
+
+        try {
+          // Set a timeout for verification
+          const verificationPromise = new Promise(async (resolve, reject) => {
+            try {
+              // Check if user's tier commitment was recorded
+              const userTiersResult =
+                await depositService.getUserTierCommitments(
+                  poolAddress,
+                  smartWalletAddress
+                );
+
+              // Only consider it successful if we got a result with commitments
+              if (
+                userTiersResult.success &&
+                userTiersResult.commitments &&
+                userTiersResult.commitments.length > 0
+              ) {
+                console.log(
+                  "User tier commitments after transaction:",
+                  userTiersResult.commitments
+                );
+                verificationSuccess = true;
+                resolve(true);
+              } else {
+                // No tier commitments found, might be a transaction failure
+                reject(
+                  new Error("No tier commitments found after transaction")
+                );
+              }
+            } catch (error) {
+              reject(error);
+            }
+          });
+
+          // Set a timeout for verification
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Verification timed out")), 10000)
+          );
+
+          // Race the verification against timeout
+          await Promise.race([verificationPromise, timeoutPromise]);
+
+          // If we get here, verification succeeded
+          showToast.success("Successfully committed to tier!", {
+            id: loadingToast,
+          });
+          return { success: true, txHash: commitResult.txHash };
+        } catch (verificationError) {
+          console.warn("Verification error or timeout:", verificationError);
+
+          // Even if verification fails, assume success if the transaction was confirmed
+          if (receipt && receipt.status === 1) {
+            showToast.success(
+              "Transaction confirmed on-chain! You have successfully committed to the tier.",
+              { id: loadingToast }
+            );
+            return { success: true, txHash: commitResult.txHash };
+          } else {
+            // This is unusual - transaction says it confirmed but verification failed completely
+            showToast.error(
+              "Transaction appears to have completed, but verification failed. Please check your commitments later.",
+              { id: loadingToast }
+            );
+            return {
+              success: true,
+              txHash: commitResult.txHash,
+              error: "Verification failed, please check later",
+            };
+          }
         }
       } catch (error) {
         console.error("Error in depositToPool:", error);
+
+        // Use the standardized error message utility
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error occurred";
+        const standardizedError = standardizeSmartWalletError(errorMessage);
+
+        // If it's a smart wallet error (different from original), handle accordingly
+        if (standardizedError !== errorMessage) {
+          setError(standardizedError);
+          showToast.error(standardizedError, { id: loadingToast });
+          return { success: false, error: standardizedError };
+        }
+
         setError(errorMessage);
         showToast.error(errorMessage, { id: loadingToast });
         return { success: false, error: errorMessage };
