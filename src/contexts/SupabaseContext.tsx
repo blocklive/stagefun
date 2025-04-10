@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { supabase, User } from "../lib/supabase";
-import { waitForSmartWalletDuringLogin } from "../lib/utils/smartWalletUtils";
+import { ensureSmartWallet } from "../lib/utils/smartWalletUtils";
 
 // Make supabase available globally for direct access
 if (typeof window !== "undefined") {
@@ -99,10 +99,52 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      // Try to wait for smart wallet creation before proceeding
-      // This will retry up to 3 times with 1-second delays
+      // Simple inline check for smart wallet with retries
       console.log("Checking for smart wallet during login...");
-      const smartWalletAddress = await waitForSmartWalletDuringLogin(privyUser);
+
+      // Check initially if the wallet already exists
+      let smartWalletAddress = null;
+      let smartWalletAccount = privyUser.linkedAccounts.find(
+        (account) => account.type === "smart_wallet"
+      );
+
+      if (smartWalletAccount?.address) {
+        console.log("Smart wallet found immediately during login");
+        smartWalletAddress = smartWalletAccount.address;
+      } else {
+        // Not found, start retry process
+        console.log("Smart wallet not immediately available, will retry");
+
+        // Retry logic - attempt 3 times with a delay
+        const maxRetries = 3;
+        const retryDelay = 1000; // 1 second between retries
+
+        for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
+          // Wait before checking again
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+
+          console.log(
+            `Smart wallet login check attempt ${retryCount + 1}/${maxRetries}`
+          );
+
+          // Check if smart wallet has been created during the wait
+          smartWalletAccount = privyUser.linkedAccounts.find(
+            (account) => account.type === "smart_wallet"
+          );
+
+          if (smartWalletAccount?.address) {
+            console.log(
+              `Smart wallet found on retry attempt ${retryCount + 1}`
+            );
+            smartWalletAddress = smartWalletAccount.address;
+            break;
+          }
+        }
+
+        if (!smartWalletAddress) {
+          console.log("Smart wallet not found after retries during login");
+        }
+      }
 
       if (smartWalletAddress) {
         console.log("Smart wallet found during login:", smartWalletAddress);

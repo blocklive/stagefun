@@ -15,62 +15,6 @@ export function useInitializeSmartWallet() {
 }
 
 /**
- * Wait for smart wallet creation during initial login
- * Retries up to 3 times with 1 second intervals
- *
- * @param user The Privy user object
- * @returns Object with wallet address if found, or null if not found
- */
-export async function waitForSmartWalletDuringLogin(
-  user: User | null | undefined
-): Promise<string | null> {
-  if (!user) {
-    return null;
-  }
-
-  // Check initially if the wallet already exists
-  let smartWalletAccount = user.linkedAccounts.find(
-    (account) => account.type === "smart_wallet"
-  );
-
-  if (smartWalletAccount?.address) {
-    console.log("Smart wallet found immediately during login");
-    return smartWalletAccount.address;
-  }
-
-  // Not found, start retry process
-  console.log("Smart wallet not immediately available, will retry");
-
-  // Retry logic - attempt 3 times with a delay
-  const maxRetries = 3;
-  const retryDelay = 1000; // 1 second between retries
-
-  for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
-    // Wait before checking again
-    await new Promise((resolve) => setTimeout(resolve, retryDelay));
-
-    console.log(
-      `Smart wallet login check attempt ${retryCount + 1}/${maxRetries}`
-    );
-
-    // Check if smart wallet has been created during the wait
-    // Note: This is a passive check; the actual wallet creation is triggered
-    // by Privy's SmartWalletsProvider based on configuration
-    smartWalletAccount = user.linkedAccounts.find(
-      (account) => account.type === "smart_wallet"
-    );
-
-    if (smartWalletAccount?.address) {
-      console.log(`Smart wallet found on retry attempt ${retryCount + 1}`);
-      return smartWalletAccount.address;
-    }
-  }
-
-  console.log("Smart wallet not found after retries during login");
-  return null;
-}
-
-/**
  * Ensures that a smart wallet is available and synchronized with the database
  * Will retry up to 2 times if the smart wallet is not available
  *

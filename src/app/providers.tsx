@@ -57,7 +57,9 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
           useSandbox: true,
         },
         embeddedWallets: {
-          createOnLogin: "all-users",
+          ethereum: {
+            createOnLogin: "all-users",
+          },
           priceDisplay: {
             primary: "native-token",
             secondary: null,
