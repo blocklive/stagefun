@@ -246,7 +246,6 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           allPoolsCount: count,
           isUsingCache: false,
         };
-        console.log("RETURNING FROM HOOK **", result);
         return result;
       } catch (error) {
         console.error("Error fetching pools:", error);

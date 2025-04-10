@@ -204,8 +204,36 @@ const fetchFundedPools = async (userWalletAddress: string) => {
     };
   });
 
+  // Custom sorting function to order pools by status and then by creation date
+  const statusOrder: Record<string, number> = {
+    ACTIVE: 0, // Raising
+    FUNDED: 1, // Funded
+    FULLY_FUNDED: 1, // Also funded
+    EXECUTING: 2, // Production
+    FAILED: 3, // Unfunded
+    CANCELLED: 3, // Also unfunded
+  };
+
+  // Sort first by status order, then by recent creation date for same status
+  const sortedPools = transformedPools.sort(
+    (a: TransformedPool, b: TransformedPool) => {
+      // First sort by status priority
+      const statusA = a.status in statusOrder ? statusOrder[a.status] : 999;
+      const statusB = b.status in statusOrder ? statusOrder[b.status] : 999;
+
+      if (statusA !== statusB) {
+        return statusA - statusB;
+      }
+
+      // For pools with the same status, sort by most recent first
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+  );
+
   // Return pools already sorted by the database
-  return transformedPools;
+  return sortedPools;
 };
 
 export function useUserFundedPools(
