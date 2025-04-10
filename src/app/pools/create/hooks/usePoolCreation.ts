@@ -112,11 +112,7 @@ export const usePoolCreation = () => {
       }
 
       if (tier.isVariablePrice) {
-        if (
-          tier.minPrice === undefined ||
-          tier.minPrice === null ||
-          (!tier.minPrice && tier.minPrice !== 0)
-        ) {
+        if (!tier.minPrice || tier.minPrice <= 0) {
           showToast.error(
             `Please enter a valid minimum price for tier "${tier.name}"`
           );
@@ -128,7 +124,7 @@ export const usePoolCreation = () => {
           );
           return;
         }
-        if (tier.maxPrice <= tier.minPrice && tier.minPrice !== 0) {
+        if (tier.minPrice >= tier.maxPrice && tier.minPrice !== 0) {
           showToast.error(
             `Maximum price must be greater than minimum price for tier "${tier.name}"`
           );
@@ -217,7 +213,7 @@ export const usePoolCreation = () => {
               );
             }
 
-            if (minPrice >= maxPrice) {
+            if (minPrice >= maxPrice && minPrice !== 0) {
               throw new Error(
                 `Maximum price must be greater than minimum price for tier "${tier.name}"`
               );
