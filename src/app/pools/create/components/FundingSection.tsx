@@ -1,11 +1,13 @@
 import React, { useEffect } from "react";
 import Image from "next/image";
+import { Tier } from "../types";
 
 interface FundingSectionProps {
   fundingGoal: string;
   capAmount: string;
   onFundingGoalChange: (value: string) => void;
   onCapAmountChange: (value: string) => void;
+  tiers?: Tier[];
 }
 
 export const FundingSection: React.FC<FundingSectionProps> = ({
@@ -13,6 +15,7 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
   capAmount,
   onFundingGoalChange,
   onCapAmountChange,
+  tiers = [],
 }) => {
   const [hasCap, setHasCap] = React.useState(true); // Default to true
 
