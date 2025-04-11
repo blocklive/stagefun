@@ -318,7 +318,7 @@ export default function PoolsPage() {
         <div className="mb-6">{/* Daily Check-in component removed */}</div>
 
         {/* Tabs */}
-        <div className="flex justify-center gap-2 px-4">
+        <div className="flex justify-center md:justify-start gap-2 px-4">
           <button
             className={`w-[110px] py-3 rounded-full text-lg ${
               activeTab === "open"

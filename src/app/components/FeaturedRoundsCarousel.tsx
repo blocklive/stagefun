@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { TransformedPool } from "@/hooks/usePoolsWithDeposits";
 import UserAvatar from "./UserAvatar";
+import CircularProgress from "./CircularProgress";
 import { motion } from "framer-motion";
 
 interface FeaturedRoundsCarouselProps {
@@ -24,9 +25,9 @@ export default function FeaturedRoundsCarousel({
   const [scrollLeftVisible, setScrollLeftVisible] = useState(false);
   const [scrollRightVisible, setScrollRightVisible] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
-  const [centerIndex, setCenterIndex] = useState(0);
+  const [visibleIndices, setVisibleIndices] = useState<number[]>([]);
 
-  // Check scroll position and update button visibility
+  // Check scroll position and update button visibility and visible indices
   const checkScrollButtons = () => {
     if (!scrollRef.current) return;
 
@@ -34,21 +35,47 @@ export default function FeaturedRoundsCarousel({
     setScrollLeftVisible(scrollLeft > 0);
     setScrollRightVisible(scrollLeft < scrollWidth - clientWidth - 5); // 5px buffer for rounding errors
 
-    // Calculate center index
-    const newCenterIndex = Math.round(scrollLeft / CARD_SIZE);
-    setCenterIndex(newCenterIndex);
+    // Calculate which cards are currently visible
+    const startIndex = Math.floor(scrollLeft / CARD_SIZE);
+    const numVisible = Math.ceil(clientWidth / CARD_SIZE);
+    const endIndex = Math.min(startIndex + numVisible - 1, pools.length - 1);
+
+    // Store all visible indices
+    const indices = [];
+    for (let i = startIndex; i <= endIndex; i++) {
+      indices.push(i);
+    }
+    setVisibleIndices(indices);
   };
 
   useEffect(() => {
     const scrollElement = scrollRef.current;
     if (scrollElement) {
       scrollElement.addEventListener("scroll", checkScrollButtons);
+
+      // Initial check
       checkScrollButtons();
 
       return () => {
         scrollElement.removeEventListener("scroll", checkScrollButtons);
       };
     }
+  }, []);
+
+  // Recalculate on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      checkScrollButtons();
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    // Set initial state
+    handleResize();
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   // Handle arrow navigation
@@ -87,6 +114,23 @@ export default function FeaturedRoundsCarousel({
     );
   };
 
+  // Function to determine if a card is at an edge position (first or last visible)
+  const isEdgeCard = (index: number) => {
+    if (visibleIndices.length <= 0) return false;
+
+    // If we're at the start (scrollLeftVisible is false), first card should be visible
+    if (!scrollLeftVisible && index === 0) return false;
+
+    // If we're at the end (scrollRightVisible is false), last card should be visible
+    if (!scrollRightVisible && index === pools.length - 1) return false;
+
+    // Otherwise, check if it's the first or last visible card
+    return (
+      index === visibleIndices[0] ||
+      index === visibleIndices[visibleIndices.length - 1]
+    );
+  };
+
   return (
     <div
       className="relative mb-8 pt-4"
@@ -105,14 +149,8 @@ export default function FeaturedRoundsCarousel({
           style={{ scrollSnapType: "x mandatory" }}
         >
           {pools.map((pool, index) => {
-            const isCenter = index === centerIndex;
-            const distanceFromCenter = Math.abs(index - centerIndex);
-            const opacity =
-              distanceFromCenter === 0
-                ? 1
-                : distanceFromCenter === 1
-                ? 0.5
-                : 0.3;
+            // Card is dimmed only if it's at the edge
+            const opacity = isEdgeCard(index) ? 0.5 : 1;
 
             return (
               <motion.div
@@ -160,9 +198,16 @@ export default function FeaturedRoundsCarousel({
                         <span className="text-sm text-gray-400">
                           {pool.creator_name || "Anonymous"}
                         </span>
-                        <span className="text-sm font-medium text-white">
-                          {getPercentComplete(pool)}% funded
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <CircularProgress
+                            progress={getPercentComplete(pool)}
+                            size={20}
+                            strokeWidth={3}
+                          />
+                          <span className="text-sm text-gray-400">
+                            {getPercentComplete(pool)}% funded
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
