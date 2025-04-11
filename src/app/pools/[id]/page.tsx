@@ -14,6 +14,12 @@ import { Pool, Tier } from "../../../lib/types";
 import { DBTier } from "../../../hooks/usePoolTiers";
 import { scrollToTop } from "../../../utils/scrollHelper";
 import { getUserById } from "../../../lib/services/user-service";
+import {
+  getDisplayStatus,
+  getPoolEffectiveStatus,
+} from "../../../lib/contracts/types";
+import { useClaimRefund } from "../../../hooks/useClaimRefund";
+import showToast from "../../../utils/toast";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -43,6 +49,7 @@ export default function PoolDetailsPage() {
   const { smartWalletAddress } = useSmartWallet();
   const { balance: usdcBalance, refresh: refreshBalance } =
     useSmartWalletBalance();
+  const { isRefunding, handleClaimRefund } = useClaimRefund();
 
   // State
   const [contentTab, setContentTab] = useState<"overview" | "patrons">(
@@ -52,7 +59,6 @@ export default function PoolDetailsPage() {
   const [isCommitModalOpen, setIsCommitModalOpen] = useState(false);
   const [commitAmount, setCommitAmount] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
-  const [isRefunding, setIsRefunding] = useState(false);
   const [showTokensModal, setShowTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showShake, setShowShake] = useState(false);
@@ -104,12 +110,15 @@ export default function PoolDetailsPage() {
   }, [pool?.status, pool]);
 
   // Get time left - pass the entire pool object
-  const { days, hours, minutes, seconds } = usePoolTimeLeft(pool);
+  const { days, hours, minutes, seconds, hasEnded } = usePoolTimeLeft(pool);
 
   // Calculate percentage funded
   const percentage = pool
     ? Math.min(Math.round((pool.raised_amount / pool.target_amount) * 100), 100)
     : 0;
+
+  // Calculate display status using our helper function
+  const displayStatus = pool ? getPoolEffectiveStatus(pool) : "";
 
   // Determine if user is creator
   const isCreator = dbUser?.id === (pool?.creator?.id || pool?.creator_id);
@@ -130,16 +139,29 @@ export default function PoolDetailsPage() {
   const renderUserCommitment = () => {
     if (!pool || !privyUser) return null;
 
-    // Get user's commitment from the pool data
-    const userCommitment = pool.tiers?.flatMap(
+    // Get user's commitments from the pool data across all tiers
+    const userCommitments = pool.tiers?.flatMap(
       (tier) =>
         tier.commitments?.filter(
           (c) =>
             c.user_address.toLowerCase() === smartWalletAddress?.toLowerCase()
         ) || []
-    )[0];
+    );
 
-    if (!userCommitment) return null;
+    if (!userCommitments || userCommitments.length === 0) return null;
+
+    // Calculate total commitment amount across all tiers
+    const totalAmount = userCommitments.reduce(
+      (sum, commitment) => sum + Number(commitment.amount),
+      0
+    );
+
+    // Use the most recent commitment date
+    const latestCommitment = userCommitments.reduce((latest, current) => {
+      const currentDate = new Date(current.committed_at);
+      const latestDate = new Date(latest.committed_at);
+      return currentDate > latestDate ? current : latest;
+    }, userCommitments[0]);
 
     return (
       <UserCommitment
@@ -148,8 +170,8 @@ export default function PoolDetailsPage() {
         userCommitment={{
           user_id: dbUser?.id || "",
           pool_id: pool.id,
-          amount: userCommitment.amount,
-          created_at: userCommitment.committed_at,
+          amount: totalAmount,
+          created_at: latestCommitment.committed_at,
           user: dbUser || ({} as User),
           onChain: true,
         }}
@@ -165,9 +187,12 @@ export default function PoolDetailsPage() {
         }}
         setCommitAmount={setCommitAmount}
         refreshBalance={refreshBalance}
-        isUnfunded={pool.status === "FAILED"}
+        isUnfunded={getPoolEffectiveStatus(pool) === "FAILED"}
         handleRefund={async () => {
-          /* TODO: Implement refund */
+          handleClaimRefund(pool.contract_address, () => {
+            // Refresh pool data on success
+            mutate();
+          });
         }}
         isRefunding={isRefunding}
       />
@@ -180,14 +205,6 @@ export default function PoolDetailsPage() {
 
     return <PoolFundsSection pool={pool} isCreator={isCreator} />;
   };
-
-  // Log USDC balance when it changes
-  useEffect(() => {
-    console.log("USDC balance for TiersSection:", {
-      usdcBalance,
-      shouldBeNonZero: true,
-    });
-  }, [usdcBalance]);
 
   // Calculate user's commitments for the banner
   const userCommitments = useMemo(() => {
@@ -224,10 +241,6 @@ export default function PoolDetailsPage() {
           const userData = await getUserById(pool.creator.id);
           if (userData) {
             setCreatorData(userData);
-            console.log(
-              "Fetched creator data with username:",
-              userData.username
-            );
           }
         } catch (err) {
           console.error("Error fetching creator data:", err);
@@ -344,7 +357,7 @@ export default function PoolDetailsPage() {
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2">
             {/* Pool Status Views */}
-            {pool.status === "FUNDED" || pool.status === "EXECUTING" ? (
+            {displayStatus === "FUNDED" || displayStatus === "EXECUTING" ? (
               <FundedPoolView
                 pool={pool}
                 renderUserCommitment={renderUserCommitment}
@@ -359,7 +372,7 @@ export default function PoolDetailsPage() {
                 onManageClick={handleEditClick}
                 patronCount={patronCount}
               />
-            ) : pool.status === "FAILED" ? (
+            ) : displayStatus === "FAILED" ? (
               <UnfundedPoolView
                 pool={pool}
                 renderUserCommitment={renderUserCommitment}

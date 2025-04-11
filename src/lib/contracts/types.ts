@@ -128,3 +128,18 @@ export function getDisplayStatus(
   // If not ended, return the current status
   return status;
 }
+
+/**
+ * A common helper function to get the pool's effective status
+ * This handles the different property names that might be used for the end date
+ */
+export function getPoolEffectiveStatus(pool: any): string {
+  if (!pool) return "";
+
+  // Handle different property names for end date
+  const endDate = pool.end_date || pool.ends_at || new Date().toISOString();
+  const raisedAmount = pool.raised_amount || 0;
+  const targetAmount = pool.target_amount || 0;
+
+  return getDisplayStatus(pool.status, endDate, raisedAmount, targetAmount);
+}

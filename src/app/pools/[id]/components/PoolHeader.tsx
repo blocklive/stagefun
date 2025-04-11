@@ -6,6 +6,7 @@ import {
   PoolStatus,
   getDisplayStatus,
   getPoolStatusFromNumber,
+  getPoolEffectiveStatus,
 } from "../../../../lib/contracts/types";
 import UserAvatar from "@/app/components/UserAvatar";
 
@@ -21,12 +22,7 @@ export default function PoolHeader({
   handleEditClick,
 }: PoolHeaderProps) {
   // Get the display status that takes into account end time
-  const displayStatus = getDisplayStatus(
-    pool.status,
-    pool.ends_at,
-    pool.raised_amount,
-    pool.target_amount
-  );
+  const displayStatus = getPoolEffectiveStatus(pool);
 
   // Determine the status text and color based on display status
   let statusText = "Accepting patrons";

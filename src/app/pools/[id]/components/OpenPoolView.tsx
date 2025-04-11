@@ -25,6 +25,8 @@ interface OpenPoolViewProps {
   isCreator?: boolean;
   onManageClick?: () => void;
   patronCount?: number; // Optional count from PatronsTab
+  hasEnded?: boolean;
+  rawDays?: number;
 }
 
 export default function OpenPoolView({
@@ -42,6 +44,8 @@ export default function OpenPoolView({
   isCreator = false,
   onManageClick,
   patronCount: externalPatronCount,
+  hasEnded,
+  rawDays,
 }: OpenPoolViewProps) {
   // Calculate the number of patrons
   const patronCount = React.useMemo(() => {
@@ -86,7 +90,9 @@ export default function OpenPoolView({
           {/* Raising and Time Info */}
           <div className="mb-4">
             <div className="text-gray-400 mb-2">
-              Raising • Ends in {days} days
+              {hasEnded
+                ? "Failed • Target Not Reached"
+                : `Raising • Ends in ${rawDays} days`}
             </div>
             <div className="flex items-center justify-between">
               <div className="text-5xl font-bold">

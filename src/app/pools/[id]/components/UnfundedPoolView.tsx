@@ -108,7 +108,7 @@ export default function UnfundedPoolView({
           {/* Raising Info - Using style similar to OpenPoolView */}
           <div className="mb-4">
             <div className="text-gray-400 mb-2">
-              Funding Failed • Target Not Reached
+              Failed • Target Not Reached
             </div>
             <div className="flex items-center justify-between">
               <div className="text-5xl font-bold">${displayTargetAmount}</div>

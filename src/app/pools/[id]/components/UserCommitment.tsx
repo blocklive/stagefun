@@ -5,6 +5,7 @@ import { Pool, User } from "../../../../lib/supabase";
 import { formatCurrency } from "../../../../lib/utils";
 import showToast from "@/utils/toast";
 import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
+import { useLpBalance } from "../../../../hooks/useLpBalance";
 
 interface UserCommitmentProps {
   pool: Pool | null;
@@ -50,6 +51,16 @@ export default function UserCommitment({
 }: UserCommitmentProps) {
   // State to track if we should show the error (only after a delay)
   const [showError, setShowError] = useState(false);
+
+  // Get LP token balance using the LP token address stored in the pool
+  const {
+    lpBalance,
+    formattedLpBalance,
+    isLoading: isLpBalanceLoading,
+  } = useLpBalance(pool ? (pool as any)?.lp_token_address || null : null);
+
+  // Determine if user can claim refund (must have LP tokens)
+  const canClaimRefund = isUnfunded && lpBalance > BigInt(0);
 
   // Reset error state when loading state changes
   useEffect(() => {
@@ -140,43 +151,65 @@ export default function UserCommitment({
         {/* Refund button for unfunded pools */}
         {isUnfunded && (
           <div className="mt-4">
-            <button
-              onClick={onRefundClick}
-              disabled={isRefunding || !handleRefund}
-              className="w-full bg-[#836EF9] hover:bg-[#7058E8] text-white py-3 px-4 rounded-full font-medium transition-colors disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
-            >
-              {isRefunding ? (
-                <span className="flex items-center justify-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Processing Refund...
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-400">LP Tokens:</span>
+              <div className="flex items-center">
+                <span className="text-lg font-bold mr-2">
+                  {formattedLpBalance}
                 </span>
-              ) : (
-                "Claim Refund"
-              )}
-            </button>
-            <p className="text-sm text-gray-400 mt-2">
-              This pool did not reach its target. You can claim a refund of your
-              committed funds.
-            </p>
+              </div>
+            </div>
+
+            {canClaimRefund ? (
+              <>
+                <button
+                  onClick={onRefundClick}
+                  disabled={isRefunding || !handleRefund}
+                  className="w-full bg-[#836EF9] hover:bg-[#7058E8] text-white py-3 px-4 rounded-full font-medium transition-colors disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isRefunding ? (
+                    <span className="flex items-center justify-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Processing Refund...
+                    </span>
+                  ) : (
+                    "Claim Refund"
+                  )}
+                </button>
+                <p className="text-sm text-gray-400 mt-2">
+                  This pool did not reach its target. You can claim a refund of
+                  your committed funds.
+                </p>
+              </>
+            ) : isLpBalanceLoading ? (
+              <div className="flex justify-center p-2">
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500"></div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 mt-2">
+                You don't have any LP tokens to refund. You may have already
+                claimed your refund.
+              </p>
+            )}
           </div>
         )}
       </div>

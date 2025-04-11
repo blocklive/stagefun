@@ -15,6 +15,10 @@ import { formatAmount } from "@/lib/utils";
 import UserAvatar from "@/app/components/UserAvatar";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import {
+  getDisplayStatus,
+  getPoolEffectiveStatus,
+} from "../../../../lib/contracts/types";
 
 interface TiersSectionProps {
   pool: Pool;
@@ -113,6 +117,9 @@ const TiersSection: React.FC<TiersSectionProps> = ({
     setSelectedTier(tier);
     setIsConfirmModalOpen(true);
   };
+
+  // Get the effective display status as the single source of truth
+  const effectiveStatus = getPoolEffectiveStatus(pool);
 
   return (
     <div className="w-full">
@@ -288,9 +295,9 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                     </ul>
                   </div>
 
-                  {pool.status !== "EXECUTING" &&
-                    pool.status !== "FUNDED" &&
-                    pool.status !== "FAILED" && (
+                  {effectiveStatus !== "EXECUTING" &&
+                    effectiveStatus !== "FUNDED" &&
+                    effectiveStatus !== "FAILED" && (
                       <button
                         className="w-full py-3 bg-[#836EF9] hover:bg-[#6F5BD0] text-white font-medium rounded-lg transition-colors"
                         onClick={() => handleCommit(tier)}
@@ -302,6 +309,12 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                           : `Commit for ${formatUSDC(displayPrice)} USDC`}
                       </button>
                     )}
+
+                  {effectiveStatus === "FAILED" && (
+                    <div className="w-full py-3 bg-gray-700 text-gray-400 font-medium rounded-lg text-center">
+                      Pool failed to reach target
+                    </div>
+                  )}
 
                   <div className="mt-3 flex items-center justify-between">
                     <div className="flex items-center">

@@ -7,6 +7,7 @@ export function usePoolTimeLeft(pool: any) {
     minutes: 0,
     seconds: 0,
     hasEnded: false,
+    rawDays: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -27,13 +28,14 @@ export function usePoolTimeLeft(pool: any) {
       const diff = endTime - now;
       const hasEnded = diff <= 0;
 
-      const days = Math.floor(diff / (24 * 60 * 60));
+      const rawDays = Math.floor(diff / (24 * 60 * 60));
       const hours = Math.floor((diff % (24 * 60 * 60)) / (60 * 60));
       const minutes = Math.floor((diff % (60 * 60)) / 60);
       const seconds = Math.floor(diff % 60);
 
       setTimeLeft({
-        days: Math.max(0, days),
+        rawDays,
+        days: Math.max(0, rawDays),
         hours: Math.max(0, hours),
         minutes: Math.max(0, minutes),
         seconds: Math.max(0, seconds),
@@ -58,6 +60,7 @@ export function usePoolTimeLeft(pool: any) {
     minutes: timeLeft.minutes,
     seconds: timeLeft.seconds,
     hasEnded: timeLeft.hasEnded,
+    rawDays: timeLeft.rawDays,
     isLoading,
   };
 }
