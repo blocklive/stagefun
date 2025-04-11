@@ -651,6 +651,9 @@ export default function ProfileComponent({
             totalBalance={totalBalance}
             assets={assets}
             onSendClick={handleSendClick}
+            walletAddress={user.smart_wallet_address || null}
+            useZerionAPI={true}
+            chainId="monad-test-v2"
           />
         )}
 
