@@ -43,6 +43,7 @@ export type TransformedPool = {
   image_url: string | null;
   description: string;
   creator_id: string;
+  featured?: number | null;
 };
 
 // Map from UI filter terms to database status strings
@@ -213,6 +214,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
             image_url: pool.image_url || null,
             description: pool.description || "",
             creator_id: pool.creator_id || "",
+            featured: pool.featured,
           };
         });
 

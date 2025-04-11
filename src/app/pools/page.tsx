@@ -10,6 +10,7 @@ import { getPoolsByPatron } from "../../lib/services/patron-service";
 import { Pool } from "../../lib/supabase";
 import CircularProgress from "../components/CircularProgress";
 import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
+import { useFeaturedPools } from "../../hooks/useFeaturedPools";
 import Image from "next/image";
 import GetTokensModal from "../components/GetTokensModal";
 import InfoModal from "../components/InfoModal";
@@ -22,6 +23,7 @@ import {
 import UserAvatar from "../components/UserAvatar";
 import { USDC_DECIMAL_FACTOR } from "../../lib/contracts/StageDotFunPool";
 import { formatAmount } from "../../lib/utils";
+import FeaturedRoundsCarousel from "../components/FeaturedRoundsCarousel";
 
 type TabType = "open" | "funded" | "unfunded";
 
@@ -96,6 +98,7 @@ export default function PoolsPage() {
     refresh,
     isUsingCache,
   } = usePoolsWithDeposits(1, activeTab);
+  const { featuredPools, isLoading: featuredLoading } = useFeaturedPools();
   const [showUSDCModal, setShowUSDCModal] = useState(false);
   const [showTokensModal, setShowTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -306,6 +309,11 @@ export default function PoolsPage() {
 
       {/* Main Content */}
       <div className="px-4 pb-24 md:pb-8">
+        {/* Featured Rounds Carousel */}
+        {featuredPools && featuredPools.length > 0 && (
+          <FeaturedRoundsCarousel pools={featuredPools} />
+        )}
+
         {/* Daily Check-in */}
         <div className="mb-6">{/* Daily Check-in component removed */}</div>
 
