@@ -28,17 +28,17 @@ import { useUserFundedPools } from "../../../hooks/useUserFundedPools";
 import GetTokensModal from "../../components/GetTokensModal";
 import InfoModal from "../../components/InfoModal";
 import SendAssetModal from "../../components/SendAssetModal";
-import { PoolStatus, getDisplayStatus } from "../../../lib/contracts/types";
+import { getDisplayStatus } from "../../../lib/contracts/types";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import UserAvatar from "../../components/UserAvatar";
 import showToast from "@/utils/toast";
 import TabComponent from "./TabComponent";
 import PoolList from "./PoolList";
-import { ensureSmartWallet } from "../../../lib/utils/smartWalletUtils";
 import AccountSetupMessage from "./AccountSetupMessage";
 import AccountSetupBadge from "./AccountSetupBadge";
 import { useSmartWalletInitializer } from "../../../hooks/useSmartWalletInitializer";
 import { useAvatarUpload } from "../../../hooks/useAvatarUpload";
+import BalanceSection from "./BalanceSection";
 
 interface ProfileComponentProps {
   isUsernameRoute?: boolean;
@@ -59,7 +59,6 @@ export default function ProfileComponent({
   const { fundWallet } = useFundWallet();
   const { dbUser, isLoadingUser, refreshUser } = useSupabase();
   const [viewportHeight, setViewportHeight] = useState("100vh");
-  const [isLoadingPools, setIsLoadingPools] = useState(true);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"hosted" | "funded">("hosted");
   const { smartWalletAddress } = useSmartWallet();
@@ -557,76 +556,80 @@ export default function ProfileComponent({
             />
           )}
 
-          {/* Only show Wallet Action Buttons if viewing own profile */}
-          {isOwnProfile && smartWalletAddress && (
+          {/* Always show logout button for own profile, and full wallet actions if they have a smart wallet address */}
+          {isOwnProfile && (
             <>
               {/* Wallet Action Buttons */}
               <div className="mt-4 flex items-center space-x-8 justify-center">
-                {/* Receive Funds Button - use smartWalletAddress instead of walletAddress */}
-                <button
-                  onClick={() => {
-                    if (smartWalletAddress) {
-                      fundWallet(smartWalletAddress, {
-                        chain: {
-                          id: 10143,
-                        },
-                        asset: "USDC",
-                        uiConfig: {
-                          receiveFundsTitle: "Receive USDC on Monad",
-                          receiveFundsSubtitle:
-                            "Scan this QR code or copy your wallet address to receive USDC on Monad Testnet.",
-                        },
-                      });
-                    }
-                  }}
-                  className="flex flex-col items-center"
-                  aria-label="Receive Funds"
-                >
-                  <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
+                {smartWalletAddress && (
+                  <>
+                    {/* Receive Funds Button - use smartWalletAddress instead of walletAddress */}
+                    <button
+                      onClick={() => {
+                        if (smartWalletAddress) {
+                          fundWallet(smartWalletAddress, {
+                            chain: {
+                              id: 10143,
+                            },
+                            asset: "USDC",
+                            uiConfig: {
+                              receiveFundsTitle: "Receive USDC on Monad",
+                              receiveFundsSubtitle:
+                                "Scan this QR code or copy your wallet address to receive USDC on Monad Testnet.",
+                            },
+                          });
+                        }
+                      }}
+                      className="flex flex-col items-center"
+                      aria-label="Receive Funds"
                     >
-                      <path
-                        d="M12 17L12 7"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M7 12L12 17L17 12"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M5 20H19"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </div>
-                  <span className="text-xs text-gray-400">Receive</span>
-                </button>
+                      <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
+                        <svg
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M12 17L12 7"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M7 12L12 17L17 12"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M5 20H19"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </div>
+                      <span className="text-xs text-gray-400">Receive</span>
+                    </button>
 
-                {/* Export Keys Button - use smart wallet */}
-                <button
-                  onClick={handleExportWallet}
-                  className="flex flex-col items-center"
-                  aria-label="Export Keys"
-                >
-                  <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
-                    <FaKey className="text-xl" />
-                  </div>
-                  <span className="text-xs text-gray-400">Export Keys</span>
-                </button>
+                    {/* Export Keys Button - use smart wallet */}
+                    <button
+                      onClick={handleExportWallet}
+                      className="flex flex-col items-center"
+                      aria-label="Export Keys"
+                    >
+                      <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
+                        <FaKey className="text-xl" />
+                      </div>
+                      <span className="text-xs text-gray-400">Export Keys</span>
+                    </button>
+                  </>
+                )}
 
-                {/* Sign Out Button */}
+                {/* Sign Out Button - Always visible for own profile */}
                 <button
                   onClick={logout}
                   className="flex flex-col items-center"
@@ -644,85 +647,11 @@ export default function ProfileComponent({
 
         {/* Balance and Assets Section */}
         {isOwnProfile && (
-          <div className="px-4 py-6">
-            <h2 className="text-xl text-gray-400 mb-2">Balance</h2>
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-5xl font-bold">${totalBalance}</h1>
-            </div>
-
-            <h2 className="text-2xl font-bold mt-8 mb-4">My assets</h2>
-            {assets.length > 0 ? (
-              <div className="space-y-4">
-                {assets.map((asset, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between items-center py-4 px-4 bg-[#FFFFFF0A] rounded-xl hover:bg-[#2A2640] transition-colors"
-                  >
-                    <div className="flex items-center">
-                      {asset.type === "token" && asset.symbol === "USDC" ? (
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center">
-                          <Image
-                            src="/icons/usdc-logo.svg"
-                            alt="USDC"
-                            width={32}
-                            height={32}
-                            className="w-8 h-8"
-                          />
-                        </div>
-                      ) : (
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            asset.type === "token"
-                              ? "bg-blue-800"
-                              : asset.type === "pool"
-                              ? "bg-purple-800"
-                              : "bg-green-800"
-                          }`}
-                        >
-                          {asset.type === "token" ? (
-                            <FaDollarSign className="text-white" />
-                          ) : asset.type === "pool" ? (
-                            <FaUsers className="text-white" />
-                          ) : (
-                            <IoFlash className="text-white" />
-                          )}
-                        </div>
-                      )}
-
-                      <div className="ml-3">
-                        <div className="flex items-center">
-                          <h3 className="font-semibold">{asset.name}</h3>
-                          {asset.status && (
-                            <span className="ml-2 text-sm text-gray-400">
-                              • {asset.status}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-gray-400">
-                          {asset.balance} {asset.symbol}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="text-right mr-4">
-                        <p className="font-bold">${asset.value.toFixed(2)}</p>
-                      </div>
-                      <button
-                        onClick={(e) => handleSendClick(asset, e)}
-                        className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors"
-                      >
-                        Send
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-4 text-gray-400">
-                No assets found. Add USDC to your smart wallet to get started!
-              </div>
-            )}
-          </div>
+          <BalanceSection
+            totalBalance={totalBalance}
+            assets={assets}
+            onSendClick={handleSendClick}
+          />
         )}
 
         {/* Pool Tabs - Only show if user has a smart wallet */}
