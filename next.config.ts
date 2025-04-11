@@ -57,7 +57,7 @@ const nextConfig = {
               frame-ancestors 'none';
               child-src https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org;
               frame-src https://auth.privy.io https://privy.io https://*.privy.io https://verify.walletconnect.com https://verify.walletconnect.org https://challenges.cloudflare.com https://oauth.telegram.org;
-              connect-src 'self' https://privy.io https://*.privy.io https://auth.privy.io wss://relay.walletconnect.com wss://relay.walletconnect.org wss://www.walletlink.org https://*.rpc.privy.systems https://explorer-api.walletconnect.com https://api.relay.link https://api.testnets.relay.link https://*.supabase.co https://falling-practical-rain.monad-testnet.quiknode.pro https://testnet-rpc.monad.xyz https://rpc.zerodev.app https://*.zerodev.app https://paymaster.biconomy.io https://*.biconomy.io;
+              connect-src 'self' https://privy.io https://*.privy.io https://auth.privy.io wss://relay.walletconnect.com wss://relay.walletconnect.org wss://www.walletlink.org https://*.rpc.privy.systems https://explorer-api.walletconnect.com https://api.relay.link https://api.testnets.relay.link https://*.supabase.co https://falling-practical-rain.monad-testnet.quiknode.pro https://testnet-rpc.monad.xyz https://rpc.zerodev.app https://*.zerodev.app https://paymaster.biconomy.io https://*.biconomy.io https://api.zerion.io;
               worker-src 'self';
               manifest-src 'self'
             `.replace(/\n\s*/g, ""),
