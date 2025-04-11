@@ -57,6 +57,7 @@ export default function UserCommitment({
     lpBalance,
     formattedLpBalance,
     isLoading: isLpBalanceLoading,
+    refreshLpBalance,
   } = useLpBalance(pool ? (pool as any)?.lp_token_address || null : null);
 
   // Determine if user can claim refund (must have LP tokens)
@@ -127,7 +128,16 @@ export default function UserCommitment({
       showToast.error("Refund functionality is not available");
       return;
     }
-    handleRefund();
+    handleRefund()
+      .then(() => {
+        // Refresh LP balance after refund is processed
+        setTimeout(() => {
+          refreshLpBalance();
+        }, 2000); // Add a small delay to ensure blockchain changes have been processed
+      })
+      .catch((error) => {
+        console.error("Refund error:", error);
+      });
   };
 
   return (

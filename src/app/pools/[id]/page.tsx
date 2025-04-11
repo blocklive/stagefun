@@ -189,9 +189,12 @@ export default function PoolDetailsPage() {
         refreshBalance={refreshBalance}
         isUnfunded={getPoolEffectiveStatus(pool) === "FAILED"}
         handleRefund={async () => {
-          handleClaimRefund(pool.contract_address, () => {
-            // Refresh pool data on success
-            mutate();
+          return new Promise<void>((resolve, reject) => {
+            handleClaimRefund(pool.contract_address, () => {
+              // Refresh pool data on success
+              mutate();
+              resolve();
+            });
           });
         }}
         isRefunding={isRefunding}

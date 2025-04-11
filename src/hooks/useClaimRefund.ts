@@ -85,8 +85,11 @@ export function useClaimRefund() {
         const poolDetails = await poolContract.getPoolDetails();
         console.log("Pool status:", poolDetails._status);
 
+        // Store status in a local variable we can modify
+        let currentStatus = Number(poolDetails._status);
+
         // If pool is not in FAILED status, try to update it
-        if (Number(poolDetails._status) !== 6) {
+        if (currentStatus !== 6) {
           try {
             showToast.loading("Updating pool status...", { id: loadingToast });
             console.log("Calling checkPoolStatus to update pool state...");
@@ -118,14 +121,14 @@ export function useClaimRefund() {
                 ); // Wait for at least 2 confirmations
 
                 // Add a small delay to ensure blockchain state is fully updated
-                await new Promise((resolve) => setTimeout(resolve, 3000));
+                await new Promise((resolve) => setTimeout(resolve, 5000));
 
                 // Fetch updated pool details
                 const updatedPoolDetails = await poolContract.getPoolDetails();
                 console.log("Updated pool status:", updatedPoolDetails._status);
 
-                // Update our local copy of the pool details
-                poolDetails._status = updatedPoolDetails._status;
+                // Update our local status variable
+                currentStatus = Number(updatedPoolDetails._status);
               } catch (confirmationError) {
                 console.error(
                   "Error waiting for confirmations:",
@@ -150,10 +153,26 @@ export function useClaimRefund() {
         }
 
         // Check if pool is eligible for refunds (status FAILED - 6)
-        if (Number(poolDetails._status) !== 6) {
-          throw new Error(
-            "This pool is not eligible for refunds. Only failed pools allow refunds."
-          );
+        if (currentStatus !== 6) {
+          // If still not in FAILED status, try one more time after a delay
+          showToast.loading("Double-checking pool status...", {
+            id: loadingToast,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+
+          // Fetch pool details one more time
+          const finalPoolDetails = await poolContract.getPoolDetails();
+          console.log("Final pool status check:", finalPoolDetails._status);
+
+          // Update our local status variable
+          currentStatus = Number(finalPoolDetails._status);
+
+          // If still not FAILED after retrying, then throw the error
+          if (currentStatus !== 6) {
+            throw new Error(
+              "This pool is not eligible for refunds. Only failed pools allow refunds."
+            );
+          }
         }
 
         // Check LP token balance to see if user has tokens to refund
