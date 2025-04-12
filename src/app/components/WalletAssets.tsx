@@ -164,12 +164,6 @@ export default function WalletAssets({
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refresh();
-    setTimeout(() => setIsRefreshing(false), 1000);
-  };
-
   const handleSendClick = (asset: Asset) => {
     onSendClick(asset);
   };
@@ -179,7 +173,7 @@ export default function WalletAssets({
       <div className={`text-center py-4 ${className}`}>
         <div className="text-red-400 mb-2">Failed to load wallet assets</div>
         <button
-          onClick={handleRefresh}
+          onClick={() => refresh()}
           className="px-4 py-2 bg-[#836EF9] hover:bg-[#7058E8] text-white rounded-full text-sm"
         >
           Try Again
@@ -190,15 +184,16 @@ export default function WalletAssets({
 
   return (
     <div className={className}>
+      {/* Main Title */}
+      <h2 className="text-xl font-semibold mb-4">Your Assets</h2>
+
+      {/* Balance Row (below title) */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Your Assets</h2>
-        <div className="flex items-center">
-          <div className="text-lg font-medium">
-            {formatCurrency(totalValue)}
-          </div>
-        </div>
+        <span className="text-gray-400">Balance</span> {/* Grayed out label */}
+        <div className="text-lg font-medium">{formatCurrency(totalValue)}</div>
       </div>
 
+      {/* Assets List Loading/Content */}
       {isLoading && assets.length === 0 ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#836EF9]"></div>
