@@ -155,7 +155,7 @@ contract StageDotFunPool is Ownable {
         targetReachedTime = 0;
         capReachedTime = 0;
         
-        string memory tokenName = string(abi.encodePacked(_name, " LP Token"));
+        string memory tokenName = string(abi.encodePacked(_name));
         lpToken = StageDotFunLiquidity(Clones.clone(_lpTokenImplementation));
         lpToken.initialize(tokenName, symbol);
         
