@@ -208,7 +208,6 @@ const fetcher = async (poolId: string) => {
     raised_amount: totalRaised, // This is in base units (e.g. 10000 for 0.01 USDC)
   };
 
-  console.log("Final data with commitments:", finalData);
   return finalData;
 };
 

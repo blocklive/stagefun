@@ -137,9 +137,6 @@ const AssetCard: React.FC<{
           </div>
         </div>
         <div className="text-right flex items-center">
-          <span className="text-purple-400 font-semibold mr-4">
-            {displayValue}
-          </span>
           <button
             onClick={(e) => {
               e.stopPropagation();

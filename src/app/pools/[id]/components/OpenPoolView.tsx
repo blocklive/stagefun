@@ -92,7 +92,9 @@ export default function OpenPoolView({
             <div className="text-gray-400 mb-2">
               {hasEnded
                 ? "Failed • Target Not Reached"
-                : `Raising • Ends in ${rawDays} days`}
+                : `Raising • Ends in ${
+                    rawDays !== undefined ? rawDays : "?"
+                  } days`}
             </div>
             <div className="flex items-center justify-between">
               <div className="text-5xl font-bold">
