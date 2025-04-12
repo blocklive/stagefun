@@ -6,6 +6,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get("address");
     const chainId = searchParams.get("chainId") || "monad-test-v2";
+    const currency = searchParams.get("currency") || "usd";
+    const sort = searchParams.get("sort") || "value";
+    const onlySimple = searchParams.get("onlySimple") !== "false";
+    const onlyNonTrash = searchParams.get("onlyNonTrash") !== "false";
 
     if (!address) {
       return NextResponse.json(
@@ -25,14 +29,19 @@ export async function GET(request: Request) {
     // Initialize the ZerionSDK (with useProxy=false since we're already in a server context)
     const zerionSDK = new ZerionSDK(apiKey, false);
 
-    // Get native token balance using the SDK
-    const balance = await zerionSDK.getNativeBalance(address, chainId);
+    // Get wallet assets using the SDK
+    const data = await zerionSDK.getWalletAssets(address, chainId, {
+      onlySimple,
+      currency,
+      onlyNonTrash,
+      sort,
+    });
 
-    return NextResponse.json({ balance });
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("Error fetching Zerion balance:", error);
+    console.error("Error fetching Zerion assets:", error);
     return NextResponse.json(
-      { error: "Failed to fetch balance" },
+      { error: "Failed to fetch wallet assets" },
       { status: 500 }
     );
   }

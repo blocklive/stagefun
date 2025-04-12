@@ -407,6 +407,8 @@ export default function PoolDetailsPage() {
                 isCreator={isCreator}
                 onManageClick={handleEditClick}
                 patronCount={patronCount}
+                hasEnded={hasEnded}
+                rawDays={days}
               />
             )}
 

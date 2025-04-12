@@ -12,7 +12,11 @@ export function usePoolTimeLeft(pool: any) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!pool?.ends_at) {
+    // Check for either ends_at (database field) or end_date (contract field)
+    const endDate = pool?.ends_at || pool?.end_date;
+
+    if (!endDate) {
+      console.log("No end date found for pool:", pool?.id);
       setIsLoading(false);
       return;
     }
@@ -21,9 +25,19 @@ export function usePoolTimeLeft(pool: any) {
     const calculateTimeLeft = () => {
       const now = Math.floor(Date.now() / 1000);
 
-      // Convert ends_at to timestamp
-      const endsAtDate = new Date(pool.ends_at);
-      const endTime = Math.floor(endsAtDate.getTime() / 1000);
+      // Parse the end date - handle both string (Date) and number (timestamp) formats
+      let endTime: number;
+      if (typeof endDate === "string") {
+        // Convert date string to timestamp
+        const endsAtDate = new Date(endDate);
+        endTime = Math.floor(endsAtDate.getTime() / 1000);
+      } else if (typeof endDate === "number" || typeof endDate === "bigint") {
+        // Already a timestamp (seconds)
+        endTime = Number(endDate);
+      } else {
+        console.error("Invalid end date format:", endDate);
+        endTime = now; // Default to now (show as ended)
+      }
 
       const diff = endTime - now;
       const hasEnded = diff <= 0;
@@ -52,7 +66,7 @@ export function usePoolTimeLeft(pool: any) {
 
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
-  }, [pool?.ends_at]);
+  }, [pool?.ends_at, pool?.end_date, pool?.id]);
 
   return {
     days: timeLeft.days,

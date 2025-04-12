@@ -2,21 +2,38 @@ import useSWR from "swr";
 import { ethers } from "ethers";
 import { useSmartWallet } from "./useSmartWallet";
 import { useWallets } from "@privy-io/react-auth";
-import { getStageDotFunLiquidityContract } from "../lib/contracts/StageDotFunPool";
-import { fromUSDCBaseUnits } from "../lib/contracts/StageDotFunPool";
+import {
+  getStageDotFunLiquidityContract,
+  getPoolContract,
+  fromUSDCBaseUnits,
+  LP_TOKEN_MULTIPLIER,
+} from "../lib/contracts/StageDotFunPool";
 
 /**
  * Custom hook to fetch and monitor a user's LP token balance for a specific pool
  * @param lpTokenAddress The LP token contract address
+ * @param poolAddress The pool contract address (optional, for getting LP balance directly from the pool)
  */
-export function useLpBalance(lpTokenAddress: string | null | undefined) {
+export function useLpBalance(
+  lpTokenAddress: string | null | undefined,
+  poolAddress?: string | null
+) {
   const { smartWalletAddress } = useSmartWallet();
   const { wallets } = useWallets();
 
   // SWR fetcher function
-  const fetcher = async ([address, wallet]: [string, string]) => {
-    if (!address || !wallet) {
-      return { balance: BigInt(0), formattedBalance: "0" };
+  const fetcher = async ([address, wallet, poolAddr]: [
+    string,
+    string,
+    string | undefined
+  ]) => {
+    if (!wallet) {
+      return {
+        balance: BigInt(0),
+        formattedBalance: "0",
+        displayBalance: "0",
+        symbol: "",
+      };
     }
 
     try {
@@ -32,32 +49,75 @@ export function useLpBalance(lpTokenAddress: string | null | undefined) {
       const provider = await embeddedWallet.getEthereumProvider();
       const ethersProvider = new ethers.BrowserProvider(provider);
 
-      // Get LP token contract using the address directly
-      const lpTokenContract = getStageDotFunLiquidityContract(
-        ethersProvider,
-        address
-      );
-
-      // Get balance
+      // Either get the balance from the pool contract directly or from the LP token contract
       try {
-        const balance = await lpTokenContract.balanceOf(wallet);
-        const formattedBalance = fromUSDCBaseUnits(balance);
+        let balance: bigint;
+        let symbol = "LP";
+
+        if (poolAddr) {
+          // Use pool contract's getLpBalance function (preferred method)
+          const poolContract = getPoolContract(ethersProvider, poolAddr);
+          balance = await poolContract.getLpBalance(wallet);
+
+          // Get the LP token address from the pool
+          if (address) {
+            const lpTokenContract = getStageDotFunLiquidityContract(
+              ethersProvider,
+              address
+            );
+            try {
+              symbol = await lpTokenContract.symbol();
+            } catch (symbolError) {
+              console.error("Error getting LP token symbol:", symbolError);
+            }
+          }
+        } else if (address) {
+          // Fallback to LP token contract
+          const lpTokenContract = getStageDotFunLiquidityContract(
+            ethersProvider,
+            address
+          );
+          balance = await lpTokenContract.balanceOf(wallet);
+
+          // Get the token symbol
+          try {
+            symbol = await lpTokenContract.symbol();
+          } catch (symbolError) {
+            console.error("Error getting LP token symbol:", symbolError);
+          }
+        } else {
+          return {
+            balance: BigInt(0),
+            formattedBalance: "0",
+            displayBalance: "0",
+            symbol: "",
+          };
+        }
+
+        // Get the raw value (divided by 10^6 for 6 decimals)
+        const rawValue = fromUSDCBaseUnits(balance);
+
+        // Fix: Don't multiply by LP_TOKEN_MULTIPLIER again since the contract already applied it
+        // The LP tokens already have the multiplier applied in the contract
+        const displayValue = rawValue;
 
         console.log("LP token balance fetched successfully:", {
           lpTokenAddress: address,
+          poolAddress: poolAddr,
           balance: balance.toString(),
-          formattedBalance,
+          rawValue,
+          displayValue,
+          symbol,
         });
 
         return {
           balance,
-          formattedBalance: formattedBalance.toString(),
+          formattedBalance: rawValue.toString(),
+          displayBalance: displayValue.toString(),
+          symbol,
         };
       } catch (balanceError) {
-        console.error(
-          "Error calling balanceOf on LP token contract:",
-          balanceError
-        );
+        console.error("Error getting LP token balance:", balanceError);
         throw new Error(
           `Failed to get LP token balance: ${
             balanceError instanceof Error
@@ -68,14 +128,19 @@ export function useLpBalance(lpTokenAddress: string | null | undefined) {
       }
     } catch (error) {
       console.error("Error in LP balance fetcher:", error);
-      return { balance: BigInt(0), formattedBalance: "0" };
+      return {
+        balance: BigInt(0),
+        formattedBalance: "0",
+        displayBalance: "0",
+        symbol: "",
+      };
     }
   };
 
   // Use SWR to handle data fetching
   const { data, error, isLoading, mutate } = useSWR(
-    lpTokenAddress && smartWalletAddress
-      ? [lpTokenAddress, smartWalletAddress]
+    smartWalletAddress
+      ? [lpTokenAddress, smartWalletAddress, poolAddress]
       : null,
     fetcher,
     {
@@ -93,6 +158,8 @@ export function useLpBalance(lpTokenAddress: string | null | undefined) {
   return {
     lpBalance: data?.balance || BigInt(0),
     formattedLpBalance: data?.formattedBalance || "0",
+    displayLpBalance: data?.displayBalance || "0", // LP tokens already have the multiplier applied in the contract
+    lpSymbol: data?.symbol || "LP", // Default to LP if not available
     isLoading,
     error,
     refreshLpBalance: () => mutate(),

@@ -2,6 +2,8 @@ import React from "react";
 import Image from "next/image";
 import { FaDollarSign, FaUsers } from "react-icons/fa";
 import { IoFlash } from "react-icons/io5";
+import WalletAssets from "../../components/WalletAssets";
+import { Asset as ZerionAsset } from "../../../lib/zerion/ZerionSDK";
 
 interface Asset {
   name: string;
@@ -16,13 +18,47 @@ interface BalanceSectionProps {
   totalBalance: string;
   assets: Asset[];
   onSendClick: (asset: Asset, e: React.MouseEvent) => void;
+  walletAddress?: string | null; // Add wallet address for Zerion API
+  useZerionAPI?: boolean; // Flag to use the new Zerion API
+  chainId?: string; // Blockchain chain ID to use with Zerion
 }
 
 export default function BalanceSection({
   totalBalance,
   assets,
   onSendClick,
+  walletAddress = null,
+  useZerionAPI = false,
+  chainId = "monad-test-v2",
 }: BalanceSectionProps) {
+  // Handler for Zerion assets
+  const handleZerionSendClick = (zerionAsset: ZerionAsset) => {
+    // Convert Zerion asset to our Asset format for consistency
+    const asset: Asset = {
+      name: zerionAsset.attributes.fungible_info.name,
+      symbol: zerionAsset.attributes.fungible_info.symbol,
+      balance: zerionAsset.attributes.quantity.float.toString(),
+      value: zerionAsset.attributes.quantity.float, // Using the same value as per requirements
+      type: "token", // Assuming all Zerion assets are tokens
+    };
+
+    onSendClick(asset, {} as React.MouseEvent);
+  };
+
+  if (useZerionAPI && walletAddress) {
+    return (
+      <div className="px-4 py-6">
+        <h2 className="text-xl text-gray-400 mb-2">Balance</h2>
+        <WalletAssets
+          walletAddress={walletAddress}
+          chainId={chainId}
+          className="mt-4"
+          onSendClick={handleZerionSendClick}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 py-6">
       <h2 className="text-xl text-gray-400 mb-2">Balance</h2>

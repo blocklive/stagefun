@@ -56,6 +56,8 @@ export default function UserCommitment({
   const {
     lpBalance,
     formattedLpBalance,
+    displayLpBalance,
+    lpSymbol,
     isLoading: isLpBalanceLoading,
     refreshLpBalance,
   } = useLpBalance(pool ? (pool as any)?.lp_token_address || null : null);
@@ -158,18 +160,33 @@ export default function UserCommitment({
           </div>
         </div>
 
+        {/* LP Token Balance - now shown for all pool types */}
+        <div className="mt-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-400">LP Tokens:</span>
+            <div className="flex items-center">
+              <span className="text-lg font-bold mr-2">
+                {isLpBalanceLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-purple-500"></div>
+                ) : (
+                  displayLpBalance
+                )}
+              </span>
+              {!isLpBalanceLoading && (
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: "#836EF9" }}
+                >
+                  {lpSymbol}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Refund button for unfunded pools */}
         {isUnfunded && (
           <div className="mt-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-gray-400">LP Tokens:</span>
-              <div className="flex items-center">
-                <span className="text-lg font-bold mr-2">
-                  {formattedLpBalance}
-                </span>
-              </div>
-            </div>
-
             {canClaimRefund ? (
               <>
                 <button
