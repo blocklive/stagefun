@@ -43,12 +43,18 @@ export function useWalletAssets(
     );
   });
 
+  // Calculate total value correctly - use actual values or quantity as dollar value if value is null
+  const totalValue = filteredAssets.reduce((sum: number, asset: Asset) => {
+    const assetValue =
+      asset.attributes.value !== null
+        ? asset.attributes.value
+        : asset.attributes.quantity.float;
+    return sum + (assetValue || 0);
+  }, 0);
+
   return {
     assets: filteredAssets,
-    totalValue: filteredAssets.reduce(
-      (sum: number, asset: Asset) => sum + (asset.attributes.value || 0),
-      0
-    ),
+    totalValue,
     isLoading,
     error,
     refresh: mutate,

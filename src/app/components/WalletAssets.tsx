@@ -43,6 +43,12 @@ const TOKEN_ICONS: Record<string, string> = {
   // Add more tokens as needed
 };
 
+// Token display name mapping
+const TOKEN_DISPLAY_NAMES: Record<string, string> = {
+  USDC: "USD Coin",
+  // Add more token display name mappings as needed
+};
+
 const AssetCard: React.FC<{
   asset: Asset;
   onSendClick: (asset: Asset) => void;
@@ -69,6 +75,9 @@ const AssetCard: React.FC<{
       ? Math.max(0.01, quantity.float)
       : 0;
   const displayValue = `$${actualValue.toFixed(2)}`;
+
+  // Get a better display name for the token
+  const displayName = TOKEN_DISPLAY_NAMES[token.symbol] || token.name;
 
   // Updated component with styling to match PoolList
   return (
@@ -103,7 +112,7 @@ const AssetCard: React.FC<{
           )}
         </div>
         <div className="ml-4 flex-1">
-          <h3 className="font-bold">{token.name}</h3>
+          <h3 className="font-bold">{displayName}</h3>
           <div className="flex items-center text-sm">
             <span className="text-gray-400">
               {displayNumeric || displayAmount} {token.symbol}
@@ -170,31 +179,9 @@ export default function WalletAssets({
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Your Assets</h2>
         <div className="flex items-center">
-          <div className="mr-4 text-lg font-medium">
+          <div className="text-lg font-medium">
             {formatCurrency(totalValue)}
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={isLoading || isRefreshing}
-            className="p-2 text-gray-400 hover:text-white"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className={`h-5 w-5 ${
-                (isLoading || isRefreshing) && "animate-spin"
-              }`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </button>
         </div>
       </div>
 
