@@ -56,6 +56,7 @@ export default function UserCommitment({
   const {
     lpBalance,
     formattedLpBalance,
+    displayLpBalance,
     isLoading: isLpBalanceLoading,
     refreshLpBalance,
   } = useLpBalance(pool ? (pool as any)?.lp_token_address || null : null);
@@ -165,7 +166,7 @@ export default function UserCommitment({
               <span className="text-gray-400">LP Tokens:</span>
               <div className="flex items-center">
                 <span className="text-lg font-bold mr-2">
-                  {formattedLpBalance}
+                  {displayLpBalance}
                 </span>
               </div>
             </div>

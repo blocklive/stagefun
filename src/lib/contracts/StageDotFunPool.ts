@@ -390,9 +390,31 @@ export function getUSDCContract(
 export const USDC_DECIMALS = 6;
 export const USDC_DECIMAL_FACTOR = 10 ** USDC_DECIMALS;
 
+// Define LP token multiplier for display purposes (frontend only)
+export const LP_TOKEN_MULTIPLIER = 1000;
+
 // Convert from USDC base units to display units
 export function fromUSDCBaseUnits(amount: bigint): number {
   return Number(amount) / USDC_DECIMAL_FACTOR;
+}
+
+// Convert LP token amount for display, accounting for the 1000x multiplier
+export function fromLPTokenAmount(amount: bigint): number {
+  // First convert the raw LP token amount to display value (divide by 10^6 for decimals)
+  const rawValue = Number(amount) / USDC_DECIMAL_FACTOR;
+
+  // Then apply the display multiplier (divide by 1000)
+  return rawValue / LP_TOKEN_MULTIPLIER;
+}
+
+// Convert token amount to LP token display value
+export function tokenToLPDisplay(tokenAmount: number): number {
+  return tokenAmount * LP_TOKEN_MULTIPLIER;
+}
+
+// Convert LP token display value to token amount
+export function lpDisplayToToken(lpAmount: number): number {
+  return lpAmount / LP_TOKEN_MULTIPLIER;
 }
 
 // Convert from display units to USDC base units

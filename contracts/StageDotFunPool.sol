@@ -10,7 +10,8 @@ import "./interfaces/IStageDotFunPool.sol";
 
 contract StageDotFunPool is Ownable {
     // Constants
-    uint256 public constant MAX_TIERS = 10;
+    uint256 public constant MAX_TIERS = 20;
+    uint256 public constant LP_TOKEN_MULTIPLIER = 1000; // 1000x multiplier for LP tokens
     
     // State variables
     IERC20 public depositToken;
@@ -22,6 +23,7 @@ contract StageDotFunPool is Ownable {
     address public creator;
     uint256 public totalDeposits;
     uint256 public revenueAccumulated;
+    uint256 public initialFundsWithdrawn;
     uint256 public endTime;
     uint256 public targetAmount;
     uint256 public capAmount;
@@ -110,6 +112,7 @@ contract StageDotFunPool is Ownable {
     event RevenueDistributed(uint256 amount);
     event PoolNameUpdated(string oldName, string newName);
     event FundsWithdrawn(address indexed recipient, uint256 amount);
+    event RevenueWithdrawnEmergency(address indexed sender, uint256 amount);
     
     // Get user's tier commitments
     function getUserTierCommitments(address user) external view returns (uint256[] memory) {
@@ -344,8 +347,9 @@ contract StageDotFunPool is Ownable {
         // Transfer USDC from user
         require(depositToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         
-        // Mint LP tokens 1:1 with deposit
-        lpToken.mint(msg.sender, amount);
+        // Mint LP tokens with 1000x multiplier
+        uint256 lpAmount = amount * LP_TOKEN_MULTIPLIER;
+        lpToken.mint(msg.sender, lpAmount);
         
         // Update pool state
         totalDeposits += amount;
@@ -380,7 +384,25 @@ contract StageDotFunPool is Ownable {
         revenueAccumulated += amount;
         emit RevenueReceived(amount);
     }
-    
+
+    // Emergency withdrawal - withdraw entire contract balance
+    function emergencyWithdrawAll() external onlyOwner {
+        require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
+        
+        uint256 fullBalance = depositToken.balanceOf(address(this));
+        require(fullBalance > 0, "No funds to withdraw");
+        
+        // Reset all fund tracking
+        revenueAccumulated = 0;
+        initialFundsWithdrawn = totalDeposits;
+        
+        // Transfer the full balance to the owner
+        require(depositToken.transfer(msg.sender, fullBalance), "Transfer failed");
+        
+        // Emit a single event with the full amount
+        emit RevenueWithdrawnEmergency(msg.sender, fullBalance);
+    }
+
     function distributeRevenue() external {
         require(revenueAccumulated > 0, "No revenue to distribute");
         require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
@@ -388,21 +410,29 @@ contract StageDotFunPool is Ownable {
         uint256 totalSupply = lpToken.totalSupply();
         require(totalSupply > 0, "No LP tokens issued");
         
+        // Ensure the contract has enough balance for distribution
+        uint256 contractBalance = depositToken.balanceOf(address(this));
+        uint256 availableForRevenue = contractBalance - (totalDeposits - initialFundsWithdrawn);
+        require(availableForRevenue >= revenueAccumulated, "Insufficient balance for distribution");
+        
         uint256 revenue = revenueAccumulated;
         revenueAccumulated = 0; // Reset before distribution to prevent reentrancy
         
         // Get all LP token holders
         address[] memory holders = lpToken.getHolders();
         
-        // Distribute revenue to all LP holders proportionally
+        // Distribute revenue to all LP holders proportionally, accounting for the multiplier
         for (uint256 i = 0; i < holders.length; i++) {
             address holder = holders[i];
             uint256 balance = lpToken.balanceOf(holder);
             
             if (balance > 0) {
+                // Account for the multiplier when calculating share
                 uint256 share = (revenue * balance) / totalSupply;
-                if (share > 0) {
-                    require(depositToken.transfer(holder, share), "Transfer failed");
+                // Apply reverse adjustment to convert from LP tokens to USDC
+                uint256 adjustedShare = share / LP_TOKEN_MULTIPLIER;
+                if (adjustedShare > 0) {
+                    require(depositToken.transfer(holder, adjustedShare), "Transfer failed");
                 }
             }
         }
@@ -574,21 +604,33 @@ contract StageDotFunPool is Ownable {
         // Burn LP tokens
         lpToken.burn(msg.sender, lpBalance);
         
-        // Return USDC
-        require(depositToken.transfer(msg.sender, lpBalance), "Refund transfer failed");
+        // Calculate the original USDC amount by dividing by the multiplier
+        uint256 usdcAmount = lpBalance / LP_TOKEN_MULTIPLIER;
         
-        emit FundsReturned(msg.sender, lpBalance);
+        // Return USDC
+        require(depositToken.transfer(msg.sender, usdcAmount), "Refund transfer failed");
+        
+        emit FundsReturned(msg.sender, usdcAmount);
     }
 
     // Withdraw funds after target is met - allow only in EXECUTING state
     function withdrawFunds(uint256 amount) external onlyOwner targetMet {
         require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
-        uint256 balance = depositToken.balanceOf(address(this));
-        require(balance > 0, "No funds to withdraw");
         
-        // If amount is 0, withdraw full balance
-        uint256 withdrawAmount = amount == 0 ? balance : amount;
-        require(withdrawAmount <= balance, "Insufficient funds");
+        // Calculate available initial funds (excluding revenue)
+        uint256 remainingInitialFunds = totalDeposits - initialFundsWithdrawn;
+        require(remainingInitialFunds > 0, "No initial funds to withdraw");
+        
+        // If amount is 0, withdraw all remaining initial funds
+        uint256 withdrawAmount = amount == 0 ? remainingInitialFunds : amount;
+        require(withdrawAmount <= remainingInitialFunds, "Amount exceeds available initial funds");
+        
+        // Update the withdrawn amount
+        initialFundsWithdrawn += withdrawAmount;
+        
+        // Ensure we have enough balance (considering both initial funds and revenue)
+        uint256 contractBalance = depositToken.balanceOf(address(this));
+        require(contractBalance >= withdrawAmount, "Insufficient balance");
         
         // Transfer funds to owner
         require(depositToken.transfer(owner(), withdrawAmount), "Transfer failed");

@@ -19,6 +19,11 @@ contract StageDotFunLiquidity is ERC20, Ownable {
     // Add initialization state
     bool private initialized;
     
+    // Override decimals to match USDC (6 decimals)
+    function decimals() public view virtual override returns (uint8) {
+        return 6;
+    }
+    
     // Add initialize function
     function initialize(string memory name, string memory symbol) external initializer {
         // Store the name and symbol

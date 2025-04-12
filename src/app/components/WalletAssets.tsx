@@ -49,6 +49,16 @@ const TOKEN_DISPLAY_NAMES: Record<string, string> = {
   // Add more token display name mappings as needed
 };
 
+// LP token detection
+const LP_TOKEN_SYMBOLS = ["ATXDAOD", "FC"];
+const isLPToken = (symbol: string): boolean => {
+  return (
+    LP_TOKEN_SYMBOLS.includes(symbol) ||
+    symbol.endsWith("LP") ||
+    symbol.includes("LP Token")
+  );
+};
+
 const AssetCard: React.FC<{
   asset: Asset;
   onSendClick: (asset: Asset) => void;
@@ -59,8 +69,15 @@ const AssetCard: React.FC<{
   const tokenDecimals =
     quantity.decimals || token.implementations?.[0]?.decimals || 6;
 
+  // Check if this is an LP token that should have the multiplier applied for display
+  const isLp = isLPToken(token.symbol);
+
+  // Apply the LP token display enhancement for LP tokens (show 1000x more tokens)
+  // This is purely visual and doesn't affect actual balances
+  const displayQuantity = isLp ? quantity.float * 1000 : quantity.float;
+
   // Use the actual quantity from the API with correct decimals
-  const displayAmount = formatTokenAmount(quantity.float, tokenDecimals);
+  const displayAmount = formatTokenAmount(displayQuantity, tokenDecimals);
 
   // If the asset's raw numeric string is available, use it for very small amounts
   const displayNumeric =
