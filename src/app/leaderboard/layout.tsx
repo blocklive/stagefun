@@ -9,11 +9,13 @@ import { usePrivy } from "@privy-io/react-auth";
 import GetTokensModal from "../components/GetTokensModal";
 import InfoModal from "../components/InfoModal";
 
-interface ProfileLayoutProps {
+interface LeaderboardLayoutProps {
   children: React.ReactNode;
 }
 
-export default function ProfileLayout({ children }: ProfileLayoutProps) {
+export default function LeaderboardLayout({
+  children,
+}: LeaderboardLayoutProps) {
   const router = useRouter();
   const { authenticated } = usePrivy();
   const [showTokensModal, setShowTokensModal] = useState(false);
@@ -27,7 +29,7 @@ export default function ProfileLayout({ children }: ProfileLayoutProps) {
   return (
     <div className="min-h-screen bg-[#15161a] text-white">
       <AppHeader
-        showTitle={false}
+        title="LEADERBOARD"
         showCreateButton={true}
         showGetTokensButton={true}
         showPointsButton={true}
@@ -36,9 +38,9 @@ export default function ProfileLayout({ children }: ProfileLayoutProps) {
         onPointsClick={handlePointsClick}
         isAuthenticated={authenticated}
       />
-      <SideNavbar activeTab="portfolio" isAuthenticated={authenticated} />
+      <SideNavbar activeTab="leaderboard" isAuthenticated={authenticated} />
       <div className="md:pl-64 min-h-screen">{children}</div>
-      <BottomNavbar activeTab="portfolio" isAuthenticated={authenticated} />
+      <BottomNavbar activeTab="leaderboard" isAuthenticated={authenticated} />
 
       {/* Modals */}
       {showTokensModal && (

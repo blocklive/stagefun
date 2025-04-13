@@ -3,20 +3,13 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy, useFundWallet } from "@privy-io/react-auth";
-import {
-  FaArrowLeft,
-  FaMapMarkerAlt,
-  FaExclamationTriangle,
-} from "react-icons/fa";
+import { FaMapMarkerAlt, FaExclamationTriangle } from "react-icons/fa";
 import Image from "next/image";
 import { useSupabase } from "../../../contexts/SupabaseContext";
 import { useAuthenticatedSupabase } from "@/hooks/useAuthenticatedSupabase";
 import SocialLinksInput from "@/app/components/SocialLinksInput";
-import AppHeader from "../../components/AppHeader";
-import GetTokensModal from "../../components/GetTokensModal";
 import { useNativeBalance } from "../../../hooks/useNativeBalance";
 import RichTextEditor from "@/app/components/RichTextEditor";
-import InfoModal from "../../components/InfoModal";
 import showToast from "@/utils/toast";
 import useOnboardingMissions from "@/hooks/useOnboardingMissions";
 import { useAuthJwt } from "@/hooks/useAuthJwt";
@@ -169,14 +162,6 @@ export default function CreatePoolPage() {
   // Handle back button click
   const handleBackClick = () => {
     router.back();
-  };
-
-  // Handle faucet usage
-  const handleFaucetUsage = async () => {
-    setShowTokensModal(false);
-    setTimeout(() => {
-      refreshNativeBalance();
-    }, 5000);
   };
 
   const handlePointsClick = () => {
@@ -343,171 +328,137 @@ export default function CreatePoolPage() {
   };
 
   return (
-    <>
-      <AppHeader
-        showBackButton={true}
-        showTitle={false}
-        backgroundColor="#15161a"
-        showGetTokensButton={true}
-        showCreateButton={true}
-        showPointsButton={true}
-        onGetTokensClick={() => setShowTokensModal(true)}
-        onInfoClick={() => setShowInfoModal(true)}
-        onPointsClick={handlePointsClick}
-        onBackClick={handleBackClick}
-      />
+    <div className="px-6 pb-24 md:pb-8 mt-6">
+      {/* Main content */}
+      <div className="w-full">
+        {/* Pool Details, Funding, and Image Section */}
+        <div className="grid grid-cols-1 md:grid-cols-[auto,1fr] gap-x-8 gap-y-6 md:gap-y-0">
+          {/* Left Column: Pool Image */}
+          <div className="w-full md:w-[400px] order-1 md:order-1">
+            <PoolImageSection
+              imagePreview={imagePreview}
+              isUploadingImage={isUploadingImage}
+              showValidation={showValidation}
+              onImageSelect={handleImageSelect}
+              onRemoveImage={handleRemoveImage}
+            />
+          </div>
 
-      {/* Main Content */}
-      <div className="px-4 pb-24 md:pb-8">
-        {/* Page Title */}
-        <div className="px-2 mt-4">
-          <h1 className="text-5xl font-bold">CREATE PARTY ROUND</h1>
+          {/* Right Column: Pool Details and Funding */}
+          <div className="space-y-6 order-2 md:order-2">
+            <PoolDetailsSection
+              poolName={poolName}
+              ticker={ticker}
+              onPoolNameChange={setPoolName}
+              onTickerChange={setTicker}
+            />
+
+            <FundingSection
+              fundingGoal={fundingGoal}
+              capAmount={capAmount}
+              onFundingGoalChange={setFundingGoal}
+              onCapAmountChange={setCapAmount}
+              tiers={tiers}
+            />
+          </div>
         </div>
 
-        {/* Main content */}
-        <div className="px-6">
-          {/* Pool Details, Funding, and Image Section */}
-          <div className="grid grid-cols-1 md:grid-cols-[auto,1fr] gap-x-8 gap-y-6 md:gap-y-0 mt-8">
-            {/* Left Column: Pool Image */}
-            <div className="w-full md:w-[400px] order-1 md:order-1">
-              <PoolImageSection
-                imagePreview={imagePreview}
-                isUploadingImage={isUploadingImage}
-                showValidation={showValidation}
-                onImageSelect={handleImageSelect}
-                onRemoveImage={handleRemoveImage}
-              />
+        {/* Form */}
+        <form id="createPoolForm" onSubmit={onSubmit} className="mt-8">
+          {/* Description */}
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold mb-4">Pool Description</h2>
+            <RichTextEditor
+              content={description}
+              onChange={(value) => setDescription(value)}
+              placeholder="Write your story..."
+            />
+          </div>
+
+          {/* Tiers Section */}
+          {supabase && (
+            <TiersSection
+              tiers={tiers}
+              onTiersChange={handleTiersChange}
+              availableRewardItems={rewardItems}
+              onAddRewardItem={handleAddRewardItem}
+              supabase={supabase}
+              poolName={poolName}
+              fundingGoal={fundingGoal}
+              poolImage={finalImageUrl || undefined}
+            />
+          )}
+          {!supabase && (
+            <div className="mb-8 p-4 bg-red-900/30 border border-red-600 rounded-lg">
+              <h3 className="text-xl font-bold text-white mb-2">
+                Tier Section Not Available
+              </h3>
+              <p className="text-white">
+                Supabase client not available. This is required for creating
+                tiers.
+              </p>
+              <button
+                type="button"
+                className="mt-2 px-4 py-2 bg-red-600 text-white rounded-md"
+                onClick={() => window.location.reload()}
+              >
+                Reload Page
+              </button>
             </div>
+          )}
 
-            {/* Right Column: Pool Details and Funding */}
-            <div className="space-y-6 order-2 md:order-2">
-              <PoolDetailsSection
-                poolName={poolName}
-                ticker={ticker}
-                onPoolNameChange={setPoolName}
-                onTickerChange={setTicker}
-              />
-
-              <FundingSection
-                fundingGoal={fundingGoal}
-                capAmount={capAmount}
-                onFundingGoalChange={setFundingGoal}
-                onCapAmountChange={setCapAmount}
-                tiers={tiers}
+          {/* Location */}
+          <div className="mb-6">
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
+                  <FaMapMarkerAlt className="text-white" />
+                </div>
+              </div>
+              <input
+                type="text"
+                placeholder="Location (Optional)"
+                name="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
               />
             </div>
           </div>
 
-          {/* Form */}
-          <form id="createPoolForm" onSubmit={onSubmit} className="mt-8">
-            {/* Description */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-4">Pool Description</h2>
-              <RichTextEditor
-                content={description}
-                onChange={(value) => setDescription(value)}
-                placeholder="Write your story..."
-              />
-            </div>
+          {/* Social Links */}
+          <div className="mb-6">
+            <SocialLinksInput value={socialLinks} onChange={setSocialLinks} />
+          </div>
 
-            {/* Tiers Section */}
-            {supabase && (
-              <TiersSection
-                tiers={tiers}
-                onTiersChange={handleTiersChange}
-                availableRewardItems={rewardItems}
-                onAddRewardItem={handleAddRewardItem}
-                supabase={supabase}
-                poolName={poolName}
-                fundingGoal={fundingGoal}
-                poolImage={finalImageUrl || undefined}
-              />
-            )}
-            {!supabase && (
-              <div className="mb-8 p-4 bg-red-900/30 border border-red-600 rounded-lg">
-                <h3 className="text-xl font-bold text-white mb-2">
-                  Tier Section Not Available
-                </h3>
-                <p className="text-white">
-                  Supabase client not available. This is required for creating
-                  tiers.
-                </p>
-                <button
-                  type="button"
-                  className="mt-2 px-4 py-2 bg-red-600 text-white rounded-md"
-                  onClick={() => window.location.reload()}
-                >
-                  Reload Page
-                </button>
-              </div>
-            )}
-
-            {/* Location */}
-            <div className="mb-6">
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                  <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
-                    <FaMapMarkerAlt className="text-white" />
-                  </div>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Location (Optional)"
-                  name="location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
-                />
-              </div>
-            </div>
-
-            {/* Social Links */}
-            <div className="mb-6">
-              <SocialLinksInput value={socialLinks} onChange={setSocialLinks} />
-            </div>
-
-            {/* End Time */}
-            <EndTimeSection
-              endDateInputValue={endDateInputValue}
-              onEndDateChange={handleEndDateChange}
-            />
-          </form>
-        </div>
-
-        {/* Funding Summary Section */}
-        <div className="px-6 mb-16">
-          <h2 className="text-2xl font-bold mb-4">Funding Summary</h2>
-          <FundingSummary
-            tiers={tiers}
-            fundingGoal={fundingGoal}
-            capAmount={capAmount}
+          {/* End Time */}
+          <EndTimeSection
+            endDateInputValue={endDateInputValue}
+            onEndDateChange={handleEndDateChange}
           />
-        </div>
-
-        {/* Launch Button */}
-        <div className="fixed bottom-16 left-0 right-0 md:static md:mt-4 px-6 py-6 bg-[#15161a] md:px-0 md:py-0 z-10">
-          <button
-            onClick={onSubmit}
-            className="w-full py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors"
-            disabled={isLoading}
-          >
-            {isLoading ? "Creating..." : "Launch Party Round"}
-          </button>
-        </div>
+        </form>
       </div>
 
-      {/* Modals */}
-      {showTokensModal && (
-        <GetTokensModal
-          isOpen={showTokensModal}
-          onClose={() => handleFaucetUsage()}
+      {/* Funding Summary Section */}
+      <div className="mb-16">
+        <h2 className="text-2xl font-bold mb-4">Funding Summary</h2>
+        <FundingSummary
+          tiers={tiers}
+          fundingGoal={fundingGoal}
+          capAmount={capAmount}
         />
-      )}
+      </div>
 
-      <InfoModal
-        isOpen={showInfoModal}
-        onClose={() => setShowInfoModal(false)}
-      />
-    </>
+      {/* Launch Button */}
+      <div className="fixed bottom-16 left-0 right-0 md:static md:mt-4 px-6 py-6 bg-[#15161a] md:px-0 md:py-0 z-10">
+        <button
+          onClick={onSubmit}
+          className="w-full py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors"
+          disabled={isLoading}
+        >
+          {isLoading ? "Creating..." : "Launch Party Round"}
+        </button>
+      </div>
+    </div>
   );
 }

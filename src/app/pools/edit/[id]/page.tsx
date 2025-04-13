@@ -321,17 +321,6 @@ export default function EditPoolPage() {
 
   return (
     <>
-      <AppHeader
-        showBackButton={true}
-        showTitle={false}
-        backgroundColor="#15161a"
-        showGetTokensButton={true}
-        showPointsButton={true}
-        onGetTokensClick={() => setShowGetTokensModal(true)}
-        onPointsClick={handlePointsClick}
-        onBackClick={() => router.back()}
-      />
-
       {/* Main Content */}
       <div className="px-4 md:px-8 max-w-6xl mx-auto">
         {/* Page Title */}
@@ -400,14 +389,6 @@ export default function EditPoolPage() {
           </div>
         </div>
       </div>
-
-      {/* Modals */}
-      {showGetTokensModal && (
-        <GetTokensModal
-          isOpen={showGetTokensModal}
-          onClose={() => setShowGetTokensModal(false)}
-        />
-      )}
     </>
   );
 }

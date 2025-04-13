@@ -259,46 +259,24 @@ export default function ProfileComponent({
     (profileUser === null && (profileUserId || profileUsername))
   ) {
     return (
-      <>
-        <AppHeader
-          showBackButton={true}
-          showTitle={false}
-          backgroundColor="#15161a"
-          showGetTokensButton={false}
-          showCreateButton={true}
-          showPointsButton={true}
-          onBackClick={() => router.back()}
-        />
-        <div className="flex items-center justify-center h-[80vh] bg-[#121212]">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-        </div>
-      </>
+      <div className="flex items-center justify-center h-[80vh] bg-[#121212]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+      </div>
     );
   }
 
   // Make sure we have profile data
   if (!profileUser) {
     return (
-      <>
-        <AppHeader
-          showBackButton={true}
-          showTitle={false}
-          backgroundColor="#15161a"
-          showGetTokensButton={false}
-          showCreateButton={true}
-          showPointsButton={true}
-          onBackClick={() => router.back()}
-        />
-        <div className="flex items-center justify-center h-[80vh] bg-[#121212] flex-col">
-          <div className="text-white mb-4">Profile not found</div>
-          <button
-            onClick={() => router.back()}
-            className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white transition-colors"
-          >
-            Go back
-          </button>
-        </div>
-      </>
+      <div className="flex items-center justify-center h-[80vh] bg-[#121212] flex-col">
+        <div className="text-white mb-4">Profile not found</div>
+        <button
+          onClick={() => router.back()}
+          className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white transition-colors"
+        >
+          Go back
+        </button>
+      </div>
     );
   }
 
@@ -411,18 +389,6 @@ export default function ProfileComponent({
 
   return (
     <>
-      <AppHeader
-        showBackButton={true}
-        showTitle={false}
-        backgroundColor="#15161a"
-        showGetTokensButton={true}
-        showCreateButton={true}
-        showPointsButton={true}
-        onGetTokensClick={() => setShowGetTokensModal(true)}
-        onInfoClick={() => setShowInfoModal(true)}
-        onPointsClick={handlePointsClick}
-      />
-
       {/* Main Content */}
       <div className="px-4 pb-24 md:pb-8">
         {/* Profile Header with Avatar and Name */}
@@ -715,20 +681,6 @@ export default function ProfileComponent({
           />
         )}
       </div>
-
-      {/* Modals */}
-      {showGetTokensModal && (
-        <GetTokensModal
-          isOpen={showGetTokensModal}
-          onClose={() => setShowGetTokensModal(false)}
-        />
-      )}
-
-      {/* Info Modal */}
-      <InfoModal
-        isOpen={showInfoModal}
-        onClose={() => setShowInfoModal(false)}
-      />
 
       {/* Send Asset Modal */}
       <SendAssetModal

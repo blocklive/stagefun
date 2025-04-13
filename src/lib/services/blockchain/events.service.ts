@@ -346,19 +346,106 @@ export async function handleTierCommittedEvent(
           error: response.error.message,
           details: response.error,
         };
-      } else {
-        console.log(
-          `Successfully processed TierCommitted event for user: ${user}, tier: ${tierId}, pool: ${poolAddress}`
-        );
-        return {
-          event: "TierCommitted",
-          status: "success",
-          action: "insert",
-          user,
-          tierId,
-          poolAddress,
-        };
       }
+
+      // ADDITION 1: Update the pool's raised_amount
+      try {
+        // First, get the current pool to update its raised_amount
+        const { data: poolData, error: poolFetchError } = await supabase
+          .from("pools")
+          .select("raised_amount")
+          .ilike("contract_address", poolAddress)
+          .maybeSingle();
+
+        if (poolFetchError) {
+          console.error(
+            "Error fetching pool for raised_amount update:",
+            poolFetchError
+          );
+        } else if (poolData) {
+          // Calculate new raised amount - keep in base units
+          const currentRaisedAmount = poolData.raised_amount || 0;
+          const newRaisedAmount = currentRaisedAmount + BigInt(amount);
+
+          // Update the pool's raised_amount
+          const { error: poolUpdateError } = await supabase
+            .from("pools")
+            .update({ raised_amount: newRaisedAmount.toString() })
+            .ilike("contract_address", poolAddress);
+
+          if (poolUpdateError) {
+            console.error(
+              "Error updating pool raised_amount:",
+              poolUpdateError
+            );
+          } else {
+            console.log(
+              `Updated pool ${poolAddress} raised_amount to ${newRaisedAmount.toString()} (base units)`
+            );
+          }
+        } else {
+          console.log(`Pool not found with address ${poolAddress}`);
+        }
+      } catch (poolUpdateError: any) {
+        console.error("Error in pool raised_amount update:", poolUpdateError);
+      }
+
+      // ADDITION 2: Update the user's funded_amount in the users table
+      try {
+        // First, find the user by smart_wallet_address case-insensitive
+        const { data: userData, error: userFetchError } = await supabase
+          .from("users")
+          .select("id, funded_amount")
+          .ilike("smart_wallet_address", user) // Case-insensitive search
+          .maybeSingle();
+
+        if (userFetchError) {
+          console.error(
+            "Error fetching user for funded_amount update:",
+            userFetchError
+          );
+        } else if (userData) {
+          // Calculate new funded amount - keep in base units
+          const currentFundedAmount = userData.funded_amount || 0;
+          const newFundedAmount = currentFundedAmount + BigInt(amount);
+
+          // Update the user's funded_amount
+          const { error: userUpdateError } = await supabase
+            .from("users")
+            .update({ funded_amount: newFundedAmount.toString() })
+            .eq("id", userData.id);
+
+          if (userUpdateError) {
+            console.error(
+              "Error updating user funded_amount:",
+              userUpdateError
+            );
+          } else {
+            console.log(
+              `Updated user ${
+                userData.id
+              } funded_amount to ${newFundedAmount.toString()} (base units)`
+            );
+          }
+        } else {
+          console.log(`User not found with wallet address ${user}`);
+        }
+      } catch (userUpdateError: any) {
+        console.error("Error in user funded_amount update:", userUpdateError);
+      }
+
+      console.log(
+        `Successfully processed TierCommitted event for user: ${user}, tier: ${tierId}, pool: ${poolAddress}`
+      );
+
+      return {
+        event: "TierCommitted",
+        status: "success",
+        action: "insert",
+        user,
+        tierId,
+        poolAddress,
+      };
     } catch (error: any) {
       console.error("Error processing TierCommitted event:", error);
       return {

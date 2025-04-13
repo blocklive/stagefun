@@ -3,9 +3,10 @@
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { IoFlash } from "react-icons/io5";
+import { FaTrophy } from "react-icons/fa";
 
 interface SideNavbarProps {
-  activeTab: "party" | "portfolio";
+  activeTab: "party" | "portfolio" | "leaderboard";
   isAuthenticated?: boolean;
 }
 
@@ -101,6 +102,25 @@ export default function SideNavbar({
             }`}
           >
             Portfolio
+          </span>
+        </div>
+
+        {/* Leaderboard */}
+        <div
+          className="flex items-center cursor-pointer px-4 py-3 rounded-full hover:bg-[#FFFFFF14] transition-colors"
+          onClick={() => router.push("/leaderboard")}
+        >
+          <FaTrophy
+            className={`text-2xl mr-4 ${
+              activeTab === "leaderboard" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          />
+          <span
+            className={`text-lg ${
+              activeTab === "leaderboard" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          >
+            Leaderboard
           </span>
         </div>
       </div>
