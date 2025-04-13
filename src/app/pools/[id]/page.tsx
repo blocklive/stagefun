@@ -429,18 +429,6 @@ export default function PoolDetailsPage() {
           />
         )} */}
 
-        {/* Keep the original commit modal for reference but renamed */}
-        <CommitModal
-          isOpen={isCommitModalOpen}
-          onClose={() => setIsCommitModalOpen(false)}
-          commitAmount={commitAmount}
-          setCommitAmount={setCommitAmount}
-          isApproving={isCommitting}
-          tiers={pool.tiers}
-          isLoadingTiers={false}
-          poolAddress={pool.contract_address || ""}
-        />
-
         <GetTokensModal
           isOpen={showTokensModal}
           onClose={() => setShowTokensModal(false)}

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseAdmin();
 
     // SQL query for leaderboard
-    let query = supabase
+    const query = supabase
       .from("users")
       .select(
         `

@@ -83,13 +83,14 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
 
   // For fixed price tiers, display price is the tier price
   // For variable price tiers with input, use the variable amount
+  console.log("tier price", tier.price);
   let displayPrice: number;
   if (isVariablePrice && variableAmount) {
     displayPrice = parseFloat(variableAmount);
   } else {
     displayPrice = fromUSDCBaseUnits(BigInt(tier.price));
   }
-
+  console.log("display price", displayPrice);
   // Generate price range display for variable price tiers
   let priceRangeDisplay: string = "";
   if (isVariablePrice) {
@@ -106,17 +107,27 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
     }
   }
 
-  // Format user balance for display
-  const displayBalance = parseFloat(usdcBalance || "0").toLocaleString(
-    undefined,
-    {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }
-  );
-
   // Compare with human-readable balance
   const walletBalanceFloat = parseFloat(usdcBalance || "0");
+
+  // Format user balance for display
+  const displayBalance = formatAmount(walletBalanceFloat);
+
+  // A function to get the actual numeric price to check for balance
+  const getNumericPrice = () => {
+    if (isVariablePrice && variableAmount) {
+      return parseFloat(variableAmount);
+    } else {
+      return fromUSDCBaseUnits(BigInt(tier.price));
+    }
+  };
+
+  // Check if the user has enough USDC
+  const hasEnoughUSDC = () => {
+    const price = getNumericPrice();
+    return walletBalanceFloat >= price;
+  };
+
   const insufficientFunds = walletBalanceFloat < displayPrice;
 
   // Variable price validation
@@ -289,7 +300,7 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
                 Enter amount (USDC)
               </label>
               <div className="text-sm text-white/70">
-                Balance: {formatAmount(walletBalanceFloat)} USDC
+                Balance: ${displayBalance} USDC
               </div>
             </div>
             <input
@@ -321,11 +332,11 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
                 Commit amount
               </div>
               <div className="text-sm text-white/70">
-                Balance: {formatAmount(walletBalanceFloat)} USDC
+                Balance: ${displayBalance} USDC
               </div>
             </div>
             <div className="px-4 py-3 bg-[#FFFFFF0A] rounded-lg border border-[#FFFFFF1A] text-white">
-              {formatAmount(displayPrice)} USDC
+              ${formatAmount(displayPrice)} USDC
             </div>
           </div>
         )}
@@ -353,10 +364,10 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
           )}
         </button>
 
-        {insufficientFunds && (
+        {!hasEnoughUSDC() && insufficientFunds && (
           <p className="text-red-500 text-sm mt-2 text-center">
-            You need {formatAmount(displayPrice - walletBalanceFloat)} more USDC
-            to commit to this tier
+            You need ${formatAmount(getNumericPrice() - walletBalanceFloat)}{" "}
+            more USDC to commit to this tier
           </p>
         )}
 
