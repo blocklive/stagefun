@@ -48,7 +48,6 @@ export default function BalanceSection({
   if (useZerionAPI && walletAddress) {
     return (
       <div className="px-4 py-6">
-        <h2 className="text-xl text-gray-400 mb-2">Balance</h2>
         <WalletAssets
           walletAddress={walletAddress}
           chainId={chainId}

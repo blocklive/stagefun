@@ -131,8 +131,9 @@ export class ZerionSDK {
         if (onlySimple) queryParams.append("filter[positions]", "only_simple");
         if (currency) queryParams.append("currency", currency);
         if (chainId) queryParams.append("filter[chain_ids]", chainId);
-        if (onlyNonTrash) queryParams.append("filter[trash]", "only_non_trash");
         if (sort) queryParams.append("sort", sort);
+        // Add a random cache-busting parameter
+        queryParams.append("_cb", Math.random().toString());
 
         const url = `https://api.zerion.io/v1/wallets/${address}/positions/?${queryParams.toString()}`;
         response = await fetch(url, {
@@ -140,8 +141,12 @@ export class ZerionSDK {
             Authorization: this.getAuthHeader(),
             "Content-Type": "application/json",
             "X-Env": this.getEnvHeader(chainId),
+            // Add standard cache control headers for good measure
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+            Pragma: "no-cache",
           },
         });
+        console.log("Direct API Response Status:", response.status);
       }
 
       if (!response.ok) {
@@ -149,7 +154,8 @@ export class ZerionSDK {
         throw new Error(`Zerion API error (${response.status}): ${errorText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      return data;
     } catch (error) {
       console.error("Error fetching wallet assets from Zerion:", error);
       throw error;
