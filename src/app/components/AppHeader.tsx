@@ -50,7 +50,7 @@ export default function AppHeader({
   const router = useRouter();
 
   return (
-    <div className={`${className}`} style={{ backgroundColor }}>
+    <div className={`md:pl-64 ${className}`} style={{ backgroundColor }}>
       {/* Header with Logo and Action Buttons */}
       <header className="flex justify-between items-center p-4">
         {/* Logo and Back Button */}
@@ -144,7 +144,7 @@ export default function AppHeader({
       {/* Title */}
       {showTitle && (
         <h1
-          className="text-center text-5xl font-bold mt-2 mb-6"
+          className="text-left text-5xl font-bold mt-2 mb-2 px-4"
           style={{ fontFamily: "'Impact', sans-serif" }}
         >
           {title}
