@@ -28,12 +28,16 @@ interface LeaderboardUser {
 
 interface LeaderboardTableProps {
   users: LeaderboardUser[];
+  showHeader?: boolean; // Optional prop to control header visibility
 }
 
 type SortField = "points" | "fundedAmount" | "raisedAmount" | "rank";
 type SortDirection = "asc" | "desc";
 
-export default function LeaderboardTable({ users }: LeaderboardTableProps) {
+export default function LeaderboardTable({
+  users,
+  showHeader = true,
+}: LeaderboardTableProps) {
   const [sortField, setSortField] = useState<SortField>("points");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
@@ -59,8 +63,14 @@ export default function LeaderboardTable({ users }: LeaderboardTableProps) {
     }
   };
 
-  // Sort the users based on current sort settings
+  // Ensure current user is at the top, then sort the rest
   const sortedUsers = [...users].sort((a, b) => {
+    // If a is current user, it always goes first
+    if (a.isCurrentUser) return -1;
+    // If b is current user, it always goes first
+    if (b.isCurrentUser) return 1;
+
+    // Normal sorting for all other users
     let comparison = 0;
 
     if (sortField === "rank") {
@@ -83,83 +93,85 @@ export default function LeaderboardTable({ users }: LeaderboardTableProps) {
   return (
     <div className="rounded-md border border-gray-800">
       <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead
-              className="w-[80px] cursor-pointer"
-              onClick={() => handleSort("rank")}
-            >
-              <div className="flex items-center">
-                Rank
-                {sortField === "rank" && (
-                  <span className="ml-1">
-                    {sortDirection === "asc" ? (
-                      <FiArrowUp size={14} />
-                    ) : (
-                      <FiArrowDown size={14} />
-                    )}
-                  </span>
-                )}
-              </div>
-            </TableHead>
+        {showHeader && (
+          <TableHeader>
+            <TableRow>
+              <TableHead
+                className="w-[80px] cursor-pointer"
+                onClick={() => handleSort("rank")}
+              >
+                <div className="flex items-center">
+                  Rank
+                  {sortField === "rank" && (
+                    <span className="ml-1">
+                      {sortDirection === "asc" ? (
+                        <FiArrowUp size={14} />
+                      ) : (
+                        <FiArrowDown size={14} />
+                      )}
+                    </span>
+                  )}
+                </div>
+              </TableHead>
 
-            <TableHead>User</TableHead>
+              <TableHead>User</TableHead>
 
-            <TableHead
-              className="text-right cursor-pointer"
-              onClick={() => handleSort("points")}
-            >
-              <div className="flex items-center justify-end">
-                Points
-                {sortField === "points" && (
-                  <span className="ml-1">
-                    {sortDirection === "asc" ? (
-                      <FiArrowUp size={14} />
-                    ) : (
-                      <FiArrowDown size={14} />
-                    )}
-                  </span>
-                )}
-              </div>
-            </TableHead>
+              <TableHead
+                className="text-right cursor-pointer"
+                onClick={() => handleSort("points")}
+              >
+                <div className="flex items-center justify-end">
+                  Points
+                  {sortField === "points" && (
+                    <span className="ml-1">
+                      {sortDirection === "asc" ? (
+                        <FiArrowUp size={14} />
+                      ) : (
+                        <FiArrowDown size={14} />
+                      )}
+                    </span>
+                  )}
+                </div>
+              </TableHead>
 
-            <TableHead
-              className="text-right cursor-pointer"
-              onClick={() => handleSort("fundedAmount")}
-            >
-              <div className="flex items-center justify-end">
-                Funded
-                {sortField === "fundedAmount" && (
-                  <span className="ml-1">
-                    {sortDirection === "asc" ? (
-                      <FiArrowUp size={14} />
-                    ) : (
-                      <FiArrowDown size={14} />
-                    )}
-                  </span>
-                )}
-              </div>
-            </TableHead>
+              <TableHead
+                className="text-right cursor-pointer"
+                onClick={() => handleSort("fundedAmount")}
+              >
+                <div className="flex items-center justify-end">
+                  Funded
+                  {sortField === "fundedAmount" && (
+                    <span className="ml-1">
+                      {sortDirection === "asc" ? (
+                        <FiArrowUp size={14} />
+                      ) : (
+                        <FiArrowDown size={14} />
+                      )}
+                    </span>
+                  )}
+                </div>
+              </TableHead>
 
-            <TableHead
-              className="text-right cursor-pointer"
-              onClick={() => handleSort("raisedAmount")}
-            >
-              <div className="flex items-center justify-end">
-                Raised
-                {sortField === "raisedAmount" && (
-                  <span className="ml-1">
-                    {sortDirection === "asc" ? (
-                      <FiArrowUp size={14} />
-                    ) : (
-                      <FiArrowDown size={14} />
-                    )}
-                  </span>
-                )}
-              </div>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
+              <TableHead
+                className="text-right cursor-pointer"
+                onClick={() => handleSort("raisedAmount")}
+              >
+                <div className="flex items-center justify-end">
+                  Raised
+                  {sortField === "raisedAmount" && (
+                    <span className="ml-1">
+                      {sortDirection === "asc" ? (
+                        <FiArrowUp size={14} />
+                      ) : (
+                        <FiArrowDown size={14} />
+                      )}
+                    </span>
+                  )}
+                </div>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+        )}
 
         <TableBody>
           {sortedUsers.map((user) => (
