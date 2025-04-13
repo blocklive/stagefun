@@ -54,7 +54,7 @@ export default function AppHeader({
       {/* Header with Logo and Action Buttons */}
       <header className="flex justify-between items-center p-4">
         {/* Logo and Back Button */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 ml-0">
           {showLogo && (
             <div
               className="h-10 md:hidden cursor-pointer"
@@ -144,7 +144,7 @@ export default function AppHeader({
       {/* Title */}
       {showTitle && (
         <h1
-          className="text-left text-5xl font-bold mt-2 mb-2 px-4"
+          className="text-left text-5xl font-bold mt-0 mb-6 px-6"
           style={{ fontFamily: "'Impact', sans-serif" }}
         >
           {title}

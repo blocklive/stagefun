@@ -297,16 +297,6 @@ export default function PoolsPage() {
       className="bg-[#15161A] min-h-screen text-white pb-6"
       style={{ minHeight: viewportHeight }}
     >
-      <AppHeader
-        showTitle={false}
-        showCreateButton={true}
-        showGetTokensButton={true}
-        onGetTokensClick={() => setShowTokensModal(true)}
-        onInfoClick={() => setShowInfoModal(true)}
-        onPointsClick={handlePointsClick}
-        isAuthenticated={authenticated}
-      />
-
       {/* Main Content */}
       <div className="px-4 pb-24 md:pb-8">
         {/* Featured Rounds Carousel */}
@@ -566,17 +556,6 @@ export default function PoolsPage() {
           )}
         </div>
       </div>
-
-      {/* Modals */}
-      <GetTokensModal
-        isOpen={showTokensModal}
-        onClose={() => setShowTokensModal(false)}
-        isAuthenticated={authenticated}
-      />
-      <InfoModal
-        isOpen={showInfoModal}
-        onClose={() => setShowInfoModal(false)}
-      />
     </div>
   );
 }

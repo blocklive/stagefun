@@ -34,7 +34,7 @@ type SortField = "points" | "fundedAmount" | "raisedAmount" | "rank";
 type SortDirection = "asc" | "desc";
 
 export default function LeaderboardTable({ users }: LeaderboardTableProps) {
-  const [sortField, setSortField] = useState<SortField>("raisedAmount");
+  const [sortField, setSortField] = useState<SortField>("points");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   // Function to format USD amounts
