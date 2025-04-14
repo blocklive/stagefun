@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { authenticateRequest } from "@/lib/auth/server";
+import { awardPoints, PointType } from "@/lib/services/points.service";
 
 // Map of mission IDs to point values
 const MISSION_POINTS: Record<string, number> = {
@@ -21,7 +22,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { userId } = authResult;
+    const userId = authResult.userId as string;
+
+    // Ensure userId is defined
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID not found in authentication" },
+        { status: 400 }
+      );
+    }
+
     console.log("Award mission API called for user:", userId);
 
     // Parse request body
@@ -75,9 +85,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Begin transaction with manual steps
-
-    // 1. Record mission completion
+    // Record mission completion
     const { error: missionError } = await supabase
       .from("user_completed_missions")
       .upsert({
@@ -98,67 +106,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Award points to user
-    const { error: pointsError } = await supabase.from("user_points").upsert(
-      {
-        user_id: userId,
-        total_points: pointsValue,
+    // Award points using our new points service
+    const pointsResult = await awardPoints({
+      userId,
+      type: PointType.ONBOARDING, // Using onboarding points for missions
+      amount: pointsValue,
+      description: `Completed mission: ${missionId}`,
+      metadata: {
+        missionId,
+        completedAt: new Date().toISOString(),
       },
-      {
-        onConflict: "user_id",
-        ignoreDuplicates: false,
-      }
-    );
+      supabase,
+    });
 
-    if (pointsError) {
-      // Try an update if the insert with upsert failed
-      const { data: currentPoints, error: getPointsError } = await supabase
-        .from("user_points")
-        .select("total_points")
-        .eq("user_id", userId)
-        .single();
-
-      if (getPointsError) {
-        console.error("Error getting current points:", getPointsError);
-        return NextResponse.json(
-          { error: "Database Error", message: "Failed to award points" },
-          { status: 500 }
-        );
-      }
-
-      // Update with the new total
-      const { error: updateError } = await supabase
-        .from("user_points")
-        .update({
-          total_points: (currentPoints?.total_points || 0) + pointsValue,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", userId);
-
-      if (updateError) {
-        console.error("Error updating points:", updateError);
-        return NextResponse.json(
-          { error: "Database Error", message: "Failed to award points" },
-          { status: 500 }
-        );
-      }
-    }
-
-    // 3. Log the transaction
-    const { error: transactionError } = await supabase
-      .from("points_transactions")
-      .insert({
-        user_id: userId,
-        points_amount: pointsValue,
-        transaction_type: "MISSION_COMPLETE",
-        description: `Completed mission: ${missionId}`,
-      });
-
-    if (transactionError) {
-      console.error("Error logging points transaction:", transactionError);
-      // We'll still consider this a success even if the transaction log fails
-      console.warn(
-        "Couldn't log the points transaction, but points were awarded"
+    if (!pointsResult.success) {
+      console.error("Error awarding points:", pointsResult.error);
+      return NextResponse.json(
+        { error: "Database Error", message: "Failed to award points" },
+        { status: 500 }
       );
     }
 

@@ -5,6 +5,9 @@ import {
   DAILY_CHECKIN_POINTS,
   DAILY_CHECKIN_ACTION,
   MIN_CHECKIN_INTERVAL_HOURS,
+  awardPointsForDailyCheckin,
+  formatTimeRemaining,
+  PointType,
 } from "../../../../lib/services/points.service";
 
 // Create a Supabase client with the service role key for admin operations
@@ -26,7 +29,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { userId } = authResult;
+    const userId = authResult.userId as string;
+
+    // Ensure userId is defined
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID not found in authentication" },
+        { status: 400 }
+      );
+    }
+
     const currentTime = new Date();
 
     // Check if user has already claimed points today
@@ -53,16 +65,14 @@ export async function POST(request: NextRequest) {
           0,
           nextAvailableTime.getTime() - currentTime.getTime()
         );
-        const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
-        const minutes = Math.floor(
-          (timeRemaining % (1000 * 60 * 60)) / (1000 * 60)
-        );
 
         return NextResponse.json(
           {
             success: false,
             nextAvailableAt: checkinData.next_available_at,
-            message: `You can claim again in ${hours}h ${minutes}m`,
+            message: `You can claim again in ${formatTimeRemaining(
+              timeRemaining
+            )}`,
           },
           { status: 429 }
         );
@@ -86,8 +96,7 @@ export async function POST(request: NextRequest) {
         nextAvailableDate.getHours() + MIN_CHECKIN_INTERVAL_HOURS
       );
 
-      // Start transaction directly in the API
-      // 1. Update the daily check-in record
+      // Update the daily check-in record
       const { error: updateCheckinError } = await supabaseAdmin
         .from("daily_checkins")
         .update({
@@ -105,114 +114,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 2. Get user's current points or create a record if it doesn't exist
-      const { data: userPoints, error: pointsError } = await supabaseAdmin
-        .from("user_points")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
+      // Use the new points service function to award daily check-in points
+      const pointsResult = await awardPointsForDailyCheckin({
+        userId: userId as string,
+        timestamp: currentTime,
+        streakCount: newStreakCount,
+        supabase: supabaseAdmin,
+      });
 
-      if (pointsError && pointsError.code !== "PGRST116") {
-        console.error("Error fetching user points:", pointsError);
+      if (!pointsResult.success) {
+        console.error("Error awarding check-in points:", pointsResult.error);
         return NextResponse.json(
-          { error: "Failed to fetch user points" },
-          { status: 500 }
-        );
-      }
-
-      // 3. Update or create user points record
-      if (userPoints) {
-        // Update existing points record
-        const { error: updatePointsError } = await supabaseAdmin
-          .from("user_points")
-          .update({
-            total_points: userPoints.total_points + DAILY_CHECKIN_POINTS,
-            updated_at: currentTime.toISOString(),
-          })
-          .eq("user_id", userId);
-
-        if (updatePointsError) {
-          console.error("Error updating user points:", updatePointsError);
-          return NextResponse.json(
-            { error: "Failed to update points" },
-            { status: 500 }
-          );
-        }
-      } else {
-        // Create new points record
-        const { error: createPointsError } = await supabaseAdmin
-          .from("user_points")
-          .insert({
-            user_id: userId,
-            total_points: DAILY_CHECKIN_POINTS,
-            created_at: currentTime.toISOString(),
-            updated_at: currentTime.toISOString(),
-          });
-
-        if (createPointsError) {
-          console.error("Error creating user points:", createPointsError);
-
-          // If it's a duplicate key error, the record already exists - try to update instead
-          if (createPointsError.code === "23505") {
-            // Get the current points
-            const { data: existingPoints, error: fetchError } =
-              await supabaseAdmin
-                .from("user_points")
-                .select("total_points")
-                .eq("user_id", userId)
-                .single();
-
-            if (fetchError) {
-              console.error("Error fetching existing points:", fetchError);
-              return NextResponse.json(
-                { error: "Failed to update points record" },
-                { status: 500 }
-              );
-            }
-
-            // Update the existing record
-            const { error: updateError } = await supabaseAdmin
-              .from("user_points")
-              .update({
-                total_points:
-                  existingPoints.total_points + DAILY_CHECKIN_POINTS,
-                updated_at: currentTime.toISOString(),
-              })
-              .eq("user_id", userId);
-
-            if (updateError) {
-              console.error("Error updating points:", updateError);
-              return NextResponse.json(
-                { error: "Failed to update points record" },
-                { status: 500 }
-              );
-            }
-          } else {
-            // If it's any other error, return a failure response
-            return NextResponse.json(
-              { error: "Failed to create points record" },
-              { status: 500 }
-            );
-          }
-        }
-      }
-
-      // 4. Create transaction record
-      const { error: transactionError } = await supabaseAdmin
-        .from("point_transactions")
-        .insert({
-          user_id: userId,
-          amount: DAILY_CHECKIN_POINTS,
-          action_type: DAILY_CHECKIN_ACTION,
-          metadata: {
-            streak_count: newStreakCount,
-          },
-        });
-
-      if (transactionError) {
-        console.error("Error creating transaction record:", transactionError);
-        return NextResponse.json(
-          { error: "Failed to record transaction" },
+          { error: "Failed to award points" },
           { status: 500 }
         );
       }
@@ -249,78 +162,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 2. Create initial user points record
-      const { error: createPointsError } = await supabaseAdmin
-        .from("user_points")
-        .insert({
-          user_id: userId,
-          total_points: DAILY_CHECKIN_POINTS,
-          created_at: currentTime.toISOString(),
-          updated_at: currentTime.toISOString(),
-        });
+      // Use the new points service function to award daily check-in points
+      const pointsResult = await awardPointsForDailyCheckin({
+        userId: userId as string,
+        timestamp: currentTime,
+        streakCount: 1,
+        supabase: supabaseAdmin,
+      });
 
-      if (createPointsError) {
-        console.error("Error creating user points:", createPointsError);
-
-        // If it's a duplicate key error, the record already exists - try to update instead
-        if (createPointsError.code === "23505") {
-          // Get the current points
-          const { data: existingPoints, error: fetchError } =
-            await supabaseAdmin
-              .from("user_points")
-              .select("total_points")
-              .eq("user_id", userId)
-              .single();
-
-          if (fetchError) {
-            console.error("Error fetching existing points:", fetchError);
-            return NextResponse.json(
-              { error: "Failed to update points record" },
-              { status: 500 }
-            );
-          }
-
-          // Update the existing record
-          const { error: updateError } = await supabaseAdmin
-            .from("user_points")
-            .update({
-              total_points: existingPoints.total_points + DAILY_CHECKIN_POINTS,
-              updated_at: currentTime.toISOString(),
-            })
-            .eq("user_id", userId);
-
-          if (updateError) {
-            console.error("Error updating points:", updateError);
-            return NextResponse.json(
-              { error: "Failed to update points record" },
-              { status: 500 }
-            );
-          }
-        } else {
-          // If it's any other error, return a failure response
-          return NextResponse.json(
-            { error: "Failed to create points record" },
-            { status: 500 }
-          );
-        }
-      }
-
-      // 3. Create transaction record
-      const { error: transactionError } = await supabaseAdmin
-        .from("point_transactions")
-        .insert({
-          user_id: userId,
-          amount: DAILY_CHECKIN_POINTS,
-          action_type: DAILY_CHECKIN_ACTION,
-          metadata: {
-            streak_count: 1,
-          },
-        });
-
-      if (transactionError) {
-        console.error("Error creating transaction record:", transactionError);
+      if (!pointsResult.success) {
+        console.error("Error awarding check-in points:", pointsResult.error);
         return NextResponse.json(
-          { error: "Failed to record transaction" },
+          { error: "Failed to award points" },
           { status: 500 }
         );
       }
@@ -333,7 +186,7 @@ export async function POST(request: NextRequest) {
       });
     }
   } catch (error) {
-    console.error("Error in daily-claim API:", error);
+    console.error("Error processing daily check-in:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

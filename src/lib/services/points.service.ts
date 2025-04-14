@@ -12,7 +12,7 @@ export interface AwardPointsParams {
   userId: string;
   type: PointType;
   amount: number;
-  reason: string;
+  description: string;
   metadata?: Record<string, any>;
   supabase: SupabaseClient;
 }
@@ -25,7 +25,7 @@ export async function awardPoints({
   userId,
   type,
   amount,
-  reason,
+  description,
   metadata = {},
   supabase,
 }: AwardPointsParams): Promise<{ success: boolean; error?: string }> {
@@ -78,11 +78,10 @@ export async function awardPoints({
     .from("point_transactions")
     .insert({
       user_id: userId,
-      type,
       amount,
-      reason,
-      metadata,
+      action_type: `${type}:${description}`,
       created_at: new Date().toISOString(),
+      metadata,
     });
 
   if (insertError) {
@@ -236,7 +235,7 @@ export async function awardPointsForPoolCreation({
       userId: userData.id,
       type: PointType.RAISED,
       amount: 500, // Base points for creating a pool
-      reason: "Created funding pool",
+      description: "created_pool",
       metadata: {
         poolAddress,
         poolName,
@@ -317,7 +316,7 @@ export async function awardPointsForPoolCommitment({
       userId: userData.id,
       type: PointType.FUNDED,
       amount: funderPoints,
-      reason: "Committed to pool",
+      description: "pool_commitment",
       metadata: {
         poolAddress,
         tierId,
@@ -385,7 +384,7 @@ export async function awardPointsForPoolCommitment({
         userId: creatorData.id,
         type: PointType.RAISED,
         amount: creatorPoints,
-        reason: "Pool received commitment",
+        description: "received_commitment",
         metadata: {
           poolAddress,
           tierId,
@@ -503,7 +502,7 @@ export async function awardPointsForPoolExecuting({
       userId: userData.id,
       type: PointType.RAISED,
       amount: executingPoints,
-      reason: "Pool reached EXECUTING status",
+      description: "pool_executing",
       metadata: {
         poolAddress,
         statusNum,
@@ -523,6 +522,84 @@ export async function awardPointsForPoolExecuting({
     return pointsResult;
   } catch (error: any) {
     console.error("Error awarding bonus points for executing pool:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Awards points to a user for daily check-in
+ * Validates that user hasn't checked in too recently
+ */
+export async function awardPointsForDailyCheckin({
+  userId,
+  timestamp = new Date(),
+  streakCount = 1,
+  supabase,
+}: {
+  userId: string;
+  timestamp?: Date;
+  streakCount?: number;
+  supabase: SupabaseClient;
+}): Promise<{ success: boolean; error?: string; timeRemaining?: number }> {
+  try {
+    // Check for recent check-ins to prevent abuse
+    const minIntervalMs = MIN_CHECKIN_INTERVAL_HOURS * 60 * 60 * 1000;
+
+    // Get user's last check-in - using the combined action_type format
+    const { data: lastCheckin, error: fetchError } = await supabase
+      .from("point_transactions")
+      .select("created_at")
+      .eq("user_id", userId)
+      .eq("action_type", `${PointType.CHECKIN}:${DAILY_CHECKIN_ACTION}`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error("Error fetching last check-in:", fetchError);
+      return { success: false, error: fetchError.message };
+    }
+
+    // If user has checked in before, validate time elapsed
+    if (lastCheckin) {
+      const lastCheckinTime = new Date(lastCheckin.created_at).getTime();
+      const currentTime = timestamp.getTime();
+      const timeElapsed = currentTime - lastCheckinTime;
+
+      // If not enough time has passed, return error with time remaining
+      if (timeElapsed < minIntervalMs) {
+        const timeRemaining = minIntervalMs - timeElapsed;
+        return {
+          success: false,
+          error: "Too soon for another check-in",
+          timeRemaining,
+        };
+      }
+    }
+
+    // Award check-in points
+    const pointsResult = await awardPoints({
+      userId,
+      type: PointType.CHECKIN,
+      amount: DAILY_CHECKIN_POINTS,
+      description: DAILY_CHECKIN_ACTION,
+      metadata: {
+        checkin_time: timestamp.toISOString(),
+        streak_count: streakCount,
+      },
+      supabase,
+    });
+
+    if (pointsResult.success) {
+      console.log(
+        `Awarded ${DAILY_CHECKIN_POINTS} check-in points to user ${userId}`
+      );
+      return { success: true };
+    } else {
+      return pointsResult;
+    }
+  } catch (error: any) {
+    console.error("Error awarding points for daily check-in:", error);
     return { success: false, error: error.message };
   }
 }
