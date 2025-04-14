@@ -104,16 +104,7 @@ export default function PatronsTab({
           : BigInt(commitment.amount);
 
       // Add to running total for this patron
-      const currentValue = patronMap[userKey].total_amount;
       patronMap[userKey].total_amount += Number(amountValue);
-
-      // Debug logging to help diagnose calculation issues
-      console.log(`Adding commitment for ${userKey}:`, {
-        amount: commitment.amount,
-        parsed: Number(amountValue),
-        prevTotal: currentValue,
-        newTotal: patronMap[userKey].total_amount,
-      });
 
       // Track tiers with counts
       const existingTierIndex = patronMap[userKey].tiers.findIndex(

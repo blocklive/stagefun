@@ -78,8 +78,24 @@ export function formatAmount(amount: number): string {
     // For regular numbers, only show decimals if not a whole number
     return Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
   } else if (amount > 0) {
-    // For very small numbers, show up to 4 decimals
-    return amount.toFixed(4);
+    // For very small numbers, calculate significant digits properly
+    const amountStr = amount.toString();
+    const decimalPart = amountStr.split(".")[1] || "";
+
+    // Count leading zeros in decimal part
+    let leadingZeros = 0;
+    for (let i = 0; i < decimalPart.length; i++) {
+      if (decimalPart[i] === "0") {
+        leadingZeros++;
+      } else {
+        break;
+      }
+    }
+
+    // Show at least 2 significant digits after leading zeros
+    // but cap at 6 decimal places total
+    const decimalsToShow = Math.min(leadingZeros + 2, 6);
+    return amount.toFixed(decimalsToShow);
   }
   return "0";
 }

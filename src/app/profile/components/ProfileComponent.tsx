@@ -38,6 +38,7 @@ import AccountSetupMessage from "./AccountSetupMessage";
 import AccountSetupBadge from "./AccountSetupBadge";
 import { useSmartWalletInitializer } from "../../../hooks/useSmartWalletInitializer";
 import { useAvatarUpload } from "../../../hooks/useAvatarUpload";
+import { mutate } from "swr";
 import BalanceSection from "./BalanceSection";
 
 interface ProfileComponentProps {
@@ -69,6 +70,10 @@ export default function ProfileComponent({
   const [showGetTokensModal, setShowGetTokensModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Add missing state for send modal and selected asset
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<any>(null);
 
   // Use our custom hook for avatar uploads
   const { isUploading, uploadAvatar } = useAvatarUpload(
@@ -120,14 +125,6 @@ export default function ProfileComponent({
     isLoading: isUserAssetsLoading,
     refreshUsdcBalance,
   } = useUserAssets();
-
-  // Withdraw state
-  const [showSendModal, setShowSendModal] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<{
-    name: string;
-    symbol: string;
-    balance: string;
-  } | null>(null);
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -372,17 +369,13 @@ export default function ProfileComponent({
     }
   };
 
-  // Handle points button click
-  const handlePointsClick = () => {
-    router.push("/onboarding");
-  };
-
   const handleSendClick = (asset: any, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent click event from bubbling up
     setSelectedAsset({
       name: asset.name,
       symbol: asset.symbol,
       balance: asset.balance,
+      address: asset.address,
     });
     setShowSendModal(true);
   };
@@ -687,7 +680,12 @@ export default function ProfileComponent({
         isOpen={showSendModal}
         onClose={() => setShowSendModal(false)}
         asset={selectedAsset}
-        onSuccess={() => refreshUsdcBalance()}
+        onSuccess={() => {
+          refreshUsdcBalance();
+          if (user.smart_wallet_address) {
+            mutate(`wallet-assets-${user.smart_wallet_address}-monad-test-v2`);
+          }
+        }}
       />
     </>
   );

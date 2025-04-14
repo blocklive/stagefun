@@ -1,15 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useWalletAssets } from "../../hooks/useWalletAssets";
 import { Asset } from "../../lib/zerion/ZerionSDK";
+import type { RefObject } from "react";
 
 interface WalletAssetsProps {
   walletAddress: string | null;
   chainId?: string;
   className?: string;
   onSendClick?: (asset: Asset) => void;
+  refreshAssetsRef?: RefObject<() => void>;
 }
 
 const formatCurrency = (value: number | null): string => {
@@ -157,12 +159,20 @@ export default function WalletAssets({
   chainId = "monad-test-v2",
   className = "",
   onSendClick = () => {},
+  refreshAssetsRef,
 }: WalletAssetsProps) {
   const { assets, totalValue, isLoading, error, refresh } = useWalletAssets(
     walletAddress,
     chainId
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Expose the refresh function to the parent via the ref
+  useEffect(() => {
+    if (refreshAssetsRef) {
+      refreshAssetsRef.current = refresh;
+    }
+  }, [refreshAssetsRef, refresh]);
 
   const handleSendClick = (asset: Asset) => {
     onSendClick(asset);

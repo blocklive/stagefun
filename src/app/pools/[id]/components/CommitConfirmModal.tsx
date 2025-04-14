@@ -83,14 +83,13 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
 
   // For fixed price tiers, display price is the tier price
   // For variable price tiers with input, use the variable amount
-  console.log("tier price", tier.price);
   let displayPrice: number;
   if (isVariablePrice && variableAmount) {
     displayPrice = parseFloat(variableAmount);
   } else {
     displayPrice = fromUSDCBaseUnits(BigInt(tier.price));
   }
-  console.log("display price", displayPrice);
+
   // Generate price range display for variable price tiers
   let priceRangeDisplay: string = "";
   if (isVariablePrice) {

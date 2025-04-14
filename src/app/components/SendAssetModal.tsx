@@ -9,10 +9,32 @@ import {
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ethers } from "ethers";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
-import { getUSDCContract } from "@/lib/contracts/StageDotFunPool";
+import { useSendToken } from "@/hooks/useSendToken";
 import showToast from "@/utils/toast";
 import Modal from "./Modal";
 import { formatAmount } from "@/lib/utils";
+
+/**
+ * Converts any number format (including scientific notation) to a proper decimal string
+ * with full precision for blockchain transactions.
+ * This version uses ethers.js for robust conversion.
+ */
+function scientificToDecimal(num: string | number): string {
+  const str = num.toString();
+  if (!/e/i.test(str)) return str;
+  const n = Number(str);
+  // Find the number of decimals needed to fully expand the number
+  const match = str.match(/e-(\d+)/);
+  if (match) {
+    const decimals = parseInt(match[1], 10) + 2; // +2 for safety
+    return n.toFixed(decimals).replace(/0+$/, "").replace(/\.$/, "");
+  }
+  return n.toString();
+}
+
+function toDecimalString(value: string | number): string {
+  return scientificToDecimal(value);
+}
 
 interface SendAssetModalProps {
   isOpen: boolean;
@@ -21,6 +43,7 @@ interface SendAssetModalProps {
     name: string;
     symbol: string;
     balance: string;
+    address?: string;
   } | null;
   onSuccess?: () => void;
 }
@@ -32,14 +55,16 @@ export default function SendAssetModal({
   onSuccess,
 }: SendAssetModalProps) {
   const [destinationAddress, setDestinationAddress] = useState("");
-  const [isSending, setIsSending] = useState(false);
   const [addressError, setAddressError] = useState("");
   const [amountError, setAmountError] = useState("");
   const [copied, setCopied] = useState(false);
-  const { smartWalletAddress, callContractFunction } = useSmartWallet();
+  const { smartWalletAddress } = useSmartWallet();
   const [amount, setAmount] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Use our custom hook for sending tokens
+  const { sendToken, isSending, error } = useSendToken();
 
   // Reset form when modal opens
   useEffect(() => {
@@ -170,47 +195,31 @@ export default function SendAssetModal({
       return;
     }
 
-    try {
-      setIsSending(true);
-      const loadingToast = showToast.loading("Processing transfer...");
+    // Convert the amount to a proper decimal string that ethers can parse
+    // This especially handles scientific notation that ethers can't parse directly
+    const decimalAmount = scientificToDecimal(amount);
 
-      // Get the RPC provider
-      const provider = new ethers.JsonRpcProvider(
-        process.env.NEXT_PUBLIC_RPC_URL
-      );
+    // Log the details right before making the on-chain call
+    console.log("[SendAssetModal] On-chain send call:", {
+      destinationAddress,
+      amount: decimalAmount,
+      asset: {
+        symbol: asset.symbol,
+        address: asset.address || "Not provided",
+        name: asset.name,
+      },
+    });
 
-      // Get USDC contract (read-only for validation)
-      const usdcContract = getUSDCContract(provider);
-      const usdcTokenAddress = await usdcContract.getAddress();
+    // Send the properly formatted decimal string
+    const result = await sendToken({
+      destinationAddress,
+      amount: decimalAmount,
+      asset,
+    });
 
-      // Convert amount to USDC base units (6 decimals)
-      const amountInBaseUnits = ethers.parseUnits(sendAmount.toString(), 6);
-
-      // Use the smart wallet to transfer the funds
-      const result = await callContractFunction(
-        usdcTokenAddress as `0x${string}`,
-        ["function transfer(address to, uint256 amount) returns (bool)"],
-        "transfer",
-        [destinationAddress, amountInBaseUnits],
-        `Transferring ${sendAmount} ${asset.symbol} to ${destinationAddress}`
-      );
-
-      if (result.success) {
-        showToast.success("Asset successfully sent!", {
-          id: loadingToast,
-        });
-        onClose();
-        onSuccess?.();
-      } else {
-        throw new Error(result.error || "Failed to send asset");
-      }
-    } catch (error) {
-      console.error("Error sending asset:", error);
-      showToast.error(
-        error instanceof Error ? error.message : "Failed to send asset"
-      );
-    } finally {
-      setIsSending(false);
+    if (result) {
+      onClose();
+      onSuccess?.();
     }
   };
 

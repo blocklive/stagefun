@@ -390,6 +390,28 @@ export function getUSDCContract(
 export const USDC_DECIMALS = 6;
 export const USDC_DECIMAL_FACTOR = 10 ** USDC_DECIMALS;
 
+// Token decimal constants
+export const MON_DECIMALS = 18;
+export const ETH_DECIMALS = 18;
+
+/**
+ * Get the number of decimals for a given token symbol
+ * @param symbol The token symbol (case insensitive)
+ * @returns The number of decimals for the token
+ */
+export function getTokenDecimals(symbol: string): number {
+  switch (symbol.toUpperCase()) {
+    case "USDC":
+      return USDC_DECIMALS;
+    case "MON":
+      return MON_DECIMALS;
+    case "ETH":
+      return ETH_DECIMALS;
+    default:
+      return USDC_DECIMALS; // Default to USDC decimals
+  }
+}
+
 // Define LP token multiplier for display purposes (frontend only)
 export const LP_TOKEN_MULTIPLIER = 1000;
 

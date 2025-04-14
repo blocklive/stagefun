@@ -1,4 +1,5 @@
 import React from "react";
+import type { RefObject } from "react";
 import Image from "next/image";
 import { FaDollarSign, FaUsers } from "react-icons/fa";
 import { IoFlash } from "react-icons/io5";
@@ -12,6 +13,7 @@ interface Asset {
   value: number;
   type: "token" | "pool" | "native";
   status?: string;
+  address?: string;
 }
 
 interface BalanceSectionProps {
@@ -33,6 +35,11 @@ export default function BalanceSection({
 }: BalanceSectionProps) {
   // Handler for Zerion assets
   const handleZerionSendClick = (zerionAsset: ZerionAsset) => {
+    // Get token implementation with address if available
+    const tokenImplementation =
+      zerionAsset.attributes.fungible_info?.implementations?.[0];
+    const tokenAddress = tokenImplementation?.address;
+
     // Convert Zerion asset to our Asset format for consistency
     const asset: Asset = {
       name: zerionAsset.attributes.fungible_info.name,
@@ -40,9 +47,21 @@ export default function BalanceSection({
       balance: zerionAsset.attributes.quantity.float.toString(),
       value: zerionAsset.attributes.quantity.float, // Using the same value as per requirements
       type: "token", // Assuming all Zerion assets are tokens
+      address: tokenAddress, // Add token address if available
     };
 
-    onSendClick(asset, {} as React.MouseEvent);
+    console.log("Sending Zerion asset:", {
+      symbol: asset.symbol,
+      address: asset.address || "Not available",
+      name: asset.name,
+    });
+
+    // Create a synthetic event with stopPropagation method
+    const syntheticEvent = {
+      stopPropagation: () => {},
+    } as React.MouseEvent;
+
+    onSendClick(asset, syntheticEvent);
   };
 
   if (useZerionAPI && walletAddress) {
