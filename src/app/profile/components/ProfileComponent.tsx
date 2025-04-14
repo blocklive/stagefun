@@ -118,14 +118,6 @@ export default function ProfileComponent({
     refresh: refreshFundedPools,
   } = useUserFundedPools(userWalletAddress);
 
-  // Get user assets
-  const {
-    assets,
-    totalBalance,
-    isLoading: isUserAssetsLoading,
-    refreshUsdcBalance,
-  } = useUserAssets();
-
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
     const updateHeight = () => {
@@ -607,8 +599,6 @@ export default function ProfileComponent({
         {/* Balance and Assets Section */}
         {isOwnProfile && (
           <BalanceSection
-            totalBalance={totalBalance}
-            assets={assets}
             onSendClick={handleSendClick}
             walletAddress={user.smart_wallet_address || null}
             useZerionAPI={true}
@@ -681,7 +671,6 @@ export default function ProfileComponent({
         onClose={() => setShowSendModal(false)}
         asset={selectedAsset}
         onSuccess={() => {
-          refreshUsdcBalance();
           if (user.smart_wallet_address) {
             mutate(`wallet-assets-${user.smart_wallet_address}-monad-test-v2`);
           }
