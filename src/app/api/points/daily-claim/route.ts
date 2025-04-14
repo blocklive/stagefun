@@ -5,7 +5,7 @@ import {
   DAILY_CHECKIN_POINTS,
   DAILY_CHECKIN_ACTION,
   MIN_CHECKIN_INTERVAL_HOURS,
-} from "../../../../lib/services/points-service";
+} from "../../../../lib/services/points.service";
 
 // Create a Supabase client with the service role key for admin operations
 const supabaseAdmin = createClient(

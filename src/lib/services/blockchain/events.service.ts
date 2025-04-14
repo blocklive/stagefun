@@ -1,5 +1,11 @@
 import { ethers } from "ethers";
 import { createClient } from "@supabase/supabase-js";
+import {
+  awardPointsForPoolCreation,
+  awardPointsForPoolCommitment,
+  awardPointsForPoolExecuting,
+  PointType,
+} from "../points.service";
 
 // Import the event ABI fragments
 const poolCreatedEventFragment = {
@@ -242,6 +248,24 @@ export async function handlePoolCreatedEvent(
         console.log(
           `Successfully processed PoolCreated event for pool: ${pool}`
         );
+
+        // Award points to the creator for creating a pool
+        try {
+          await awardPointsForPoolCreation({
+            creatorAddress: creator,
+            poolAddress: pool,
+            poolName: name,
+            uniqueId,
+            txHash: event.transactionHash,
+            supabase,
+          });
+        } catch (pointsError: any) {
+          console.error(
+            "Error awarding points for pool creation:",
+            pointsError
+          );
+        }
+
         return {
           event: "PoolCreated",
           status: "success",
@@ -426,6 +450,23 @@ export async function handleTierCommittedEvent(
                 userData.id
               } funded_amount to ${newFundedAmount.toString()} (base units)`
             );
+
+            // Award points for committing to a pool
+            try {
+              await awardPointsForPoolCommitment({
+                userAddress: user,
+                poolAddress,
+                tierId,
+                amount: amount.toString(),
+                txHash: event.transactionHash,
+                supabase,
+              });
+            } catch (pointsError: any) {
+              console.error(
+                "Error awarding points for pool commitment:",
+                pointsError
+              );
+            }
           }
         } else {
           console.log(`User not found with wallet address ${user}`);
@@ -526,6 +567,26 @@ export async function handlePoolStatusUpdatedEvent(
       console.log(
         `Successfully updated status for pool: ${poolAddress} to ${statusString}`
       );
+
+      // If the pool status was updated to EXECUTING (7), award bonus points to creator
+      if (statusNum === 7) {
+        // EXECUTING
+        try {
+          await awardPointsForPoolExecuting({
+            poolAddress,
+            statusNum,
+            statusString,
+            txHash: event.transactionHash,
+            supabase,
+          });
+        } catch (pointsError: any) {
+          console.error(
+            "Error awarding bonus points for executing pool:",
+            pointsError
+          );
+        }
+      }
+
       return {
         event: "PoolStatusUpdated",
         status: "success",

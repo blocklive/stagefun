@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSupabase } from "../contexts/SupabaseContext";
 import { useAuthJwt } from "./useAuthJwt";
 import showToast from "../utils/toast";
-import { formatTimeRemaining } from "../lib/services/points-service";
+import { formatTimeRemaining } from "../lib/services/points.service";
 import { useAuthenticatedSupabase } from "./useAuthenticatedSupabase";
 import useSWR from "swr";
 
