@@ -205,7 +205,7 @@ function calculatePointsFromAmount(
   multiplier: number
 ): number {
   // Convert from base units (6 decimals in USDC) to USDC
-  const amountUSDC = Math.floor(parseInt(amountBaseUnits) / 1e6);
+  const amountUSDC = parseInt(amountBaseUnits) / 1e6;
   // Apply multiplier
   const points = amountUSDC * multiplier;
   // Return points only if at least 1, otherwise 0
