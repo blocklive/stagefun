@@ -5,6 +5,7 @@ import {
   extractBearerToken,
 } from "@/lib/auth/server";
 import { onboardingMissions } from "@/app/data/onboarding-missions"; // Import mission data
+import { awardPoints, PointType } from "@/lib/services/points.service";
 
 // The Twitter username we want users to follow
 const TARGET_TWITTER_ACCOUNT = "stagedotfun";
@@ -94,7 +95,12 @@ export async function POST(request: NextRequest) {
     // --- 3. Record mission completion ---
     const { error: insertError } = await adminClient
       .from("user_completed_missions")
-      .insert({ user_id: userId, mission_id: missionId });
+      .insert({
+        user_id: userId,
+        mission_id: missionId,
+        points_awarded: true,
+        completed_at: new Date().toISOString(),
+      });
 
     if (insertError) {
       console.error("Error recording mission completion:", insertError);
@@ -110,60 +116,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // --- 4. Award points transaction ---
-    const { error: pointsError } = await adminClient
-      .from("point_transactions")
-      .insert({
-        user_id: userId,
-        amount: pointsToAward,
-        action_type: "mission_completed",
-        metadata: { mission_id: missionId, reason: "Followed on X" },
-      });
+    // --- 4. Award points using the points service ---
+    const pointsResult = await awardPoints({
+      userId,
+      type: PointType.ONBOARDING,
+      amount: pointsToAward,
+      description: `Completed mission: ${missionId}`,
+      metadata: {
+        missionId,
+        completedAt: new Date().toISOString(),
+      },
+      supabase: adminClient,
+    });
 
-    if (pointsError) {
-      console.error("Error awarding points transaction:", pointsError);
-      // Note: Consider rollback
+    if (!pointsResult.success) {
+      console.error("Error awarding points:", pointsResult.error);
       return NextResponse.json(
         { error: "Failed to award points" },
         { status: 500 }
       );
     }
 
-    // --- 5. Update total points directly in user_points table ---
-    const { data: userPointsData, error: fetchPointsError } = await adminClient
-      .from("user_points")
-      .select("total_points")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (fetchPointsError) {
-      console.error("Error fetching user points:", fetchPointsError);
-      return NextResponse.json(
-        { error: "Failed to fetch points for update" },
-        { status: 500 }
-      );
-    }
-
-    const currentPoints = Number(userPointsData?.total_points || 0);
-    const newTotalPoints = currentPoints + pointsToAward;
-
-    const { error: updateError } = await adminClient
-      .from("user_points")
-      .upsert(
-        { user_id: userId, total_points: newTotalPoints },
-        { onConflict: "user_id" }
-      );
-
-    if (updateError) {
-      console.error("Error updating total points directly:", updateError);
-      return NextResponse.json(
-        { error: "Failed to update total points balance" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
       alreadyCompleted: false,
+      isFollowing: true,
       message: `Thanks for following! You've earned ${pointsToAward} points.`, // Use dynamic points
     });
   } catch (error) {

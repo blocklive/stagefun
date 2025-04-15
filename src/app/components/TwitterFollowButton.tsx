@@ -76,26 +76,11 @@ export default function TwitterFollowButton({
 
       // Check if user is following
       if (result.isFollowing) {
-        // If verified, award points
-        const missionResponse = await fetch("/api/points/award-mission", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ missionId: "follow_x" }),
-        });
-
-        const missionResult = await missionResponse.json();
-
-        if (missionResponse.ok) {
-          setIsVerified(true);
-          showToast.success(
-            `Verified! You're following @${twitterHandle}! +${missionResult.points.toLocaleString()} points`
-          );
-          if (onSuccess) onSuccess();
-          return true;
-        }
+        // The verify-follow endpoint now handles awarding points
+        setIsVerified(true);
+        showToast.success(`Verified! You're following @${twitterHandle}!`);
+        if (onSuccess) onSuccess();
+        return true;
       }
 
       return result.isFollowing;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getSupabaseAdmin } from "@/lib/auth/server";
 import { onboardingMissions } from "@/app/data/onboarding-missions"; // Import mission data
+import { awardPoints, PointType } from "@/lib/services/points.service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,6 +65,8 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: userId,
         mission_id: missionId,
+        points_awarded: true,
+        completed_at: new Date().toISOString(),
       });
 
     if (insertError) {
@@ -82,70 +85,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Award points for completing the mission
-    const { error: pointsError } = await adminClient
-      .from("point_transactions")
-      .insert({
-        user_id: userId,
-        amount: pointsToAward,
-        action_type: "mission_completed",
-        metadata: {
-          mission_id: missionId,
-          reason: "Linked X account",
-        },
-      });
+    // Award points using the points service
+    const pointsResult = await awardPoints({
+      userId,
+      type: PointType.ONBOARDING,
+      amount: pointsToAward,
+      description: `Completed mission: ${missionId}`,
+      metadata: {
+        missionId,
+        completedAt: new Date().toISOString(),
+      },
+      supabase: adminClient,
+    });
 
-    if (pointsError) {
-      console.error("Error awarding points transaction:", pointsError);
-      // Note: Consider if we should roll back the mission completion here
+    if (!pointsResult.success) {
+      console.error("Error awarding points:", pointsResult.error);
       return NextResponse.json(
         { error: "Failed to award points" },
         { status: 500 }
       );
     }
 
-    // Fetch current points first
-    const { data: userPointsData, error: fetchPointsError } = await adminClient
-      .from("user_points")
-      .select("total_points")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (fetchPointsError) {
-      console.error("Error fetching user points:", fetchPointsError);
-      // Note: Points awarded, but total might be incorrect. Log or handle as needed.
-      return NextResponse.json(
-        { error: "Failed to fetch points for update" },
-        { status: 500 }
-      );
-    }
-
-    // Ensure currentPoints is treated as a number
-    const currentPoints = Number(userPointsData?.total_points || 0);
-    const newTotalPoints = currentPoints + pointsToAward;
-
-    // Upsert the new total points
-    const { error: updateError } = await adminClient
-      .from("user_points")
-      .upsert(
-        { user_id: userId, total_points: newTotalPoints },
-        { onConflict: "user_id" }
-      );
-
-    if (updateError) {
-      // Log the specific error for better debugging
-      console.error("Error updating total points directly:", updateError);
-      // Note: Points transaction recorded, but total points update failed.
-      // Consider alerting or queuing for retry.
-      return NextResponse.json(
-        { error: "Failed to update total points balance" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
       alreadyCompleted: false,
-      message: `Mission completed! You've earned ${pointsToAward} points.`, // Dynamic points in message
+      message: `Mission completed! You've earned ${pointsToAward} points.`,
     });
   } catch (error) {
     console.error("Error verifying Twitter mission:", error);

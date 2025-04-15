@@ -1,5 +1,27 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
+/**
+ * Points Service
+ *
+ * This service handles all point-related operations in the system. Points are awarded for various activities:
+ *
+ * Funded Points:
+ * - Pool commitment/deposit (15 points per USDC to depositor)
+ *
+ * Raised Points:
+ * - Creating a pool (50 base points to creator)
+ * - Receiving commitments to your pool (25 points per USDC committed to creator)
+ * - Pool reaching EXECUTING status (30 points per USDC raised to creator)
+ *
+ * Onboarding Points:
+ * - Completing missions like linking X account (10,000 points)
+ * - Following on X (10,000 points)
+ * - Creating a pool (50,000 points)
+ *
+ * Check-in Points:
+ * - Daily check-in (100 points, limited to once per 24 hours)
+ */
+
 // Define point types as an enum for better type safety
 export enum PointType {
   FUNDED = "funded",
@@ -229,12 +251,12 @@ export async function awardPointsForPoolCreation({
       return { success: false, error: "Creator not found" };
     }
 
-    // Start with a base of 500 points for creating a pool
+    // Start with a base of 50 points for creating a pool
     // This will be supplemented later when deposits come in
     const pointsResult = await awardPoints({
       userId: userData.id,
       type: PointType.RAISED,
-      amount: 500, // Base points for creating a pool
+      amount: 50, // Base points for creating a pool
       description: "created_pool",
       metadata: {
         poolAddress,
@@ -247,7 +269,7 @@ export async function awardPointsForPoolCreation({
 
     if (pointsResult.success) {
       console.log(
-        `Awarded 500 raised points to user ${userData.id} for creating pool`
+        `Awarded 50 raised points to user ${userData.id} for creating pool`
       );
     }
 
@@ -278,8 +300,8 @@ export async function awardPointsForPoolCommitment({
   supabase: SupabaseClient;
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    // Calculate points based on USDC amount (7 points per USDC)
-    const funderPoints = calculatePointsFromAmount(amount, 7);
+    // Calculate points based on USDC amount (15 points per USDC)
+    const funderPoints = calculatePointsFromAmount(amount, 15);
 
     if (funderPoints === 0) {
       console.log(
@@ -334,10 +356,10 @@ export async function awardPointsForPoolCommitment({
       console.error("Failed to award points to funder:", funderResult.error);
     }
 
-    // 2. Also award points to the pool creator (9 points per USDC)
+    // 2. Also award points to the pool creator (25 points per USDC)
     try {
-      // Calculate points for the creator (9 points per USDC)
-      const creatorPoints = calculatePointsFromAmount(amount, 9);
+      // Calculate points for the creator (25 points per USDC)
+      const creatorPoints = calculatePointsFromAmount(amount, 25);
 
       if (creatorPoints === 0) {
         return { success: funderResult.success, error: funderResult.error };
@@ -419,7 +441,7 @@ export async function awardPointsForPoolCommitment({
 
 /**
  * Awards bonus points to a pool creator when their pool reaches EXECUTING status
- * Awards 13 points per USDC raised
+ * Awards 30 points per USDC raised
  */
 export async function awardPointsForPoolExecuting({
   poolAddress,
@@ -462,10 +484,10 @@ export async function awardPointsForPoolExecuting({
       };
     }
 
-    // Calculate points based on raised amount (13 points per USDC)
+    // Calculate points based on raised amount (30 points per USDC)
     const executingPoints = calculatePointsFromAmount(
       poolData.raised_amount.toString(),
-      13
+      30
     );
 
     if (executingPoints === 0) {

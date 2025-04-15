@@ -88,8 +88,34 @@ export async function GET(request: NextRequest) {
 
     // Return both datasets
     const response = {
-      points: userPoints || { user_id: userId, total_points: 0 },
+      points: userPoints || {
+        user_id: userId,
+        total_points: 0,
+        funded_points: 0,
+        raised_points: 0,
+        onboarding_points: 0,
+        checkin_points: 0,
+      },
       checkin: checkinData || null,
+      pointsBreakdown: userPoints
+        ? {
+            funded: userPoints.funded_points || 0,
+            raised: userPoints.raised_points || 0,
+            onboarding: userPoints.onboarding_points || 0,
+            checkin: userPoints.checkin_points || 0,
+            total:
+              Number(userPoints.funded_points || 0) +
+              Number(userPoints.raised_points || 0) +
+              Number(userPoints.onboarding_points || 0) +
+              Number(userPoints.checkin_points || 0),
+          }
+        : {
+            funded: 0,
+            raised: 0,
+            onboarding: 0,
+            checkin: 0,
+            total: 0,
+          },
     };
 
     console.log(`Total API request took ${Date.now() - startTime}ms`);

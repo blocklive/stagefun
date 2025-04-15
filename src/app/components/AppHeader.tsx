@@ -54,7 +54,7 @@ export default function AppHeader({
       {/* Header with Logo and Action Buttons */}
       <header className="flex justify-between items-center p-4">
         {/* Logo and Back Button */}
-        <div className="flex items-center gap-3 ml-0">
+        <div className="flex items-center gap-3">
           {showLogo && (
             <div
               className="h-10 md:hidden cursor-pointer"

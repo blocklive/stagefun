@@ -18,7 +18,13 @@ interface LeaderboardUser {
   name: string | null;
   wallet: string | null;
   avatar_url: string | null;
-  points: number;
+  points: {
+    total: number;
+    funded: number;
+    raised: number;
+    onboarding: number;
+    checkin: number;
+  };
   fundedAmount: number; // Amount user has funded into pools
   raisedAmount: number; // Amount user has raised in their pools
   totalTally: number;
@@ -31,7 +37,13 @@ interface LeaderboardTableProps {
   showHeader?: boolean; // Optional prop to control header visibility
 }
 
-type SortField = "points" | "fundedAmount" | "raisedAmount" | "rank";
+type SortField =
+  | "points"
+  | "fundedAmount"
+  | "raisedAmount"
+  | "rank"
+  | "fundedPoints"
+  | "raisedPoints";
 type SortDirection = "asc" | "desc";
 
 export default function LeaderboardTable({
@@ -77,7 +89,22 @@ export default function LeaderboardTable({
       // Sort by totalTally for the rank column
       comparison = b.totalTally - a.totalTally;
     } else if (sortField === "points") {
-      comparison = b.points - a.points;
+      // Calculate total from all point types
+      const aTotalPoints =
+        a.points.funded +
+        a.points.raised +
+        a.points.onboarding +
+        a.points.checkin;
+      const bTotalPoints =
+        b.points.funded +
+        b.points.raised +
+        b.points.onboarding +
+        b.points.checkin;
+      comparison = bTotalPoints - aTotalPoints;
+    } else if (sortField === "fundedPoints") {
+      comparison = b.points.funded - a.points.funded;
+    } else if (sortField === "raisedPoints") {
+      comparison = b.points.raised - a.points.raised;
     } else if (sortField === "fundedAmount") {
       comparison = b.fundedAmount - a.fundedAmount;
     } else if (sortField === "raisedAmount") {
@@ -123,6 +150,42 @@ export default function LeaderboardTable({
                 <div className="flex items-center justify-end">
                   Points
                   {sortField === "points" && (
+                    <span className="ml-1">
+                      {sortDirection === "asc" ? (
+                        <FiArrowUp size={14} />
+                      ) : (
+                        <FiArrowDown size={14} />
+                      )}
+                    </span>
+                  )}
+                </div>
+              </TableHead>
+
+              <TableHead
+                className="text-right cursor-pointer"
+                onClick={() => handleSort("fundedPoints")}
+              >
+                <div className="flex items-center justify-end">
+                  Funded Points
+                  {sortField === "fundedPoints" && (
+                    <span className="ml-1">
+                      {sortDirection === "asc" ? (
+                        <FiArrowUp size={14} />
+                      ) : (
+                        <FiArrowDown size={14} />
+                      )}
+                    </span>
+                  )}
+                </div>
+              </TableHead>
+
+              <TableHead
+                className="text-right cursor-pointer"
+                onClick={() => handleSort("raisedPoints")}
+              >
+                <div className="flex items-center justify-end">
+                  Raised Points
+                  {sortField === "raisedPoints" && (
                     <span className="ml-1">
                       {sortDirection === "asc" ? (
                         <FiArrowUp size={14} />
@@ -193,14 +256,27 @@ export default function LeaderboardTable({
                   </span>
                   {user.isCurrentUser && (
                     <span className="text-xs bg-[#FFFFFF20] px-2 py-0.5 rounded-full">
-                      Your position
+                      ⭐
                     </span>
                   )}
                 </div>
               </TableCell>
 
               <TableCell className="text-right font-medium">
-                {user.points.toLocaleString()}
+                {(
+                  user.points.funded +
+                  user.points.raised +
+                  user.points.onboarding +
+                  user.points.checkin
+                ).toLocaleString()}
+              </TableCell>
+
+              <TableCell className="text-right font-medium">
+                {user.points.funded.toLocaleString()}
+              </TableCell>
+
+              <TableCell className="text-right font-medium">
+                {user.points.raised.toLocaleString()}
               </TableCell>
 
               <TableCell className="text-right font-medium">

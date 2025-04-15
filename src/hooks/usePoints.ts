@@ -11,6 +11,10 @@ interface UserPoints {
   id: string;
   user_id: string;
   total_points: number;
+  funded_points: number;
+  raised_points: number;
+  onboarding_points: number;
+  checkin_points: number;
   created_at: string;
   updated_at: string;
 }
@@ -118,8 +122,19 @@ export function usePoints(
   const pointsData = userData?.points;
   const checkinData = userData?.checkin;
 
+  // Calculate total points by summing all point types
+  const calculateTotalPoints = (data: UserPoints | null): number => {
+    if (!data) return 0;
+    return (
+      (data.funded_points || 0) +
+      (data.raised_points || 0) +
+      (data.onboarding_points || 0) +
+      (data.checkin_points || 0)
+    );
+  };
+
   // Derived state
-  const points = pointsData?.total_points ?? null;
+  const points = pointsData ? calculateTotalPoints(pointsData) : null;
   const streakCount = checkinData?.streak_count ?? 0;
   const canClaim = canClaimDaily(checkinData);
   // Only show loading when we have no data and no error

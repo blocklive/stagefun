@@ -8,7 +8,13 @@ interface LeaderboardUserData {
   name: string | null;
   wallet: string | null;
   avatar_url: string | null;
-  points: number;
+  points: {
+    total: number;
+    funded: number;
+    raised: number;
+    onboarding: number;
+    checkin: number;
+  };
   fundedAmount: number;
   raisedAmount: number;
   totalTally: number;
@@ -16,7 +22,10 @@ interface LeaderboardUserData {
 
 // Database types
 interface DbUserPoints {
-  total_points: number;
+  funded_points: number;
+  raised_points: number;
+  onboarding_points: number;
+  checkin_points: number;
 }
 
 interface DbUser {
@@ -48,12 +57,14 @@ export async function GET(request: NextRequest) {
         avatar_url,
         funded_amount,
         user_points!inner (
-          total_points
+          funded_points,
+          raised_points,
+          onboarding_points,
+          checkin_points
         )
       `
       )
-      // Join inner to filter out users without points
-      .order("user_points(total_points)", { ascending: false })
+      // We'll sort the data after calculating the proper total points
       .limit(100);
 
     const { data: usersResult, error } = await query;
@@ -85,10 +96,25 @@ export async function GET(request: NextRequest) {
             name: user.name,
             wallet: user.wallet_address,
             avatar_url: user.avatar_url,
-            points: user.user_points.total_points,
+            points: {
+              total:
+                (user.user_points.funded_points || 0) +
+                (user.user_points.raised_points || 0) +
+                (user.user_points.onboarding_points || 0) +
+                (user.user_points.checkin_points || 0),
+              funded: user.user_points.funded_points || 0,
+              raised: user.user_points.raised_points || 0,
+              onboarding: user.user_points.onboarding_points || 0,
+              checkin: user.user_points.checkin_points || 0,
+            },
             fundedAmount: 0,
             raisedAmount: 0,
-            totalTally: user.user_points.total_points, // For now just use points
+            // Just use points for totalTally - no dollar amounts
+            totalTally:
+              (user.user_points.funded_points || 0) +
+              (user.user_points.raised_points || 0) +
+              (user.user_points.onboarding_points || 0) +
+              (user.user_points.checkin_points || 0),
           };
         }
 
@@ -106,30 +132,40 @@ export async function GET(request: NextRequest) {
           ? fromUSDCBaseUnits(BigInt(user.funded_amount))
           : 0;
 
-        // Calculate total tally
-        const totalTally =
-          user.user_points.total_points + fundedAmount + raisedAmount;
+        // Calculate total points - sum of all point categories
+        const totalPoints =
+          (user.user_points.funded_points || 0) +
+          (user.user_points.raised_points || 0) +
+          (user.user_points.onboarding_points || 0) +
+          (user.user_points.checkin_points || 0);
 
         return {
           id: user.id,
           name: user.name,
           wallet: user.wallet_address,
           avatar_url: user.avatar_url,
-          points: user.user_points.total_points,
+          points: {
+            total: totalPoints,
+            funded: user.user_points.funded_points || 0,
+            raised: user.user_points.raised_points || 0,
+            onboarding: user.user_points.onboarding_points || 0,
+            checkin: user.user_points.checkin_points || 0,
+          },
           fundedAmount: fundedAmount,
           raisedAmount: raisedAmount,
-          totalTally: totalTally,
+          // Use just the total points for ranking
+          totalTally: totalPoints,
         };
       })
     );
 
-    // First sort by total tally descending
-    enrichedUsers.sort((a, b) => b.totalTally - a.totalTally);
+    // Sort by total points descending
+    enrichedUsers.sort((a, b) => b.points.total - a.points.total);
 
     // Apply proper competition ranking (1,2,2,4 style)
     let currentRank = 1;
     let currentScore =
-      enrichedUsers.length > 0 ? enrichedUsers[0].totalTally : 0;
+      enrichedUsers.length > 0 ? enrichedUsers[0].points.total : 0;
     let sameRankCount = 0;
 
     // Assign ranks with proper competition ranking
@@ -140,14 +176,14 @@ export async function GET(request: NextRequest) {
         return { ...user, rank: currentRank };
       }
 
-      if (user.totalTally === currentScore) {
+      if (user.points.total === currentScore) {
         // Same score as previous user, keep same rank
         sameRankCount++;
         return { ...user, rank: currentRank };
       } else {
         // Different score, update rank and current score
         currentRank += sameRankCount;
-        currentScore = user.totalTally;
+        currentScore = user.points.total;
         sameRankCount = 1;
         return { ...user, rank: currentRank };
       }
