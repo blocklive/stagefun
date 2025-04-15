@@ -37,6 +37,9 @@ interface DbUser {
   user_points: DbUserPoints;
 }
 
+// List of core team members to exclude from leaderboard
+const EXCLUDED_USERS = ["spatializes", "stagedotfun", "4ormund"];
+
 export async function GET(request: NextRequest) {
   try {
     // Get the season from query params
@@ -64,6 +67,10 @@ export async function GET(request: NextRequest) {
         )
       `
       )
+      // Exclude core team members - filter by name
+      .neq("name", "spatializes")
+      .neq("name", "stagedotfun")
+      .neq("name", "4ormund")
       // We'll sort the data after calculating the proper total points
       .limit(100);
 
