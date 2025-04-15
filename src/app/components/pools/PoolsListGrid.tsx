@@ -398,7 +398,7 @@ export default function PoolsListGrid({
 
       {/* Scrollable Content - Only this part scrolls */}
       <div
-        className="flex-1 h-[calc(100%-130px)] overflow-y-auto px-4 pb-32 md:pb-10 pt-2"
+        className="flex-1 h-[calc(100%-130px)] overflow-y-auto px-4 pb-16 md:pb-4 pt-2"
         style={{ minHeight: "300px" }}
       >
         {loading && pools.length === 0 ? (

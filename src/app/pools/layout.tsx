@@ -78,8 +78,8 @@ export default function PoolsLayout({ children }: PoolsLayoutProps) {
         isAuthenticated={authenticated}
       />
       <SideNavbar activeTab="party" isAuthenticated={authenticated} />
-      <div className="md:pl-64 h-[calc(100vh-175px)] overflow-hidden">
-        {children}
+      <div className="md:pl-64 flex-1 flex flex-col">
+        <div className="h-full">{children}</div>
       </div>
       <BottomNavbar activeTab="party" isAuthenticated={authenticated} />
 

@@ -107,10 +107,8 @@ export default function PoolsListPage() {
         />
       </div>
 
-      {/* Fixed Bottom Bar - Desktop Only - Made much thinner */}
-      <div className="hidden md:flex h-6 border-t border-b border-gray-800 bg-[#1e1e2a] items-center justify-center w-full text-xs">
-        <div className="text-gray-400">Explore and discover funding rounds</div>
-      </div>
+      {/* Fixed Bottom Bar - Desktop Only - Ultra thin version */}
+      <div className="hidden md:flex h-[2px] border-t border-gray-800/30 bg-[#1e1e2a] w-full"></div>
     </div>
   );
 }
