@@ -3,7 +3,7 @@
 import { usePrivy } from "@privy-io/react-auth";
 import AuthenticatedLayout from "./(authenticated)/layout";
 import PublicLayout from "./(public)/layout";
-import PoolsDisplay from "@/app/components/PoolsDisplay";
+import HomePage from "@/app/components/HomePage";
 import AccessCodePage from "@/app/components/AccessCodePage";
 
 export default function RootPage() {
@@ -14,7 +14,7 @@ export default function RootPage() {
   if (authenticated) {
     return (
       <AuthenticatedLayout>
-        <PoolsDisplay />
+        <HomePage />
       </AuthenticatedLayout>
     );
   } else {

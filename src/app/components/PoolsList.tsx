@@ -1,21 +1,14 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
 import { FaChevronDown } from "react-icons/fa";
-import { useSupabase } from "../../contexts/SupabaseContext";
-import { getPoolsByPatron } from "../../lib/services/patron-service";
 import CircularProgress from "./CircularProgress";
-import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
-import { useFeaturedPools } from "../../hooks/useFeaturedPools";
 import Image from "next/image";
 import UserAvatar from "./UserAvatar";
 import { formatAmount } from "../../lib/utils";
-import FeaturedRoundsCarousel from "./FeaturedRoundsCarousel";
 
 type TabType = "open" | "funded" | "unfunded";
 
-// Define a type for the pools returned by usePoolsWithDeposits
 type OnChainPool = {
   id: string;
   contract_address: string;
@@ -34,69 +27,33 @@ type OnChainPool = {
   creator_id: string;
 };
 
-export default function HomePage() {
-  const { dbUser } = useSupabase();
-  const router = useRouter();
-  const [viewportHeight, setViewportHeight] = useState("100vh");
-  const [activeTab, setActiveTab] = useState<TabType>("open");
+interface PoolsListProps {
+  pools: OnChainPool[];
+  dbUser: any;
+  loading: boolean;
+  error: boolean;
+  isDbError: boolean;
+  refresh: () => void;
+  activeTab: TabType;
+  onTabChange: (tab: TabType) => void;
+}
 
-  // Update active tab when URL changes
-  useEffect(() => {
-    const handleUrlChange = () => {
-      const params = new URLSearchParams(window.location.search);
-      const tab = params.get("tab") as TabType;
-      if (tab && ["open", "funded", "unfunded"].includes(tab)) {
-        setActiveTab(tab);
-      }
-    };
-
-    // Set initial state
-    handleUrlChange();
-
-    // Listen for popstate (back/forward navigation)
-    window.addEventListener("popstate", handleUrlChange);
-
-    return () => {
-      window.removeEventListener("popstate", handleUrlChange);
-    };
-  }, []);
-
-  // Handle tab change
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    // Update URL without adding to history
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", tab);
-    window.history.replaceState({}, "", url.toString());
-  };
-
-  const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
+export default function PoolsList({
+  pools,
+  dbUser,
+  loading,
+  error,
+  isDbError,
+  refresh,
+  activeTab,
+  onTabChange,
+}: PoolsListProps) {
   const [sortBy, setSortBy] = useState("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
   const [poolType, setPoolType] = useState("all"); // "all" or "my"
-  const {
-    pools,
-    isLoading: loading,
-    error,
-    isDbError,
-    refresh,
-    isUsingCache,
-  } = usePoolsWithDeposits(1, activeTab);
-  const { featuredPools, isLoading: featuredLoading } = useFeaturedPools();
-
-  // Set the correct viewport height
-  useEffect(() => {
-    const updateHeight = () => {
-      setViewportHeight(`${window.innerHeight}px`);
-    };
-
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
 
   // Handle clicks outside the dropdowns
   useEffect(() => {
@@ -121,18 +78,6 @@ export default function HomePage() {
     };
   }, []);
 
-  // Fetch joined pools when user changes
-  useEffect(() => {
-    const fetchJoinedPools = async () => {
-      if (dbUser) {
-        const userPoolIds = await getPoolsByPatron(dbUser.id);
-        setJoinedPoolIds(userPoolIds);
-      }
-    };
-
-    fetchJoinedPools();
-  }, [dbUser]);
-
   // Replace the custom filtering section with a simpler version
   // that only filters by pool type (all or my)
   const filteredPools =
@@ -141,7 +86,6 @@ export default function HomePage() {
       if (poolType === "my" && pool.creator_id !== dbUser?.id) {
         return false;
       }
-
       return true;
     }) || [];
 
@@ -150,10 +94,9 @@ export default function HomePage() {
 
   if (sortBy === "recent") {
     sortedPools.sort((a: OnChainPool, b: OnChainPool) => {
-      // Use the created_at field from Supabase for accurate sorting
       const dateA = new Date(a.created_at || "").getTime();
       const dateB = new Date(b.created_at || "").getTime();
-      return dateB - dateA; // Sort in descending order (newest first)
+      return dateB - dateA;
     });
   } else if (sortBy === "amount") {
     sortedPools.sort(
@@ -180,7 +123,6 @@ export default function HomePage() {
 
   // Get pool status indicator
   const getPoolStatusIndicator = (pool: OnChainPool) => {
-    // Display indicator based on status string from database
     if (pool.status === "CLOSED" || pool.status === "CANCELLED") {
       return (
         <span className="text-gray-400">
@@ -188,11 +130,9 @@ export default function HomePage() {
         </span>
       );
     }
-
     if (pool.status === "PAUSED") {
       return <span className="text-yellow-400">• Paused</span>;
     }
-
     return null;
   };
 
@@ -233,10 +173,7 @@ export default function HomePage() {
   const renderSkeletonItem = () => (
     <li className="p-4 bg-[#FFFFFF0A] rounded-xl animate-pulse">
       <div className="flex items-center gap-3">
-        {/* Pool Image Skeleton */}
         <div className="w-12 h-12 rounded-full bg-gray-700"></div>
-
-        {/* Pool Info Skeleton */}
         <div className="flex-1">
           <div className="h-5 bg-gray-700 rounded w-3/4 mb-2"></div>
           <div className="flex items-center gap-2">
@@ -244,8 +181,6 @@ export default function HomePage() {
             <div className="h-4 bg-gray-700 rounded w-1/3"></div>
           </div>
         </div>
-
-        {/* Progress and Amount Skeleton */}
         <div className="text-right flex items-center gap-4">
           <div>
             <div className="h-5 bg-gray-700 rounded w-16 mb-1"></div>
@@ -257,7 +192,6 @@ export default function HomePage() {
     </li>
   );
 
-  // Render skeleton loading UI
   const renderSkeletonList = () => (
     <ul className="space-y-4">
       {[...Array(5)].map((_, index) => (
@@ -266,21 +200,12 @@ export default function HomePage() {
     </ul>
   );
 
-  // Update the pool click handler
   const handlePoolClick = (poolId: string) => {
-    router.push(`/pools/${poolId}?from_tab=${activeTab}`);
+    onTabChange(activeTab);
   };
 
   return (
-    <div className="px-4 pb-24 md:pb-8">
-      {/* Featured Rounds Carousel */}
-      {featuredPools && featuredPools.length > 0 && (
-        <FeaturedRoundsCarousel pools={featuredPools} />
-      )}
-
-      {/* Daily Check-in */}
-      <div className="mb-6">{/* Daily Check-in component removed */}</div>
-
+    <>
       {/* Tabs */}
       <div className="flex justify-center md:justify-start gap-2 px-4">
         <button
@@ -289,7 +214,7 @@ export default function HomePage() {
               ? "bg-white text-black font-medium"
               : "bg-transparent text-white border border-gray-700"
           }`}
-          onClick={() => handleTabChange("open")}
+          onClick={() => onTabChange("open")}
         >
           Open
         </button>
@@ -299,7 +224,7 @@ export default function HomePage() {
               ? "bg-white text-black font-medium"
               : "bg-transparent text-white border border-gray-700"
           }`}
-          onClick={() => handleTabChange("funded")}
+          onClick={() => onTabChange("funded")}
         >
           Funded
         </button>
@@ -309,7 +234,7 @@ export default function HomePage() {
               ? "bg-white text-black font-medium"
               : "bg-transparent text-white border border-gray-700"
           }`}
-          onClick={() => handleTabChange("unfunded")}
+          onClick={() => onTabChange("unfunded")}
         >
           Unfunded
         </button>
@@ -529,6 +454,6 @@ export default function HomePage() {
           </ul>
         )}
       </div>
-    </div>
+    </>
   );
 }
