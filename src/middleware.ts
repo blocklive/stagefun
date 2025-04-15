@@ -8,33 +8,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get the response to modify
-  const response = NextResponse.next();
-
-  // Get the Privy JWT from the Authorization header
-  const token = extractBearerToken(request);
-
+  // Get the Privy JWT from the Authorization header or cookie
+  let token = extractBearerToken(request);
   if (!token) {
-    return response;
+    // Try to get from cookie (Privy HTTP-only cookie setup)
+    token = request.cookies.get("privy-token")?.value || null;
   }
 
-  try {
-    // Verify the token
-    const payload = await verifyPrivyToken(token);
+  // Optionally, you could verify the token here if you want to set headers or context
+  // But for routing, just let the request proceed
 
-    if (!payload) {
-      return response;
-    }
-
-    // For demo purposes, we're not setting anything on the response
-    // since we're using direct token verification in the API endpoints
-
-    return response;
-  } catch (error) {
-    return response;
-  }
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/api/test/:path*"],
+  matcher: ["/((?!_next|api/auth).*)"],
 };

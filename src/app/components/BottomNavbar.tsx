@@ -5,13 +5,13 @@ import { IoFlash } from "react-icons/io5";
 import { FaTrophy } from "react-icons/fa";
 
 interface BottomNavbarProps {
-  activeTab: "party" | "portfolio" | "leaderboard";
+  activeTab?: "party" | "portfolio" | "leaderboard" | "";
   isAuthenticated?: boolean;
 }
 
 export default function BottomNavbar({
-  activeTab,
-  isAuthenticated = true, // Default to true for backward compatibility
+  activeTab = "", // Default to no active tab
+  isAuthenticated = true,
 }: BottomNavbarProps) {
   const router = useRouter();
 

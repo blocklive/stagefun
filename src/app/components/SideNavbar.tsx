@@ -6,13 +6,13 @@ import { IoFlash } from "react-icons/io5";
 import { FaTrophy } from "react-icons/fa";
 
 interface SideNavbarProps {
-  activeTab: "party" | "portfolio" | "leaderboard";
+  activeTab?: "party" | "portfolio" | "leaderboard" | "";
   isAuthenticated?: boolean;
 }
 
 export default function SideNavbar({
-  activeTab,
-  isAuthenticated = true, // Default to true for backward compatibility
+  activeTab = "", // Default to no active tab
+  isAuthenticated = true,
 }: SideNavbarProps) {
   const router = useRouter();
 
@@ -30,7 +30,7 @@ export default function SideNavbar({
       {/* Logo */}
       <div
         className="mb-8 px-2 cursor-pointer"
-        onClick={() => router.push("/pools")}
+        onClick={() => router.push("/")}
       >
         <Image
           src="/stagefunheader.png"

@@ -16,6 +16,8 @@ interface FeaturedRoundsCarouselProps {
 const CARD_WIDTH = 260;
 const CARD_MARGIN = 16;
 const CARD_SIZE = CARD_WIDTH + CARD_MARGIN * 2;
+const CAROUSEL_HEIGHT = 340; // Estimate: card height + padding
+const PLACEHOLDER_CARD_COUNT = 3;
 
 export default function FeaturedRoundsCarousel({
   pools,
@@ -101,8 +103,55 @@ export default function FeaturedRoundsCarousel({
     router.push(`/pools/${poolId}`);
   };
 
+  // Placeholder skeleton UI
   if (!pools || pools.length === 0) {
-    return null;
+    return (
+      <div
+        className="relative mb-8 pt-4"
+        style={{ minHeight: CAROUSEL_HEIGHT }}
+      >
+        <h2 className="text-2xl font-bold text-white mb-6 px-4">
+          Featured rounds
+        </h2>
+        <div className="relative">
+          <div
+            className="flex overflow-x-auto hide-scrollbar px-4"
+            style={{ minHeight: CAROUSEL_HEIGHT }}
+          >
+            {Array.from({ length: PLACEHOLDER_CARD_COUNT }).map((_, idx) => (
+              <div
+                key={idx}
+                className="flex-shrink-0"
+                style={{
+                  width: CARD_WIDTH,
+                  margin: `0 ${CARD_MARGIN}px`,
+                  height: 320,
+                  borderRadius: 16,
+                  background: "#23243a",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-end",
+                  opacity: 0.7,
+                }}
+              >
+                <div className="w-full h-[260px] bg-[#2A2640] animate-pulse rounded-t-lg" />
+                <div className="bg-[#1A1B1F] p-4 animate-pulse rounded-b-lg">
+                  <div className="h-6 w-3/4 bg-gray-700 rounded mb-2" />
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-gray-700" />
+                    <div className="h-4 w-1/3 bg-gray-700 rounded" />
+                    <div className="flex-1 flex items-center gap-2 justify-end">
+                      <div className="w-6 h-6 rounded-full bg-gray-700" />
+                      <div className="h-4 w-12 bg-gray-700 rounded" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Get percentage complete for a pool

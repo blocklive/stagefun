@@ -159,6 +159,29 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Initialize user_points record for the new user
+      const userPointsData = {
+        user_id: createdUser.id,
+        funded_points: 0,
+        raised_points: 0,
+        onboarding_points: 0,
+        checkin_points: 0,
+      };
+
+      const { error: pointsError } = await supabaseAdmin
+        .from("user_points")
+        .insert(userPointsData);
+
+      if (pointsError) {
+        console.error("Error initializing user_points:", pointsError);
+        // We don't fail the entire request if points initialization fails
+        // The awardPoints function can recover by creating the record when needed
+      } else {
+        console.log(
+          `Successfully initialized user_points for user ${createdUser.id}`
+        );
+      }
+
       user = createdUser;
     } else {
       // 7. Check if we need to update the user with new Privy data
