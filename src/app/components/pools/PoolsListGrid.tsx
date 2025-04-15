@@ -3,17 +3,12 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { FaChevronDown } from "react-icons/fa";
-import { useSupabase } from "../../contexts/SupabaseContext";
-import { getPoolsByPatron } from "../../lib/services/patron-service";
-import CircularProgress from "./CircularProgress";
-import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
-import { useFeaturedPools } from "../../hooks/useFeaturedPools";
+import { getPoolsByPatron } from "../../../lib/services/patron-service";
+import CircularProgress from "../CircularProgress";
 import Image from "next/image";
-import UserAvatar from "./UserAvatar";
-import { formatAmount } from "../../lib/utils";
-import FeaturedRoundsCarousel from "./FeaturedRoundsCarousel";
-
-type TabType = "open" | "funded" | "unfunded";
+import UserAvatar from "../UserAvatar";
+import { formatAmount } from "../../../lib/utils";
+import { useSupabase } from "../../../contexts/SupabaseContext";
 
 // Define a type for the pools returned by usePoolsWithDeposits
 type OnChainPool = {
@@ -34,42 +29,27 @@ type OnChainPool = {
   creator_id: string;
 };
 
-export default function HomePage() {
+type PoolsListGridProps = {
+  pools: OnChainPool[];
+  activeTab: "open" | "funded" | "unfunded";
+  loading: boolean;
+  error: any;
+  isDbError: boolean;
+  refresh: () => void;
+  onTabChange: (tab: "open" | "funded" | "unfunded") => void;
+};
+
+export default function PoolsListGrid({
+  pools,
+  activeTab,
+  loading,
+  error,
+  isDbError,
+  refresh,
+  onTabChange,
+}: PoolsListGridProps) {
   const { dbUser } = useSupabase();
   const router = useRouter();
-  const [viewportHeight, setViewportHeight] = useState("100vh");
-  const [activeTab, setActiveTab] = useState<TabType>("open");
-
-  // Update active tab when URL changes
-  useEffect(() => {
-    const handleUrlChange = () => {
-      const params = new URLSearchParams(window.location.search);
-      const tab = params.get("tab") as TabType;
-      if (tab && ["open", "funded", "unfunded"].includes(tab)) {
-        setActiveTab(tab);
-      }
-    };
-
-    // Set initial state
-    handleUrlChange();
-
-    // Listen for popstate (back/forward navigation)
-    window.addEventListener("popstate", handleUrlChange);
-
-    return () => {
-      window.removeEventListener("popstate", handleUrlChange);
-    };
-  }, []);
-
-  // Handle tab change
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    // Update URL without adding to history
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", tab);
-    window.history.replaceState({}, "", url.toString());
-  };
-
   const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -77,26 +57,6 @@ export default function HomePage() {
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
   const [poolType, setPoolType] = useState("all"); // "all" or "my"
-  const {
-    pools,
-    isLoading: loading,
-    error,
-    isDbError,
-    refresh,
-    isUsingCache,
-  } = usePoolsWithDeposits(1, activeTab);
-  const { featuredPools, isLoading: featuredLoading } = useFeaturedPools();
-
-  // Set the correct viewport height
-  useEffect(() => {
-    const updateHeight = () => {
-      setViewportHeight(`${window.innerHeight}px`);
-    };
-
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
 
   // Handle clicks outside the dropdowns
   useEffect(() => {
@@ -268,19 +228,11 @@ export default function HomePage() {
 
   // Update the pool click handler
   const handlePoolClick = (poolId: string) => {
-    router.push(`/pools/${poolId}?from_tab=${activeTab}`);
+    router.push(`/pools/${poolId}?from_tab=${activeTab}`, { scroll: false });
   };
 
   return (
-    <div className="px-4 pb-24 md:pb-8">
-      {/* Featured Rounds Carousel */}
-      {featuredPools && featuredPools.length > 0 && (
-        <FeaturedRoundsCarousel pools={featuredPools} />
-      )}
-
-      {/* Daily Check-in */}
-      <div className="mb-6">{/* Daily Check-in component removed */}</div>
-
+    <div>
       {/* Tabs */}
       <div className="flex justify-center md:justify-start gap-2 px-4">
         <button
@@ -289,7 +241,7 @@ export default function HomePage() {
               ? "bg-white text-black font-medium"
               : "bg-transparent text-white border border-gray-700"
           }`}
-          onClick={() => handleTabChange("open")}
+          onClick={() => onTabChange("open")}
         >
           Open
         </button>
@@ -299,7 +251,7 @@ export default function HomePage() {
               ? "bg-white text-black font-medium"
               : "bg-transparent text-white border border-gray-700"
           }`}
-          onClick={() => handleTabChange("funded")}
+          onClick={() => onTabChange("funded")}
         >
           Funded
         </button>
@@ -309,7 +261,7 @@ export default function HomePage() {
               ? "bg-white text-black font-medium"
               : "bg-transparent text-white border border-gray-700"
           }`}
-          onClick={() => handleTabChange("unfunded")}
+          onClick={() => onTabChange("unfunded")}
         >
           Unfunded
         </button>
