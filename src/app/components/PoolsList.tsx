@@ -6,6 +6,7 @@ import CircularProgress from "./CircularProgress";
 import Image from "next/image";
 import UserAvatar from "./UserAvatar";
 import { formatAmount } from "../../lib/utils";
+import { useRouter } from "next/navigation";
 
 type TabType = "open" | "funded" | "unfunded";
 
@@ -48,6 +49,8 @@ export default function PoolsList({
   activeTab,
   onTabChange,
 }: PoolsListProps) {
+  const router = useRouter();
+
   const [sortBy, setSortBy] = useState("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
@@ -201,7 +204,7 @@ export default function PoolsList({
   );
 
   const handlePoolClick = (poolId: string) => {
-    onTabChange(activeTab);
+    router.push(`/pools/${poolId}?from_tab=${activeTab}`);
   };
 
   return (
