@@ -14,9 +14,9 @@ import { SupabaseClient } from "@supabase/supabase-js";
  * - Pool reaching EXECUTING status (30 points per USDC raised to creator)
  *
  * Onboarding Points:
- * - Completing missions like linking X account (10,000 points)
- * - Following on X (10,000 points)
- * - Creating a pool (50,000 points)
+ * - Completing missions like linking X account (1,000 points)
+ * - Following on X (1,000 points)
+ * - Creating a pool (5,000 points)
  *
  * Check-in Points:
  * - Daily check-in (100 points, limited to once per 24 hours)
