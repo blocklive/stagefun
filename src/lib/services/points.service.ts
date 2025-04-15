@@ -81,18 +81,46 @@ export async function awardPoints({
     return { success: false, error: fetchError.message };
   }
 
-  const currentValue = (data as Record<string, any>)?.[column] ?? 0;
-  const newValue = Number(currentValue) + amount;
+  // If no user_points record exists, create one
+  if (!data) {
+    console.log(`Creating initial user_points record for user ${userId}`);
 
-  // NOTE: This is not perfectly atomic. For high-concurrency, use a Postgres function/RPC.
-  const { error: updateError } = await supabase
-    .from("user_points")
-    .update({ [column]: newValue })
-    .eq("user_id", userId);
+    // Initialize with zeros for all point types, except set the current point type to the awarded amount
+    const initialValues = {
+      user_id: userId,
+      funded_points: 0,
+      raised_points: 0,
+      onboarding_points: 0,
+      checkin_points: 0,
+      [column]: amount,
+    };
 
-  if (updateError) {
-    console.error("Failed to update user_points:", updateError);
-    return { success: false, error: updateError.message };
+    const { error: insertError } = await supabase
+      .from("user_points")
+      .insert(initialValues);
+
+    if (insertError) {
+      console.error("Failed to create user_points record:", insertError);
+      return { success: false, error: insertError.message };
+    }
+
+    // Now the record is created with the points already set correctly
+    // No need for a separate update, continue to the transaction insertion
+  } else {
+    // Update existing record
+    const currentValue = (data as Record<string, any>)?.[column] ?? 0;
+    const newValue = Number(currentValue) + amount;
+
+    // NOTE: This is not perfectly atomic. For high-concurrency, use a Postgres function/RPC.
+    const { error: updateError } = await supabase
+      .from("user_points")
+      .update({ [column]: newValue })
+      .eq("user_id", userId);
+
+    if (updateError) {
+      console.error("Failed to update user_points:", updateError);
+      return { success: false, error: updateError.message };
+    }
   }
 
   // Insert into point_transactions

@@ -2,15 +2,10 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { FaChevronDown } from "react-icons/fa";
 import { useSupabase } from "../../contexts/SupabaseContext";
 import { getPoolsByPatron } from "../../lib/services/patron-service";
-import CircularProgress from "./CircularProgress";
 import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
 import { useFeaturedPools } from "../../hooks/useFeaturedPools";
-import Image from "next/image";
-import UserAvatar from "./UserAvatar";
-import { formatAmount } from "../../lib/utils";
 import FeaturedRoundsCarousel from "./FeaturedRoundsCarousel";
 import PoolsList from "./PoolsList";
 
@@ -169,108 +164,6 @@ export default function HomePage() {
       (a: OnChainPool, b: OnChainPool) => b.raised_amount - a.raised_amount
     );
   }
-
-  // Calculate percentage complete for each pool
-  const getPercentComplete = (pool: OnChainPool) => {
-    if (!pool.target_amount) return 0;
-    return Math.min(
-      100,
-      Math.round((pool.raised_amount / pool.target_amount) * 100)
-    );
-  };
-
-  // Get pool status indicator
-  const getPoolStatusIndicator = (pool: OnChainPool) => {
-    // Display indicator based on status string from database
-    if (pool.status === "CLOSED" || pool.status === "CANCELLED") {
-      return (
-        <span className="text-gray-400">
-          • {pool.status.charAt(0) + pool.status.slice(1).toLowerCase()}
-        </span>
-      );
-    }
-
-    if (pool.status === "PAUSED") {
-      return <span className="text-yellow-400">• Paused</span>;
-    }
-
-    return null;
-  };
-
-  // Handle sort selection
-  const handleSortSelect = (sortOption: string) => {
-    setSortBy(sortOption);
-    setShowSortDropdown(false);
-  };
-
-  // Get sort by display text
-  const getSortByText = () => {
-    switch (sortBy) {
-      case "recent":
-        return "Recent";
-      case "amount":
-        return "Amount";
-      case "alphabetical":
-        return "A-Z";
-      case "volume":
-        return "Volume";
-      default:
-        return "Recent";
-    }
-  };
-
-  // Handle type selection
-  const handleTypeSelect = (typeOption: string) => {
-    setPoolType(typeOption);
-    setShowTypeDropdown(false);
-  };
-
-  // Get type display text
-  const getTypeText = () => {
-    return poolType === "all" ? "All types" : "My pools";
-  };
-
-  // Render skeleton loading UI for pools
-  const renderSkeletonItem = () => (
-    <li className="p-4 bg-[#FFFFFF0A] rounded-xl animate-pulse">
-      <div className="flex items-center gap-3">
-        {/* Pool Image Skeleton */}
-        <div className="w-12 h-12 rounded-full bg-gray-700"></div>
-
-        {/* Pool Info Skeleton */}
-        <div className="flex-1">
-          <div className="h-5 bg-gray-700 rounded w-3/4 mb-2"></div>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-gray-700"></div>
-            <div className="h-4 bg-gray-700 rounded w-1/3"></div>
-          </div>
-        </div>
-
-        {/* Progress and Amount Skeleton */}
-        <div className="text-right flex items-center gap-4">
-          <div>
-            <div className="h-5 bg-gray-700 rounded w-16 mb-1"></div>
-            <div className="h-4 bg-gray-700 rounded w-20"></div>
-          </div>
-          <div className="w-12 h-12 rounded-full bg-gray-700"></div>
-        </div>
-      </div>
-    </li>
-  );
-
-  // Render skeleton loading UI
-  const renderSkeletonList = () => (
-    <ul className="space-y-4">
-      {[...Array(5)].map((_, index) => (
-        <div key={index}>{renderSkeletonItem()}</div>
-      ))}
-    </ul>
-  );
-
-  // Update the pool click handler
-  const handlePoolClick = (poolId: string) => {
-    router.push(`/pools/${poolId}?from_tab=${activeTab}`);
-  };
 
   return (
     <div className="px-4 pb-24 md:pb-8">
