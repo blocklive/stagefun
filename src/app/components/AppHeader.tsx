@@ -58,7 +58,7 @@ export default function AppHeader({
           {showLogo && (
             <div
               className="h-10 md:hidden cursor-pointer"
-              onClick={() => router.push("/pools")}
+              onClick={() => router.push("/")}
             >
               <Image
                 src="/stagefunheader.png"
