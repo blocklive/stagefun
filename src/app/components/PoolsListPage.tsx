@@ -42,11 +42,10 @@ export default function PoolsListPage() {
   const handleTabChange = (tab: TabType) => {
     // Only update if tab is changing
     if (tab !== activeTab) {
-      setActiveTab(tab);
-
       // Reset paging when tab changes
       setPage(1);
       setAllPools([]);
+      setActiveTab(tab);
 
       // Update URL without scrolling to top
       const searchParams = new URLSearchParams(window.location.search);
@@ -54,6 +53,9 @@ export default function PoolsListPage() {
 
       // Use Next.js router with scroll=false to prevent scrolling
       router.replace(`?${searchParams.toString()}`, { scroll: false });
+
+      // Force refresh to ensure new data is loaded
+      refresh();
     }
   };
 
@@ -67,11 +69,30 @@ export default function PoolsListPage() {
     loadMore,
   } = usePoolsWithDeposits(page, activeTab);
 
-  // Merge new pools with existing pools when page changes
+  // Track whether we're in initial loading state with no pools
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  // Update initial loading state when data changes
+  useEffect(() => {
+    if (loading) {
+      if (page === 1) {
+        setInitialLoading(true);
+      }
+    } else {
+      setInitialLoading(false);
+    }
+  }, [loading, page]);
+
+  // Merge new pools with existing pools when pools or page changes
   useEffect(() => {
     if (pools && pools.length > 0) {
       // Only add unique pools (avoid duplicates)
       setAllPools((prevPools) => {
+        // If we're on page 1, replace the pools instead of merging
+        if (page === 1) {
+          return [...pools];
+        }
+
         const newPools = [...prevPools];
         pools.forEach((pool) => {
           if (!newPools.some((p) => p.id === pool.id)) {
@@ -80,8 +101,11 @@ export default function PoolsListPage() {
         });
         return newPools;
       });
+    } else if (!loading && page === 1) {
+      // If we're not loading and on page 1 with no pools, ensure allPools is empty
+      setAllPools([]);
     }
-  }, [pools]);
+  }, [pools, page, loading]);
 
   // Function to load more pools
   const handleLoadMore = () => {
@@ -97,7 +121,7 @@ export default function PoolsListPage() {
         <PoolsListGrid
           pools={allPools}
           activeTab={activeTab}
-          loading={loading}
+          loading={initialLoading || (loading && page === 1)}
           error={error}
           isDbError={isDbError}
           refresh={refresh}
