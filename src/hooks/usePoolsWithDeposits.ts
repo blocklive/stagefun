@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import useSWR from "swr";
 import { createClient } from "@supabase/supabase-js";
 import { getDisplayStatus } from "../lib/contracts/types";
@@ -77,6 +77,13 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
   const [cachedPools, setCachedPools] = useState<TransformedPool[]>([]);
   const [isDbError, setIsDbError] = useState(false);
   const retryCountRef = useRef(0);
+
+  // Sync currentPage with page when page changes externally
+  useEffect(() => {
+    if (page !== currentPage) {
+      setCurrentPage(page);
+    }
+  }, [page, currentPage]);
 
   // Fetch pools from Supabase
   const {
@@ -258,9 +265,6 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
         // Implement retry logic
         if (retryCountRef.current < MAX_RETRIES) {
           retryCountRef.current += 1;
-          console.log(
-            `Retrying fetch (${retryCountRef.current}/${MAX_RETRIES})...`
-          );
 
           // Schedule a retry after delay
           setTimeout(() => {
@@ -270,8 +274,6 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
 
         // If we have cached data, use it instead of returning an empty array
         if (cachedPools.length > 0) {
-          console.log("Using cached pool data due to database error");
-
           // Handle pagination for cached data
           const startIndex = (currentPage - 1) * POOLS_PER_PAGE;
           const endIndex = startIndex + POOLS_PER_PAGE;

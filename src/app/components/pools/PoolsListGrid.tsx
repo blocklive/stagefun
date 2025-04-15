@@ -1,19 +1,14 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { FaChevronDown } from "react-icons/fa";
-import { useSupabase } from "../../contexts/SupabaseContext";
-import { getPoolsByPatron } from "../../lib/services/patron-service";
-import CircularProgress from "./CircularProgress";
-import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
-import { useFeaturedPools } from "../../hooks/useFeaturedPools";
+import { getPoolsByPatron } from "../../../lib/services/patron-service";
+import CircularProgress from "../CircularProgress";
 import Image from "next/image";
-import UserAvatar from "./UserAvatar";
-import { formatAmount } from "../../lib/utils";
-import FeaturedRoundsCarousel from "./FeaturedRoundsCarousel";
-
-type TabType = "open" | "funded" | "unfunded";
+import UserAvatar from "../UserAvatar";
+import { formatAmount } from "../../../lib/utils";
+import { useSupabase } from "../../../contexts/SupabaseContext";
 
 // Define a type for the pools returned by usePoolsWithDeposits
 type OnChainPool = {
@@ -34,42 +29,31 @@ type OnChainPool = {
   creator_id: string;
 };
 
-export default function HomePage() {
+type PoolsListGridProps = {
+  pools: OnChainPool[];
+  activeTab: "open" | "funded" | "unfunded";
+  loading: boolean;
+  error: any;
+  isDbError: boolean;
+  refresh: () => void;
+  onTabChange: (tab: "open" | "funded" | "unfunded") => void;
+  onLoadMore: () => void;
+  hasMore: boolean;
+};
+
+export default function PoolsListGrid({
+  pools,
+  activeTab,
+  loading,
+  error,
+  isDbError,
+  refresh,
+  onTabChange,
+  onLoadMore,
+  hasMore,
+}: PoolsListGridProps) {
   const { dbUser } = useSupabase();
   const router = useRouter();
-  const [viewportHeight, setViewportHeight] = useState("100vh");
-  const [activeTab, setActiveTab] = useState<TabType>("open");
-
-  // Update active tab when URL changes
-  useEffect(() => {
-    const handleUrlChange = () => {
-      const params = new URLSearchParams(window.location.search);
-      const tab = params.get("tab") as TabType;
-      if (tab && ["open", "funded", "unfunded"].includes(tab)) {
-        setActiveTab(tab);
-      }
-    };
-
-    // Set initial state
-    handleUrlChange();
-
-    // Listen for popstate (back/forward navigation)
-    window.addEventListener("popstate", handleUrlChange);
-
-    return () => {
-      window.removeEventListener("popstate", handleUrlChange);
-    };
-  }, []);
-
-  // Handle tab change
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    // Update URL without adding to history
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", tab);
-    window.history.replaceState({}, "", url.toString());
-  };
-
   const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -77,26 +61,24 @@ export default function HomePage() {
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
   const [poolType, setPoolType] = useState("all"); // "all" or "my"
-  const {
-    pools,
-    isLoading: loading,
-    error,
-    isDbError,
-    refresh,
-    isUsingCache,
-  } = usePoolsWithDeposits(1, activeTab);
-  const { featuredPools, isLoading: featuredLoading } = useFeaturedPools();
 
-  // Set the correct viewport height
-  useEffect(() => {
-    const updateHeight = () => {
-      setViewportHeight(`${window.innerHeight}px`);
-    };
+  // Add intersection observer for infinite scrolling
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastPoolElementRef = useCallback(
+    (node: HTMLElement | null) => {
+      if (loading) return;
+      if (observer.current) observer.current.disconnect();
 
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          onLoadMore();
+        }
+      });
+
+      if (node) observer.current.observe(node);
+    },
+    [loading, hasMore, onLoadMore]
+  );
 
   // Handle clicks outside the dropdowns
   useEffect(() => {
@@ -268,161 +250,156 @@ export default function HomePage() {
 
   // Update the pool click handler
   const handlePoolClick = (poolId: string) => {
-    router.push(`/pools/${poolId}?from_tab=${activeTab}`);
+    router.push(`/pools/${poolId}?from_tab=${activeTab}`, { scroll: false });
   };
 
   return (
-    <div className="px-4 pb-24 md:pb-8">
-      {/* Featured Rounds Carousel */}
-      {featuredPools && featuredPools.length > 0 && (
-        <FeaturedRoundsCarousel pools={featuredPools} />
-      )}
-
-      {/* Daily Check-in */}
-      <div className="mb-6">{/* Daily Check-in component removed */}</div>
-
-      {/* Tabs */}
-      <div className="flex justify-center md:justify-start gap-2 px-4">
-        <button
-          className={`w-[110px] py-3 rounded-full text-lg ${
-            activeTab === "open"
-              ? "bg-white text-black font-medium"
-              : "bg-transparent text-white border border-gray-700"
-          }`}
-          onClick={() => handleTabChange("open")}
-        >
-          Open
-        </button>
-        <button
-          className={`w-[110px] py-3 rounded-full text-lg ${
-            activeTab === "funded"
-              ? "bg-white text-black font-medium"
-              : "bg-transparent text-white border border-gray-700"
-          }`}
-          onClick={() => handleTabChange("funded")}
-        >
-          Funded
-        </button>
-        <button
-          className={`w-[110px] py-3 rounded-full text-lg ${
-            activeTab === "unfunded"
-              ? "bg-white text-black font-medium"
-              : "bg-transparent text-white border border-gray-700"
-          }`}
-          onClick={() => handleTabChange("unfunded")}
-        >
-          Unfunded
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex justify-between items-center mt-6 px-4 w-full">
-        {/* Type Dropdown */}
-        <div className="relative" ref={typeDropdownRef}>
+    <div className="flex flex-col h-full">
+      {/* Fixed Tabs & Filters Section - This stays in place */}
+      <div className="flex-none sticky top-0 z-20 bg-[#15161A] pb-2 shadow-md">
+        {/* Tabs */}
+        <div className="flex justify-center md:justify-start gap-2 px-4 pt-2">
           <button
-            className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
-            onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+            className={`w-[110px] py-3 rounded-full text-lg ${
+              activeTab === "open"
+                ? "bg-white text-black font-medium"
+                : "bg-transparent text-white border border-gray-700"
+            }`}
+            onClick={() => onTabChange("open")}
           >
-            {getTypeText()} <FaChevronDown className="text-xs ml-1" />
+            Open
           </button>
-
-          {showTypeDropdown && (
-            <div className="absolute left-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
-              <ul>
-                <li
-                  className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                  style={{ color: poolType === "all" ? "#836EF9" : "" }}
-                  onClick={() => handleTypeSelect("all")}
-                >
-                  All types
-                </li>
-                <li
-                  className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                  style={{ color: poolType === "my" ? "#836EF9" : "" }}
-                  onClick={() => handleTypeSelect("my")}
-                >
-                  My pools
-                </li>
-              </ul>
-            </div>
-          )}
+          <button
+            className={`w-[110px] py-3 rounded-full text-lg ${
+              activeTab === "funded"
+                ? "bg-white text-black font-medium"
+                : "bg-transparent text-white border border-gray-700"
+            }`}
+            onClick={() => onTabChange("funded")}
+          >
+            Funded
+          </button>
+          <button
+            className={`w-[110px] py-3 rounded-full text-lg ${
+              activeTab === "unfunded"
+                ? "bg-white text-black font-medium"
+                : "bg-transparent text-white border border-gray-700"
+            }`}
+            onClick={() => onTabChange("unfunded")}
+          >
+            Unfunded
+          </button>
         </div>
 
-        {/* Sort Dropdown */}
-        <div className="relative" ref={sortDropdownRef}>
-          <button
-            className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
-            onClick={() => setShowSortDropdown(!showSortDropdown)}
-          >
-            Sort by: {getSortByText()}{" "}
-            <FaChevronDown className="text-xs ml-1" />
-          </button>
+        {/* Filters */}
+        <div className="flex justify-between items-center mt-6 px-4 w-full">
+          {/* Type Dropdown */}
+          <div className="relative" ref={typeDropdownRef}>
+            <button
+              className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
+              onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+            >
+              {getTypeText()} <FaChevronDown className="text-xs ml-1" />
+            </button>
 
-          {showSortDropdown && (
-            <div className="absolute right-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
-              <ul>
-                {activeTab !== "funded" && activeTab !== "unfunded" ? (
-                  <>
-                    <li
-                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                      style={{
-                        color: sortBy === "recent" ? "#836EF9" : "",
-                      }}
-                      onClick={() => handleSortSelect("recent")}
-                    >
-                      Recent
-                    </li>
-                    <li
-                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                      style={{
-                        color: sortBy === "amount" ? "#836EF9" : "",
-                      }}
-                      onClick={() => handleSortSelect("amount")}
-                    >
-                      Amount
-                    </li>
-                    <li
-                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                      style={{
-                        color: sortBy === "alphabetical" ? "#836EF9" : "",
-                      }}
-                      onClick={() => handleSortSelect("alphabetical")}
-                    >
-                      A-Z
-                    </li>
-                  </>
-                ) : (
-                  <>
-                    <li
-                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                      style={{
-                        color: sortBy === "volume" ? "#836EF9" : "",
-                      }}
-                      onClick={() => handleSortSelect("volume")}
-                    >
-                      Volume
-                    </li>
-                    <li
-                      className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
-                      style={{
-                        color: sortBy === "alphabetical" ? "#836EF9" : "",
-                      }}
-                      onClick={() => handleSortSelect("alphabetical")}
-                    >
-                      A-Z
-                    </li>
-                  </>
-                )}
-              </ul>
-            </div>
-          )}
+            {showTypeDropdown && (
+              <div className="absolute left-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
+                <ul>
+                  <li
+                    className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                    style={{ color: poolType === "all" ? "#836EF9" : "" }}
+                    onClick={() => handleTypeSelect("all")}
+                  >
+                    All types
+                  </li>
+                  <li
+                    className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                    style={{ color: poolType === "my" ? "#836EF9" : "" }}
+                    onClick={() => handleTypeSelect("my")}
+                  >
+                    My pools
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Sort Dropdown */}
+          <div className="relative" ref={sortDropdownRef}>
+            <button
+              className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
+              onClick={() => setShowSortDropdown(!showSortDropdown)}
+            >
+              Sort by: {getSortByText()}{" "}
+              <FaChevronDown className="text-xs ml-1" />
+            </button>
+
+            {showSortDropdown && (
+              <div className="absolute right-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
+                <ul>
+                  {activeTab !== "funded" && activeTab !== "unfunded" ? (
+                    <>
+                      <li
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                        style={{
+                          color: sortBy === "recent" ? "#836EF9" : "",
+                        }}
+                        onClick={() => handleSortSelect("recent")}
+                      >
+                        Recent
+                      </li>
+                      <li
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                        style={{
+                          color: sortBy === "amount" ? "#836EF9" : "",
+                        }}
+                        onClick={() => handleSortSelect("amount")}
+                      >
+                        Amount
+                      </li>
+                      <li
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                        style={{
+                          color: sortBy === "alphabetical" ? "#836EF9" : "",
+                        }}
+                        onClick={() => handleSortSelect("alphabetical")}
+                      >
+                        A-Z
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                        style={{
+                          color: sortBy === "volume" ? "#836EF9" : "",
+                        }}
+                        onClick={() => handleSortSelect("volume")}
+                      >
+                        Volume
+                      </li>
+                      <li
+                        className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
+                        style={{
+                          color: sortBy === "alphabetical" ? "#836EF9" : "",
+                        }}
+                        onClick={() => handleSortSelect("alphabetical")}
+                      >
+                        A-Z
+                      </li>
+                    </>
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* List of Items */}
+      {/* Scrollable Content - Only this part scrolls */}
       <div
-        className="flex-1 overflow-y-auto mt-4 px-4"
-        style={{ paddingBottom: "128px" }}
+        className="flex-1 h-[calc(100%-130px)] overflow-y-auto px-4 pb-16 md:pb-4 pt-2"
+        style={{ minHeight: "300px" }}
       >
         {loading && pools.length === 0 ? (
           renderSkeletonList()
@@ -438,10 +415,13 @@ export default function HomePage() {
             </button>
           </div>
         ) : (
-          <ul className="space-y-4">
-            {sortedPools.map((pool: OnChainPool) => (
+          <ul className="space-y-4 mt-4">
+            {sortedPools.map((pool: OnChainPool, index: number) => (
               <li
                 key={pool.id}
+                ref={
+                  sortedPools.length === index + 1 ? lastPoolElementRef : null
+                }
                 className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
                 onClick={() => handlePoolClick(pool.id)}
               >
@@ -524,6 +504,20 @@ export default function HomePage() {
                   : poolType === "my"
                   ? "You haven't created any unfunded pools yet."
                   : "No unfunded pools available."}
+              </div>
+            )}
+
+            {/* Loading indicator at the bottom */}
+            {loading && pools.length > 0 && (
+              <div className="py-4 text-center">
+                <div
+                  className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"
+                  role="status"
+                >
+                  <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">
+                    Loading...
+                  </span>
+                </div>
               </div>
             )}
           </ul>
