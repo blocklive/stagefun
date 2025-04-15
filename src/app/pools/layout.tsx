@@ -78,7 +78,9 @@ export default function PoolsLayout({ children }: PoolsLayoutProps) {
         isAuthenticated={authenticated}
       />
       <SideNavbar activeTab="party" isAuthenticated={authenticated} />
-      <div className="md:pl-64 min-h-screen">{children}</div>
+      <div className="md:pl-64 h-[calc(100vh-175px)] overflow-hidden">
+        {children}
+      </div>
       <BottomNavbar activeTab="party" isAuthenticated={authenticated} />
 
       {/* Modals */}

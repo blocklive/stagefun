@@ -7,8 +7,7 @@ export default function PoolsPage() {
   const { authenticated } = usePrivy();
 
   return (
-    <div className="bg-[#15161A] min-h-screen text-white pb-6">
-      {/* Main Content */}
+    <div className="flex flex-col flex-1 h-[calc(100vh-125px)]">
       <PoolsListPage />
     </div>
   );

@@ -4,16 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "../../contexts/SupabaseContext";
 import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
-import { useFeaturedPools } from "../../hooks/useFeaturedPools";
-import FeaturedRoundsCarousel from "./FeaturedRoundsCarousel";
 import PoolsListGrid from "./pools/PoolsListGrid";
 
 type TabType = "open" | "funded" | "unfunded";
 
 export default function PoolsListPage() {
   const router = useRouter();
-  const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState<TabType>("open");
+  const [page, setPage] = useState(1);
+  const [allPools, setAllPools] = useState<any[]>([]);
 
   // Update active tab when URL changes
   useEffect(() => {
@@ -22,6 +21,9 @@ export default function PoolsListPage() {
       const tab = params.get("tab") as TabType;
       if (tab && ["open", "funded", "unfunded"].includes(tab)) {
         setActiveTab(tab);
+        // Reset page and pools when tab changes
+        setPage(1);
+        setAllPools([]);
       }
     };
 
@@ -42,6 +44,10 @@ export default function PoolsListPage() {
     if (tab !== activeTab) {
       setActiveTab(tab);
 
+      // Reset paging when tab changes
+      setPage(1);
+      setAllPools([]);
+
       // Update URL without scrolling to top
       const searchParams = new URLSearchParams(window.location.search);
       searchParams.set("tab", tab);
@@ -57,35 +63,54 @@ export default function PoolsListPage() {
     error,
     isDbError,
     refresh,
-  } = usePoolsWithDeposits(1, activeTab);
-  const { featuredPools } = useFeaturedPools();
+    hasMore,
+    loadMore,
+  } = usePoolsWithDeposits(page, activeTab);
 
-  // Set the correct viewport height
+  // Merge new pools with existing pools when page changes
   useEffect(() => {
-    const updateHeight = () => {
-      setViewportHeight(`${window.innerHeight}px`);
-    };
+    if (pools && pools.length > 0) {
+      // Only add unique pools (avoid duplicates)
+      setAllPools((prevPools) => {
+        const newPools = [...prevPools];
+        pools.forEach((pool) => {
+          if (!newPools.some((p) => p.id === pool.id)) {
+            newPools.push(pool);
+          }
+        });
+        return newPools;
+      });
+    }
+  }, [pools]);
 
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
+  // Function to load more pools
+  const handleLoadMore = () => {
+    if (hasMore && !loading) {
+      setPage((prev) => prev + 1);
+      loadMore();
+    }
+  };
 
   return (
-    <div className="px-4 pb-24 md:pb-8">
-      {/* Daily Check-in */}
-      <div className="mb-6">{/* Daily Check-in component removed */}</div>
+    <div className="flex flex-col h-full">
+      <div className="flex-grow flex flex-col h-full">
+        <PoolsListGrid
+          pools={allPools}
+          activeTab={activeTab}
+          loading={loading}
+          error={error}
+          isDbError={isDbError}
+          refresh={refresh}
+          onTabChange={handleTabChange}
+          onLoadMore={handleLoadMore}
+          hasMore={hasMore}
+        />
+      </div>
 
-      {/* Pools List Grid Component */}
-      <PoolsListGrid
-        pools={pools}
-        activeTab={activeTab}
-        loading={loading}
-        error={error}
-        isDbError={isDbError}
-        refresh={refresh}
-        onTabChange={handleTabChange}
-      />
+      {/* Fixed Bottom Bar - Desktop Only - Made much thinner */}
+      <div className="hidden md:flex h-6 border-t border-b border-gray-800 bg-[#1e1e2a] items-center justify-center w-full text-xs">
+        <div className="text-gray-400">Explore and discover funding rounds</div>
+      </div>
     </div>
   );
 }
