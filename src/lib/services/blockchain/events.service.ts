@@ -388,7 +388,9 @@ export async function handleTierCommittedEvent(
           );
         } else if (poolData) {
           // Calculate new raised amount - keep in base units
-          const currentRaisedAmount = poolData.raised_amount || 0;
+          const currentRaisedAmount = poolData.raised_amount
+            ? BigInt(poolData.raised_amount)
+            : BigInt(0);
           const newRaisedAmount = currentRaisedAmount + BigInt(amount);
 
           // Update the pool's raised_amount
@@ -430,7 +432,9 @@ export async function handleTierCommittedEvent(
           );
         } else if (userData) {
           // Calculate new funded amount - keep in base units
-          const currentFundedAmount = userData.funded_amount || 0;
+          const currentFundedAmount = userData.funded_amount
+            ? BigInt(userData.funded_amount)
+            : BigInt(0);
           const newFundedAmount = currentFundedAmount + BigInt(amount);
 
           // Update the user's funded_amount

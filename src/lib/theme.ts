@@ -37,6 +37,14 @@ export const colors = {
     bg: "#1A2235",
   },
 
+  // Points yellow
+  points: {
+    DEFAULT: "#FFDD50",
+    dark: "#E5C846",
+    light: "#FFE77A",
+    bg: "#332C10",
+  },
+
   // UI colors
   background: {
     DEFAULT: "#15161A",
@@ -72,4 +80,9 @@ export const cssVariables = {
   primary: colors.primary.DEFAULT,
   "primary-dark": colors.primary.dark,
   "primary-light": colors.primary.light,
+
+  points: colors.points.DEFAULT,
+  "points-dark": colors.points.dark,
+  "points-light": colors.points.light,
+  "points-bg": colors.points.bg,
 };

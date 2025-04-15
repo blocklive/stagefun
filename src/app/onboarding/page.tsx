@@ -225,29 +225,13 @@ export default function OnboardingPage() {
         {/* Show message when all missions are completed */}
         {onboardingCompletedCount === onboardingTotalCount && (
           <div className="mt-8 text-center p-4 bg-[#FFFFFF0A] rounded-xl">
-            <h3 className="text-xl font-bold text-green-400 mb-2">
+            <h3 className="text-xl font-bold text-[#FFDD50] mb-2">
               🎉 All missions completed!
             </h3>
             <p className="text-gray-400">
               You've completed all the onboarding missions. Continue exploring
               the platform!
             </p>
-          </div>
-        )}
-
-        {/* Daily Check-in (if it exists) */}
-        {dailyCheckInMission && (
-          <div className="mt-8 bg-[#FFFFFF0A] rounded-xl overflow-hidden">
-            <div className="p-4 border-b border-[#FFFFFF14]">
-              <h3 className="text-lg font-bold mb-2">Daily Check-in</h3>
-              <p className="text-sm text-gray-400">
-                Come back daily to earn bonus points and build your streak
-              </p>
-            </div>
-            <MissionItem
-              mission={dailyCheckInMission}
-              onAction={handleMissionAction}
-            />
           </div>
         )}
       </div>
