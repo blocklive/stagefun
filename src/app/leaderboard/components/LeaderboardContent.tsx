@@ -56,15 +56,41 @@ export default function LeaderboardContent() {
     const userWallet = privyUser.wallet?.address?.toLowerCase();
     const userDbId = dbUser?.id;
 
+    // Ensure all users have properly structured points objects
+    const sanitizedUsers = users.map((user: any) => {
+      // Make sure points is a proper object
+      const points =
+        typeof user.points === "object" && user.points
+          ? user.points
+          : {
+              total: 0,
+              funded: 0,
+              raised: 0,
+              onboarding: 0,
+              checkin: 0,
+            };
+
+      return {
+        ...user,
+        points: {
+          total: points.total || 0,
+          funded: points.funded || 0,
+          raised: points.raised || 0,
+          onboarding: points.onboarding || 0,
+          checkin: points.checkin || 0,
+        },
+      };
+    });
+
     // Find current user by wallet or ID
-    const currentUser = users.find(
+    const currentUser = sanitizedUsers.find(
       (user: any) =>
         (userWallet && user.wallet?.toLowerCase() === userWallet) ||
         (userDbId && user.id === userDbId)
     );
 
     // Flag current user
-    const processedUsers = users.map((user: any) => ({
+    const processedUsers = sanitizedUsers.map((user: any) => ({
       ...user,
       isCurrentUser: currentUser && user.id === currentUser.id,
     }));

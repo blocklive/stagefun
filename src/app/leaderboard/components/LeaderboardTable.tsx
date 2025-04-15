@@ -263,20 +263,26 @@ export default function LeaderboardTable({
               </TableCell>
 
               <TableCell className="text-right font-medium">
-                {(
-                  user.points.funded +
-                  user.points.raised +
-                  user.points.onboarding +
-                  user.points.checkin
-                ).toLocaleString()}
+                {typeof user.points === "object" && user.points
+                  ? (
+                      (user.points.funded || 0) +
+                      (user.points.raised || 0) +
+                      (user.points.onboarding || 0) +
+                      (user.points.checkin || 0)
+                    ).toLocaleString()
+                  : "0"}
               </TableCell>
 
               <TableCell className="text-right font-medium">
-                {user.points.funded.toLocaleString()}
+                {typeof user.points === "object" && user.points
+                  ? (user.points.funded || 0).toLocaleString()
+                  : "0"}
               </TableCell>
 
               <TableCell className="text-right font-medium">
-                {user.points.raised.toLocaleString()}
+                {typeof user.points === "object" && user.points
+                  ? (user.points.raised || 0).toLocaleString()
+                  : "0"}
               </TableCell>
 
               <TableCell className="text-right font-medium">
