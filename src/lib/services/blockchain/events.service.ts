@@ -361,16 +361,35 @@ export async function handleTierCommittedEvent(
 
       console.log("Insert response:", JSON.stringify(response, null, 2));
 
+      // If there's an error with code 23505, it's a unique constraint violation,
+      // which means we've already processed this transaction hash before
       if (response.error) {
-        console.error("Error inserting TierCommitted event:", response.error);
-        return {
-          event: "TierCommitted",
-          status: "error",
-          action: "insert",
-          error: response.error.message,
-          details: response.error,
-        };
+        if (response.error.code === "23505") {
+          console.log(
+            `Transaction ${event.transactionHash} already processed, skipping amount updates.`
+          );
+          return {
+            event: "TierCommitted",
+            status: "success",
+            action: "skip_duplicate",
+            user,
+            tierId,
+            poolAddress,
+          };
+        } else {
+          console.error("Error inserting TierCommitted event:", response.error);
+          return {
+            event: "TierCommitted",
+            status: "error",
+            action: "insert",
+            error: response.error.message,
+            details: response.error,
+          };
+        }
       }
+
+      // THE INSERT SUCCEEDED, SO THIS IS THE FIRST TIME WE'VE SEEN THIS EVENT
+      // Now we can safely update amounts without risk of double-counting
 
       // ADDITION 1: Update the pool's raised_amount
       try {
