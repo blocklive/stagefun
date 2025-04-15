@@ -368,7 +368,7 @@ export async function awardPointsForPoolCommitment({
       // Find the pool creator
       const { data: poolData, error: poolFetchError } = await supabase
         .from("pools")
-        .select("creator_address")
+        .select("creator_id")
         .ilike("contract_address", poolAddress)
         .maybeSingle();
 
@@ -377,33 +377,14 @@ export async function awardPointsForPoolCommitment({
         return { success: funderResult.success, error: funderResult.error };
       }
 
-      if (!poolData || !poolData.creator_address) {
+      if (!poolData || !poolData.creator_id) {
         console.log(`Pool not found or has no creator: ${poolAddress}`);
         return { success: funderResult.success, error: funderResult.error };
       }
 
-      // Find the creator's user ID
-      const { data: creatorData, error: creatorFetchError } = await supabase
-        .from("users")
-        .select("id")
-        .ilike("smart_wallet_address", poolData.creator_address)
-        .maybeSingle();
-
-      if (creatorFetchError) {
-        console.error("Error fetching creator for points:", creatorFetchError);
-        return { success: funderResult.success, error: funderResult.error };
-      }
-
-      if (!creatorData) {
-        console.log(
-          `Creator not found with wallet address ${poolData.creator_address}`
-        );
-        return { success: funderResult.success, error: funderResult.error };
-      }
-
-      // Award points to the creator
+      // Award points directly to the creator using creator_id
       const creatorResult = await awardPoints({
-        userId: creatorData.id,
+        userId: poolData.creator_id,
         type: PointType.RAISED,
         amount: creatorPoints,
         description: "received_commitment",
@@ -419,7 +400,7 @@ export async function awardPointsForPoolCommitment({
 
       if (creatorResult.success) {
         console.log(
-          `Awarded ${creatorPoints} raised points to creator ${creatorData.id} for receiving commitment`
+          `Awarded ${creatorPoints} raised points to creator ${poolData.creator_id} for receiving commitment`
         );
       } else {
         console.error(
@@ -465,7 +446,7 @@ export async function awardPointsForPoolExecuting({
     // First, get the pool to find the creator and raised amount
     const { data: poolData, error: poolFetchError } = await supabase
       .from("pools")
-      .select("creator_address, raised_amount")
+      .select("creator_id, raised_amount")
       .ilike("contract_address", poolAddress)
       .maybeSingle();
 
@@ -474,7 +455,7 @@ export async function awardPointsForPoolExecuting({
       return { success: false, error: poolFetchError.message };
     }
 
-    if (!poolData || !poolData.creator_address || !poolData.raised_amount) {
+    if (!poolData || !poolData.creator_id || !poolData.raised_amount) {
       console.log(
         `Pool not found, has no creator, or no raised amount: ${poolAddress}`
       );
@@ -500,28 +481,9 @@ export async function awardPointsForPoolExecuting({
       };
     }
 
-    // Look up the creator's user ID
-    const { data: userData, error: userFetchError } = await supabase
-      .from("users")
-      .select("id")
-      .ilike("smart_wallet_address", poolData.creator_address)
-      .maybeSingle();
-
-    if (userFetchError) {
-      console.error("Error fetching creator for bonus points:", userFetchError);
-      return { success: false, error: userFetchError.message };
-    }
-
-    if (!userData) {
-      console.log(
-        `Creator not found with wallet address ${poolData.creator_address}`
-      );
-      return { success: false, error: "Creator not found" };
-    }
-
-    // Award bonus points for pool reaching executing status
+    // Award bonus points for pool reaching executing status directly to creator
     const pointsResult = await awardPoints({
-      userId: userData.id,
+      userId: poolData.creator_id,
       type: PointType.RAISED,
       amount: executingPoints,
       description: "pool_executing",
@@ -537,7 +499,7 @@ export async function awardPointsForPoolExecuting({
 
     if (pointsResult.success) {
       console.log(
-        `Awarded ${executingPoints} bonus raised points to user ${userData.id} for pool reaching EXECUTING status`
+        `Awarded ${executingPoints} bonus raised points to user ${poolData.creator_id} for pool reaching EXECUTING status`
       );
     }
 
