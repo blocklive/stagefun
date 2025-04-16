@@ -200,63 +200,7 @@ export default function PoolList({
               className="bg-[#FFFFFF0A] rounded-xl overflow-hidden cursor-pointer hover:bg-[#2A2640] transition-colors p-4"
               onClick={() => router.push(`/pools/${pool.id}`)}
             >
-              {/* Desktop layout - single line */}
-              <div className="hidden md:flex items-center">
-                <div
-                  className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                  style={{ backgroundColor: "#2A2640" }}
-                >
-                  {pool.image_url ? (
-                    <Image
-                      src={pool.image_url}
-                      alt={pool.name}
-                      width={48}
-                      height={48}
-                      className="w-full h-full object-cover"
-                      unoptimized={true}
-                    />
-                  ) : null}
-                </div>
-                <div className="ml-4 flex-1">
-                  <h3 className="font-bold truncate">{pool.name}</h3>
-                  <div className="flex items-center text-sm">
-                    <span className={`text-gray-400 flex items-center`}>
-                      <span
-                        className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                          getPoolStatus(pool).colorClass
-                        }`}
-                      ></span>
-                      {getPoolStatus(pool).text}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Desktop: Show refund button in the middle */}
-                {getPoolStatus(pool).text === "Unfunded" &&
-                  isOwnProfile &&
-                  poolsWithUserTokens.has(pool.contract_address) && (
-                    <button
-                      onClick={(e) => onClaimRefund(pool.contract_address, e)}
-                      disabled={isRefunding}
-                      className={`px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors mr-4 ${
-                        isRefunding ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
-                    >
-                      {isRefunding ? "Claiming..." : "Claim Refund"}
-                    </button>
-                  )}
-
-                {/* Desktop: Amount on right */}
-                {pool.commitment_amount && (
-                  <span className="text-purple-400 font-semibold">
-                    {pool.commitment_amount.toFixed(2)} USDC
-                  </span>
-                )}
-              </div>
-
-              {/* Mobile layout - new design */}
-              <div className="md:hidden flex items-start justify-between">
-                {/* Left side: Image, name and amount */}
+              <div className="flex items-start justify-between">
                 <div className="flex items-start">
                   <div
                     className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
@@ -278,6 +222,12 @@ export default function PoolList({
                     {pool.commitment_amount && (
                       <div className="text-gray-400 text-sm">
                         ${pool.commitment_amount.toFixed(2)}
+                      </div>
+                    )}
+                    {/* Show raised amount instead for hosted pools */}
+                    {!pool.commitment_amount && pool.raised_amount > 0 && (
+                      <div className="text-gray-400 text-sm">
+                        ${pool.raised_amount.toFixed(2)}
                       </div>
                     )}
                   </div>
