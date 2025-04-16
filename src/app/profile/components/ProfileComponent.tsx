@@ -25,6 +25,7 @@ import { useUserAssets } from "../../../hooks/useUserAssets";
 import AppHeader from "../../components/AppHeader";
 import { useUserHostedPools } from "../../../hooks/useUserHostedPools";
 import { useUserFundedPools } from "../../../hooks/useUserFundedPools";
+import { useWalletAssets } from "../../../hooks/useWalletAssets";
 import GetTokensModal from "../../components/GetTokensModal";
 import InfoModal from "../../components/InfoModal";
 import SendAssetModal from "../../components/SendAssetModal";
@@ -40,7 +41,6 @@ import { useSmartWalletInitializer } from "../../../hooks/useSmartWalletInitiali
 import { useAvatarUpload } from "../../../hooks/useAvatarUpload";
 import { mutate } from "swr";
 import BalanceSection from "./BalanceSection";
-import { useWalletAssets } from "../../../hooks/useWalletAssets";
 
 interface ProfileComponentProps {
   isUsernameRoute?: boolean;
@@ -120,6 +120,12 @@ export default function ProfileComponent({
     error: fundedPoolsError,
     refresh: refreshFundedPools,
   } = useUserFundedPools(userWalletAddress);
+
+  // Get wallet assets for LP token detection (for unfunded pools)
+  const { assets: walletAssets } = useWalletAssets(
+    userWalletAddress || null,
+    "monad-test-v2"
+  );
 
   // Get user wallet balance directly
   const { totalValue, isLoading: balanceIsLoading } = useWalletAssets(
@@ -681,6 +687,16 @@ export default function ProfileComponent({
                   getPoolStatus={getPoolStatus}
                   isOwnProfile={Boolean(isOwnProfile)}
                   profileName={displayName}
+                  userAssets={isOwnProfile ? walletAssets : []}
+                  onRefresh={() => {
+                    refreshFundedPools();
+                    // Also refresh wallet assets to update LP token balances
+                    if (user.smart_wallet_address) {
+                      mutate(
+                        `wallet-assets-${user.smart_wallet_address}-monad-test-v2`
+                      );
+                    }
+                  }}
                 />
               )}
             </div>

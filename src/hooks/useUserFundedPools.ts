@@ -38,6 +38,7 @@ interface Pool {
   created_at: string;
   image_url: string | null;
   description: string;
+  lp_token_address: string | null;
   creator: {
     id: string;
     name: string;
@@ -64,6 +65,7 @@ export type TransformedPool = {
   creator_id: string;
   // Additional fields for funded pools
   commitment_amount?: number;
+  lp_token_address?: string;
   tier_name?: string;
 };
 
@@ -200,6 +202,7 @@ const fetchFundedPools = async (userWalletAddress: string) => {
       description: pool.description || "",
       creator_id: pool.creator_id || "",
       commitment_amount: totalCommitment,
+      lp_token_address: pool.lp_token_address || null,
       tier_name: tierName,
     };
   });

@@ -43,6 +43,9 @@ export type TransformedPool = {
   image_url: string | null;
   description: string;
   creator_id: string;
+  lp_token_address?: string;
+  // Additional fields for user pools
+  user_commitment?: number;
   featured?: number | null;
 };
 
@@ -242,6 +245,8 @@ export function usePoolsWithDeposits(
             image_url: pool.image_url || null,
             description: pool.description || "",
             creator_id: pool.creator_id || "",
+            lp_token_address: pool.lp_token_address,
+            user_commitment: pool.user_commitment,
             featured: pool.featured,
           };
         });

@@ -2,6 +2,9 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { TransformedPool } from "../../../hooks/useUserFundedPools";
+import { useClaimRefund } from "../../../hooks/useClaimRefund";
+import { Asset } from "../../../lib/zerion/ZerionSDK";
+import showToast from "../../../utils/toast";
 
 interface PoolListProps {
   pools: TransformedPool[];
@@ -15,6 +18,8 @@ interface PoolListProps {
   };
   isOwnProfile?: boolean;
   profileName?: string;
+  userAssets?: Asset[];
+  onRefresh?: () => void;
 }
 
 export default function PoolList({
@@ -26,8 +31,55 @@ export default function PoolList({
   getPoolStatus,
   isOwnProfile = true,
   profileName = "User",
+  userAssets = [],
+  onRefresh,
 }: PoolListProps) {
   const router = useRouter();
+  const { handleClaimRefund, isRefunding } = useClaimRefund();
+
+  // Map to store which pools the user has LP tokens for
+  const poolsWithUserTokens = new Map<string, Asset>();
+
+  // Match tokens to pools by contract address
+  if (isOwnProfile && userAssets.length > 0) {
+    // For each unfunded pool
+    pools.forEach((pool) => {
+      if (getPoolStatus(pool).text !== "Unfunded") return;
+
+      // Get the token addresses for all user assets
+      userAssets.forEach((asset) => {
+        const tokenAddress =
+          asset.attributes.fungible_info?.implementations?.[0]?.address?.toLowerCase();
+        if (!tokenAddress) return;
+
+        // Match the token to the pool by LP token address
+        if (tokenAddress === pool.lp_token_address?.toLowerCase()) {
+          poolsWithUserTokens.set(pool.contract_address, asset);
+        }
+      });
+    });
+  }
+
+  // Handle claiming refund
+  const onClaimRefund = async (poolAddress: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigating to pool page
+
+    if (isRefunding) {
+      showToast.info("A refund is already being processed");
+      return;
+    }
+
+    try {
+      await handleClaimRefund(poolAddress, () => {
+        // Refresh pools and assets after successful claim
+        if (onRefresh) {
+          onRefresh();
+        }
+      });
+    } catch (error) {
+      console.error("Error claiming refund:", error);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -125,13 +177,30 @@ export default function PoolList({
                       </span>
                     </div>
                   </div>
-                  {pool.commitment_amount && (
-                    <div className="text-right">
+                  <div className="text-right flex items-center">
+                    {/* Show Claim Refund button for unfunded pools if user has matching tokens */}
+                    {getPoolStatus(pool).text === "Unfunded" &&
+                      isOwnProfile &&
+                      poolsWithUserTokens.has(pool.contract_address) && (
+                        <button
+                          onClick={(e) =>
+                            onClaimRefund(pool.contract_address, e)
+                          }
+                          disabled={isRefunding}
+                          className={`px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors mr-4 ${
+                            isRefunding ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                        >
+                          {isRefunding ? "Claiming..." : "Claim Refund"}
+                        </button>
+                      )}
+
+                    {pool.commitment_amount && (
                       <span className="text-purple-400 font-semibold">
                         {pool.commitment_amount.toFixed(2)} USDC
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
