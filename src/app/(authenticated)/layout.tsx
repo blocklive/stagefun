@@ -5,6 +5,7 @@ import { useState } from "react";
 import SideNavbar from "../components/SideNavbar";
 import BottomNavbar from "../components/BottomNavbar";
 import AppHeader from "../components/AppHeader";
+import Footer from "../components/Footer";
 import { usePrivy } from "@privy-io/react-auth";
 import GetTokensModal from "../components/GetTokensModal";
 import InfoModal from "../components/InfoModal";
@@ -62,7 +63,10 @@ export default function AuthenticatedLayout({
         isAuthenticated={authenticated}
       />
       <SideNavbar activeTab={"" as any} isAuthenticated={authenticated} />
-      <div className="md:pl-64 min-h-screen">{children}</div>
+      <div className="md:pl-64 min-h-screen">
+        {children}
+        <Footer />
+      </div>
       <BottomNavbar activeTab={"" as any} isAuthenticated={authenticated} />
 
       {/* Modals */}
