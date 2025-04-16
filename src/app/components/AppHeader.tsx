@@ -7,6 +7,8 @@ import { BiInfoCircle } from "react-icons/bi";
 import Image from "next/image";
 import PointsButton from "./PointsButton";
 import ResponsiveButton from "./ResponsiveButton";
+import ProfileDropdown from "./ProfileDropdown";
+import { useSupabase } from "../../contexts/SupabaseContext";
 
 interface AppHeaderProps {
   showBackButton?: boolean;
@@ -16,6 +18,7 @@ interface AppHeaderProps {
   showRightButtons?: boolean;
   showInfoButton?: boolean;
   showLogo?: boolean;
+  showProfileButton?: boolean;
   onGetTokensClick?: () => void;
   onInfoClick?: () => void;
   onBackClick?: () => void;
@@ -36,6 +39,7 @@ export default function AppHeader({
   showRightButtons = false,
   showInfoButton = true,
   showLogo = true,
+  showProfileButton = true,
   onGetTokensClick,
   onInfoClick,
   onBackClick,
@@ -48,6 +52,7 @@ export default function AppHeader({
   isAuthenticated = true,
 }: AppHeaderProps) {
   const router = useRouter();
+  const { dbUser } = useSupabase();
 
   return (
     <div className={`md:pl-64 ${className}`} style={{ backgroundColor }}>
@@ -137,6 +142,11 @@ export default function AppHeader({
                   : router.push("/")
               }
             />
+          )}
+
+          {/* Profile Dropdown - Only show when authenticated */}
+          {showProfileButton && isAuthenticated && (
+            <ProfileDropdown user={dbUser} />
           )}
         </div>
       </header>
