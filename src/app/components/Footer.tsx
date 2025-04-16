@@ -4,15 +4,15 @@ import { FaTwitter, FaTelegram } from "react-icons/fa";
 
 export default function Footer() {
   return (
-    <footer className="w-full pt-0 pb-10 -mt-20">
+    <footer className="hidden md:block w-full pt-0 pb-10 -mt-24">
       <div className="max-w-screen-xl mx-auto px-4 flex flex-col items-center">
         {/* Logo on top */}
-        <div className="mb-2">
+        <div className="mb-8">
           <Image
             src="/stagefunheader.png"
             alt="Stage Fun Logo"
-            width={36}
-            height={36}
+            width={80}
+            height={80}
             className="object-contain"
           />
         </div>
