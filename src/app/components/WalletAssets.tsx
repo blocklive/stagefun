@@ -12,6 +12,7 @@ interface WalletAssetsProps {
   className?: string;
   onSendClick?: (asset: Asset) => void;
   refreshAssetsRef?: RefObject<() => void>;
+  hideTitle?: boolean;
 }
 
 const formatCurrency = (value: number | null): string => {
@@ -160,6 +161,7 @@ export default function WalletAssets({
   className = "",
   onSendClick = () => {},
   refreshAssetsRef,
+  hideTitle = false,
 }: WalletAssetsProps) {
   const { assets, totalValue, isLoading, error, refresh } = useWalletAssets(
     walletAddress,
@@ -194,8 +196,10 @@ export default function WalletAssets({
 
   return (
     <div className={className}>
-      {/* Main Title */}
-      <h2 className="text-xl font-semibold mb-4">Your Assets</h2>
+      {/* Main Title - only show if hideTitle is false */}
+      {!hideTitle && (
+        <h2 className="text-xl font-semibold mb-4">Your Assets</h2>
+      )}
 
       {/* Balance Row (below title) */}
       <div className="flex justify-between items-center mb-6">

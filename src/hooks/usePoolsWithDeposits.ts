@@ -69,7 +69,11 @@ export const STATUS_MAP: Record<string, string[]> = {
   inactive: ["INACTIVE"],
 };
 
-export function usePoolsWithDeposits(page: number = 1, status?: string) {
+export function usePoolsWithDeposits(
+  page: number = 1,
+  status?: string,
+  creatorId?: string | null
+) {
   const [currentPage, setCurrentPage] = useState(page);
   const [hasMore, setHasMore] = useState(true);
 
@@ -92,7 +96,7 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
     isLoading,
     mutate: refreshPools,
   } = useSWR(
-    ["db-pools", currentPage, status],
+    ["db-pools", currentPage, status, creatorId],
     async () => {
       try {
         setIsDbError(false);
@@ -113,15 +117,26 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           )
           .eq("display_public", true);
 
+        // If creatorId is provided, filter by creator_id directly in the query
+        if (creatorId) {
+          poolQuery = poolQuery.eq("creator_id", creatorId);
+        }
+
         // For unfunded tab, don't apply the range limit initially to ensure we find results
         // This helps if unfunded pools are older and would be pushed to later pages
         if (status && status.toLowerCase() === "unfunded") {
           poolQuery = poolQuery.order("created_at", { ascending: false });
         } else {
           // Add pagination and ordering to main query
-          poolQuery = poolQuery
-            .order("created_at", { ascending: false })
-            .range(from, to);
+          // Only apply pagination if no creatorId is specified or if creatorId is specified but we're not fetching all
+          if (!creatorId) {
+            poolQuery = poolQuery
+              .order("created_at", { ascending: false })
+              .range(from, to);
+          } else {
+            // For creator-specific queries, still sort but don't limit results
+            poolQuery = poolQuery.order("created_at", { ascending: false });
+          }
         }
 
         // Get the pools data

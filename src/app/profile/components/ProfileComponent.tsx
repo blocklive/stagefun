@@ -61,7 +61,9 @@ export default function ProfileComponent({
   const { dbUser, isLoadingUser, refreshUser } = useSupabase();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<"hosted" | "funded">("hosted");
+  const [activeTab, setActiveTab] = useState<"assets" | "hosted" | "funded">(
+    "assets"
+  );
   const { smartWalletAddress } = useSmartWallet();
 
   // Avatar upload state
@@ -597,32 +599,32 @@ export default function ProfileComponent({
         </div>
 
         {/* Balance and Assets Section */}
-        {isOwnProfile && (
-          <BalanceSection
-            onSendClick={handleSendClick}
-            walletAddress={user.smart_wallet_address || null}
-            useZerionAPI={true}
-            chainId="monad-test-v2"
-          />
-        )}
+        {/* Remove the standalone BalanceSection */}
 
         {/* Pool Tabs - Only show if user has a smart wallet */}
         {user.smart_wallet_address ? (
           <>
             <TabComponent
               tabs={[
+                { id: "assets", label: "Assets" },
                 { id: "hosted", label: "Hosted" },
                 { id: "funded", label: "Funded" },
               ]}
               activeTab={activeTab}
               onTabChange={(tabId) =>
-                setActiveTab(tabId as "hosted" | "funded")
+                setActiveTab(tabId as "assets" | "hosted" | "funded")
               }
             />
 
-            {/* Pool List */}
+            {/* Tab Content */}
             <div className="flex-1 p-4 pb-32">
-              {activeTab === "hosted" ? (
+              {activeTab === "assets" && isOwnProfile ? (
+                <BalanceSection
+                  onSendClick={handleSendClick}
+                  walletAddress={user.smart_wallet_address || null}
+                  chainId="monad-test-v2"
+                />
+              ) : activeTab === "hosted" ? (
                 <PoolList
                   pools={userHostedPools}
                   isLoading={userPoolsLoading}

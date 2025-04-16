@@ -66,6 +66,7 @@ export default function BalanceSection({
         chainId={chainId}
         className="mt-4"
         onSendClick={handleZerionSendClick}
+        hideTitle={true}
       />
     </div>
   );
