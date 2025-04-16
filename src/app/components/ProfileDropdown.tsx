@@ -76,7 +76,7 @@ export default function ProfileDropdown({
 
       {/* Dropdown Menu */}
       {isDropdownOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-[#1E1F25] border border-[#FFFFFF1A] rounded-lg shadow-lg z-10 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-48 bg-[#1E1F25] border border-[#FFFFFF1A] rounded-lg shadow-lg z-50 overflow-hidden">
           <button
             onClick={handlePortfolioClick}
             className="w-full px-4 py-3 text-left flex items-center hover:bg-[#FFFFFF14] transition-colors text-white"
