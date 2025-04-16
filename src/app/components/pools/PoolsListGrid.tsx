@@ -62,22 +62,20 @@ export default function PoolsListGrid({
   const typeDropdownRef = useRef<HTMLDivElement>(null);
   const [poolType, setPoolType] = useState("all"); // "all" or "my"
 
-  // Add intersection observer for infinite scrolling
+  // Set up observer for infinite scroll
   const observer = useRef<IntersectionObserver | null>(null);
   const lastPoolElementRef = useCallback(
     (node: HTMLElement | null) => {
       if (loading) return;
       if (observer.current) observer.current.disconnect();
-
       observer.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasMore) {
           onLoadMore();
         }
       });
-
       if (node) observer.current.observe(node);
     },
-    [loading, hasMore, onLoadMore]
+    [loading, hasMore, onLoadMore, activeTab]
   );
 
   // Handle clicks outside the dropdowns

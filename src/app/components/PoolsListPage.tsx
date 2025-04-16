@@ -42,6 +42,7 @@ export default function PoolsListPage() {
   const handleTabChange = (tab: TabType) => {
     // Only update if tab is changing
     if (tab !== activeTab) {
+      console.log(`Changing tab to: ${tab}`);
       // Reset paging when tab changes
       setPage(1);
       setAllPools([]);

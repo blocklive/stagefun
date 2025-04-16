@@ -436,9 +436,13 @@ export default function PoolsList({
                   ? poolType === "my"
                     ? "You haven't created any open rounds yet."
                     : "No open rounds available."
+                  : activeTab === "funded"
+                  ? poolType === "my"
+                    ? "You haven't created any funded pools yet."
+                    : "No funded pools available."
                   : poolType === "my"
-                  ? "You haven't created any funded pools yet."
-                  : "No funded pools available."}
+                  ? "You haven't created any unfunded pools yet."
+                  : "No unfunded pools available."}
               </div>
             )}
           </ul>

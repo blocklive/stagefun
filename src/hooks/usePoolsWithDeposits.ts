@@ -113,10 +113,16 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           )
           .eq("display_public", true);
 
-        // Add pagination and ordering to main query
-        poolQuery = poolQuery
-          .order("created_at", { ascending: false })
-          .range(from, to);
+        // For unfunded tab, don't apply the range limit initially to ensure we find results
+        // This helps if unfunded pools are older and would be pushed to later pages
+        if (status && status.toLowerCase() === "unfunded") {
+          poolQuery = poolQuery.order("created_at", { ascending: false });
+        } else {
+          // Add pagination and ordering to main query
+          poolQuery = poolQuery
+            .order("created_at", { ascending: false })
+            .range(from, to);
+        }
 
         // Get the pools data
         const { data: pools, error: poolError } = await poolQuery;
@@ -232,9 +238,34 @@ export function usePoolsWithDeposits(page: number = 1, status?: string) {
           const statusValues = STATUS_MAP[statusKey];
 
           if (statusValues && statusValues.length > 0) {
-            filteredPools = transformedPools.filter((pool) =>
-              statusValues.includes(pool.status)
-            );
+            // Special handling for unfunded pools - also include pools that have ended without meeting target
+            if (statusKey === "unfunded") {
+              const now = new Date();
+              filteredPools = transformedPools.filter((pool) => {
+                // Include pools that are explicitly marked as FAILED or CANCELLED
+                if (statusValues.includes(pool.status)) {
+                  return true;
+                }
+
+                // Also include pools that have ended but didn't reach their target
+                const endDate = new Date(pool.ends_at);
+                return endDate < now && pool.raised_amount < pool.target_amount;
+              });
+
+              // For unfunded tab, manually apply pagination after filtering
+              // since we removed the range limit in the query
+              const startIndex = (currentPage - 1) * POOLS_PER_PAGE;
+              const endIndex = startIndex + POOLS_PER_PAGE;
+              filteredPools = filteredPools.slice(startIndex, endIndex);
+
+              // Set hasMore flag based on total results
+              setHasMore(filteredPools.length === POOLS_PER_PAGE);
+            } else {
+              // Normal status filtering for other tabs
+              filteredPools = transformedPools.filter((pool) =>
+                statusValues.includes(pool.status)
+              );
+            }
           } else {
             // If we don't recognize the filter, log a warning but don't filter
             console.warn(
