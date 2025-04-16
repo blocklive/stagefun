@@ -8,7 +8,7 @@ import UserAvatar from "./UserAvatar";
 import { formatAmount } from "../../lib/utils";
 import { useRouter } from "next/navigation";
 
-type TabType = "open" | "funded" | "unfunded";
+type TabType = "open" | "funded";
 
 type OnChainPool = {
   id: string;
@@ -203,8 +203,9 @@ export default function PoolsList({
     </ul>
   );
 
+  // Handle pool click
   const handlePoolClick = (poolId: string) => {
-    router.push(`/pools/${poolId}?from_tab=${activeTab}`);
+    router.push(`/pools/${poolId}?from_tab=${activeTab}`, { scroll: false });
   };
 
   return (
@@ -230,16 +231,6 @@ export default function PoolsList({
           onClick={() => onTabChange("funded")}
         >
           Funded
-        </button>
-        <button
-          className={`w-[110px] py-3 rounded-full text-lg ${
-            activeTab === "unfunded"
-              ? "bg-white text-black font-medium"
-              : "bg-transparent text-white border border-gray-700"
-          }`}
-          onClick={() => onTabChange("unfunded")}
-        >
-          Unfunded
         </button>
       </div>
 
@@ -289,7 +280,7 @@ export default function PoolsList({
           {showSortDropdown && (
             <div className="absolute right-0 mt-2 w-40 bg-[#2A2640] rounded-lg shadow-lg z-10">
               <ul>
-                {activeTab !== "funded" && activeTab !== "unfunded" ? (
+                {activeTab !== "funded" ? (
                   <>
                     <li
                       className={`px-4 py-2 hover:bg-[#352f54] cursor-pointer text-sm`}
@@ -352,7 +343,7 @@ export default function PoolsList({
         className="flex-1 overflow-y-auto mt-4 px-4"
         style={{ paddingBottom: "128px" }}
       >
-        {loading && pools.length === 0 ? (
+        {loading ? (
           renderSkeletonList()
         ) : error && !isDbError ? (
           <div className="p-8 text-center text-red-400">
@@ -445,13 +436,9 @@ export default function PoolsList({
                   ? poolType === "my"
                     ? "You haven't created any open rounds yet."
                     : "No open rounds available."
-                  : activeTab === "funded"
-                  ? poolType === "my"
-                    ? "You haven't created any funded pools yet."
-                    : "No funded pools available."
                   : poolType === "my"
-                  ? "You haven't created any unfunded pools yet."
-                  : "No unfunded pools available."}
+                  ? "You haven't created any funded pools yet."
+                  : "No funded pools available."}
               </div>
             )}
           </ul>

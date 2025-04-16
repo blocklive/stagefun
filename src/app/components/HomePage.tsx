@@ -4,31 +4,16 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "../../contexts/SupabaseContext";
 import { getPoolsByPatron } from "../../lib/services/patron-service";
-import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
 import { useFeaturedPools } from "../../hooks/useFeaturedPools";
+import {
+  usePoolsWithDepositsHomePage,
+  TabType,
+} from "../../hooks/usePoolsWithDepositsHomePage";
 import FeaturedRoundsCarousel from "./FeaturedRoundsCarousel";
 import PoolsList from "./PoolsList";
 
-type TabType = "open" | "funded" | "unfunded";
-
-// Define a type for the pools returned by usePoolsWithDeposits
-type OnChainPool = {
-  id: string;
-  contract_address: string;
-  name: string;
-  creator_address: string;
-  raised_amount: number;
-  target_amount: number;
-  revenue_accumulated: number;
-  ends_at: string;
-  status: string;
-  creator_name: string;
-  creator_avatar_url: string | null;
-  created_at: string;
-  image_url: string | null;
-  description: string;
-  creator_id: string;
-};
+// Define the maximum number of items to show per tab
+const MAX_ITEMS_PER_TAB = 15;
 
 export default function HomePage() {
   const { dbUser } = useSupabase();
@@ -36,13 +21,24 @@ export default function HomePage() {
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState<TabType>("open");
 
+  // Use our custom hook
+  const {
+    pools: allPools,
+    isLoading,
+    error,
+    isDbError,
+    refresh,
+    fetchPoolsForTab,
+  } = usePoolsWithDepositsHomePage("open", MAX_ITEMS_PER_TAB, dbUser?.id);
+
   // Update active tab when URL changes
   useEffect(() => {
     const handleUrlChange = () => {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get("tab") as TabType;
-      if (tab && ["open", "funded", "unfunded"].includes(tab)) {
+      if (tab && ["open", "funded"].includes(tab)) {
         setActiveTab(tab);
+        fetchPoolsForTab(tab);
       }
     };
 
@@ -55,15 +51,22 @@ export default function HomePage() {
     return () => {
       window.removeEventListener("popstate", handleUrlChange);
     };
-  }, []);
+  }, [fetchPoolsForTab]);
 
   // Handle tab change
   const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    // Update URL without adding to history
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", tab);
-    window.history.replaceState({}, "", url.toString());
+    // Only handle open and funded tabs
+    if (tab === "open" || tab === "funded") {
+      setActiveTab(tab);
+      fetchPoolsForTab(tab);
+
+      // Update URL without adding to history and prevent scrolling
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", tab);
+      router.replace(`${window.location.pathname}?tab=${tab}`, {
+        scroll: false,
+      });
+    }
   };
 
   const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
@@ -73,14 +76,7 @@ export default function HomePage() {
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
   const [poolType, setPoolType] = useState("all"); // "all" or "my"
-  const {
-    pools,
-    isLoading: loading,
-    error,
-    isDbError,
-    refresh,
-    isUsingCache,
-  } = usePoolsWithDeposits(1, activeTab);
+
   const { featuredPools, isLoading: featuredLoading } = useFeaturedPools();
 
   // Set the correct viewport height
@@ -132,7 +128,7 @@ export default function HomePage() {
   // Replace the custom filtering section with a simpler version
   // that only filters by pool type (all or my)
   const filteredPools =
-    pools?.filter((pool) => {
+    allPools?.filter((pool) => {
       // Only filter by pool type (all or my)
       if (poolType === "my" && pool.creator_id !== dbUser?.id) {
         return false;
@@ -145,24 +141,18 @@ export default function HomePage() {
   const sortedPools = [...filteredPools];
 
   if (sortBy === "recent") {
-    sortedPools.sort((a: OnChainPool, b: OnChainPool) => {
+    sortedPools.sort((a, b) => {
       // Use the created_at field from Supabase for accurate sorting
       const dateA = new Date(a.created_at || "").getTime();
       const dateB = new Date(b.created_at || "").getTime();
       return dateB - dateA; // Sort in descending order (newest first)
     });
   } else if (sortBy === "amount") {
-    sortedPools.sort(
-      (a: OnChainPool, b: OnChainPool) => b.raised_amount - a.raised_amount
-    );
+    sortedPools.sort((a, b) => b.raised_amount - a.raised_amount);
   } else if (sortBy === "alphabetical") {
-    sortedPools.sort((a: OnChainPool, b: OnChainPool) =>
-      a.name.localeCompare(b.name)
-    );
+    sortedPools.sort((a, b) => a.name.localeCompare(b.name));
   } else if (sortBy === "volume") {
-    sortedPools.sort(
-      (a: OnChainPool, b: OnChainPool) => b.raised_amount - a.raised_amount
-    );
+    sortedPools.sort((a, b) => b.raised_amount - a.raised_amount);
   }
 
   return (
@@ -175,9 +165,9 @@ export default function HomePage() {
 
       {/* Pools List, Filter, and Sort */}
       <PoolsList
-        pools={pools}
+        pools={sortedPools}
         dbUser={dbUser}
-        loading={loading}
+        loading={isLoading}
         error={error}
         isDbError={isDbError}
         refresh={refresh}
