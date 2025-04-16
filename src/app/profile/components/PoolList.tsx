@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { TransformedPool } from "../../../hooks/useUserFundedPools";
@@ -36,6 +36,9 @@ export default function PoolList({
 }: PoolListProps) {
   const router = useRouter();
   const { handleClaimRefund, isRefunding } = useClaimRefund();
+  const [activeTab, setActiveTab] = useState<
+    "Raising" | "Funded" | "Production" | "Unfunded"
+  >("Raising");
 
   // Map to store which pools the user has LP tokens for
   const poolsWithUserTokens = new Map<string, Asset>();
@@ -113,42 +116,148 @@ export default function PoolList({
     ["FUNDED", "FULLY_FUNDED"].includes(pool.status)
   );
   const productionPools = pools.filter((pool) => pool.status === "EXECUTING");
-  const unfundedPools = pools.filter((pool) =>
+  let unfundedPools = pools.filter((pool) =>
     ["FAILED", "CANCELLED"].includes(pool.status)
   );
 
-  // Build a structure for each group
-  const poolGroups = [
-    { title: "Raising", pools: raisingPools, className: "border-[#00C48C]" },
-    { title: "Funded", pools: fundedPools, className: "border-[#836EF9]" },
-    {
-      title: "Production",
-      pools: productionPools,
-      className: "border-[#22C55E]",
-    },
-    { title: "Unfunded", pools: unfundedPools, className: "border-[#F87171]" },
-  ].filter((group) => group.pools.length > 0);
+  // Sort unfunded pools to show those with available refunds at the top
+  if (isOwnProfile && poolsWithUserTokens.size > 0) {
+    unfundedPools = unfundedPools.sort((a, b) => {
+      const aHasRefund = poolsWithUserTokens.has(a.contract_address);
+      const bHasRefund = poolsWithUserTokens.has(b.contract_address);
 
-  // Render the pools in groups
+      if (aHasRefund && !bHasRefund) return -1; // a comes first
+      if (!aHasRefund && bHasRefund) return 1; // b comes first
+      return 0; // keep original order
+    });
+  }
+
+  // Define the pool groups with their data
+  const poolGroups = {
+    Raising: { pools: raisingPools },
+    Funded: { pools: fundedPools },
+    Production: { pools: productionPools },
+    Unfunded: { pools: unfundedPools },
+  };
+
+  // Get the available tabs (only show tabs for pool types that exist)
+  const availableTabs = Object.entries(poolGroups)
+    .filter(([_, group]) => group.pools.length > 0)
+    .map(
+      ([title]) => title as "Raising" | "Funded" | "Production" | "Unfunded"
+    );
+
+  // If no active tab is in available tabs, set the first available tab as active
+  if (availableTabs.length > 0 && !availableTabs.includes(activeTab)) {
+    setActiveTab(availableTabs[0]);
+  }
+
+  // Get the pools for the active tab
+  const activePools = poolGroups[activeTab]?.pools || [];
+
+  // Check if there are refundable tokens for the notification dot
+  const hasRefundablePools = isOwnProfile && poolsWithUserTokens.size > 0;
+
+  // Render the pools with tabs
   return (
-    <div className="space-y-6">
-      {poolGroups.map((group) => (
-        <div key={group.title} className="space-y-4">
-          {poolGroups.length > 1 && (
-            <h3
-              className={`text-lg font-semibold pl-4 border-l-4 ${group.className}`}
-            >
-              {group.title}
-            </h3>
-          )}
-          <div className="space-y-4">
-            {group.pools.map((pool) => (
-              <div
-                key={pool.id}
-                className="bg-[#FFFFFF0A] rounded-xl overflow-hidden cursor-pointer hover:bg-[#2A2640] transition-colors p-4"
-                onClick={() => router.push(`/pools/${pool.id}`)}
+    <div className="mt-6">
+      {/* Status Tabs */}
+      {availableTabs.length > 0 && (
+        <div className="flex mb-8">
+          <div className="flex space-x-2">
+            {availableTabs.map((tabName) => (
+              <button
+                key={tabName}
+                className={`px-4 h-9 rounded-xl text-base font-medium ${
+                  activeTab === tabName
+                    ? "bg-[#FFFFFF1F] border border-[#FFFFFF29] text-white"
+                    : "bg-[#FFFFFF0F] text-gray-400 hover:text-gray-200"
+                }`}
+                onClick={() => setActiveTab(tabName)}
               >
                 <div className="flex items-center">
+                  {tabName}
+                  {tabName === "Unfunded" && hasRefundablePools && (
+                    <span className="ml-2 w-2 h-2 rounded-full bg-orange-500"></span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pool Cards */}
+      <div className="space-y-4">
+        {activePools.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            No {activeTab.toLowerCase()} pools found.
+          </div>
+        ) : (
+          activePools.map((pool) => (
+            <div
+              key={pool.id}
+              className="bg-[#FFFFFF0A] rounded-xl overflow-hidden cursor-pointer hover:bg-[#2A2640] transition-colors p-4"
+              onClick={() => router.push(`/pools/${pool.id}`)}
+            >
+              {/* Desktop layout - single line */}
+              <div className="hidden md:flex items-center">
+                <div
+                  className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                  style={{ backgroundColor: "#2A2640" }}
+                >
+                  {pool.image_url ? (
+                    <Image
+                      src={pool.image_url}
+                      alt={pool.name}
+                      width={48}
+                      height={48}
+                      className="w-full h-full object-cover"
+                      unoptimized={true}
+                    />
+                  ) : null}
+                </div>
+                <div className="ml-4 flex-1">
+                  <h3 className="font-bold truncate">{pool.name}</h3>
+                  <div className="flex items-center text-sm">
+                    <span className={`text-gray-400 flex items-center`}>
+                      <span
+                        className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                          getPoolStatus(pool).colorClass
+                        }`}
+                      ></span>
+                      {getPoolStatus(pool).text}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Desktop: Show refund button in the middle */}
+                {getPoolStatus(pool).text === "Unfunded" &&
+                  isOwnProfile &&
+                  poolsWithUserTokens.has(pool.contract_address) && (
+                    <button
+                      onClick={(e) => onClaimRefund(pool.contract_address, e)}
+                      disabled={isRefunding}
+                      className={`px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors mr-4 ${
+                        isRefunding ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
+                    >
+                      {isRefunding ? "Claiming..." : "Claim Refund"}
+                    </button>
+                  )}
+
+                {/* Desktop: Amount on right */}
+                {pool.commitment_amount && (
+                  <span className="text-purple-400 font-semibold">
+                    {pool.commitment_amount.toFixed(2)} USDC
+                  </span>
+                )}
+              </div>
+
+              {/* Mobile layout - new design */}
+              <div className="md:hidden flex items-start justify-between">
+                {/* Left side: Image, name and amount */}
+                <div className="flex items-start">
                   <div
                     className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
                     style={{ backgroundColor: "#2A2640" }}
@@ -164,49 +273,35 @@ export default function PoolList({
                       />
                     ) : null}
                   </div>
-                  <div className="ml-4 flex-1">
+                  <div className="ml-4">
                     <h3 className="font-bold">{pool.name}</h3>
-                    <div className="flex items-center text-sm">
-                      <span className={`text-gray-400 flex items-center`}>
-                        <span
-                          className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                            getPoolStatus(pool).colorClass
-                          }`}
-                        ></span>
-                        {getPoolStatus(pool).text}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right flex items-center">
-                    {/* Show Claim Refund button for unfunded pools if user has matching tokens */}
-                    {getPoolStatus(pool).text === "Unfunded" &&
-                      isOwnProfile &&
-                      poolsWithUserTokens.has(pool.contract_address) && (
-                        <button
-                          onClick={(e) =>
-                            onClaimRefund(pool.contract_address, e)
-                          }
-                          disabled={isRefunding}
-                          className={`px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors mr-4 ${
-                            isRefunding ? "opacity-50 cursor-not-allowed" : ""
-                          }`}
-                        >
-                          {isRefunding ? "Claiming..." : "Claim Refund"}
-                        </button>
-                      )}
-
                     {pool.commitment_amount && (
-                      <span className="text-purple-400 font-semibold">
-                        {pool.commitment_amount.toFixed(2)} USDC
-                      </span>
+                      <div className="text-gray-400 text-sm">
+                        ${pool.commitment_amount.toFixed(2)}
+                      </div>
                     )}
                   </div>
                 </div>
+
+                {/* Right side: Refund button */}
+                {getPoolStatus(pool).text === "Unfunded" &&
+                  isOwnProfile &&
+                  poolsWithUserTokens.has(pool.contract_address) && (
+                    <button
+                      onClick={(e) => onClaimRefund(pool.contract_address, e)}
+                      disabled={isRefunding}
+                      className={`px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors ${
+                        isRefunding ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
+                    >
+                      {isRefunding ? "Claiming..." : "Refund"}
+                    </button>
+                  )}
               </div>
-            ))}
-          </div>
-        </div>
-      ))}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

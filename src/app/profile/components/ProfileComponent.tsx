@@ -643,7 +643,7 @@ export default function ProfileComponent({
               tabs={[
                 { id: "assets", label: "Assets" },
                 { id: "hosted", label: "Hosted" },
-                { id: "funded", label: "Funded" },
+                { id: "funded", label: "Committed" },
               ]}
               activeTab={activeTab}
               onTabChange={(tabId) =>
