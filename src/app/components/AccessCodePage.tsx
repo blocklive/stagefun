@@ -17,8 +17,8 @@ export default function AccessCodePage() {
   // Check if user is authenticated and redirect to pools
   useEffect(() => {
     if (ready && authenticated) {
-      console.log("User is authenticated, redirecting to pools page");
-      router.push("/pools");
+      console.log("User is authenticated, redirecting to home page");
+      router.push("/");
     }
   }, [ready, authenticated, router]);
 

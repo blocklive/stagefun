@@ -47,8 +47,8 @@ export default function LoginPage() {
           console.error("Error recording access code usage:", error);
         }
 
-        // Navigate to pools page
-        router.push("/pools");
+        // Navigate to home page
+        router.push("/home");
       }
     };
 

@@ -21,7 +21,7 @@ export default function OnboardingLayout({ children }: OnboardingLayoutProps) {
 
   // Handle back button click
   const handleBackClick = () => {
-    router.push("/pools");
+    router.push("/");
   };
 
   // Handle points click - we're already on the onboarding page

@@ -289,14 +289,12 @@ export default function AccessCodeEntry() {
     };
   }, []);
 
-  // Redirect authenticated users to pools page
+  // Redirect authenticated users to home page
   useEffect(() => {
     // Only check authentication after Privy is ready
     if (ready && authenticated) {
-      console.log(
-        "User authenticated in AccessCodeEntry, redirecting to pools"
-      );
-      router.push("/pools");
+      console.log("User authenticated in AccessCodeEntry, redirecting to home");
+      router.push("/");
     }
   }, [authenticated, ready, router]);
 

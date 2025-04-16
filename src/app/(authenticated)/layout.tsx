@@ -39,8 +39,8 @@ export default function AuthenticatedLayout({
       const poolId = pathname.split("/").pop();
       router.push(`/pools/${poolId}`);
     } else if (pathname.includes("/pools/")) {
-      // When viewing a pool, go back to the pools list
-      router.push("/pools");
+      // When viewing a pool, go back to the homepage
+      router.push("/");
     } else {
       // Default back behavior
       router.back();

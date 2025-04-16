@@ -130,11 +130,6 @@ export default function PoolDetailsPage() {
     }
   };
 
-  // Handle points click
-  const handlePointsClick = () => {
-    router.push("/onboarding");
-  };
-
   // Render user commitment section
   const renderUserCommitment = () => {
     if (!pool || !privyUser) return null;

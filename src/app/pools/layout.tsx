@@ -39,8 +39,8 @@ export default function PoolsLayout({ children }: PoolsLayoutProps) {
       const poolId = pathname.split("/").pop();
       router.push(`/pools/${poolId}`);
     } else if (pathname.includes("/pools/")) {
-      // When viewing a pool, go back to the pools list
-      router.push("/pools");
+      // When viewing a pool, go back to the home page
+      router.push("/");
     } else {
       // Default back behavior
       router.back();
