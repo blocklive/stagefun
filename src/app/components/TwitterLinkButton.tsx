@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useSupabase } from "@/contexts/SupabaseContext";
 import { useAuthJwt } from "@/hooks/useAuthJwt";
-import { FaTwitter } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import showToast from "@/utils/toast";
 
@@ -101,7 +101,7 @@ export default function TwitterLinkButton({
         disabled
         className={`flex items-center justify-center gap-2 py-2 px-4 bg-green-600 text-white rounded-full opacity-75 ${className}`}
       >
-        <FaTwitter />
+        <FaXTwitter />
         <span>X Account Linked</span>
       </button>
     );
@@ -120,7 +120,7 @@ export default function TwitterLinkButton({
         </>
       ) : (
         <>
-          <FaTwitter />
+          <FaXTwitter />
           <span>Link X Account</span>
         </>
       )}

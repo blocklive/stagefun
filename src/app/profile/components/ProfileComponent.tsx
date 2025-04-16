@@ -6,13 +6,13 @@ import { usePrivy, useFundWallet } from "@privy-io/react-auth";
 import {
   FaArrowLeft,
   FaEdit,
-  FaTwitter,
   FaSignOutAlt,
   FaKey,
   FaDollarSign,
   FaUsers,
   FaCheck,
 } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import { IoFlash } from "react-icons/io5";
 import Image from "next/image";
 import { useSupabase } from "../../../contexts/SupabaseContext";
@@ -40,6 +40,7 @@ import { useSmartWalletInitializer } from "../../../hooks/useSmartWalletInitiali
 import { useAvatarUpload } from "../../../hooks/useAvatarUpload";
 import { mutate } from "swr";
 import BalanceSection from "./BalanceSection";
+import { useWalletAssets } from "../../../hooks/useWalletAssets";
 
 interface ProfileComponentProps {
   isUsernameRoute?: boolean;
@@ -119,6 +120,23 @@ export default function ProfileComponent({
     error: fundedPoolsError,
     refresh: refreshFundedPools,
   } = useUserFundedPools(userWalletAddress);
+
+  // Get user wallet balance directly
+  const { totalValue, isLoading: balanceIsLoading } = useWalletAssets(
+    userWalletAddress || null,
+    "monad-test-v2"
+  );
+
+  // Format currency for display
+  const formatCurrency = (value: number | null): string => {
+    if (value === null) return "$0.00";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -378,232 +396,243 @@ export default function ProfileComponent({
     <>
       {/* Main Content */}
       <div className="px-4 pb-24 md:pb-8">
-        {/* Profile Header with Avatar and Name */}
-        <div className="relative pt-12 pb-8 flex flex-col items-center bg-gradient-to-b from-[#1A0B3E] to-[#4A2A9A]">
-          {/* Avatar with Edit Button */}
-          <div className="relative mb-4">
-            <div className="w-28 h-28 overflow-hidden">
-              {imagePreview ? (
-                <Image
-                  src={imagePreview}
-                  alt="Profile Preview"
-                  width={112}
-                  height={112}
-                  className="object-cover w-full h-full rounded-full"
-                  unoptimized={true}
-                />
-              ) : (
-                <UserAvatar user={user} size={112} />
-              )}
-
-              {isUploading && (
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
-                </div>
-              )}
-            </div>
-
-            {/* Only show edit button if viewing own profile */}
-            {isOwnProfile && (
-              <>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="hidden"
-                  ref={fileInputRef}
-                />
-                <button
-                  className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <FaEdit className="text-purple-600" />
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Username */}
-          <h1 className="text-3xl font-bold">{displayName}</h1>
-
-          {/* Twitter handle if available */}
-          {user?.twitter_username && (
-            <div className="flex items-center mt-1 mb-3">
-              <a
-                href={`https://x.com/${user.twitter_username}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center text-gray-300 hover:text-purple-400 transition-colors"
-              >
-                <FaTwitter className="mr-2" />
-                <span>@{user.twitter_username}</span>
-              </a>
-            </div>
-          )}
-
-          {/* Smart Wallet Address - only show if available */}
-          {user?.smart_wallet_address && (
-            <div className="mt-2 mb-3 flex justify-center">
-              <div className="flex items-center px-4 py-2 bg-[#FFFFFF0A] rounded-lg">
-                <span className="text-gray-500 text-sm mr-2">Account</span>
-                <span className="text-gray-300 text-sm">
-                  {user.smart_wallet_address &&
-                    `${user.smart_wallet_address.substring(
-                      0,
-                      6
-                    )}...${user.smart_wallet_address.substring(
-                      user.smart_wallet_address.length - 4
-                    )}`}
-                </span>
-                <button
-                  onClick={() => {
-                    if (user.smart_wallet_address) {
-                      navigator.clipboard.writeText(user.smart_wallet_address);
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    }
-                  }}
-                  className="ml-2 p-1 w-6 h-6 flex items-center justify-center"
-                >
-                  {copied ? (
-                    <FaCheck className="text-[#9EEB00] text-sm" />
+        {/* Profile Header - Super compact layout */}
+        <div className="relative py-6 px-4 bg-gradient-to-b from-[#1A0B3E] to-[#4A2A9A] rounded-xl">
+          <div className="container mx-auto">
+            {/* Top Row: Avatar, User Info and Balance */}
+            <div className="flex flex-col md:flex-row items-center md:items-center gap-4 md:gap-6">
+              {/* Profile Avatar */}
+              <div className="relative">
+                <div className="w-24 h-24 md:w-20 md:h-20 overflow-hidden rounded-full">
+                  {imagePreview ? (
+                    <Image
+                      src={imagePreview}
+                      alt="Profile Preview"
+                      width={112}
+                      height={112}
+                      className="object-cover w-full h-full"
+                      unoptimized={true}
+                    />
                   ) : (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="text-gray-400"
-                    >
-                      <rect
-                        x="9"
-                        y="9"
-                        width="13"
-                        height="13"
-                        rx="2"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                    <UserAvatar user={user} size={80} />
                   )}
-                </button>
-              </div>
-            </div>
-          )}
 
-          {/* Show account setup in progress if we don't have a smart wallet */}
-          {isOwnProfile && !user?.smart_wallet_address && (
-            <AccountSetupBadge
-              privyUser={privyUser}
-              onSmartWalletReady={refreshUser}
-            />
-          )}
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full">
+                      <div className="animate-spin rounded-full h-7 w-7 border-t-2 border-b-2 border-white"></div>
+                    </div>
+                  )}
+                </div>
 
-          {/* Always show logout button for own profile, and full wallet actions if they have a smart wallet address */}
-          {isOwnProfile && (
-            <>
-              {/* Wallet Action Buttons */}
-              <div className="mt-4 flex items-center space-x-8 justify-center">
-                {smartWalletAddress && (
+                {/* Only show edit button if viewing own profile */}
+                {isOwnProfile && (
                   <>
-                    {/* Receive Funds Button - use smartWalletAddress instead of walletAddress */}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                      ref={fileInputRef}
+                    />
+                    <button
+                      className="absolute bottom-0 right-0 w-7 h-7 bg-[#2A2640] hover:bg-[#3A3650] rounded-full flex items-center justify-center"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <FaEdit className="text-white text-sm" />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* User Info */}
+              <div className="flex flex-col items-center md:items-start flex-grow">
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  {displayName}
+                </h1>
+
+                {/* Twitter handle if available */}
+                {user?.twitter_username && (
+                  <div className="flex items-center mt-1">
+                    <a
+                      href={`https://x.com/${user.twitter_username}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center text-gray-300 hover:text-[#836EF9] transition-colors"
+                    >
+                      <FaXTwitter className="mr-2 text-[#836EF9]" />
+                      <span>@{user.twitter_username}</span>
+                    </a>
+                  </div>
+                )}
+
+                {/* Smart Wallet Address - only show if available */}
+                {user?.smart_wallet_address && (
+                  <div className="flex items-center mt-2 bg-[#2A2640] px-3 py-1.5 rounded-lg">
+                    <span className="text-gray-300 text-sm mr-2">Account</span>
+                    <span className="text-white text-sm">
+                      {user.smart_wallet_address &&
+                        `${user.smart_wallet_address.substring(
+                          0,
+                          6
+                        )}...${user.smart_wallet_address.substring(
+                          user.smart_wallet_address.length - 4
+                        )}`}
+                    </span>
                     <button
                       onClick={() => {
-                        if (smartWalletAddress) {
-                          fundWallet(smartWalletAddress, {
-                            chain: {
-                              id: 10143,
-                            },
-                            asset: "USDC",
-                            uiConfig: {
-                              receiveFundsTitle: "Receive USDC on Monad",
-                              receiveFundsSubtitle:
-                                "Scan this QR code or copy your wallet address to receive USDC on Monad Testnet.",
-                            },
-                          });
+                        if (user.smart_wallet_address) {
+                          navigator.clipboard.writeText(
+                            user.smart_wallet_address
+                          );
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
                         }
                       }}
-                      className="flex flex-col items-center"
-                      aria-label="Receive Funds"
+                      className="ml-2 p-1 w-6 h-6 flex items-center justify-center bg-[#3A3650] hover:bg-[#454058] rounded-full transition-colors"
                     >
-                      <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
+                      {copied ? (
+                        <FaCheck className="text-[#9EEB00] text-xs" />
+                      ) : (
                         <svg
-                          width="24"
-                          height="24"
+                          width="14"
+                          height="14"
                           viewBox="0 0 24 24"
                           fill="none"
                           xmlns="http://www.w3.org/2000/svg"
+                          className="text-white"
                         >
-                          <path
-                            d="M12 17L12 7"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                          <path
-                            d="M7 12L12 17L17 12"
+                          <rect
+                            x="9"
+                            y="9"
+                            width="13"
+                            height="13"
+                            rx="2"
                             stroke="currentColor"
                             strokeWidth="2"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                           />
                           <path
-                            d="M5 20H19"
+                            d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5"
                             stroke="currentColor"
                             strokeWidth="2"
                             strokeLinecap="round"
+                            strokeLinejoin="round"
                           />
                         </svg>
-                      </div>
-                      <span className="text-xs text-gray-400">Receive</span>
+                      )}
                     </button>
+                  </div>
+                )}
+              </div>
 
-                    {/* Export Keys Button - use smart wallet */}
-                    <button
-                      onClick={handleExportWallet}
-                      className="flex flex-col items-center"
-                      aria-label="Export Keys"
-                    >
-                      <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
-                        <FaKey className="text-xl" />
-                      </div>
-                      <span className="text-xs text-gray-400">Export Keys</span>
-                    </button>
-                  </>
+              {/* Right Column: Balance and Action Buttons */}
+              <div className="flex flex-col items-center md:items-end mt-4 md:mt-0">
+                {/* Show account setup in progress if we don't have a smart wallet */}
+                {isOwnProfile && !user?.smart_wallet_address && (
+                  <AccountSetupBadge
+                    privyUser={privyUser}
+                    onSmartWalletReady={refreshUser}
+                  />
                 )}
 
-                {/* Sign Out Button - Always visible for own profile */}
-                <button
-                  onClick={logout}
-                  className="flex flex-col items-center"
-                  aria-label="Sign Out"
-                >
-                  <div className="w-12 h-12 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded-full text-white transition-colors mb-1">
-                    <FaSignOutAlt className="text-xl" />
-                  </div>
-                  <span className="text-xs text-gray-400">Sign Out</span>
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+                {/* Balance Information - Displayed when wallet is available */}
+                {user?.smart_wallet_address && (
+                  <>
+                    <div className="flex flex-col items-center md:items-end">
+                      <div className="text-gray-400 text-sm">Balance</div>
+                      {balanceIsLoading ? (
+                        <div className="mt-1 h-7 flex items-center">
+                          <div className="w-4 h-4 border-t-2 border-b-2 border-[#836EF9] animate-spin rounded-full mr-2"></div>
+                          <span>Loading...</span>
+                        </div>
+                      ) : (
+                        <div className="text-2xl md:text-3xl font-bold">
+                          {formatCurrency(totalValue)}
+                        </div>
+                      )}
+                    </div>
 
-        {/* Balance and Assets Section */}
-        {/* Remove the standalone BalanceSection */}
+                    {/* Action Buttons moved under balance - only for own profile */}
+                    {isOwnProfile && (
+                      <div className="flex items-center space-x-4 mt-4">
+                        {/* Receive Funds Button */}
+                        <button
+                          onClick={() => {
+                            if (smartWalletAddress) {
+                              fundWallet(smartWalletAddress, {
+                                chain: {
+                                  id: 10143,
+                                },
+                                asset: "USDC",
+                                uiConfig: {
+                                  receiveFundsTitle: "Receive USDC on Monad",
+                                  receiveFundsSubtitle:
+                                    "Scan this QR code or copy your wallet address to receive USDC on Monad Testnet.",
+                                },
+                              });
+                            }
+                          }}
+                          className="flex flex-col items-center"
+                          aria-label="Receive Funds"
+                        >
+                          <div className="w-10 h-10 flex items-center justify-center bg-[#2A2640] hover:bg-[#3A3650] rounded-full text-white transition-colors mb-1">
+                            <svg
+                              width="20"
+                              height="20"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M12 17L12 7"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M7 12L12 17L17 12"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M5 20H19"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </div>
+                          <span className="text-xs text-gray-400">Receive</span>
+                        </button>
+
+                        {/* Export Keys Button */}
+                        <button
+                          onClick={handleExportWallet}
+                          className="flex flex-col items-center"
+                          aria-label="Export Keys"
+                        >
+                          <div className="w-10 h-10 flex items-center justify-center bg-[#2A2640] hover:bg-[#3A3650] rounded-full text-white transition-colors mb-1">
+                            <FaKey className="text-lg" />
+                          </div>
+                          <span className="text-xs text-gray-400">
+                            Export Keys
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Pool Tabs - Only show if user has a smart wallet */}
         {user.smart_wallet_address ? (
-          <>
+          <div className="mt-4">
             <TabComponent
               tabs={[
                 { id: "assets", label: "Assets" },
@@ -617,8 +646,8 @@ export default function ProfileComponent({
             />
 
             {/* Tab Content */}
-            <div className="flex-1 p-4 pb-32">
-              {activeTab === "assets" && isOwnProfile ? (
+            <div className="pb-32">
+              {activeTab === "assets" ? (
                 <BalanceSection
                   onSendClick={handleSendClick}
                   walletAddress={user.smart_wallet_address || null}
@@ -655,7 +684,7 @@ export default function ProfileComponent({
                 />
               )}
             </div>
-          </>
+          </div>
         ) : (
           <AccountSetupMessage
             user={user}

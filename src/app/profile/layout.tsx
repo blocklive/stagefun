@@ -27,7 +27,8 @@ export default function ProfileLayout({ children }: ProfileLayoutProps) {
   return (
     <div className="min-h-screen bg-[#15161a] text-white">
       <AppHeader
-        showTitle={false}
+        showTitle={true}
+        title="PORTFOLIO"
         showCreateButton={true}
         showGetTokensButton={true}
         showPointsButton={true}

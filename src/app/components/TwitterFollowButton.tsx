@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSupabase } from "@/contexts/SupabaseContext";
 import { useAuthJwt } from "@/hooks/useAuthJwt";
-import { FaTwitter } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import showToast from "@/utils/toast";
 
@@ -170,7 +170,7 @@ export default function TwitterFollowButton({
         disabled
         className={`flex items-center justify-center gap-2 py-2 px-4 bg-gray-600 text-white rounded-full opacity-75 ${className}`}
       >
-        <FaTwitter />
+        <FaXTwitter />
         <span>Link X Account First</span>
       </button>
     );
@@ -183,7 +183,7 @@ export default function TwitterFollowButton({
         disabled
         className={`flex items-center justify-center gap-2 py-2 px-4 bg-green-600 text-white rounded-full opacity-75 ${className}`}
       >
-        <FaTwitter />
+        <FaXTwitter />
         <span>
           {alreadyCompleted
             ? "Already Following"
@@ -210,7 +210,7 @@ export default function TwitterFollowButton({
         </>
       ) : (
         <>
-          <FaTwitter />
+          <FaXTwitter />
           <span>Follow @{twitterHandle}</span>
         </>
       )}

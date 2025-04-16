@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { FaTwitter, FaTelegram } from "react-icons/fa";
+import { FaTelegram } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 
 export default function Footer() {
   return (
@@ -34,7 +35,7 @@ export default function Footer() {
               className="absolute w-full h-full rounded-full opacity-0 hover:opacity-100 transition-opacity"
               style={{ boxShadow: "0 0 15px 5px #836EF9", zIndex: "-1" }}
             ></span>
-            <FaTwitter size={20} />
+            <FaXTwitter size={20} />
           </Link>
 
           <Link

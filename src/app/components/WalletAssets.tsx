@@ -201,12 +201,6 @@ export default function WalletAssets({
         <h2 className="text-xl font-semibold mb-4">Your Assets</h2>
       )}
 
-      {/* Balance Row (below title) */}
-      <div className="flex justify-between items-center mb-6">
-        <span className="text-gray-400">Balance</span> {/* Grayed out label */}
-        <div className="text-lg font-medium">{formatCurrency(totalValue)}</div>
-      </div>
-
       {/* Assets List Loading/Content */}
       {isLoading && assets.length === 0 ? (
         <div className="flex justify-center py-8">

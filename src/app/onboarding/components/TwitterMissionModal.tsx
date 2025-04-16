@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { FaTwitter, FaTimes } from "react-icons/fa";
+import { FaTimes } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import { Mission } from "@/app/data/onboarding-missions";
 import TwitterLinkButton from "@/app/components/TwitterLinkButton";
 import TwitterFollowButton from "@/app/components/TwitterFollowButton";
@@ -49,7 +50,7 @@ export default function TwitterMissionModal({
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-[#1DA1F2] rounded-full flex items-center justify-center mx-auto mb-4">
-            <FaTwitter className="text-white text-xl" />
+            <FaXTwitter className="text-white text-xl" />
           </div>
           <h2 className="text-2xl font-bold">{mission.title}</h2>
           <p className="text-gray-400 mt-2">{mission.description}</p>

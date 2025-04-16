@@ -1,7 +1,8 @@
 "use client";
 
 import { Pool } from "../../../../lib/supabase";
-import { FaTwitter, FaDiscord, FaTelegram, FaGlobe } from "react-icons/fa";
+import { FaDiscord, FaTelegram, FaGlobe } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 
 interface PoolSocialLinksProps {
   pool: Pool | null;
@@ -31,7 +32,7 @@ export default function PoolSocialLinks({ pool }: PoolSocialLinksProps) {
             rel="noopener noreferrer"
             className="p-3 rounded-[12px] bg-[#FFFFFF0F] flex items-center hover:bg-[#FFFFFF1A] transition-colors"
           >
-            <FaTwitter className="text-[#836EF9] mr-2" />
+            <FaXTwitter className="text-[#836EF9] mr-2" />
             <span className="text-white">Twitter</span>
           </a>
         )}

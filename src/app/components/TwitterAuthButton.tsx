@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { FaTwitter } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useAuthJwt } from "@/hooks/useAuthJwt";
 import showToast from "@/utils/toast";
@@ -71,7 +71,7 @@ export default function TwitterAuthButton({
         </>
       ) : (
         <>
-          <FaTwitter />
+          <FaXTwitter />
           <span>Connect with X</span>
         </>
       )}

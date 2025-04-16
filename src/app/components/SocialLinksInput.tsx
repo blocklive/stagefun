@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import {
   FaGlobe,
-  FaTwitter,
   FaDiscord,
   FaInstagram,
   FaPlus,
