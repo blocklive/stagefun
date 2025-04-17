@@ -39,6 +39,8 @@ export default function PoolList({
   const [activeTab, setActiveTab] = useState<
     "Raising" | "Funded" | "Production" | "Unfunded"
   >("Raising");
+  // Track which pool is currently being refunded
+  const [refundingPool, setRefundingPool] = useState<string | null>(null);
 
   // Map to store which pools the user has LP tokens for
   const poolsWithUserTokens = new Map<string, Asset>();
@@ -73,6 +75,9 @@ export default function PoolList({
     }
 
     try {
+      // Set the current pool being refunded
+      setRefundingPool(poolAddress);
+
       await handleClaimRefund(poolAddress, () => {
         // Refresh pools and assets after successful claim
         if (onRefresh) {
@@ -81,6 +86,9 @@ export default function PoolList({
       });
     } catch (error) {
       console.error("Error claiming refund:", error);
+    } finally {
+      // Clear the refunding pool state
+      setRefundingPool(null);
     }
   };
 
@@ -239,12 +247,16 @@ export default function PoolList({
                   poolsWithUserTokens.has(pool.contract_address) && (
                     <button
                       onClick={(e) => onClaimRefund(pool.contract_address, e)}
-                      disabled={isRefunding}
+                      disabled={refundingPool !== null}
                       className={`px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors ${
-                        isRefunding ? "opacity-50 cursor-not-allowed" : ""
+                        refundingPool === pool.contract_address
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
                       }`}
                     >
-                      {isRefunding ? "Claiming..." : "Refund"}
+                      {refundingPool === pool.contract_address
+                        ? "Claiming..."
+                        : "Refund"}
                     </button>
                   )}
               </div>
