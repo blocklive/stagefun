@@ -36,6 +36,12 @@ interface PoolFundsSectionProps {
   pool: Pool & {
     revenue_accumulated?: number;
     patron_count?: number;
+    raised_amount?: number;
+    target_amount?: number;
+    cap_amount?: number;
+    contract_address?: string;
+    ends_at?: string;
+    status: string;
   };
   isCreator: boolean;
 }
@@ -202,14 +208,8 @@ export default function PoolFundsSection({
       isBeforeEndTime,
       isBelowCap,
     });
-    return (
-      isCreator &&
-      pool.status === "FUNDED" &&
-      targetMet &&
-      isBeforeEndTime &&
-      isBelowCap
-    );
-  }, [isCreator, pool.status, targetMet, isBeforeEndTime, isBelowCap]);
+    return isCreator && pool.status === "FUNDED" && targetMet && isBelowCap;
+  }, [isCreator, pool.status, targetMet, isBelowCap]);
 
   // Fetch on-chain data using SWR
   const {
