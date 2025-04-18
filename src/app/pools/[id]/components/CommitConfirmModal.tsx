@@ -16,6 +16,7 @@ import {
 import { formatAmount } from "@/lib/utils";
 import showToast from "@/utils/toast";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { formatRangeDisplay, isUncapped } from "@/lib/utils/contractValues";
 
 interface CommitConfirmModalProps {
   isOpen: boolean;
@@ -94,13 +95,20 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
   let priceRangeDisplay: string = "";
   if (isVariablePrice) {
     if (minPrice !== null && maxPrice !== null) {
-      priceRangeDisplay = `${formatAmount(minPrice)}-${formatAmount(
-        maxPrice
-      )} USDC`;
+      if (tier.max_price && isUncapped(tier.max_price.toString())) {
+        // For uncapped pricing, just show "Flexible" without any price values
+        priceRangeDisplay = "Flexible USDC";
+      } else {
+        // For capped pricing, show range
+        priceRangeDisplay = `${formatAmount(minPrice)}-${formatAmount(
+          maxPrice
+        )} USDC`;
+      }
     } else if (minPrice !== null) {
-      priceRangeDisplay = `${formatAmount(minPrice)}+ USDC`;
+      // If only min price is set but we don't want to show it
+      priceRangeDisplay = "Flexible USDC";
     } else if (maxPrice !== null) {
-      priceRangeDisplay = `0-${formatAmount(maxPrice)} USDC`;
+      priceRangeDisplay = `Up to ${formatAmount(maxPrice)} USDC`;
     } else {
       priceRangeDisplay = "Flexible USDC";
     }
@@ -131,10 +139,16 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
 
   // Variable price validation
   const variableAmountFloat = parseFloat(variableAmount || "0");
+  const maxValueIsUncapped =
+    tier.max_price && isUncapped(tier.max_price.toString());
+
   const isVariableAmountValid =
     !isVariablePrice ||
     ((minPrice === null || variableAmountFloat >= minPrice) &&
-      (maxPrice === null || variableAmountFloat <= maxPrice) &&
+      // Don't apply max validation if the price is uncapped
+      (maxValueIsUncapped ||
+        maxPrice === null ||
+        variableAmountFloat <= maxPrice) &&
       variableAmountFloat > 0);
 
   // Combined validation
@@ -307,9 +321,7 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
               value={variableAmount}
               onChange={(e) => setVariableAmount(e.target.value)}
               className="w-full px-4 py-3 bg-[#FFFFFF0A] rounded-lg border border-[#FFFFFF1A] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
-              placeholder={`Enter amount (${
-                minPrice ? formatAmount(minPrice) : "0"
-              }-${maxPrice ? formatAmount(maxPrice) : "∞"} USDC)`}
+              placeholder="Enter amount (USDC)"
               min={minPrice !== null ? minPrice : 0}
               max={maxPrice !== null ? maxPrice : undefined}
               step="0.01"
@@ -317,9 +329,11 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
             {!isVariableAmountValid && variableAmount && (
               <p className="text-red-500 text-sm mt-1">
                 {minPrice && variableAmountFloat < minPrice
-                  ? `Minimum amount is ${formatAmount(minPrice)} USDC`
-                  : maxPrice && variableAmountFloat > maxPrice
-                  ? `Maximum amount is ${formatAmount(maxPrice)} USDC`
+                  ? `Amount must be at least ${formatAmount(minPrice)} USDC`
+                  : !maxValueIsUncapped &&
+                    maxPrice &&
+                    variableAmountFloat > maxPrice
+                  ? `Amount cannot exceed ${formatAmount(maxPrice)} USDC`
                   : "Please enter a valid amount"}
               </p>
             )}

@@ -3,8 +3,8 @@
  */
 
 // Safe maximum value for representing "uncapped" values
-// Using PostgreSQL's max bigint value which is safe for both database and contract
-export const MAX_SAFE_VALUE = "9223372036854775807";
+// Using PostgreSQL's max integer value (2^31 - 1) which is safe for both database and contract
+export const MAX_SAFE_VALUE = "2147483647";
 
 /**
  * Check if a value represents an uncapped value
@@ -39,6 +39,42 @@ export function formatContractValue(
     return uncappedLabel;
   }
   return value;
+}
+
+/**
+ * Format a range display for variable pricing or patron limits
+ * Properly handles cases where max value is uncapped/unlimited
+ */
+export function formatRangeDisplay(
+  minValue: string,
+  maxValue: string,
+  unit = "USDC",
+  uncappedLabel = "Unlimited"
+): string {
+  if (isUncapped(maxValue)) {
+    return `${minValue}+ ${unit}`;
+  }
+  return `${minValue}-${maxValue} ${unit}`;
+}
+
+/**
+ * Format a commitment counter for display (e.g. "0/100 commits" or "0 commits")
+ * For uncapped values, we simply don't show the limit for a cleaner UI
+ */
+export function formatCommitmentCounter(
+  currentValue: string | number,
+  maxValue: string | number,
+  suffix = "commits"
+): string {
+  const current =
+    typeof currentValue === "string" ? currentValue : currentValue.toString();
+
+  const max = typeof maxValue === "string" ? maxValue : maxValue.toString();
+
+  if (isUncapped(max)) {
+    return `${current} ${suffix}`;
+  }
+  return `${current}/${max} ${suffix}`;
 }
 
 /**

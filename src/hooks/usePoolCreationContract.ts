@@ -188,6 +188,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         }
 
         // Ensure smart wallet is available, with DB synchronization
+        showToast.remove();
         const loadingToast = showToast.loading("Preparing pool creation...");
         const smartWalletResult = await ensureSmartWallet(user, loadingToast);
 
@@ -272,6 +273,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
       setIsLoading(true);
       setError(null);
 
+      showToast.remove();
       const loadingToast = showToast.loading("Preparing pool creation...");
 
       try {

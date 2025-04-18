@@ -19,6 +19,12 @@ import {
   getDisplayStatus,
   getPoolEffectiveStatus,
 } from "../../../../lib/contracts/types";
+import {
+  formatRangeDisplay,
+  isUncapped,
+  formatCommitmentCounter,
+} from "@/lib/utils/contractValues";
+import TierCommits from "./TierCommits";
 
 interface TiersSectionProps {
   pool: Pool;
@@ -157,16 +163,22 @@ const TiersSection: React.FC<TiersSectionProps> = ({
 
             if (isVariablePrice) {
               if (minPrice !== null && maxPrice !== null) {
-                // Full range format for variable pricing with K/M formatting
-                priceDisplay = `${formatAmount(minPrice)}-${formatAmount(
-                  maxPrice
-                )} USDC`;
+                // Check if this is an uncapped tier
+                if (tier.max_price && isUncapped(tier.max_price.toString())) {
+                  // For uncapped pricing, just show "Flexible" without any price values
+                  priceDisplay = "Flexible USDC";
+                } else {
+                  // For normal range pricing, show the full range
+                  priceDisplay = `${formatAmount(minPrice)}-${formatAmount(
+                    maxPrice
+                  )} USDC`;
+                }
               } else if (minPrice !== null) {
-                // Min price only with K/M formatting
-                priceDisplay = `${formatAmount(minPrice)}+ USDC`;
+                // If only min price is set but we don't want to show it
+                priceDisplay = "Flexible USDC";
               } else if (maxPrice !== null) {
                 // Max price only with K/M formatting
-                priceDisplay = `0-${formatAmount(maxPrice)} USDC`;
+                priceDisplay = `Up to ${formatAmount(maxPrice)} USDC`;
               } else {
                 // Fallback for fully flexible
                 priceDisplay = "Flexible USDC";
@@ -333,9 +345,11 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                         ))}
                       </div>
                       <span className="ml-2 text-sm text-white/70">
-                        {totalCommitments}
-                        {hasMaxPatrons ? `/${maxPatrons}` : ""}{" "}
-                        {totalCommitments === 1 ? "commit" : "commits"}
+                        {formatCommitmentCounter(
+                          totalCommitments,
+                          maxPatrons || 0,
+                          totalCommitments === 1 ? "commit" : "commits"
+                        )}
                       </span>
                     </div>
                     {hasMaxPatrons && totalCommitments >= maxPatrons && (
