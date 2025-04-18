@@ -6,6 +6,7 @@ import {
 } from "../hooks/calculateMaxFunding";
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import { colors } from "@/lib/theme";
+import { FC } from "react";
 
 interface FundingSummaryProps {
   tiers: Tier[];
@@ -13,13 +14,16 @@ interface FundingSummaryProps {
   capAmount?: string;
 }
 
+// Using PostgreSQL's max bigint value which is safe for both database and contract
+export const MAX_SAFE_VALUE = "9223372036854775807";
+
 export const FundingSummary: React.FC<FundingSummaryProps> = ({
   tiers,
   fundingGoal,
   capAmount = "0",
 }) => {
   const { maxPossibleFunding, tierBreakdown, isUnlimited } = useMemo(() => {
-    return calculateMaxPossibleFunding(tiers);
+    return calculateMaxPossibleFunding(tiers.filter((t) => t.isActive));
   }, [tiers]);
 
   const goalAmount = parseFloat(fundingGoal || "0");
@@ -158,9 +162,8 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
               isGoalReachable ? "text-[#9EEB00]" : "text-[#F87171]"
             }`}
           >
-            {maxDisplayFunding === UNLIMITED_FUNDING
-              ? "Unlimited"
-              : `${formattedMax} USDC`}
+            {formattedMax}
+            {maxDisplayFunding === UNLIMITED_FUNDING ? "" : " USDC"}
           </div>
         </div>
       </div>
@@ -212,18 +215,32 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
                     <span> (limited by your funding cap)</span>
                   )}
                 </p>
+                {maxDisplayFunding >= goalAmount && (
+                  <div className="mt-2">
+                    <p className="text-gray-400 text-xs mt-1">
+                      With the current tier prices, your pool would raise up to{" "}
+                      {maxDisplayFunding === UNLIMITED_FUNDING
+                        ? "an unlimited amount"
+                        : `${formattedMax} USDC`}{" "}
+                      if all tiers sell out.
+                    </p>
+                  </div>
+                )}
               </>
             ) : (
               <>
                 <p className="text-[#F87171] text-sm font-medium">
-                  You can only raise {formattedMax} USDC based on your current
-                  tier pricing and max patrons toward your goal of{" "}
-                  {goalAmount.toLocaleString()} USDC
+                  You can only raise {formattedMax}
+                  {maxDisplayFunding === UNLIMITED_FUNDING ? "" : " USDC"} based
+                  on your current tier pricing and max patrons toward your goal
+                  of {goalAmount.toLocaleString()} USDC
                 </p>
                 <p className="text-gray-400 text-xs mt-1">
                   This leaves you{" "}
-                  {(goalAmount - maxDisplayFunding).toLocaleString()} USDC short
-                  of your goal.
+                  {maxDisplayFunding === UNLIMITED_FUNDING
+                    ? "0"
+                    : (goalAmount - maxDisplayFunding).toLocaleString()}{" "}
+                  USDC short of your goal.
                 </p>
                 <ul className="text-gray-400 text-xs mt-2 ml-4 list-disc space-y-1">
                   <li>Increase tier prices</li>

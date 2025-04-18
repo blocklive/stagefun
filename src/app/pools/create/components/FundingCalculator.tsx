@@ -1,6 +1,9 @@
 import React, { useMemo } from "react";
 import { Tier } from "../types";
-import { calculateMaxPossibleFunding } from "../hooks/calculateMaxFunding";
+import {
+  calculateMaxPossibleFunding,
+  UNLIMITED_FUNDING,
+} from "../hooks/calculateMaxFunding";
 
 interface FundingCalculatorProps {
   tiers: Tier[];
@@ -11,20 +14,30 @@ export const FundingCalculator: React.FC<FundingCalculatorProps> = ({
   tiers,
   fundingGoal,
 }) => {
-  const { maxPossibleFunding, tierBreakdown } = useMemo(() => {
+  const { maxPossibleFunding, tierBreakdown, isUnlimited } = useMemo(() => {
     return calculateMaxPossibleFunding(tiers);
   }, [tiers]);
 
-  const formattedMax = maxPossibleFunding.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const formattedMax = useMemo(() => {
+    if (maxPossibleFunding === UNLIMITED_FUNDING) {
+      return "Unlimited";
+    }
+    return maxPossibleFunding.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }, [maxPossibleFunding]);
 
   const goalAmount = parseFloat(fundingGoal || "0");
   const isGoalReachable =
-    !isNaN(goalAmount) && maxPossibleFunding >= goalAmount;
-  const percentOfGoal =
-    goalAmount > 0 ? Math.min(100, (maxPossibleFunding / goalAmount) * 100) : 0;
+    !isNaN(goalAmount) &&
+    (maxPossibleFunding === UNLIMITED_FUNDING ||
+      maxPossibleFunding >= goalAmount);
+  const percentOfGoal = useMemo(() => {
+    if (maxPossibleFunding === UNLIMITED_FUNDING) return 100;
+    if (goalAmount <= 0) return 0;
+    return Math.min(100, (maxPossibleFunding / goalAmount) * 100);
+  }, [maxPossibleFunding, goalAmount]);
 
   // Don't render if we have no funding goal and no tiers (nothing to calculate)
   if (goalAmount === 0 && tiers.length === 0) {
@@ -83,7 +96,8 @@ export const FundingCalculator: React.FC<FundingCalculatorProps> = ({
               isGoalReachable ? "text-[#22C55E]" : "text-[#F87171]"
             }`}
           >
-            {formattedMax} USDC
+            {formattedMax}{" "}
+            {maxPossibleFunding !== UNLIMITED_FUNDING ? "USDC" : ""}
           </span>
         </div>
       </div>
@@ -111,9 +125,15 @@ export const FundingCalculator: React.FC<FundingCalculatorProps> = ({
         <div className="p-2 mb-3 bg-[#F871711A] border border-[#F87171] rounded-md">
           <p className="text-[#F87171] text-sm">
             Based on your current tier configuration, the maximum funding
-            possible is {formattedMax} USDC which is{" "}
-            {(goalAmount - maxPossibleFunding).toLocaleString()} USDC short of
-            your goal. To fix this, you can:
+            possible is {formattedMax}{" "}
+            {maxPossibleFunding !== UNLIMITED_FUNDING ? "USDC" : ""} which is{" "}
+            {maxPossibleFunding !== UNLIMITED_FUNDING
+              ? `${(
+                  goalAmount - maxPossibleFunding
+                ).toLocaleString()} USDC short of
+              your goal.`
+              : "not enough to reach your goal."}
+            To fix this, you can:
           </p>
           <ul className="text-[#F87171] text-sm mt-1 ml-4 list-disc">
             <li>Increase tier prices</li>
@@ -149,7 +169,11 @@ export const FundingCalculator: React.FC<FundingCalculatorProps> = ({
             {tierBreakdown.map((tier) => (
               <div key={tier.name} className="flex justify-between">
                 <span>{tier.name}</span>
-                <span>{tier.contribution.toLocaleString()} USDC</span>
+                <span>
+                  {tier.contribution === Infinity
+                    ? "Unlimited"
+                    : `${tier.contribution.toLocaleString()} USDC`}
+                </span>
               </div>
             ))}
           </div>

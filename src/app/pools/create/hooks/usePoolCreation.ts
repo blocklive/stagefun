@@ -6,7 +6,11 @@ import { useContractInteraction } from "@/contexts/ContractInteractionContext";
 import { useNativeBalance } from "@/hooks/useNativeBalance";
 import { v4 as uuidv4 } from "uuid";
 import showToast from "@/utils/toast";
-import { toUSDCBaseUnits } from "@/lib/contracts/StageDotFunPool";
+import {
+  toUSDCBaseUnits,
+  safeToUSDCBaseUnits,
+} from "@/lib/contracts/StageDotFunPool";
+import { MAX_SAFE_VALUE, isUncapped } from "@/lib/utils/contractValues";
 
 export const usePoolCreation = () => {
   const router = useRouter();
@@ -92,16 +96,13 @@ export const usePoolCreation = () => {
 
     // Validate each tier
     for (const tier of tiers) {
-      if (!tier.name || !tier.price || !tier.maxPatrons) {
-        throw new Error(
-          "All required tier fields (name, price, max patrons) must be filled"
-        );
+      // Basic required field validation
+      if (!tier.name) {
+        throw new Error(`Tier name is required`);
       }
 
-      // Validate tier price is greater than 0
-      const tierPrice = parseFloat(tier.price);
-      if (tierPrice <= 0) {
-        throw new Error(`Tier price must be greater than 0`);
+      if (!tier.maxPatrons) {
+        throw new Error(`Maximum number of patrons is required`);
       }
 
       // Validate that imageUrl is a proper URL and not base64
@@ -111,37 +112,46 @@ export const usePoolCreation = () => {
         );
       }
 
+      // Different validation paths based on tier pricing type
       if (tier.isVariablePrice) {
-        if (!tier.minPrice || tier.minPrice <= 0) {
-          showToast.error(
-            `Please enter a valid minimum price for tier "${tier.name}"`
-          );
-          return;
-        }
-        if (!tier.maxPrice || tier.maxPrice <= 0) {
-          showToast.error(
-            `Please enter a valid maximum price for tier "${tier.name}"`
-          );
-          return;
-        }
-        if (tier.minPrice >= tier.maxPrice && tier.minPrice !== 0) {
-          showToast.error(
-            `Maximum price must be greater than minimum price for tier "${tier.name}"`
-          );
-          return;
+        // For uncapped tiers, only validate minPrice
+        if (tier.pricingMode === "uncapped") {
+          if (!tier.minPrice || parseFloat(tier.minPrice) <= 0) {
+            showToast.error(
+              `Please enter a valid minimum price for tier "${tier.name}"`
+            );
+            return;
+          }
+        } else {
+          // For range pricing, validate both min and max price
+          if (!tier.minPrice || parseFloat(tier.minPrice) <= 0) {
+            showToast.error(
+              `Please enter a valid minimum price for tier "${tier.name}"`
+            );
+            return;
+          }
+          if (!tier.maxPrice || parseFloat(tier.maxPrice) <= 0) {
+            showToast.error(
+              `Please enter a valid maximum price for tier "${tier.name}"`
+            );
+            return;
+          }
+          if (
+            parseFloat(tier.minPrice) >= parseFloat(tier.maxPrice) &&
+            parseFloat(tier.minPrice) !== 0
+          ) {
+            showToast.error(
+              `Maximum price must be greater than minimum price for tier "${tier.name}"`
+            );
+            return;
+          }
         }
       } else {
-        if (!tier.price || tier.price <= 0) {
+        // For fixed price tiers
+        if (!tier.price || parseFloat(tier.price) <= 0) {
           showToast.error(`Please enter a valid price for tier "${tier.name}"`);
           return;
         }
-      }
-
-      if (!tier.maxPatrons || tier.maxPatrons < 0) {
-        showToast.error(
-          `Please enter a valid maximum number of patrons for tier "${tier.name}"`
-        );
-        return;
       }
 
       if (!tier.nftMetadata && !tier.imageUrl) {
@@ -177,15 +187,19 @@ export const usePoolCreation = () => {
         image_url: imagePreview,
         social_links: socialLinks,
         tiers: tiers.map((tier) => {
-          // Validate tier price and minPrice/maxPrice
+          // Basic validation for required fields
           const price = parseFloat(tier.price);
           const minPrice = parseFloat(tier.minPrice);
           const maxPrice = parseFloat(tier.maxPrice);
           const maxPatrons = parseInt(tier.maxPatrons);
 
-          if (!tier.name || isNaN(price) || isNaN(maxPatrons)) {
+          if (!tier.name) {
+            throw new Error(`Tier name is required`);
+          }
+
+          if (isNaN(maxPatrons) || maxPatrons <= 0) {
             throw new Error(
-              "All required tier fields (name, price, max patrons) must be filled"
+              `Please enter a valid maximum number of patrons for tier "${tier.name}"`
             );
           }
 
@@ -199,37 +213,42 @@ export const usePoolCreation = () => {
             );
           }
 
-          // Validate min/max prices only if this is a variable price tier
+          // Different validation paths based on tier pricing type
           if (tier.isVariablePrice) {
-            if (isNaN(minPrice) || minPrice <= 0) {
-              throw new Error(
-                `Please enter a valid minimum price for tier "${tier.name}"`
-              );
-            }
+            // For uncapped tiers, only validate minPrice
+            if (tier.pricingMode === "uncapped") {
+              if (isNaN(minPrice) || minPrice <= 0) {
+                throw new Error(
+                  `Please enter a valid minimum price for tier "${tier.name}"`
+                );
+              }
+            } else {
+              // For range pricing, validate both min and max
+              if (isNaN(minPrice) || minPrice <= 0) {
+                throw new Error(
+                  `Please enter a valid minimum price for tier "${tier.name}"`
+                );
+              }
 
-            if (isNaN(maxPrice) || maxPrice <= 0) {
-              throw new Error(
-                `Please enter a valid maximum price for tier "${tier.name}"`
-              );
-            }
+              if (isNaN(maxPrice) || maxPrice <= 0) {
+                throw new Error(
+                  `Please enter a valid maximum price for tier "${tier.name}"`
+                );
+              }
 
-            if (minPrice >= maxPrice && minPrice !== 0) {
-              throw new Error(
-                `Maximum price must be greater than minimum price for tier "${tier.name}"`
-              );
+              if (minPrice >= maxPrice && minPrice !== 0) {
+                throw new Error(
+                  `Maximum price must be greater than minimum price for tier "${tier.name}"`
+                );
+              }
             }
           } else if (isNaN(price) || price <= 0) {
+            // For fixed price tiers
             showToast.error(
               `Please enter a valid price for tier "${tier.name}"`
             );
             throw new Error(
               `Please enter a valid price for tier "${tier.name}"`
-            );
-          }
-
-          if (isNaN(maxPatrons) || maxPatrons <= 0) {
-            throw new Error(
-              `Please enter a valid maximum number of patrons for tier "${tier.name}"`
             );
           }
 
@@ -267,12 +286,18 @@ export const usePoolCreation = () => {
             nftMetadata: tier.nftMetadata || "",
             isVariablePrice: tier.isVariablePrice || false,
             minPrice: Number(toUSDCBaseUnits(parseFloat(tier.minPrice))), // Store in base units in DB
-            maxPrice: Number(toUSDCBaseUnits(parseFloat(tier.maxPrice))), // Store in base units in DB
-            maxPatrons,
+            maxPrice: isUncapped(tier.maxPrice)
+              ? MAX_SAFE_VALUE // Use consistent MAX_SAFE_VALUE for uncapped
+              : Number(toUSDCBaseUnits(parseFloat(tier.maxPrice))), // Store normal values in base units
+            maxPatrons: isUncapped(tier.maxPatrons)
+              ? MAX_SAFE_VALUE // Use consistent MAX_SAFE_VALUE for uncapped
+              : Number(tier.maxPatrons), // Store normal values in base units
             description: tier.description || `${tier.name} tier`,
             rewardItems: tier.rewardItems,
             rewardItemsData, // Include full reward item data
             imageUrl: tier.imageUrl,
+            pricingMode: tier.pricingMode || "fixed",
+            patronsMode: tier.patronsMode || "limited",
           };
         }),
       };

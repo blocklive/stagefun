@@ -7,7 +7,7 @@ import { Tier, RewardItem } from "../types";
 import showToast from "@/utils/toast";
 import { TierCard } from "./tier-components/TierCard";
 
-interface TiersSectionProps {
+export interface TiersSectionProps {
   tiers: Tier[];
   onTiersChange: (tiers: Tier[]) => void;
   availableRewardItems: RewardItem[];
@@ -15,6 +15,7 @@ interface TiersSectionProps {
   supabase: SupabaseClient;
   poolName?: string;
   fundingGoal?: string;
+  capAmount?: string;
   poolImage?: string;
 }
 
@@ -26,6 +27,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   supabase,
   poolName,
   fundingGoal,
+  capAmount,
   poolImage,
 }) => {
   const [isUploadingImage, setIsUploadingImage] = useState<{
@@ -519,21 +521,43 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
   const updateTier = (
     id: string,
-    field: keyof Tier,
-    value: string | string[] | boolean
+    fieldOrFields: keyof Tier | Partial<Tier>,
+    value?: string | string[] | boolean
   ) => {
+    console.log("Updating tier:", { id, fieldOrFields, value });
+
     onTiersChange(
       tiers.map((tier) => {
         if (tier.id === id) {
-          // Add the field to modifiedFields when user updates it
-          const modifiedFields = new Set(tier.modifiedFields);
-          modifiedFields.add(field);
+          // Determine if this is a batch update or single field update
+          if (typeof fieldOrFields === "object") {
+            // Batch update with an object of fields
+            const updates = fieldOrFields;
+            const modifiedFields = new Set(tier.modifiedFields);
 
-          return {
-            ...tier,
-            [field]: value,
-            modifiedFields,
-          };
+            // Add all fields in the update to modifiedFields
+            Object.keys(updates).forEach((field) => {
+              modifiedFields.add(field as keyof Tier);
+            });
+
+            // Return updated tier with all fields from the updates object
+            return {
+              ...tier,
+              ...updates,
+              modifiedFields,
+            };
+          } else {
+            // Single field update
+            const field = fieldOrFields;
+            const modifiedFields = new Set(tier.modifiedFields);
+            modifiedFields.add(field);
+
+            return {
+              ...tier,
+              [field]: value,
+              modifiedFields,
+            };
+          }
         }
         return tier;
       })
@@ -654,7 +678,8 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
             setIsUploadingImage={handleSetIsUploadingImage}
             availableRewardItems={availableRewardItems}
             onCreateNewReward={handleCreateNewReward}
-            capAmount={fundingGoal}
+            capAmount={capAmount}
+            fundingGoal={fundingGoal}
             onAddReward={() => {}}
             onRemoveReward={() => {}}
             onUpdateReward={() => {}}

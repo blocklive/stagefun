@@ -17,7 +17,11 @@ interface TierCardProps {
   tier: Tier;
   index: number;
   onRemoveTier: (id: string) => void;
-  onUpdateTier: (tierId: string, field: keyof Tier, value: any) => void;
+  onUpdateTier: (
+    tierId: string,
+    fieldOrFields: keyof Tier | Partial<Tier>,
+    value?: any
+  ) => void;
   onSetCurrentTierId: (id: string) => void;
   onAddRewardImage: (
     imageUrl: string,
@@ -39,6 +43,7 @@ interface TierCardProps {
   ) => void;
   disabled?: boolean;
   capAmount?: string;
+  fundingGoal?: string;
 }
 
 export const TierCard: React.FC<TierCardProps> = ({
@@ -58,6 +63,7 @@ export const TierCard: React.FC<TierCardProps> = ({
   onUpdateReward,
   disabled = false,
   capAmount = "0",
+  fundingGoal = "0.1",
 }) => {
   // Handler for image upload start
   const handleUploadStart = (tierId: string) => {
@@ -115,6 +121,7 @@ export const TierCard: React.FC<TierCardProps> = ({
             tier={tier}
             onUpdateTier={onUpdateTier}
             capAmount={capAmount}
+            fundingGoal={fundingGoal}
           />
         </div>
       </div>

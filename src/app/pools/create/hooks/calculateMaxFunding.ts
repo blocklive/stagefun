@@ -1,5 +1,5 @@
 import { Tier } from "../types";
-import { UINT256_MAX, isUncapped } from "@/lib/utils/contractValues";
+import { MAX_SAFE_VALUE, isUncapped } from "@/lib/utils/contractValues";
 
 /**
  * Special value representing unlimited/infinite funding potential
@@ -61,6 +61,22 @@ export function calculateMaxPossibleFunding(tiers: Tier[]): {
       const priceValue = tier.isVariablePrice
         ? parseFloat(tier.maxPrice) || 0
         : parseFloat(tier.price) || 0;
+
+      // Add to breakdown with Infinity contribution
+      tierBreakdown.push({
+        name: tier.name || `Tier ${index + 1}`,
+        contribution: Infinity,
+      });
+
+      return; // Skip further processing for this tier
+    }
+
+    // Check for uncapped pricing with limited patrons
+    if (
+      (tier.isVariablePrice && tier.maxPrice === MAX_SAFE_VALUE) ||
+      (!tier.isVariablePrice && tier.price === MAX_SAFE_VALUE)
+    ) {
+      hasUnlimitedPotential = true;
 
       // Add to breakdown with Infinity contribution
       tierBreakdown.push({

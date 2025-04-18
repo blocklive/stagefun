@@ -2,15 +2,15 @@
  * Contract value utilities for pools and tiers
  */
 
-// Maximum value for uint256 in Solidity (used for "uncapped" values)
-export const UINT256_MAX =
-  "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+// Safe maximum value for representing "uncapped" values
+// Using PostgreSQL's max bigint value which is safe for both database and contract
+export const MAX_SAFE_VALUE = "9223372036854775807";
 
 /**
- * Check if a value represents an uncapped value (equal to uint256.max)
+ * Check if a value represents an uncapped value
  */
 export function isUncapped(value: string): boolean {
-  return value === UINT256_MAX;
+  return value === MAX_SAFE_VALUE;
 }
 
 /**
@@ -29,7 +29,7 @@ export function hasUncappedPatrons(maxPatrons: string): boolean {
 
 /**
  * Format a contract value for display
- * If the value is uncapped (uint256.max), returns "Uncapped" or a custom label
+ * If the value is uncapped (MAX_SAFE_VALUE), returns "Uncapped" or a custom label
  */
 export function formatContractValue(
   value: string,

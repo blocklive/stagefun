@@ -1,5 +1,5 @@
 import { ChangeEvent, useEffect, useState } from "react";
-import { UINT256_MAX, isUncapped } from "@/lib/utils/contractValues";
+import { MAX_SAFE_VALUE, isUncapped } from "@/lib/utils/contractValues";
 
 interface EnhancedNumberInputProps {
   value: string;

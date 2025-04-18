@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Tier } from "../../types";
-import { UINT256_MAX, isUncapped } from "@/lib/utils/contractValues";
+import { MAX_SAFE_VALUE, isUncapped } from "@/lib/utils/contractValues";
 import FloatingLabelInput, {
   USDCInput,
 } from "@/app/components/FloatingLabelInput";
@@ -9,14 +9,20 @@ import { MINIMUM_PRICE } from "@/lib/constants/pricing";
 
 interface TierDetailsFormProps {
   tier: Tier;
-  onUpdateTier: (tierId: string, field: keyof Tier, value: any) => void;
+  onUpdateTier: (
+    tierId: string,
+    fieldOrFields: keyof Tier | Partial<Tier>,
+    value?: any
+  ) => void;
   capAmount?: string;
+  fundingGoal?: string;
 }
 
 export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
   tier,
   onUpdateTier,
   capAmount = "0",
+  fundingGoal = "0.1",
 }) => {
   const [priceError, setPriceError] = useState<string | null>(null);
   const [maxPriceError, setMaxPriceError] = useState<string | null>(null);
@@ -33,66 +39,183 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
       : "fixed"
   );
 
-  // Validate input when it changes to enforce minimum price
-  const validateAndUpdatePrice = (field: keyof Tier, value: string) => {
-    if (value === "" || /^\d*\.?\d*$/.test(value)) {
-      // First, update the value as entered
-      onUpdateTier(tier.id, field, value);
+  // Set initial pricingMode in tier object if not already set
+  if (!tier.pricingMode) {
+    tier.pricingMode = pricingMode;
+    onUpdateTier(tier.id, "pricingMode", pricingMode);
+  }
 
-      // Then validate if it's a complete number below minimum
-      const numValue = parseFloat(value);
-      if (!isNaN(numValue) && numValue < MINIMUM_PRICE) {
-        // If it's below minimum, set it to the minimum
-        onUpdateTier(tier.id, field, MINIMUM_PRICE.toString());
+  // Get the true funding goal (needed because props may not reflect actual value)
+  const getTrueFundingGoal = () => {
+    const propValue = parseFloat(fundingGoal);
+
+    // Try to extract from tier price if it looks reasonable
+    const currentTierPrice = parseFloat(tier.price);
+    if (!isNaN(currentTierPrice) && currentTierPrice > 0.1) {
+      const patronCount = 20;
+      const possibleFundingGoal = currentTierPrice * patronCount;
+
+      if (possibleFundingGoal > 1) {
+        return possibleFundingGoal;
       }
     }
+
+    // Fallback to prop value or minimum reasonable value
+    return !isNaN(propValue) && propValue > 0
+      ? propValue
+      : Math.max(5, MINIMUM_PRICE * 20);
   };
 
-  // Handle price mode change
+  // Simply pass through the input value with no interference
+  const handleInputChange = (field: keyof Tier, value: string) => {
+    // Pass through ANY value the user types with absolutely no validation or processing
+    onUpdateTier(tier.id, field, value);
+  };
+
+  // Handle price mode change - ONLY place we set defaults
   const handlePricingModeChange = (mode: "fixed" | "range" | "uncapped") => {
+    console.log(`Changing pricing mode to ${mode}`);
+
+    // Update local state to control UI
     setPricingMode(mode);
 
-    if (mode === "fixed") {
-      onUpdateTier(tier.id, "isVariablePrice", false);
-      // Ensure price is at least the minimum
-      const currentPrice = parseFloat(tier.price);
-      if (isNaN(currentPrice) || currentPrice < MINIMUM_PRICE) {
-        onUpdateTier(tier.id, "price", MINIMUM_PRICE.toString());
+    // First update the basic mode properties - these are always set
+    const modeProperties: Partial<Tier> = {
+      pricingMode: mode,
+      isVariablePrice: mode !== "fixed",
+    };
+
+    // Always apply mode properties first with separate update to ensure they are set
+    onUpdateTier(tier.id, modeProperties);
+    console.log("Set core pricing properties:", modeProperties);
+
+    // Calculate suggested minimum price once
+    const suggestedMinPrice = getTrueFundingGoal() / 20;
+
+    // Handle specific mode logic
+    if (mode === "uncapped") {
+      // For uncapped mode, we only set values if they don't exist
+      // or if we're switching from a different mode
+      const updates: Partial<Tier> = {
+        maxPrice: MAX_SAFE_VALUE,
+        // Force isVariablePrice true for uncapped mode to ensure consistency
+        isVariablePrice: true,
+        pricingMode: "uncapped",
+      };
+
+      // Only set minPrice if:
+      // 1. It doesn't exist
+      // 2. It's less than the suggested minimum
+      // 3. We're switching modes (empty or from a different mode)
+      const currentMode = tier.pricingMode || "";
+      const needsDefaultMinPrice =
+        !tier.minPrice ||
+        parseFloat(tier.minPrice) < suggestedMinPrice ||
+        currentMode !== "uncapped";
+
+      if (needsDefaultMinPrice) {
+        updates.minPrice = suggestedMinPrice.toString();
       }
+
+      // Apply updates together
+      onUpdateTier(tier.id, updates);
+
+      console.log("Uncapped mode set:", {
+        minPrice: updates.minPrice || tier.minPrice,
+        maxPrice: MAX_SAFE_VALUE,
+        isVariablePrice: true,
+        pricingMode: "uncapped",
+      });
     } else if (mode === "range") {
-      onUpdateTier(tier.id, "isVariablePrice", true);
+      // For range mode, we need to set both min and max
+      const updates: Partial<Tier> = {
+        // Force isVariablePrice true for range mode to ensure consistency
+        isVariablePrice: true,
+        pricingMode: "range",
+      };
 
-      // Ensure minPrice is at least the minimum
-      const currentMinPrice = parseFloat(tier.minPrice);
-      if (isNaN(currentMinPrice) || currentMinPrice < MINIMUM_PRICE) {
-        onUpdateTier(tier.id, "minPrice", MINIMUM_PRICE.toString());
+      // Only update minPrice if we're switching modes or it's unset/invalid
+      const currentMode = tier.pricingMode || "";
+      const needsDefaultMinPrice =
+        !tier.minPrice ||
+        parseFloat(tier.minPrice) < suggestedMinPrice ||
+        currentMode !== "range";
+
+      if (needsDefaultMinPrice) {
+        updates.minPrice = suggestedMinPrice.toString();
       }
 
-      // Check if we're coming from uncapped mode (with the huge UINT256_MAX value)
-      // If so, reset to a reasonable default
-      if (isUncapped(tier.maxPrice)) {
-        // Set max price to at least 2x the min price or minimum price if min price is not set
-        const minPrice = parseFloat(tier.minPrice) || MINIMUM_PRICE;
-        const newMaxPrice = Math.max(minPrice * 2, MINIMUM_PRICE).toString();
-        onUpdateTier(tier.id, "maxPrice", newMaxPrice);
-      }
-    } else if (mode === "uncapped") {
-      onUpdateTier(tier.id, "isVariablePrice", true);
+      // Only update maxPrice if we're switching modes or it's unset/invalid
+      // or if we just updated minPrice (to maintain correct relationship)
+      const currentMinPrice = updates.minPrice || tier.minPrice || "0";
+      const currentMaxPrice = tier.maxPrice || "0";
+      const parsedMinPrice = parseFloat(currentMinPrice);
+      const parsedMaxPrice = parseFloat(currentMaxPrice);
 
-      // Ensure minPrice is at least the minimum
-      const currentMinPrice = parseFloat(tier.minPrice);
-      if (isNaN(currentMinPrice) || currentMinPrice < MINIMUM_PRICE) {
-        onUpdateTier(tier.id, "minPrice", MINIMUM_PRICE.toString());
+      // Set max price if:
+      // 1. It doesn't exist
+      // 2. It's less than twice the min price
+      // 3. We're switching modes
+      const needsDefaultMaxPrice =
+        !tier.maxPrice ||
+        parsedMaxPrice < parsedMinPrice * 1.5 ||
+        currentMode !== "range";
+
+      if (needsDefaultMaxPrice) {
+        updates.maxPrice = (parsedMinPrice * 2).toString();
       }
 
-      // Set maxPrice to uint256.max value
-      onUpdateTier(tier.id, "maxPrice", UINT256_MAX);
+      // Only send update if we have changes
+      if (Object.keys(updates).length > 0) {
+        onUpdateTier(tier.id, updates);
+      }
+
+      console.log("Range mode set:", {
+        minPrice: updates.minPrice || tier.minPrice,
+        maxPrice: updates.maxPrice || tier.maxPrice,
+        isVariablePrice: true,
+        pricingMode: "range",
+      });
+    } else if (mode === "fixed") {
+      // For fixed mode, we set a default price based on funding goal
+      // and explicitly set isVariablePrice to false
+      const updates: Partial<Tier> = {
+        isVariablePrice: false,
+        pricingMode: "fixed",
+      };
+
+      // Only set price if:
+      // 1. Price doesn't exist
+      // 2. We're switching from a different mode
+      const currentMode = tier.pricingMode || "";
+      const needsDefaultPrice = !tier.price || currentMode !== "fixed";
+
+      if (needsDefaultPrice) {
+        updates.price = getTrueFundingGoal().toString();
+      }
+
+      // Apply updates
+      onUpdateTier(tier.id, updates);
+
+      console.log("Fixed mode set:", {
+        price: updates.price || tier.price,
+        isVariablePrice: false,
+        pricingMode: "fixed",
+      });
     }
   };
 
   // Validate price against cap whenever price, maxPrice, or capAmount change
   useEffect(() => {
     const capValue = parseFloat(capAmount);
+    console.log(
+      "Validating with capAmount:",
+      capAmount,
+      "parsed as:",
+      capValue,
+      "is uncapped:",
+      capValue === 0
+    );
 
     // Validate minimum price requirements first
     if (!tier.isVariablePrice) {
@@ -100,6 +223,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
       if (!isNaN(price) && price < MINIMUM_PRICE) {
         setPriceError(`Price must be at least ${MINIMUM_PRICE} USDC`);
       } else if (capValue > 0 && !isNaN(price) && price > capValue) {
+        // Only check against cap if we have a cap (capValue > 0)
         setPriceError(`Price cannot exceed the funding cap (${capValue} USDC)`);
       } else {
         setPriceError(null);
@@ -119,6 +243,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
         if (!isNaN(maxPrice) && maxPrice < MINIMUM_PRICE) {
           setMaxPriceError(`Max price must be at least ${MINIMUM_PRICE} USDC`);
         } else if (capValue > 0 && !isNaN(maxPrice) && maxPrice > capValue) {
+          // Only check against cap if we have a cap (capValue > 0)
           setMaxPriceError(
             `Max price cannot exceed the funding cap (${capValue} USDC)`
           );
@@ -138,24 +263,67 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
     pricingMode,
   ]);
 
+  // Debug tier values
+  useEffect(() => {
+    console.log("Tier state updated:", {
+      id: tier.id,
+      minPrice: tier.minPrice,
+      maxPrice: tier.maxPrice,
+      pricingMode,
+      isVariablePrice: tier.isVariablePrice,
+    });
+  }, [
+    tier.minPrice,
+    tier.maxPrice,
+    tier.id,
+    tier.isVariablePrice,
+    pricingMode,
+  ]);
+
+  // Add debugging useEffect
+  useEffect(() => {
+    console.log("Tier updated:", {
+      id: tier.id,
+      minPrice: tier.minPrice,
+      maxPrice: tier.maxPrice,
+      pricingMode: tier.pricingMode,
+      isVariablePrice: tier.isVariablePrice,
+    });
+  }, [tier]);
+
   // Set the patrons display mode (limited or uncapped)
   const [patronsMode, setPatronsMode] = useState<"limited" | "uncapped">(
     isUncapped(tier.maxPatrons) ? "uncapped" : "limited"
   );
 
+  // Set initial patronsMode in tier object if not already set
+  if (!tier.patronsMode) {
+    tier.patronsMode = patronsMode;
+    onUpdateTier(tier.id, "patronsMode", patronsMode);
+  }
+
   // Handle patrons mode change
   const handlePatronsModeChange = (mode: "limited" | "uncapped") => {
+    console.log(`Changing patrons mode to ${mode}`);
+
+    // Update local state to control UI
     setPatronsMode(mode);
 
+    // Copy the tier for modifications
+    const updatedTier = { ...tier };
+    updatedTier.patronsMode = mode;
+
     if (mode === "uncapped") {
-      // Set maxPatrons to uint256.max value
-      onUpdateTier(tier.id, "maxPatrons", UINT256_MAX);
+      // For patron limits, we still use MAX_SAFE_VALUE
+      // This is okay because the database handles unlimited patrons differently
+      // Set maxPatrons to MAX_SAFE_VALUE
+      onUpdateTier(updatedTier.id, "maxPatrons", MAX_SAFE_VALUE);
     } else {
       // Default to 20 patrons if switching to limited mode
       onUpdateTier(
-        tier.id,
+        updatedTier.id,
         "maxPatrons",
-        isUncapped(tier.maxPatrons) ? "20" : tier.maxPatrons
+        isUncapped(updatedTier.maxPatrons) ? "20" : updatedTier.maxPatrons
       );
     }
   };
@@ -229,6 +397,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
     );
   };
 
+  console.log("TIER", tier);
   return (
     <div className="flex-1 grid grid-cols-1 gap-4 w-full h-[450px] overflow-y-auto pr-2">
       <div>
@@ -243,7 +412,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
       {/* Pricing type selector buttons */}
       <div className="mb-2">
         <label className="block text-sm font-medium text-gray-400 mb-2">
-          Pricing Type
+          Commit Type
         </label>
         <div className="flex gap-2 mb-3">
           <button
@@ -287,7 +456,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
             <div className="w-full flex flex-col">
               <USDCInput
                 value={tier.price}
-                onChange={(value) => validateAndUpdatePrice("price", value)}
+                onChange={(value) => handleInputChange("price", value)}
                 placeholder="Fixed Price (USDC)"
                 rightElements={createIncrementalButtons(
                   tier.price,
@@ -310,9 +479,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                 <div className="flex-1 flex flex-col">
                   <USDCInput
                     value={tier.minPrice}
-                    onChange={(value) =>
-                      validateAndUpdatePrice("minPrice", value)
-                    }
+                    onChange={(value) => handleInputChange("minPrice", value)}
                     placeholder="Min Price"
                     rightElements={createIncrementalButtons(
                       tier.minPrice,
@@ -333,17 +500,12 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                 <div className="flex-1 flex flex-col">
                   <USDCInput
                     value={tier.maxPrice}
-                    onChange={(value) =>
-                      validateAndUpdatePrice("maxPrice", value)
-                    }
+                    onChange={(value) => handleInputChange("maxPrice", value)}
                     placeholder="Max Price"
                     rightElements={createIncrementalButtons(
                       tier.maxPrice,
                       (value) => onUpdateTier(tier.id, "maxPrice", value),
-                      Math.max(
-                        parseFloat(tier.minPrice) || MINIMUM_PRICE,
-                        MINIMUM_PRICE
-                      ),
+                      MINIMUM_PRICE,
                       0.01
                     )}
                   />
@@ -363,7 +525,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
             <div className="w-full flex flex-col">
               <USDCInput
                 value={tier.minPrice}
-                onChange={(value) => validateAndUpdatePrice("minPrice", value)}
+                onChange={(value) => handleInputChange("minPrice", value)}
                 placeholder="Minimum Contribution (USDC)"
                 rightElements={createIncrementalButtons(
                   tier.minPrice,
