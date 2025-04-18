@@ -13,7 +13,7 @@ import {
 } from "../../../../lib/contracts/types";
 import { useMemo } from "react";
 
-type TabType = "overview" | "patrons";
+type TabType = "overview" | "patrons" | "updates";
 
 interface FundedPoolViewProps {
   pool: Pool;

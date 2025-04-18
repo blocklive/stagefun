@@ -6,8 +6,10 @@ import { Pool } from "@/lib/supabase";
 import { SOCIAL_PLATFORMS } from "@/app/components/SocialLinksInput";
 import { FaGlobe, FaDiscord, FaInstagram } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
+import useSWR from "swr";
+import { fetcher } from "@/lib/utils";
 
-type TabType = "overview" | "patrons";
+type TabType = "overview" | "patrons" | "updates";
 
 interface TabsAndSocialProps {
   activeTab?: TabType;
@@ -46,6 +48,14 @@ export default function TabsAndSocial({
   // Check if any social links exist
   const hasSocialLinks = Object.values(socialLinks).some((link) => !!link);
 
+  // Fetch update count if we have a pool ID
+  const { data: updateData } = useSWR(
+    pool?.id ? `/api/pool-updates?poolId=${pool.id}` : null,
+    fetcher
+  );
+
+  const updateCount = updateData?.updates?.length || 0;
+
   return (
     <>
       {/* Navigation Tabs */}
@@ -78,6 +88,25 @@ export default function TabsAndSocial({
               >
                 {patronCount}
               </span>
+            </button>
+            <button
+              className={`px-6 py-3 rounded-full ${
+                activeTab === "updates"
+                  ? "bg-white text-black font-medium"
+                  : "bg-transparent text-white border border-gray-700"
+              }`}
+              onClick={() => handleTabClick("updates")}
+            >
+              Updates
+              {updateCount > 0 && (
+                <span
+                  className={`ml-1 ${
+                    activeTab === "updates" ? "text-black/70" : "text-gray-400"
+                  }`}
+                >
+                  {updateCount}
+                </span>
+              )}
             </button>
           </div>
         </div>

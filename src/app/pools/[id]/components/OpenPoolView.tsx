@@ -8,7 +8,7 @@ import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
 import CountdownTimer from "../../../components/CountdownTimer";
 import React from "react";
 
-type TabType = "overview" | "patrons";
+type TabType = "overview" | "patrons" | "updates";
 
 interface OpenPoolViewProps {
   pool: Pool;
