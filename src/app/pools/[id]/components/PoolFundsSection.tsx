@@ -31,6 +31,7 @@ import WithdrawModal from "./WithdrawModal";
 import showToast from "@/utils/toast";
 import Tooltip from "../../../../components/Tooltip";
 import BeginExecutionButton from "./BeginExecutionButton";
+import { getPoolEffectiveStatus } from "../../../../lib/contracts/types";
 
 interface PoolFundsSectionProps {
   pool: Pool & {
@@ -201,15 +202,19 @@ export default function PoolFundsSection({
 
   // Determine if we should show the Begin Execution button
   const canBeginExecution = useMemo(() => {
+    // Use getPoolEffectiveStatus to get the true status accounting for funding and time
+    const effectiveStatus = getPoolEffectiveStatus(pool);
+
     console.log("Begin Execution conditions:", {
       isCreator,
       poolStatus: pool.status,
+      effectiveStatus,
       targetMet,
-      isBeforeEndTime,
-      isBelowCap,
     });
-    return isCreator && pool.status === "FUNDED" && targetMet && isBelowCap;
-  }, [isCreator, pool.status, targetMet, isBelowCap]);
+
+    // Check against the effective status, not just the database status
+    return isCreator && effectiveStatus === "FUNDED" && targetMet;
+  }, [isCreator, pool, targetMet, isBelowCap]);
 
   // Fetch on-chain data using SWR
   const {
@@ -657,6 +662,7 @@ export default function PoolFundsSection({
                 isCreator={isCreator}
                 refreshPoolData={refreshPoolData}
                 currentStatus={pool.status}
+                pool={pool}
               />
             )}
 
