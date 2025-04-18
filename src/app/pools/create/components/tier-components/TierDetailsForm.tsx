@@ -115,7 +115,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
   };
 
   return (
-    <div className="flex-1 grid grid-cols-1 gap-4 w-full min-h-[400px]">
+    <div className="flex-1 grid grid-cols-1 gap-4 w-full h-[450px] overflow-y-auto pr-2">
       <div>
         <label className="block text-sm font-medium text-gray-400 mb-2">
           Name
@@ -130,7 +130,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
       </div>
 
       {/* Pricing type selector buttons */}
-      <div>
+      <div className="mb-2">
         <label className="block text-sm font-medium text-gray-400 mb-2">
           Pricing Type
         </label>
@@ -171,7 +171,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
         </div>
 
         {/* Price input fields based on selected mode */}
-        <div className="mt-2">
+        <div>
           {pricingMode === "fixed" && (
             <div className="w-full flex flex-col">
               <label className="block text-sm font-medium text-gray-400 mb-2">
@@ -187,7 +187,6 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
               {priceError && (
                 <span className="text-xs text-red-500 mt-1">{priceError}</span>
               )}
-              <div className="h-[52px]"></div>
             </div>
           )}
 
@@ -259,7 +258,6 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                   {minPriceError}
                 </span>
               )}
-              <div className="h-[52px]"></div>
             </div>
           )}
         </div>
@@ -297,18 +295,20 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
         </div>
 
         {patronsMode === "limited" && (
-          <EnhancedNumberInput
-            value={tier.maxPatrons}
-            onChange={(value) => onUpdateTier(tier.id, "maxPatrons", value)}
-            placeholder="20"
-            min={1}
-            step={1}
-            hideMaxUint={true}
-            maxUintDisplayValue="Unlimited"
-          />
+          <div>
+            <EnhancedNumberInput
+              value={tier.maxPatrons}
+              onChange={(value) => onUpdateTier(tier.id, "maxPatrons", value)}
+              placeholder="20"
+              min={1}
+              step={1}
+              hideMaxUint={true}
+              maxUintDisplayValue="Unlimited"
+            />
+          </div>
         )}
         {patronsMode === "uncapped" && (
-          <div className="text-gray-400 text-sm italic h-[52px] flex items-center">
+          <div className="text-gray-400 text-sm flex items-center p-4">
             No limit on the number of patrons that can join this tier
           </div>
         )}
