@@ -8,6 +8,10 @@ import { TierImageUploader } from "./TierImageUploader";
 import { TierDetailsForm } from "./TierDetailsForm";
 import { TierRewardsList } from "./TierRewardsList";
 import RichTextEditor from "@/app/components/RichTextEditor";
+import {
+  getTierPriceDisplay,
+  getMaxPatronsDisplay,
+} from "@/lib/utils/contractValues";
 
 interface TierCardProps {
   tier: Tier;
@@ -30,7 +34,7 @@ interface TierCardProps {
   onUpdateReward: (
     tierId: string,
     rewardId: string,
-    field: keyof Reward,
+    field: keyof RewardItem,
     value: string
   ) => void;
   disabled?: boolean;
@@ -92,7 +96,7 @@ export const TierCard: React.FC<TierCardProps> = ({
 
       <div className="flex flex-col md:flex-row gap-6 w-full">
         {/* Left side - Tier image */}
-        <div className="order-first md:order-first md:w-80">
+        <div className="order-first md:order-first md:w-[400px] flex-shrink-0">
           <TierImageUploader
             id={tier.id}
             imageUrl={tier.imageUrl}

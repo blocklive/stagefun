@@ -284,6 +284,8 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       rewardItems: [],
       imageUrl: imageUrl,
       modifiedFields: new Set(),
+      pricingMode: "fixed",
+      patronsMode: "limited",
     };
     console.log("New tier created:", newTier);
     onTiersChange([...tiers, newTier]);
