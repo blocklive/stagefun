@@ -112,7 +112,7 @@ export default function CreateUpdateForm({
           >
             Content
           </label>
-          <div className="min-h-[250px]">
+          <div className="min-h-[120px]">
             <TiptapEditor
               content={content}
               onChange={setContent}
@@ -121,20 +121,20 @@ export default function CreateUpdateForm({
           </div>
         </div>
 
-        <div className="flex gap-3 justify-end">
+        <div className="flex gap-3 justify-start">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="h-12 px-6 bg-white text-[#15161A] rounded-xl font-medium disabled:opacity-50"
+          >
+            {isSubmitting ? "Posting..." : "Post Update"}
+          </button>
           <button
             type="button"
             onClick={onCancel}
             className="px-4 py-2 border border-[#FFFFFF1A] rounded-lg text-white"
           >
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-4 py-2 bg-white text-black rounded-lg font-medium disabled:opacity-50"
-          >
-            {isSubmitting ? "Posting..." : "Post Update"}
           </button>
         </div>
       </form>

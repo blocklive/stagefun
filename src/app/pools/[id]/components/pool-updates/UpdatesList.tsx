@@ -55,7 +55,7 @@ export default function UpdatesList({
       {isCreator && !showCreateForm && (
         <button
           onClick={() => setShowCreateForm(true)}
-          className="flex items-center justify-center gap-2 px-4 py-3 bg-[#FFFFFF14] hover:bg-[#FFFFFF24] rounded-lg text-white transition-colors w-full mb-6"
+          className="flex items-center justify-center gap-2 h-12 px-6 bg-white text-[#15161A] rounded-xl font-medium hover:bg-gray-100 transition-colors"
         >
           <FaPlus className="text-sm" />
           <span>Post an Update</span>
