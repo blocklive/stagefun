@@ -332,9 +332,9 @@ export default function CreatePoolPage() {
       {/* Main content */}
       <div className="w-full">
         {/* Pool Details, Funding, and Image Section */}
-        <div className="grid grid-cols-1 md:grid-cols-[auto,1fr] gap-x-8 gap-y-6 md:gap-y-0">
+        <div className="grid grid-cols-1 md:grid-cols-[300px,1fr] gap-x-6 gap-y-6 md:gap-y-0">
           {/* Left Column: Pool Image */}
-          <div className="w-full md:w-[400px] order-1 md:order-1">
+          <div className="w-full order-1 md:order-1">
             <PoolImageSection
               imagePreview={imagePreview}
               isUploadingImage={isUploadingImage}

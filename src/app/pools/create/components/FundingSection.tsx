@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
-import Image from "next/image";
-import { Tier } from "../types";
 import { USDCInput } from "@/app/components/FloatingLabelInput";
+import { Tier } from "../types";
 
 interface FundingSectionProps {
   fundingGoal: string;

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
-import NumberInput from "@/app/components/NumberInput";
-import EnhancedNumberInput from "@/app/components/EnhancedNumberInput";
 import { Tier } from "../../types";
 import { UINT256_MAX, isUncapped } from "@/lib/utils/contractValues";
+import FloatingLabelInput, {
+  USDCInput,
+} from "@/app/components/FloatingLabelInput";
+import Image from "next/image";
 
 interface TierDetailsFormProps {
   tier: Tier;
@@ -114,18 +116,81 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
     }
   };
 
+  // Create increment/decrement buttons for number inputs
+  const createIncrementalButtons = (
+    value: string,
+    onChange: (value: string) => void,
+    minValue: number = 0,
+    step: number = 1
+  ) => {
+    return (
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+          onClick={() => {
+            const currentValue = parseFloat(value);
+            if (!isNaN(currentValue)) {
+              onChange((currentValue + step).toString());
+            } else {
+              onChange(minValue === 0 ? "1" : minValue.toString());
+            }
+          }}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M18 15L12 9L6 15"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+          onClick={() => {
+            const currentValue = parseFloat(value);
+            if (!isNaN(currentValue) && currentValue > minValue) {
+              onChange((currentValue - step).toString());
+            }
+          }}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6 9L12 15L18 9"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="flex-1 grid grid-cols-1 gap-4 w-full h-[450px] overflow-y-auto pr-2">
       <div>
-        <label className="block text-sm font-medium text-gray-400 mb-2">
-          Name
-        </label>
-        <input
-          type="text"
+        <FloatingLabelInput
           value={tier.name}
-          onChange={(e) => onUpdateTier(tier.id, "name", e.target.value)}
-          className="w-full p-4 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
-          placeholder="e.g., VIP Access"
+          onChange={(value) => onUpdateTier(tier.id, "name", value)}
+          placeholder="Name"
+          className="w-full"
         />
       </div>
 
@@ -174,15 +239,20 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
         <div>
           {pricingMode === "fixed" && (
             <div className="w-full flex flex-col">
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Fixed Price (USDC)
-              </label>
-              <NumberInput
+              <USDCInput
                 value={tier.price}
-                onChange={(value) => onUpdateTier(tier.id, "price", value)}
-                placeholder="0"
-                min={0}
-                step={0.01}
+                onChange={(value) => {
+                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                    onUpdateTier(tier.id, "price", value);
+                  }
+                }}
+                placeholder="Fixed Price (USDC)"
+                rightElements={createIncrementalButtons(
+                  tier.price,
+                  (value) => onUpdateTier(tier.id, "price", value),
+                  0,
+                  0.01
+                )}
               />
               {priceError && (
                 <span className="text-xs text-red-500 mt-1">{priceError}</span>
@@ -191,22 +261,25 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
           )}
 
           {pricingMode === "range" && (
-            <div className="w-full">
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Price Range (USDC)
-              </label>
+            <div className="w-full space-y-2">
               <div className="flex items-center gap-2">
                 <div className="flex-1 flex flex-col">
-                  <NumberInput
+                  <USDCInput
                     value={tier.minPrice}
                     onChange={(value) => {
-                      // If value is empty, set it to "0"
-                      const newValue = value === "" ? "0" : value;
-                      onUpdateTier(tier.id, "minPrice", newValue);
+                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                        // If value is empty, set it to "0"
+                        const newValue = value === "" ? "0" : value;
+                        onUpdateTier(tier.id, "minPrice", newValue);
+                      }
                     }}
-                    placeholder="Min"
-                    min={0}
-                    step={0.01}
+                    placeholder="Min Price"
+                    rightElements={createIncrementalButtons(
+                      tier.minPrice,
+                      (value) => onUpdateTier(tier.id, "minPrice", value),
+                      0,
+                      0.01
+                    )}
                   />
                   {minPriceError && (
                     <span className="text-xs text-red-500 mt-1">
@@ -214,18 +287,22 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                     </span>
                   )}
                 </div>
-                <span className="text-gray-400">to</span>
+                <span className="text-gray-400 py-4">to</span>
                 <div className="flex-1 flex flex-col">
-                  <EnhancedNumberInput
+                  <USDCInput
                     value={tier.maxPrice}
-                    onChange={(value) =>
-                      onUpdateTier(tier.id, "maxPrice", value)
-                    }
-                    placeholder="Max"
-                    min={0}
-                    step={0.01}
-                    hideMaxUint={true}
-                    maxUintDisplayValue="Unlimited"
+                    onChange={(value) => {
+                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                        onUpdateTier(tier.id, "maxPrice", value);
+                      }
+                    }}
+                    placeholder="Max Price"
+                    rightElements={createIncrementalButtons(
+                      tier.maxPrice,
+                      (value) => onUpdateTier(tier.id, "maxPrice", value),
+                      parseFloat(tier.minPrice) || 0,
+                      0.01
+                    )}
                   />
                   {maxPriceError && (
                     <span className="text-xs text-red-500 mt-1">
@@ -239,19 +316,22 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
 
           {pricingMode === "uncapped" && (
             <div className="w-full flex flex-col">
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Minimum Contribution (USDC)
-              </label>
-              <NumberInput
+              <USDCInput
                 value={tier.minPrice}
                 onChange={(value) => {
-                  // If value is empty, set it to "0"
-                  const newValue = value === "" ? "1" : value;
-                  onUpdateTier(tier.id, "minPrice", newValue);
+                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                    // If value is empty, set it to "1"
+                    const newValue = value === "" ? "1" : value;
+                    onUpdateTier(tier.id, "minPrice", newValue);
+                  }
                 }}
-                placeholder="Min"
-                min={1}
-                step={0.01}
+                placeholder="Minimum Contribution (USDC)"
+                rightElements={createIncrementalButtons(
+                  tier.minPrice,
+                  (value) => onUpdateTier(tier.id, "minPrice", value),
+                  1,
+                  0.01
+                )}
               />
               {minPriceError && (
                 <span className="text-xs text-red-500 mt-1">
@@ -296,14 +376,22 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
 
         {patronsMode === "limited" && (
           <div>
-            <EnhancedNumberInput
+            <FloatingLabelInput
               value={tier.maxPatrons}
-              onChange={(value) => onUpdateTier(tier.id, "maxPatrons", value)}
-              placeholder="20"
-              min={1}
-              step={1}
-              hideMaxUint={true}
-              maxUintDisplayValue="Unlimited"
+              onChange={(value) => {
+                if (value === "" || /^\d*$/.test(value)) {
+                  onUpdateTier(tier.id, "maxPatrons", value);
+                }
+              }}
+              placeholder="Max Patrons"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              rightElements={createIncrementalButtons(
+                tier.maxPatrons,
+                (value) => onUpdateTier(tier.id, "maxPatrons", value),
+                1,
+                1
+              )}
             />
           </div>
         )}

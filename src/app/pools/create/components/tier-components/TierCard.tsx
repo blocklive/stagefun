@@ -96,7 +96,7 @@ export const TierCard: React.FC<TierCardProps> = ({
 
       <div className="flex flex-col md:flex-row gap-6 w-full items-stretch">
         {/* Left side - Tier image */}
-        <div className="order-first md:order-first md:w-[400px] flex-shrink-0">
+        <div className="order-first md:order-first flex-shrink-0">
           <TierImageUploader
             id={tier.id}
             imageUrl={tier.imageUrl}
