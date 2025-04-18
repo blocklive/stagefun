@@ -1,15 +1,23 @@
 import { Tier } from "../types";
+import { UINT256_MAX, isUncapped } from "@/lib/utils/contractValues";
+
+/**
+ * Special value representing unlimited/infinite funding potential
+ */
+export const UNLIMITED_FUNDING = -1;
 
 /**
  * Calculates the maximum possible funding based on the tiers configuration
  * @param tiers Array of tier configurations
- * @returns Maximum possible funding in USDC
+ * @returns Maximum possible funding in USDC or UNLIMITED_FUNDING for uncapped
  */
 export function calculateMaxPossibleFunding(tiers: Tier[]): {
   maxPossibleFunding: number;
   tierBreakdown: { name: string; contribution: number }[];
+  isUnlimited: boolean;
 } {
   let maxPossibleFunding = 0;
+  let hasUnlimitedPotential = false;
   const tierBreakdown: { name: string; contribution: number }[] = [];
 
   // Handle empty tiers array
@@ -17,6 +25,7 @@ export function calculateMaxPossibleFunding(tiers: Tier[]): {
     return {
       maxPossibleFunding: 0,
       tierBreakdown: [],
+      isUnlimited: false,
     };
   }
 
@@ -25,6 +34,44 @@ export function calculateMaxPossibleFunding(tiers: Tier[]): {
     // Skip inactive tiers
     if (!tier.isActive) return;
 
+    // Check if this tier has uncapped patrons
+    const hasUncappedPatrons = isUncapped(tier.maxPatrons);
+
+    // Check if this tier has uncapped price
+    const hasUncappedPrice = tier.isVariablePrice && isUncapped(tier.maxPrice);
+
+    // If both patrons and price are uncapped, this tier has unlimited potential
+    if (hasUncappedPatrons && hasUncappedPrice) {
+      hasUnlimitedPotential = true;
+
+      // Add this tier to the breakdown with Infinity contribution
+      tierBreakdown.push({
+        name: tier.name || `Tier ${index + 1}`,
+        contribution: Infinity,
+      });
+
+      return; // Skip further processing for this tier
+    }
+
+    // For tiers with only uncapped patrons but fixed or range pricing
+    if (hasUncappedPatrons) {
+      hasUnlimitedPotential = true;
+
+      // Use the fixed price or max price to show potential contribution
+      const priceValue = tier.isVariablePrice
+        ? parseFloat(tier.maxPrice) || 0
+        : parseFloat(tier.price) || 0;
+
+      // Add to breakdown with Infinity contribution
+      tierBreakdown.push({
+        name: tier.name || `Tier ${index + 1}`,
+        contribution: Infinity,
+      });
+
+      return; // Skip further processing for this tier
+    }
+
+    // Handle normal tiers with limited patrons
     // Safely parse values with fallbacks
     const maxPatrons = parseInt(tier.maxPatrons) || 0;
     if (maxPatrons <= 0) return;
@@ -61,10 +108,18 @@ export function calculateMaxPossibleFunding(tiers: Tier[]): {
     tierBreakdown.push(tierContribution);
   });
 
-  console.log(`Total maximum possible funding: ${maxPossibleFunding} USDC`);
+  // Log the total
+  if (hasUnlimitedPotential) {
+    console.log(`Total maximum possible funding: Unlimited`);
+  } else {
+    console.log(`Total maximum possible funding: ${maxPossibleFunding} USDC`);
+  }
 
   return {
-    maxPossibleFunding,
+    maxPossibleFunding: hasUnlimitedPotential
+      ? UNLIMITED_FUNDING
+      : maxPossibleFunding,
     tierBreakdown,
+    isUnlimited: hasUnlimitedPotential,
   };
 }

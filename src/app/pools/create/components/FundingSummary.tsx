@@ -1,6 +1,9 @@
 import React, { useMemo } from "react";
 import { Tier } from "../types";
-import { calculateMaxPossibleFunding } from "../hooks/calculateMaxFunding";
+import {
+  calculateMaxPossibleFunding,
+  UNLIMITED_FUNDING,
+} from "../hooks/calculateMaxFunding";
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import { colors } from "@/lib/theme";
 
@@ -15,21 +18,50 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
   fundingGoal,
   capAmount = "0",
 }) => {
-  const { maxPossibleFunding, tierBreakdown } = useMemo(() => {
+  const { maxPossibleFunding, tierBreakdown, isUnlimited } = useMemo(() => {
     return calculateMaxPossibleFunding(tiers);
   }, [tiers]);
 
-  const formattedMax = maxPossibleFunding.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
   const goalAmount = parseFloat(fundingGoal || "0");
   const capValue = parseFloat(capAmount || "0");
+
+  // Ensure maxDisplayFunding respects the cap if set
+  const maxDisplayFunding = useMemo(() => {
+    // If unlimited funding potential and no cap set
+    if (isUnlimited && capValue <= 0) {
+      return UNLIMITED_FUNDING;
+    }
+
+    // If unlimited potential but a cap is set, use the cap
+    if (isUnlimited && capValue > 0) {
+      return capValue;
+    }
+
+    // If limited potential but exceeds cap, use cap value
+    if (capValue > 0 && maxPossibleFunding > capValue) {
+      return capValue;
+    }
+
+    // Otherwise use calculated maximum
+    return maxPossibleFunding;
+  }, [maxPossibleFunding, capValue, isUnlimited]);
+
+  // Format the maximum funding for display
+  const formattedMax = useMemo(() => {
+    if (maxDisplayFunding === UNLIMITED_FUNDING) {
+      return "Unlimited";
+    }
+    return maxDisplayFunding.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }, [maxDisplayFunding]);
+
   const formattedGoal = goalAmount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+
   const formattedCap =
     capValue > 0
       ? capValue.toLocaleString("en-US", {
@@ -38,10 +70,18 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
         }) + " USDC"
       : "No Cap";
 
+  // A goal is reachable if we have unlimited funding or if the max funding meets/exceeds the goal
   const isGoalReachable =
-    !isNaN(goalAmount) && maxPossibleFunding >= goalAmount;
-  const percentOfGoal =
-    goalAmount > 0 ? Math.min(100, (maxPossibleFunding / goalAmount) * 100) : 0;
+    !isNaN(goalAmount) &&
+    (maxDisplayFunding === UNLIMITED_FUNDING ||
+      maxDisplayFunding >= goalAmount);
+
+  // Determine percent of goal (set to 100% if unlimited)
+  const percentOfGoal = useMemo(() => {
+    if (maxDisplayFunding === UNLIMITED_FUNDING) return 100;
+    if (goalAmount <= 0) return 0;
+    return Math.min(100, (maxDisplayFunding / goalAmount) * 100);
+  }, [maxDisplayFunding, goalAmount]);
 
   // Don't render if we have no funding goal and no tiers (nothing to calculate)
   if (goalAmount === 0 && tiers.length === 0) {
@@ -118,7 +158,9 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
               isGoalReachable ? "text-[#9EEB00]" : "text-[#F87171]"
             }`}
           >
-            {formattedMax} USDC
+            {maxDisplayFunding === UNLIMITED_FUNDING
+              ? "Unlimited"
+              : `${formattedMax} USDC`}
           </div>
         </div>
       </div>
@@ -161,8 +203,14 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
                   Your funding goal is achievable!
                 </p>
                 <p className="text-gray-400 text-xs mt-1">
-                  With your current tier configuration, you can raise up to{" "}
-                  {formattedMax} USDC.
+                  With your current tier configuration, you can raise
+                  {maxDisplayFunding === UNLIMITED_FUNDING
+                    ? " an unlimited amount"
+                    : ` up to ${formattedMax} USDC`}
+                  .
+                  {capValue > 0 && maxPossibleFunding > capValue && (
+                    <span> (limited by your funding cap)</span>
+                  )}
                 </p>
               </>
             ) : (
@@ -174,8 +222,8 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
                 </p>
                 <p className="text-gray-400 text-xs mt-1">
                   This leaves you{" "}
-                  {(goalAmount - maxPossibleFunding).toLocaleString()} USDC
-                  short of your goal.
+                  {(goalAmount - maxDisplayFunding).toLocaleString()} USDC short
+                  of your goal.
                 </p>
                 <ul className="text-gray-400 text-xs mt-2 ml-4 list-disc space-y-1">
                   <li>Increase tier prices</li>
@@ -227,13 +275,21 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-300">{tier.name}</span>
                     <span className="text-sm font-medium text-white">
-                      {tier.contribution.toLocaleString()} USDC
+                      {tier.contribution === Infinity
+                        ? "Unlimited"
+                        : `${tier.contribution.toLocaleString()} USDC`}
                     </span>
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
                     {originalTier?.isVariablePrice ? "Max price" : "Price"}:{" "}
-                    {price.toLocaleString()} USDC ×{" "}
-                    {maxPatrons.toLocaleString()} patrons
+                    {price === Infinity
+                      ? "Unlimited"
+                      : `${price.toLocaleString()} USDC`}{" "}
+                    ×{" "}
+                    {maxPatrons === Infinity
+                      ? "Unlimited"
+                      : maxPatrons.toLocaleString()}{" "}
+                    patrons
                   </div>
                 </div>
               );

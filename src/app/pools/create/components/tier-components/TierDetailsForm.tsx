@@ -5,6 +5,7 @@ import FloatingLabelInput, {
   USDCInput,
 } from "@/app/components/FloatingLabelInput";
 import Image from "next/image";
+import { MINIMUM_PRICE } from "@/lib/constants/pricing";
 
 interface TierDetailsFormProps {
   tier: Tier;
@@ -32,28 +33,58 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
       : "fixed"
   );
 
+  // Validate input when it changes to enforce minimum price
+  const validateAndUpdatePrice = (field: keyof Tier, value: string) => {
+    if (value === "" || /^\d*\.?\d*$/.test(value)) {
+      // First, update the value as entered
+      onUpdateTier(tier.id, field, value);
+
+      // Then validate if it's a complete number below minimum
+      const numValue = parseFloat(value);
+      if (!isNaN(numValue) && numValue < MINIMUM_PRICE) {
+        // If it's below minimum, set it to the minimum
+        onUpdateTier(tier.id, field, MINIMUM_PRICE.toString());
+      }
+    }
+  };
+
   // Handle price mode change
   const handlePricingModeChange = (mode: "fixed" | "range" | "uncapped") => {
     setPricingMode(mode);
 
     if (mode === "fixed") {
       onUpdateTier(tier.id, "isVariablePrice", false);
+      // Ensure price is at least the minimum
+      const currentPrice = parseFloat(tier.price);
+      if (isNaN(currentPrice) || currentPrice < MINIMUM_PRICE) {
+        onUpdateTier(tier.id, "price", MINIMUM_PRICE.toString());
+      }
     } else if (mode === "range") {
       onUpdateTier(tier.id, "isVariablePrice", true);
-      if (!tier.minPrice) onUpdateTier(tier.id, "minPrice", "0");
 
-      // If switching from uncapped mode, reset the max price to a reasonable value
+      // Ensure minPrice is at least the minimum
+      const currentMinPrice = parseFloat(tier.minPrice);
+      if (isNaN(currentMinPrice) || currentMinPrice < MINIMUM_PRICE) {
+        onUpdateTier(tier.id, "minPrice", MINIMUM_PRICE.toString());
+      }
+
+      // Check if we're coming from uncapped mode (with the huge UINT256_MAX value)
+      // If so, reset to a reasonable default
       if (isUncapped(tier.maxPrice)) {
-        // Set max price to either 2x min price or 100, whichever is higher
-        const minPriceNum = parseFloat(tier.minPrice) || 0;
-        const newMaxPrice = Math.max(minPriceNum * 2, 100).toString();
+        // Set max price to at least 2x the min price or minimum price if min price is not set
+        const minPrice = parseFloat(tier.minPrice) || MINIMUM_PRICE;
+        const newMaxPrice = Math.max(minPrice * 2, MINIMUM_PRICE).toString();
         onUpdateTier(tier.id, "maxPrice", newMaxPrice);
-      } else if (!tier.maxPrice) {
-        onUpdateTier(tier.id, "maxPrice", "0");
       }
     } else if (mode === "uncapped") {
       onUpdateTier(tier.id, "isVariablePrice", true);
-      if (!tier.minPrice) onUpdateTier(tier.id, "minPrice", "1");
+
+      // Ensure minPrice is at least the minimum
+      const currentMinPrice = parseFloat(tier.minPrice);
+      if (isNaN(currentMinPrice) || currentMinPrice < MINIMUM_PRICE) {
+        onUpdateTier(tier.id, "minPrice", MINIMUM_PRICE.toString());
+      }
+
       // Set maxPrice to uint256.max value
       onUpdateTier(tier.id, "maxPrice", UINT256_MAX);
     }
@@ -63,36 +94,49 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
   useEffect(() => {
     const capValue = parseFloat(capAmount);
 
-    // Only validate if there's a cap (capAmount > 0)
-    if (capValue > 0) {
-      // For fixed price tier
-      if (!tier.isVariablePrice) {
-        const price = parseFloat(tier.price);
-        if (!isNaN(price) && price > capValue) {
-          setPriceError(
-            `Price cannot exceed the funding cap (${capValue} USDC)`
-          );
-        } else {
-          setPriceError(null);
-        }
+    // Validate minimum price requirements first
+    if (!tier.isVariablePrice) {
+      const price = parseFloat(tier.price);
+      if (!isNaN(price) && price < MINIMUM_PRICE) {
+        setPriceError(`Price must be at least ${MINIMUM_PRICE} USDC`);
+      } else if (capValue > 0 && !isNaN(price) && price > capValue) {
+        setPriceError(`Price cannot exceed the funding cap (${capValue} USDC)`);
+      } else {
+        setPriceError(null);
       }
-      // For variable price tier, check maxPrice
-      else if (pricingMode === "range") {
+    } else {
+      // For variable price tiers
+      const minPrice = parseFloat(tier.minPrice);
+      if (!isNaN(minPrice) && minPrice < MINIMUM_PRICE) {
+        setMinPriceError(`Min price must be at least ${MINIMUM_PRICE} USDC`);
+      } else {
+        setMinPriceError(null);
+      }
+
+      // Only validate max price against cap for range mode (not uncapped)
+      if (pricingMode === "range") {
         const maxPrice = parseFloat(tier.maxPrice);
-        if (!isNaN(maxPrice) && maxPrice > capValue) {
+        if (!isNaN(maxPrice) && maxPrice < MINIMUM_PRICE) {
+          setMaxPriceError(`Max price must be at least ${MINIMUM_PRICE} USDC`);
+        } else if (capValue > 0 && !isNaN(maxPrice) && maxPrice > capValue) {
           setMaxPriceError(
             `Max price cannot exceed the funding cap (${capValue} USDC)`
           );
         } else {
           setMaxPriceError(null);
         }
+      } else {
+        setMaxPriceError(null);
       }
-    } else {
-      // No cap, so no validation needed
-      setPriceError(null);
-      setMaxPriceError(null);
     }
-  }, [tier.price, tier.maxPrice, tier.isVariablePrice, capAmount, pricingMode]);
+  }, [
+    tier.price,
+    tier.minPrice,
+    tier.maxPrice,
+    tier.isVariablePrice,
+    capAmount,
+    pricingMode,
+  ]);
 
   // Set the patrons display mode (limited or uncapped)
   const [patronsMode, setPatronsMode] = useState<"limited" | "uncapped">(
@@ -120,7 +164,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
   const createIncrementalButtons = (
     value: string,
     onChange: (value: string) => void,
-    minValue: number = 0,
+    minValue: number = MINIMUM_PRICE,
     step: number = 1
   ) => {
     return (
@@ -133,7 +177,9 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
             if (!isNaN(currentValue)) {
               onChange((currentValue + step).toString());
             } else {
-              onChange(minValue === 0 ? "1" : minValue.toString());
+              onChange(
+                minValue === 0 ? MINIMUM_PRICE.toString() : minValue.toString()
+              );
             }
           }}
         >
@@ -241,22 +287,20 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
             <div className="w-full flex flex-col">
               <USDCInput
                 value={tier.price}
-                onChange={(value) => {
-                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                    onUpdateTier(tier.id, "price", value);
-                  }
-                }}
+                onChange={(value) => validateAndUpdatePrice("price", value)}
                 placeholder="Fixed Price (USDC)"
                 rightElements={createIncrementalButtons(
                   tier.price,
                   (value) => onUpdateTier(tier.id, "price", value),
-                  0,
+                  MINIMUM_PRICE,
                   0.01
                 )}
               />
-              {priceError && (
-                <span className="text-xs text-red-500 mt-1">{priceError}</span>
-              )}
+              <div className="h-5 mt-1">
+                {priceError && (
+                  <span className="text-xs text-red-500">{priceError}</span>
+                )}
+              </div>
             </div>
           )}
 
@@ -266,49 +310,50 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                 <div className="flex-1 flex flex-col">
                   <USDCInput
                     value={tier.minPrice}
-                    onChange={(value) => {
-                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                        // If value is empty, set it to "0"
-                        const newValue = value === "" ? "0" : value;
-                        onUpdateTier(tier.id, "minPrice", newValue);
-                      }
-                    }}
+                    onChange={(value) =>
+                      validateAndUpdatePrice("minPrice", value)
+                    }
                     placeholder="Min Price"
                     rightElements={createIncrementalButtons(
                       tier.minPrice,
                       (value) => onUpdateTier(tier.id, "minPrice", value),
-                      0,
+                      MINIMUM_PRICE,
                       0.01
                     )}
                   />
-                  {minPriceError && (
-                    <span className="text-xs text-red-500 mt-1">
-                      {minPriceError}
-                    </span>
-                  )}
+                  <div className="h-5 mt-1">
+                    {minPriceError && (
+                      <span className="text-xs text-red-500">
+                        {minPriceError}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className="text-gray-400 py-4">to</span>
                 <div className="flex-1 flex flex-col">
                   <USDCInput
                     value={tier.maxPrice}
-                    onChange={(value) => {
-                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                        onUpdateTier(tier.id, "maxPrice", value);
-                      }
-                    }}
+                    onChange={(value) =>
+                      validateAndUpdatePrice("maxPrice", value)
+                    }
                     placeholder="Max Price"
                     rightElements={createIncrementalButtons(
                       tier.maxPrice,
                       (value) => onUpdateTier(tier.id, "maxPrice", value),
-                      parseFloat(tier.minPrice) || 0,
+                      Math.max(
+                        parseFloat(tier.minPrice) || MINIMUM_PRICE,
+                        MINIMUM_PRICE
+                      ),
                       0.01
                     )}
                   />
-                  {maxPriceError && (
-                    <span className="text-xs text-red-500 mt-1">
-                      {maxPriceError}
-                    </span>
-                  )}
+                  <div className="h-5 mt-1">
+                    {maxPriceError && (
+                      <span className="text-xs text-red-500">
+                        {maxPriceError}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -318,26 +363,20 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
             <div className="w-full flex flex-col">
               <USDCInput
                 value={tier.minPrice}
-                onChange={(value) => {
-                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                    // If value is empty, set it to "1"
-                    const newValue = value === "" ? "1" : value;
-                    onUpdateTier(tier.id, "minPrice", newValue);
-                  }
-                }}
+                onChange={(value) => validateAndUpdatePrice("minPrice", value)}
                 placeholder="Minimum Contribution (USDC)"
                 rightElements={createIncrementalButtons(
                   tier.minPrice,
                   (value) => onUpdateTier(tier.id, "minPrice", value),
-                  1,
+                  MINIMUM_PRICE,
                   0.01
                 )}
               />
-              {minPriceError && (
-                <span className="text-xs text-red-500 mt-1">
-                  {minPriceError}
-                </span>
-              )}
+              <div className="h-5 mt-1">
+                {minPriceError && (
+                  <span className="text-xs text-red-500">{minPriceError}</span>
+                )}
+              </div>
             </div>
           )}
         </div>

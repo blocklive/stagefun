@@ -403,6 +403,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         }
 
         // STEP 2: Call the backend API to save data to the database
+        showToast.remove();
         showToast.loading("Synchronizing pool...", {
           id: loadingToast,
         });

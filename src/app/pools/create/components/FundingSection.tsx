@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { USDCInput } from "@/app/components/FloatingLabelInput";
 import { Tier } from "../types";
+import { MINIMUM_FUNDING_GOAL, MINIMUM_PRICE } from "@/lib/constants/pricing";
 
 interface FundingSectionProps {
   fundingGoal: string;
@@ -18,6 +19,41 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
   tiers = [],
 }) => {
   const [hasCap, setHasCap] = React.useState(true); // Default to true (capped)
+  const [fundingGoalError, setFundingGoalError] = React.useState<string | null>(
+    null
+  );
+  const [capAmountError, setCapAmountError] = React.useState<string | null>(
+    null
+  );
+
+  // Validate funding goal and cap amounts
+  useEffect(() => {
+    // Validate funding goal
+    const goalAmount = parseFloat(fundingGoal);
+    if (!isNaN(goalAmount) && goalAmount < MINIMUM_FUNDING_GOAL) {
+      setFundingGoalError(
+        `Funding goal must be at least ${MINIMUM_FUNDING_GOAL} USDC`
+      );
+    } else {
+      setFundingGoalError(null);
+    }
+
+    // Validate cap amount if in capped mode
+    if (hasCap) {
+      const capVal = parseFloat(capAmount);
+      const goalVal = parseFloat(fundingGoal);
+
+      if (!isNaN(capVal) && !isNaN(goalVal) && capVal < goalVal) {
+        setCapAmountError("Cap must be at least equal to the funding goal");
+      } else if (!isNaN(capVal) && capVal < MINIMUM_FUNDING_GOAL) {
+        setCapAmountError(`Cap must be at least ${MINIMUM_FUNDING_GOAL} USDC`);
+      } else {
+        setCapAmountError(null);
+      }
+    } else {
+      setCapAmountError(null);
+    }
+  }, [fundingGoal, capAmount, hasCap]);
 
   // Update cap amount when funding goal changes or when cap mode changes
   useEffect(() => {
@@ -50,7 +86,7 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
 
     // Set default values if none exist
     if (fundingGoal === "0" || fundingGoal === "") {
-      onFundingGoalChange("100");
+      onFundingGoalChange(MINIMUM_FUNDING_GOAL.toString());
     }
 
     // When switching to uncapped mode, set cap to 0
@@ -59,9 +95,11 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
     }
     // When switching to capped mode and no cap value, set to 20% more than goal
     else if (capAmount === "0" || capAmount === "") {
-      const goal = parseFloat(fundingGoal || "100");
+      const goal = parseFloat(fundingGoal || MINIMUM_FUNDING_GOAL.toString());
       if (!isNaN(goal)) {
-        onCapAmountChange((goal * 1.2).toString());
+        onCapAmountChange(
+          (Math.max(goal, MINIMUM_FUNDING_GOAL) * 1.2).toString()
+        );
       }
     }
   };
@@ -70,7 +108,7 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
   const createIncrementalButtons = (
     value: string,
     onChange: (value: string) => void,
-    minValue: number = 0
+    minValue: number = MINIMUM_FUNDING_GOAL
   ) => {
     return (
       <div className="flex flex-col gap-1">
@@ -80,9 +118,9 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
           onClick={() => {
             const currentValue = parseFloat(value);
             if (!isNaN(currentValue)) {
-              onChange((currentValue + 1).toString());
+              onChange((currentValue + 0.01).toString());
             } else {
-              onChange("1");
+              onChange(MINIMUM_FUNDING_GOAL.toString());
             }
           }}
         >
@@ -107,8 +145,8 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
           className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
           onClick={() => {
             const currentValue = parseFloat(value);
-            if (!isNaN(currentValue) && currentValue > minValue) {
-              onChange((currentValue - 1).toString());
+            if (!isNaN(currentValue) && currentValue > minValue + 0.01) {
+              onChange((currentValue - 0.01).toString());
             }
           }}
         >
@@ -201,9 +239,13 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
           placeholder="Funding Goal"
           rightElements={createIncrementalButtons(
             fundingGoal,
-            onFundingGoalChange
+            onFundingGoalChange,
+            MINIMUM_FUNDING_GOAL
           )}
         />
+        {fundingGoalError && (
+          <p className="text-xs text-red-500 mt-1">{fundingGoalError}</p>
+        )}
         <p className="text-sm text-gray-400 mt-2">
           The minimum amount needed for the funding to be considered successful.
         </p>
@@ -223,9 +265,15 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
             rightElements={createIncrementalButtons(
               capAmount,
               onCapAmountChange,
-              parseFloat(fundingGoal) || 0
+              Math.max(
+                parseFloat(fundingGoal) || MINIMUM_FUNDING_GOAL,
+                MINIMUM_FUNDING_GOAL
+              )
             )}
           />
+          {capAmountError && (
+            <p className="text-xs text-red-500 mt-1">{capAmountError}</p>
+          )}
           <p className="text-sm text-gray-400 mt-2">
             The maximum amount of funding that can be collected. Must be greater
             than or equal to the funding goal.

@@ -130,18 +130,31 @@ const FloatingLabelInput: React.FC<FloatingLabelInputProps> = ({
   );
 };
 
-// Format numeric value to remove trailing zeros after decimal point
+// Format numeric value to preserve decimal input correctly
 const formatCurrencyValue = (value: string): string => {
-  // If empty or not a number, return as is
-  if (!value || isNaN(Number(value))) return value;
+  // If empty, return as is
+  if (!value) return value;
 
-  // Parse the value to handle different formats
+  // If it's just a decimal point, return it
+  if (value === ".") return value;
+
+  // If the value contains a decimal point, we need to carefully handle it
+  if (value.includes(".")) {
+    // If the value ends with a decimal point or any zeros after a decimal point
+    // preserve exactly as typed
+    if (value.endsWith(".") || /\.\d*0+$/.test(value)) {
+      return value;
+    }
+
+    // For other decimal values, we can use parseFloat
+    const num = parseFloat(value);
+    if (isNaN(num)) return "";
+    return num.toString();
+  }
+
+  // For whole numbers
+  if (isNaN(Number(value))) return "";
   const num = parseFloat(value);
-
-  // If it's a whole number, return without decimal places
-  if (Number.isInteger(num)) return num.toString();
-
-  // Otherwise, return the value with necessary decimal places
   return num.toString();
 };
 
