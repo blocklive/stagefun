@@ -14,7 +14,7 @@ import {
 import { useMemo } from "react";
 import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 
-type TabType = "overview" | "patrons";
+type TabType = "overview" | "patrons" | "updates";
 
 interface FundedPoolViewProps {
   pool: Pool;
@@ -143,16 +143,29 @@ export default function FundedPoolView({
             {/* Don't show any cap messages if the pool is executing */}
             {!isExecuting && (
               <div className="text-sm text-gray-400 mt-1">
-                Commitments are{" "}
-                {!pool.cap_amount ||
-                pool.cap_amount === 0 ||
-                String(pool.cap_amount) === MAX_SAFE_VALUE
-                  ? "uncapped"
-                  : `capped at $${displayCapAmount}`}{" "}
-                and accepted until{" "}
-                <span className="text-[#836EF9] font-medium">
-                  {new Date(pool.ends_at).toLocaleDateString()}
-                </span>
+                {new Date(pool.ends_at) < new Date() ? (
+                  // Pool has ended - show past tense message
+                  <>
+                    Commitments no longer accepted after{" "}
+                    <span className="text-[#836EF9] font-medium">
+                      {new Date(pool.ends_at).toLocaleDateString()}
+                    </span>
+                  </>
+                ) : (
+                  // Pool still active - show standard message
+                  <>
+                    Commitments are{" "}
+                    {!pool.cap_amount ||
+                    pool.cap_amount === 0 ||
+                    String(pool.cap_amount) === MAX_SAFE_VALUE
+                      ? "uncapped"
+                      : `capped at $${displayCapAmount}`}{" "}
+                    and accepted until{" "}
+                    <span className="text-[#836EF9] font-medium">
+                      {new Date(pool.ends_at).toLocaleDateString()}
+                    </span>
+                  </>
+                )}
               </div>
             )}
           </div>

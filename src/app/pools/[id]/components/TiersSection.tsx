@@ -310,6 +310,8 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                   {/* Update the condition to allow commits for FUNDED pools that are below cap */}
                   {effectiveStatus !== "EXECUTING" &&
                     effectiveStatus !== "FAILED" &&
+                    // Check if the pool is past its end date
+                    new Date((pool as any).ends_at) > new Date() &&
                     // Allow commits for FUNDED pools as long as they're not full
                     !(
                       effectiveStatus === "FUNDED" &&
@@ -333,6 +335,14 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                       Pool failed to reach target
                     </div>
                   )}
+
+                  {/* Show message when pool is past end date */}
+                  {new Date((pool as any).ends_at) <= new Date() &&
+                    effectiveStatus !== "FAILED" && (
+                      <div className="w-full py-3 bg-gray-700 text-gray-400 font-medium rounded-lg text-center">
+                        Commitments no longer accepted
+                      </div>
+                    )}
 
                   <div className="mt-3 flex items-center justify-between">
                     <div className="flex items-center">

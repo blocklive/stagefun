@@ -41,7 +41,7 @@ export interface Pool {
   image_url?: string;
   target_amount: number;
   cap_amount: number;
-  end_date: string;
+  ends_at: string;
   currency: string;
   creator_id: string;
   creator?: User;

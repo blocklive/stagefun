@@ -6,7 +6,7 @@ import { formatCurrency } from "../../../../lib/utils";
 import { useMemo } from "react";
 import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
 
-type TabType = "overview" | "patrons";
+type TabType = "overview" | "patrons" | "updates";
 
 interface UnfundedPoolViewProps {
   pool: Pool;

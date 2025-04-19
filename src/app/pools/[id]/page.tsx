@@ -30,7 +30,6 @@ import OrganizerSection from "./components/OrganizerSection";
 import UserCommitment from "./components/UserCommitment";
 import PatronsTab from "./components/PatronsTab";
 import PoolFundsSection from "./components/PoolFundsSection";
-import CommitModal from "./components/CommitModal";
 import GetTokensModal from "../../components/GetTokensModal";
 import PoolDescription from "./components/PoolDescription";
 import UnfundedPoolView from "./components/UnfundedPoolView";
@@ -40,6 +39,10 @@ import InfoModal from "../../components/InfoModal";
 import AppHeader from "../../components/AppHeader";
 import TiersSection from "./components/TiersSection";
 import CommitmentBanner from "./components/CommitmentBanner";
+import UpdatesList from "./components/pool-updates/UpdatesList";
+
+// Define TabType to match TabsAndSocial.tsx
+type TabType = "overview" | "patrons" | "updates";
 
 export default function PoolDetailsPage() {
   const { id } = useParams() as { id: string };
@@ -52,9 +55,7 @@ export default function PoolDetailsPage() {
   const { isRefunding, handleClaimRefund } = useClaimRefund();
 
   // State
-  const [contentTab, setContentTab] = useState<"overview" | "patrons">(
-    "overview"
-  );
+  const [contentTab, setContentTab] = useState<TabType>("overview");
   const [showCommitButton, setShowCommitButton] = useState(true);
   const [isCommitModalOpen, setIsCommitModalOpen] = useState(false);
   const [commitAmount, setCommitAmount] = useState("");
@@ -251,6 +252,11 @@ export default function PoolDetailsPage() {
     }
   }, [pool, isLoading]);
 
+  // Handle tab change with updates displayed in the same page
+  const handleTabChange = (tab: TabType) => {
+    setContentTab(tab);
+  };
+
   // Show loading spinner during initial load or when refreshing after an error
   if (isLoading || (!pool && !error)) {
     return (
@@ -305,9 +311,7 @@ export default function PoolDetailsPage() {
                 renderUserCommitment={renderUserCommitment}
                 renderPoolFunds={renderPoolFunds}
                 activeTab={contentTab}
-                onTabChange={(tab: "overview" | "patrons") =>
-                  setContentTab(tab)
-                }
+                onTabChange={handleTabChange}
                 raisedAmount={pool.raised_amount}
                 targetReachedTimestamp={undefined}
                 isCreator={isCreator}
@@ -319,9 +323,7 @@ export default function PoolDetailsPage() {
                 pool={pool}
                 renderUserCommitment={renderUserCommitment}
                 activeTab={contentTab}
-                onTabChange={(tab: "overview" | "patrons") =>
-                  setContentTab(tab)
-                }
+                onTabChange={handleTabChange}
                 raisedAmount={pool.raised_amount}
                 targetAmount={pool.target_amount}
                 isCreator={isCreator}
@@ -340,9 +342,7 @@ export default function PoolDetailsPage() {
                 percentage={percentage}
                 renderUserCommitment={renderUserCommitment}
                 activeTab={contentTab}
-                onTabChange={(tab: "overview" | "patrons") =>
-                  setContentTab(tab)
-                }
+                onTabChange={handleTabChange}
                 isCreator={isCreator}
                 onManageClick={handleEditClick}
                 patronCount={patronCount}
@@ -380,6 +380,19 @@ export default function PoolDetailsPage() {
                     isLoading={isLoading}
                     error={error}
                     onPatronCountChange={setPatronCount}
+                  />
+                </div>
+              </div>
+            )}
+
+            {contentTab === "updates" && (
+              <div className="mt-6">
+                <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
+                  <h3 className="text-xl font-semibold mb-4">Updates</h3>
+                  <UpdatesList
+                    poolId={id}
+                    isCreator={isCreator}
+                    userId={dbUser?.id}
                   />
                 </div>
               </div>
