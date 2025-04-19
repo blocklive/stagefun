@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase";
 import PoolHeader from "../components/PoolHeader";
 import PoolTabs from "../components/PoolTabs";
-import UpdatesList from "./components/UpdatesList";
+import UpdatesList from "../components/pool-updates/UpdatesList";
 
 export const dynamic = "force-dynamic";
 

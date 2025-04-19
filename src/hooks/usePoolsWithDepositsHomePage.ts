@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import useSWR from "swr";
+import { getDisplayStatus } from "@/lib/contracts/types";
 
 // Initialize Supabase client for direct queries
 const supabase = createClient(
@@ -22,6 +23,7 @@ function fromUSDCBaseUnits(amount: number | string): number {
 
 // Define types
 export type TabType = "open" | "funded";
+export type PoolTypeFilter = "all" | "my";
 
 export type OnChainPool = {
   id: string;
@@ -47,15 +49,16 @@ interface UsePoolsWithDepositsHomepageReturn {
   error: any;
   isDbError: boolean;
   refresh: () => void;
-  fetchPoolsForTab: (tab: TabType) => Promise<void>;
+  fetchPoolsForTab: (tab: TabType, poolType?: PoolTypeFilter) => Promise<void>;
 }
 
 // Fetcher function for SWR
 const fetchPools = async (key: string): Promise<OnChainPool[]> => {
   // Parse the SWR key to get parameters
-  const [, tab, maxItems, userId] = key.split("|");
+  const [, tab, maxItems, userId, poolType] = key.split("|");
   const tabType = tab as TabType;
   const maxItemsNum = parseInt(maxItems, 10);
+  const poolTypeFilter = poolType as PoolTypeFilter;
 
   // For the funded tab, we need to fetch multiple pages to ensure we get enough pools
   if (tabType === "funded") {
@@ -69,8 +72,8 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
       const from = (pageCount - 1) * POOLS_PER_PAGE;
       const to = from + POOLS_PER_PAGE - 1;
 
-      // Fetch a page of pools
-      const { data: poolsPage, error: poolError } = await supabase
+      // Build query based on pool type filter
+      let query = supabase
         .from("pools")
         .select(
           `
@@ -79,8 +82,15 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
         `
         )
         .eq("display_public", true)
-        .order("created_at", { ascending: false })
-        .range(from, to);
+        .order("created_at", { ascending: false });
+
+      // Apply creator filter if needed
+      if (poolTypeFilter === "my" && userId) {
+        query = query.eq("creator_id", userId);
+      }
+
+      // Complete the query with range
+      const { data: poolsPage, error: poolError } = await query.range(from, to);
 
       if (poolError) {
         console.error("Error fetching pools:", poolError);
@@ -145,7 +155,7 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
           ? depositsByPool.get(normalizedAddress) || 0
           : 0;
 
-        return {
+        const transformedPool = {
           id: pool.unique_id || pool.id,
           contract_address: pool.contract_address || "",
           name: pool.name || "Unnamed Pool",
@@ -166,11 +176,23 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
           description: pool.description || "",
           creator_id: pool.creator_id || "",
         };
+
+        // Apply the getDisplayStatus logic to get the actual current status
+        transformedPool.status = getDisplayStatus(
+          transformedPool.status,
+          transformedPool.ends_at,
+          transformedPool.raised_amount,
+          transformedPool.target_amount
+        );
+
+        return transformedPool;
       });
 
-      // Filter for funded status (include FUNDED, FULLY_FUNDED, EXECUTING)
+      // Filter for funded status (include FUNDED, FULLY_FUNDED, EXECUTING, COMPLETED)
       const fundedPools = transformedPools.filter((pool) =>
-        ["FUNDED", "FULLY_FUNDED", "EXECUTING"].includes(pool.status)
+        ["FUNDED", "FULLY_FUNDED", "EXECUTING", "COMPLETED"].includes(
+          pool.status
+        )
       );
 
       // Add to our collection
@@ -180,8 +202,9 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
 
     return allPools.slice(0, maxItemsNum);
   } else {
-    // For the open tab, we can use a single page as there are usually enough open pools
-    const { data: poolsPage, error: poolError } = await supabase
+    // For the open tab, we need to fetch all pools that should be shown as "ACTIVE"
+    // Build query based on pool type filter
+    let query = supabase
       .from("pools")
       .select(
         `
@@ -190,9 +213,15 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
       `
       )
       .eq("display_public", true)
-      .eq("status", "ACTIVE")
-      .order("created_at", { ascending: false })
-      .limit(maxItemsNum);
+      .order("created_at", { ascending: false });
+
+    // Apply creator filter if needed
+    if (poolTypeFilter === "my" && userId) {
+      query = query.eq("creator_id", userId);
+    }
+
+    // Complete the query with limit
+    const { data: poolsPage, error: poolError } = await query.limit(50); // Fetch more to ensure we have enough after filtering
 
     if (poolError) {
       console.error("Error fetching pools:", poolError);
@@ -255,7 +284,7 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
         ? depositsByPool.get(normalizedAddress) || 0
         : 0;
 
-      return {
+      const transformedPool = {
         id: pool.unique_id || pool.id,
         contract_address: pool.contract_address || "",
         name: pool.name || "Unnamed Pool",
@@ -274,35 +303,58 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
         description: pool.description || "",
         creator_id: pool.creator_id || "",
       };
+
+      // Apply the getDisplayStatus logic to get the actual current status
+      transformedPool.status = getDisplayStatus(
+        transformedPool.status,
+        transformedPool.ends_at,
+        transformedPool.raised_amount,
+        transformedPool.target_amount
+      );
+
+      return transformedPool;
     });
 
-    return transformedPools;
+    // Filter for only truly ACTIVE pools
+    const activePools = transformedPools.filter(
+      (pool) => pool.status === "ACTIVE"
+    );
+
+    return activePools.slice(0, maxItemsNum);
   }
 };
 
 export const usePoolsWithDepositsHomePage = (
   initialTab: TabType = "open",
   maxItems: number = 15,
-  userId?: string
+  userId?: string,
+  initialPoolType: PoolTypeFilter = "all"
 ): UsePoolsWithDepositsHomepageReturn => {
   // Track the current active tab internally
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  // Track the pool type filter
+  const [poolTypeFilter, setPoolTypeFilter] =
+    useState<PoolTypeFilter>(initialPoolType);
 
-  // Use SWR with the current tab state
+  // Use SWR with the current tab state and pool type filter
   const {
     data: pools = [],
     error: swrError,
     isLoading,
     mutate,
-  } = useSWR(`pools|${activeTab}|${maxItems}|${userId || ""}`, fetchPools, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-    refreshWhenOffline: false,
-    refreshWhenHidden: false,
-    revalidateIfStale: false,
-    dedupingInterval: 10000, // Increase to prevent oscillations
-    errorRetryCount: 3,
-  });
+  } = useSWR(
+    `pools|${activeTab}|${maxItems}|${userId || ""}|${poolTypeFilter}`,
+    fetchPools,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshWhenOffline: false,
+      refreshWhenHidden: false,
+      revalidateIfStale: false,
+      dedupingInterval: 10000, // Increase to prevent oscillations
+      errorRetryCount: 3,
+    }
+  );
 
   // Track whether the error is a DB error
   const isDbError = swrError ? true : false;
@@ -313,11 +365,19 @@ export const usePoolsWithDepositsHomePage = (
     mutate();
   }, [mutate]);
 
-  // Function to change the tab and fetch data
-  const fetchPoolsForTab = useCallback(async (tab: TabType) => {
-    // Set the active tab - this will change the SWR key and trigger a fetch
-    setActiveTab(tab);
-  }, []);
+  // Function to change the tab and pool type and fetch data
+  const fetchPoolsForTab = useCallback(
+    async (tab: TabType, poolType?: PoolTypeFilter) => {
+      // Set the active tab - this will change the SWR key and trigger a fetch
+      setActiveTab(tab);
+
+      // Update pool type filter if provided
+      if (poolType) {
+        setPoolTypeFilter(poolType);
+      }
+    },
+    []
+  );
 
   return {
     pools,
