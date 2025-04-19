@@ -12,6 +12,7 @@ import {
   getPoolStatusFromNumber,
 } from "../../../../lib/contracts/types";
 import { useMemo } from "react";
+import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 
 type TabType = "overview" | "patrons";
 
@@ -46,26 +47,24 @@ export default function FundedPoolView({
 
   // Check if pool is in executing status
   const isExecuting =
-    getPoolStatusFromNumber(pool.blockchain_status) === PoolStatus.EXECUTING;
+    pool.status === "executing" ||
+    getPoolStatusFromNumber(pool.status) === PoolStatus.EXECUTING;
 
   // Get cap amount display for UI
   const displayCapAmount = useMemo(() => {
     if (!pool.cap_amount) return "";
 
-    // If cap amount is already in display form (decimal)
-    if (pool.cap_amount < 1000) {
-      return pool.cap_amount.toLocaleString();
-    }
-    // If it's in base units
-    else {
-      try {
-        return fromUSDCBaseUnits(
-          BigInt(Math.floor(pool.cap_amount))
-        ).toLocaleString();
-      } catch (e) {
-        console.error("Error formatting cap amount:", e);
-        return pool.cap_amount.toString();
-      }
+    // If cap amount matches MAX_SAFE_VALUE, it's uncapped
+    if (String(pool.cap_amount) === MAX_SAFE_VALUE) return "Unlimited";
+
+    // If cap amount is in base units (typically large numbers like 1000000 for $1M)
+    try {
+      // Convert to appropriate dollar amount
+      const amountInDollars = pool.cap_amount / 1000000; // Convert from USDC base units to dollars
+      return amountInDollars.toLocaleString();
+    } catch (e) {
+      console.error("Error formatting cap amount:", e);
+      return pool.cap_amount.toString();
     }
   }, [pool.cap_amount]);
 
@@ -145,7 +144,9 @@ export default function FundedPoolView({
             {!isExecuting && (
               <div className="text-sm text-gray-400 mt-1">
                 Commitments are{" "}
-                {!pool.cap_amount
+                {!pool.cap_amount ||
+                pool.cap_amount === 0 ||
+                String(pool.cap_amount) === MAX_SAFE_VALUE
                   ? "uncapped"
                   : `capped at $${displayCapAmount}`}{" "}
                 and accepted until{" "}

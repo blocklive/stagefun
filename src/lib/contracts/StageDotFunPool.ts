@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 import { POOL_ABI } from "../abi/pool-abi";
 import { USDC_ABI } from "../abi/usdc-abi";
 import { CONTRACT_ADDRESSES, getContractAddresses } from "./addresses";
+import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 
 // ABI for the StageDotFunPoolFactory contract
 export const StageDotFunPoolFactoryABI = [
@@ -442,6 +443,32 @@ export function lpDisplayToToken(lpAmount: number): number {
 // Convert from display units to USDC base units
 export function toUSDCBaseUnits(amount: number): bigint {
   return BigInt(Math.round(amount * USDC_DECIMAL_FACTOR));
+}
+
+/**
+ * Safely converts a value to USDC base units, with special handling for values that
+ * represent the maximum uint256 value (uncapped).
+ *
+ * @param value The string value to convert
+ * @param isStringValue If true, value is already a string and should be checked directly
+ * @returns BigInt representing either the converted value or the original MAX_SAFE_VALUE
+ */
+export function safeToUSDCBaseUnits(
+  value: string | number,
+  isStringValue = false
+): bigint {
+  // If the value is already a string, check if it equals MAX_SAFE_VALUE
+  if (isStringValue && value === MAX_SAFE_VALUE) {
+    return BigInt(MAX_SAFE_VALUE);
+  }
+
+  // If the value is a number that matches MAX_SAFE_VALUE when converted to string
+  if (!isStringValue && String(value) === MAX_SAFE_VALUE) {
+    return BigInt(MAX_SAFE_VALUE);
+  }
+
+  // Regular conversion for normal values
+  return toUSDCBaseUnits(Number(value));
 }
 
 /**

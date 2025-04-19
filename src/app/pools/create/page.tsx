@@ -13,6 +13,7 @@ import RichTextEditor from "@/app/components/RichTextEditor";
 import showToast from "@/utils/toast";
 import useOnboardingMissions from "@/hooks/useOnboardingMissions";
 import { useAuthJwt } from "@/hooks/useAuthJwt";
+import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 
 // Import our new components
 import PoolImageSection from "./components/PoolImageSection";
@@ -202,39 +203,62 @@ export default function CreatePoolPage() {
 
       // Validate each tier
       for (const tier of tiers) {
-        if (!tier.name || !tier.price || !tier.maxPatrons) {
-          throw new Error(
-            "All required tier fields (name, price, max patrons) must be filled"
-          );
+        // Basic required field validation
+        if (!tier.name) {
+          throw new Error(`Tier name is required`);
         }
 
-        // Validate tier price is greater than 0
-        const tierPrice = parseFloat(tier.price);
-        if (tierPrice <= 0) {
-          throw new Error(`Tier price must be greater than 0`);
+        if (!tier.maxPatrons) {
+          throw new Error(`Maximum number of patrons is required`);
         }
 
-        // Validate that tier price does not exceed cap amount (if cap is set)
-        if (cap > 0 && tierPrice > cap) {
-          throw new Error(
-            `Tier "${tier.name}" price (${tierPrice}) exceeds the funding cap (${cap})`
-          );
-        }
-
-        // For variable price tiers, also check max price
+        // Different validation based on tier type
         if (tier.isVariablePrice) {
+          // For variable price tiers, check minPrice instead of price
+          const minPrice = parseFloat(tier.minPrice);
           const maxPrice = parseFloat(tier.maxPrice);
-          if (cap > 0 && maxPrice > cap) {
+
+          // Check that minimum price is valid
+          if (isNaN(minPrice) || minPrice <= 0) {
             throw new Error(
-              `Tier "${tier.name}" max price (${maxPrice}) exceeds the funding cap (${cap})`
+              `Minimum price must be greater than 0 for tier "${tier.name}"`
+            );
+          }
+
+          // For variable price tiers with cap, validate against cap amount
+          if (
+            tier.pricingMode !== "uncapped" &&
+            tier.maxPrice !== MAX_SAFE_VALUE
+          ) {
+            // Only check max price for range pricing mode
+            if (cap > 0 && maxPrice > cap) {
+              throw new Error(
+                `Tier "${tier.name}" max price (${maxPrice}) exceeds the funding cap (${cap})`
+              );
+            }
+          }
+        } else {
+          // For fixed price tiers, validate tier price is greater than 0
+          const tierPrice = parseFloat(tier.price);
+          if (tierPrice <= 0) {
+            throw new Error(`Tier price must be greater than 0`);
+          }
+
+          // Validate that tier price does not exceed cap amount (if cap is set)
+          if (cap > 0 && tierPrice > cap) {
+            throw new Error(
+              `Tier "${tier.name}" price (${tierPrice}) exceeds the funding cap (${cap})`
             );
           }
         }
       }
 
       // Check if funding goal is achievable with current tier configuration
-      const { maxPossibleFunding } = calculateMaxPossibleFunding(tiers);
-      if (maxPossibleFunding < goal) {
+      const { maxPossibleFunding, isUnlimited } =
+        calculateMaxPossibleFunding(tiers);
+
+      // Skip check if funding is unlimited (uncapped tiers)
+      if (!isUnlimited && maxPossibleFunding < goal) {
         // Show a toast error message and prevent submission
         showToast.error(
           `You can only raise ${maxPossibleFunding.toLocaleString()} USDC based on your current tier configuration toward your goal of ${goal.toLocaleString()} USDC. Please adjust your tiers or funding goal.`
@@ -304,10 +328,15 @@ export default function CreatePoolPage() {
     setTiers(newTiers);
 
     // Calculate and log the maximum funding possible
-    const { maxPossibleFunding } = calculateMaxPossibleFunding(newTiers);
-    console.log(
-      `Maximum possible funding with current tiers: ${maxPossibleFunding} USDC`
-    );
+    const { maxPossibleFunding, isUnlimited } =
+      calculateMaxPossibleFunding(newTiers);
+    if (isUnlimited) {
+      console.log(`Maximum possible funding with current tiers: Unlimited`);
+    } else {
+      console.log(
+        `Maximum possible funding with current tiers: ${maxPossibleFunding} USDC`
+      );
+    }
   };
 
   // Add reward item handler
@@ -332,9 +361,9 @@ export default function CreatePoolPage() {
       {/* Main content */}
       <div className="w-full">
         {/* Pool Details, Funding, and Image Section */}
-        <div className="grid grid-cols-1 md:grid-cols-[auto,1fr] gap-x-8 gap-y-6 md:gap-y-0">
+        <div className="grid grid-cols-1 md:grid-cols-[300px,1fr] gap-x-6 gap-y-6 md:gap-y-0">
           {/* Left Column: Pool Image */}
-          <div className="w-full md:w-[400px] order-1 md:order-1">
+          <div className="w-full order-1 md:order-1">
             <PoolImageSection
               imagePreview={imagePreview}
               isUploadingImage={isUploadingImage}
@@ -385,6 +414,7 @@ export default function CreatePoolPage() {
               supabase={supabase}
               poolName={poolName}
               fundingGoal={fundingGoal}
+              capAmount={capAmount}
               poolImage={finalImageUrl || undefined}
             />
           )}

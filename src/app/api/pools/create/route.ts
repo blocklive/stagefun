@@ -3,6 +3,7 @@ import { authenticateRequest, getSupabaseAdmin } from "@/lib/auth/server";
 import { createClient } from "@supabase/supabase-js";
 import { createPool } from "@/lib/services/pool-service";
 import { REWARD_TYPES } from "@/lib/constants/strings";
+import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 
 // Environment variables for Supabase Admin access
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -302,6 +303,12 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // For max_price, ensure it's a value the database can handle
+        const maxPrice = tier.isVariablePrice ? tier.maxPrice : null;
+
+        // For maxPatrons, ensure it's a value the database can handle
+        const maxPatrons = tier.maxPatrons;
+
         return {
           pool_id: insertedPool.id,
           name: tier.name,
@@ -309,8 +316,8 @@ export async function POST(request: NextRequest) {
           price: tier.isVariablePrice ? 0 : tier.price,
           is_variable_price: tier.isVariablePrice || false,
           min_price: tier.isVariablePrice ? tier.minPrice : null,
-          max_price: tier.isVariablePrice ? tier.maxPrice : null,
-          max_supply: tier.maxPatrons === 0 ? null : tier.maxPatrons,
+          max_price: maxPrice, // Use our processed value - now keeping MAX_SAFE_VALUE intact
+          max_supply: maxPatrons, // Keep the original value (already MAX_SAFE_VALUE for uncapped)
           current_supply: 0,
           is_active: tier.isActive !== undefined ? tier.isActive : true,
           nft_metadata: tier.nftMetadata || null, // Save metadata URL to database

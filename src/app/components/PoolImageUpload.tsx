@@ -21,14 +21,14 @@ export default function PoolImageUpload({
   showValidation = false,
 }: PoolImageUploadProps) {
   return (
-    <div>
+    <div className="w-[300px] h-[300px]">
       {isRequired && showValidation && !imagePreview && (
-        <div className="mb-2">
+        <div className="mb-1">
           <span className="text-red-500">*</span>
         </div>
       )}
 
-      <div className="relative w-full aspect-square rounded-lg overflow-hidden group">
+      <div className="relative w-full h-full rounded-lg overflow-hidden group">
         {/* Background color and checkerboard pattern */}
         <div
           className={`absolute inset-0 ${
@@ -63,7 +63,7 @@ export default function PoolImageUpload({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-4xl font-bold text-center text-[#1E1B2E]">
+            <div className="text-3xl font-bold text-center text-[#1E1B2E]">
               {placeholderText}
             </div>
           </div>
@@ -124,7 +124,7 @@ export default function PoolImageUpload({
 
       {/* Status messages */}
       {isRequired && showValidation && !imagePreview && (
-        <div className="mt-2 text-sm text-red-400">
+        <div className="mt-1 text-sm text-red-400">
           An image is required for your pool
         </div>
       )}

@@ -24,6 +24,7 @@ import {
   validateSmartWallet,
   standardizeSmartWalletError,
 } from "../lib/utils/smartWalletUtils";
+import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 
 // Define the interface for pool creation data
 interface PoolCreationData {
@@ -187,6 +188,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         }
 
         // Ensure smart wallet is available, with DB synchronization
+        showToast.remove();
         const loadingToast = showToast.loading("Preparing pool creation...");
         const smartWalletResult = await ensureSmartWallet(user, loadingToast);
 
@@ -271,6 +273,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
       setIsLoading(true);
       setError(null);
 
+      showToast.remove();
       const loadingToast = showToast.loading("Preparing pool creation...");
 
       try {
@@ -307,12 +310,31 @@ export function usePoolCreationContract(): PoolCreationHookResult {
             poolData.tiers?.map((tier) => {
               // Values are already in base units from formattedPoolData
               const priceBaseUnits = BigInt(tier.price);
-              const minPriceBaseUnits = tier.isVariablePrice
-                ? BigInt(tier.minPrice)
-                : BigInt(0);
-              const maxPriceBaseUnits = tier.isVariablePrice
-                ? BigInt(tier.maxPrice)
-                : BigInt(0);
+
+              // Handle variable price tiers (minPrice/maxPrice)
+              let minPriceBaseUnits = BigInt(0);
+              let maxPriceBaseUnits = BigInt(0);
+
+              if (tier.isVariablePrice) {
+                // For minPrice, always convert normally
+                minPriceBaseUnits = BigInt(tier.minPrice);
+
+                // For maxPrice, check if it's MAX_SAFE_VALUE (uncapped price)
+                if (tier.maxPrice === MAX_SAFE_VALUE) {
+                  // Use the MAX_SAFE_VALUE for uncapped
+                  maxPriceBaseUnits = BigInt(MAX_SAFE_VALUE);
+                } else {
+                  maxPriceBaseUnits = BigInt(tier.maxPrice);
+                }
+              }
+
+              // Handle maxPatrons - check if it's MAX_SAFE_VALUE (uncapped patrons)
+              let maxPatronsValue;
+              if (tier.maxPatrons === MAX_SAFE_VALUE) {
+                maxPatronsValue = BigInt(MAX_SAFE_VALUE);
+              } else {
+                maxPatronsValue = BigInt(tier.maxPatrons || 0);
+              }
 
               console.log("Using tier price for contract:", {
                 original: tier.price,
@@ -322,6 +344,10 @@ export function usePoolCreationContract(): PoolCreationHookResult {
                 minPriceConverted: minPriceBaseUnits.toString(),
                 maxPriceOriginal: tier.maxPrice,
                 maxPriceConverted: maxPriceBaseUnits.toString(),
+                maxPatronsOriginal: tier.maxPatrons,
+                maxPatronsConverted: maxPatronsValue.toString(),
+                isMaxPriceUncapped: tier.maxPrice === MAX_SAFE_VALUE,
+                isMaxPatronsUncapped: tier.maxPatrons === MAX_SAFE_VALUE,
               });
 
               return {
@@ -330,8 +356,8 @@ export function usePoolCreationContract(): PoolCreationHookResult {
                 nftMetadata: tier.nftMetadata || "",
                 isVariablePrice: tier.isVariablePrice || false,
                 minPrice: minPriceBaseUnits, // Already in base units
-                maxPrice: maxPriceBaseUnits, // Already in base units
-                maxPatrons: BigInt(tier.maxPatrons || 0),
+                maxPrice: maxPriceBaseUnits, // Already in base units or MAX_SAFE_VALUE
+                maxPatrons: maxPatronsValue, // Already in base units or MAX_SAFE_VALUE
               };
             }) || [];
 
@@ -358,14 +384,43 @@ export function usePoolCreationContract(): PoolCreationHookResult {
             endTimeUnix,
             Number(targetAmountBaseUnits), // Pass base units to contract
             Number(capAmountBaseUnits), // Pass base units to contract
-            // Map tier data again, ensuring correct types (BigInts already handled in createPool)
-            tierInitDataForContract.map((tier) => ({
-              ...tier,
-              price: Number(tier.price), // createPool expects number/BigInt
-              minPrice: Number(tier.minPrice),
-              maxPrice: Number(tier.maxPrice),
-              maxPatrons: Number(tier.maxPatrons),
-            }))
+            // Map tier data again, ensuring correct types
+            tierInitDataForContract.map((tier) => {
+              // First convert everything to string to avoid overflow issues
+              const maxPriceStr = tier.maxPrice.toString();
+              const maxPatronsStr = tier.maxPatrons.toString();
+
+              // Handle special MAX_SAFE_VALUE values differently
+              const maxPriceNum =
+                maxPriceStr === MAX_SAFE_VALUE
+                  ? Number.MAX_SAFE_INTEGER // Use MAX_SAFE_INTEGER as a safe alternative
+                  : Number(tier.maxPrice);
+
+              const maxPatronsNum =
+                maxPatronsStr === MAX_SAFE_VALUE
+                  ? Number.MAX_SAFE_INTEGER // Use MAX_SAFE_INTEGER as a safe alternative
+                  : Number(tier.maxPatrons);
+
+              console.log("Final tier values for contract:", {
+                name: tier.name,
+                price: Number(tier.price),
+                minPrice: Number(tier.minPrice),
+                maxPrice: maxPriceNum,
+                maxPatrons: maxPatronsNum,
+                isUncappedPrice: maxPriceStr === MAX_SAFE_VALUE,
+                isUncappedPatrons: maxPatronsStr === MAX_SAFE_VALUE,
+              });
+
+              return {
+                name: tier.name,
+                price: Number(tier.price),
+                nftMetadata: tier.nftMetadata || "",
+                isVariablePrice: tier.isVariablePrice || false,
+                minPrice: Number(tier.minPrice),
+                maxPrice: maxPriceNum,
+                maxPatrons: maxPatronsNum,
+              };
+            })
           );
 
           console.log(
@@ -403,6 +458,7 @@ export function usePoolCreationContract(): PoolCreationHookResult {
         }
 
         // STEP 2: Call the backend API to save data to the database
+        showToast.remove();
         showToast.loading("Synchronizing pool...", {
           id: loadingToast,
         });

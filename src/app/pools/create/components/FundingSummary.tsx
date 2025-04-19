@@ -1,8 +1,13 @@
 import React, { useMemo } from "react";
 import { Tier } from "../types";
-import { calculateMaxPossibleFunding } from "../hooks/calculateMaxFunding";
+import {
+  calculateMaxPossibleFunding,
+  UNLIMITED_FUNDING,
+} from "../hooks/calculateMaxFunding";
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import { colors } from "@/lib/theme";
+import { FC } from "react";
+import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 
 interface FundingSummaryProps {
   tiers: Tier[];
@@ -15,33 +20,74 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
   fundingGoal,
   capAmount = "0",
 }) => {
-  const { maxPossibleFunding, tierBreakdown } = useMemo(() => {
-    return calculateMaxPossibleFunding(tiers);
+  const { maxPossibleFunding, tierBreakdown, isUnlimited } = useMemo(() => {
+    return calculateMaxPossibleFunding(tiers.filter((t) => t.isActive));
   }, [tiers]);
 
-  const formattedMax = maxPossibleFunding.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
   const goalAmount = parseFloat(fundingGoal || "0");
-  const capValue = parseFloat(capAmount || "0");
+
+  // Handle capAmount equals MAX_SAFE_VALUE as uncapped
+  const isCapUncapped = capAmount === MAX_SAFE_VALUE;
+  const capValue = isCapUncapped ? 0 : parseFloat(capAmount || "0");
+
+  // Ensure maxDisplayFunding respects the cap if set
+  const maxDisplayFunding = useMemo(() => {
+    // If unlimited funding potential and no cap set or uncapped
+    if (isUnlimited && (capValue <= 0 || isCapUncapped)) {
+      return UNLIMITED_FUNDING;
+    }
+
+    // If unlimited potential but a cap is set, use the cap
+    if (isUnlimited && capValue > 0) {
+      return capValue;
+    }
+
+    // If limited potential but exceeds cap, use cap value
+    if (capValue > 0 && maxPossibleFunding > capValue) {
+      return capValue;
+    }
+
+    // Otherwise use calculated maximum
+    return maxPossibleFunding;
+  }, [maxPossibleFunding, capValue, isUnlimited, isCapUncapped]);
+
+  // Format the maximum funding for display
+  const formattedMax = useMemo(() => {
+    if (maxDisplayFunding === UNLIMITED_FUNDING) {
+      return "Unlimited";
+    }
+    return maxDisplayFunding.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }, [maxDisplayFunding]);
+
   const formattedGoal = goalAmount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  const formattedCap =
-    capValue > 0
-      ? capValue.toLocaleString("en-US", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }) + " USDC"
-      : "No Cap";
 
+  const formattedCap = isCapUncapped
+    ? "No Cap"
+    : capValue > 0
+    ? capValue.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + " USDC"
+    : "No Cap";
+
+  // A goal is reachable if we have unlimited funding or if the max funding meets/exceeds the goal
   const isGoalReachable =
-    !isNaN(goalAmount) && maxPossibleFunding >= goalAmount;
-  const percentOfGoal =
-    goalAmount > 0 ? Math.min(100, (maxPossibleFunding / goalAmount) * 100) : 0;
+    !isNaN(goalAmount) &&
+    (maxDisplayFunding === UNLIMITED_FUNDING ||
+      maxDisplayFunding >= goalAmount);
+
+  // Determine percent of goal (set to 100% if unlimited)
+  const percentOfGoal = useMemo(() => {
+    if (maxDisplayFunding === UNLIMITED_FUNDING) return 100;
+    if (goalAmount <= 0) return 0;
+    return Math.min(100, (maxDisplayFunding / goalAmount) * 100);
+  }, [maxDisplayFunding, goalAmount]);
 
   // Don't render if we have no funding goal and no tiers (nothing to calculate)
   if (goalAmount === 0 && tiers.length === 0) {
@@ -109,7 +155,9 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
         </div>
         <div className="p-3 bg-[#FFFFFF08] rounded-md">
           <div className="text-xs text-gray-400 mb-1">Funding Cap</div>
-          <div className="text-md font-semibold text-white">{formattedCap}</div>
+          <div className="text-md font-semibold text-white">
+            {isCapUncapped ? "Uncapped" : formattedCap}
+          </div>
         </div>
         <div className="p-3 bg-[#FFFFFF08] rounded-md">
           <div className="text-xs text-gray-400 mb-1">Maximum Funding</div>
@@ -118,7 +166,8 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
               isGoalReachable ? "text-[#9EEB00]" : "text-[#F87171]"
             }`}
           >
-            {formattedMax} USDC
+            {formattedMax}
+            {maxDisplayFunding === UNLIMITED_FUNDING ? "" : " USDC"}
           </div>
         </div>
       </div>
@@ -161,21 +210,41 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
                   Your funding goal is achievable!
                 </p>
                 <p className="text-gray-400 text-xs mt-1">
-                  With your current tier configuration, you can raise up to{" "}
-                  {formattedMax} USDC.
+                  With your current tier configuration, you can raise
+                  {maxDisplayFunding === UNLIMITED_FUNDING
+                    ? " an unlimited amount"
+                    : ` up to ${formattedMax} USDC`}
+                  .
+                  {capValue > 0 && maxPossibleFunding > capValue && (
+                    <span> (limited by your funding cap)</span>
+                  )}
                 </p>
+                {maxDisplayFunding >= goalAmount && (
+                  <div className="mt-2">
+                    <p className="text-gray-400 text-xs mt-1">
+                      With the current tier prices, your pool would raise up to{" "}
+                      {maxDisplayFunding === UNLIMITED_FUNDING
+                        ? "an unlimited amount"
+                        : `${formattedMax} USDC`}{" "}
+                      if all tiers sell out.
+                    </p>
+                  </div>
+                )}
               </>
             ) : (
               <>
                 <p className="text-[#F87171] text-sm font-medium">
-                  You can only raise {formattedMax} USDC based on your current
-                  tier pricing and max patrons toward your goal of{" "}
-                  {goalAmount.toLocaleString()} USDC
+                  You can only raise {formattedMax}
+                  {maxDisplayFunding === UNLIMITED_FUNDING ? "" : " USDC"} based
+                  on your current tier pricing and max patrons toward your goal
+                  of {goalAmount.toLocaleString()} USDC
                 </p>
                 <p className="text-gray-400 text-xs mt-1">
                   This leaves you{" "}
-                  {(goalAmount - maxPossibleFunding).toLocaleString()} USDC
-                  short of your goal.
+                  {maxDisplayFunding === UNLIMITED_FUNDING
+                    ? "0"
+                    : (goalAmount - maxDisplayFunding).toLocaleString()}{" "}
+                  USDC short of your goal.
                 </p>
                 <ul className="text-gray-400 text-xs mt-2 ml-4 list-disc space-y-1">
                   <li>Increase tier prices</li>
@@ -219,6 +288,13 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
                 : parseFloat(originalTier?.price || "0");
               const maxPatrons = parseInt(originalTier?.maxPatrons || "0");
 
+              // Check if values are uncapped (MAX_SAFE_VALUE)
+              const isPriceUncapped =
+                originalTier?.isVariablePrice &&
+                originalTier.maxPrice === MAX_SAFE_VALUE;
+              const isPatronsUncapped =
+                originalTier?.maxPatrons === MAX_SAFE_VALUE;
+
               return (
                 <div
                   key={tier.name}
@@ -227,13 +303,29 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-300">{tier.name}</span>
                     <span className="text-sm font-medium text-white">
-                      {tier.contribution.toLocaleString()} USDC
+                      {tier.contribution === Infinity
+                        ? "Unlimited"
+                        : `${tier.contribution.toLocaleString()} USDC`}
                     </span>
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    {originalTier?.isVariablePrice ? "Max price" : "Price"}:{" "}
-                    {price.toLocaleString()} USDC ×{" "}
-                    {maxPatrons.toLocaleString()} patrons
+                    {isPriceUncapped || isPatronsUncapped ? (
+                      // Show a simplified message for uncapped tiers
+                      "Unlimited contribution potential"
+                    ) : (
+                      // Show the regular price × patrons calculation
+                      <>
+                        {originalTier?.isVariablePrice ? "Max price" : "Price"}:{" "}
+                        {price === Infinity
+                          ? "Unlimited"
+                          : `${price.toLocaleString()} USDC`}{" "}
+                        ×{" "}
+                        {maxPatrons === Infinity
+                          ? "Unlimited"
+                          : maxPatrons.toLocaleString()}{" "}
+                        patrons
+                      </>
+                    )}
                   </div>
                 </div>
               );

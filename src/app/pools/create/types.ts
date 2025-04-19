@@ -19,4 +19,6 @@ export interface Tier {
   rewardItems: string[];
   imageUrl?: string;
   modifiedFields: Set<string>;
+  pricingMode?: "fixed" | "range" | "uncapped";
+  patronsMode?: "limited" | "uncapped";
 }

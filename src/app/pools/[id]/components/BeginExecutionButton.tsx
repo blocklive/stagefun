@@ -5,12 +5,14 @@ import { FaPlay, FaInfoCircle } from "react-icons/fa";
 import { usePoolExecutionTransition } from "../../../../hooks/usePoolExecutionTransition";
 import showToast from "@/utils/toast";
 import Tooltip from "../../../../components/Tooltip";
+import { getPoolEffectiveStatus } from "../../../../lib/contracts/types";
 
 interface BeginExecutionButtonProps {
   poolAddress: string;
   isCreator: boolean;
   refreshPoolData: () => Promise<void>;
   currentStatus: string;
+  pool: any; // Add pool object for effective status check
 }
 
 export default function BeginExecutionButton({
@@ -18,6 +20,7 @@ export default function BeginExecutionButton({
   isCreator,
   refreshPoolData,
   currentStatus,
+  pool,
 }: BeginExecutionButtonProps) {
   const [localLoading, setLocalLoading] = useState(false);
   const { isLoading: hookLoading, beginExecution } =
@@ -25,6 +28,9 @@ export default function BeginExecutionButton({
 
   // Combined loading state
   const isExecuting = localLoading || hookLoading;
+
+  // Get the effective status
+  const effectiveStatus = getPoolEffectiveStatus(pool);
 
   const handleBeginExecution = async () => {
     if (!poolAddress) {
@@ -37,7 +43,8 @@ export default function BeginExecutionButton({
       return;
     }
 
-    if (currentStatus !== "FUNDED") {
+    // Check the effective status, not just the database status
+    if (effectiveStatus !== "FUNDED") {
       showToast.error("Pool must be in FUNDED state to begin execution");
       return;
     }

@@ -46,6 +46,9 @@ export default function TabsAndSocial({
   // Check if any social links exist
   const hasSocialLinks = Object.values(socialLinks).some((link) => !!link);
 
+  // Format patron count display
+  const patronCountDisplay = patronCount !== undefined ? patronCount : 0;
+
   return (
     <>
       {/* Navigation Tabs */}
@@ -76,7 +79,7 @@ export default function TabsAndSocial({
                   activeTab === "patrons" ? "text-black/70" : "text-gray-400"
                 }`}
               >
-                {patronCount}
+                {patronCountDisplay}
               </span>
             </button>
           </div>
