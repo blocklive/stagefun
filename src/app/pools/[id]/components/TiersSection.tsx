@@ -307,9 +307,15 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                     </ul>
                   </div>
 
+                  {/* Update the condition to allow commits for FUNDED pools that are below cap */}
                   {effectiveStatus !== "EXECUTING" &&
-                    effectiveStatus !== "FUNDED" &&
-                    effectiveStatus !== "FAILED" && (
+                    effectiveStatus !== "FAILED" &&
+                    // Allow commits for FUNDED pools as long as they're not full
+                    !(
+                      effectiveStatus === "FUNDED" &&
+                      hasMaxPatrons &&
+                      totalCommitments >= maxPatrons
+                    ) && (
                       <button
                         className="w-full py-3 bg-[#836EF9] hover:bg-[#6F5BD0] text-white font-medium rounded-lg transition-colors"
                         onClick={() => handleCommit(tier)}

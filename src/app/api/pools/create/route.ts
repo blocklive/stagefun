@@ -317,7 +317,7 @@ export async function POST(request: NextRequest) {
           is_variable_price: tier.isVariablePrice || false,
           min_price: tier.isVariablePrice ? tier.minPrice : null,
           max_price: maxPrice, // Use our processed value - now keeping MAX_SAFE_VALUE intact
-          max_supply: maxPatrons === 0 ? null : maxPatrons, // Use our processed value
+          max_supply: maxPatrons, // Keep the original value (already MAX_SAFE_VALUE for uncapped)
           current_supply: 0,
           is_active: tier.isActive !== undefined ? tier.isActive : true,
           nft_metadata: tier.nftMetadata || null, // Save metadata URL to database

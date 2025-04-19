@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { USDCInput } from "@/app/components/FloatingLabelInput";
 import { Tier } from "../types";
 import { MINIMUM_FUNDING_GOAL, MINIMUM_PRICE } from "@/lib/constants/pricing";
+import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 
 interface FundingSectionProps {
   fundingGoal: string;
@@ -75,8 +76,8 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
         onCapAmountChange("");
       }
     } else {
-      // For uncapped mode, we set the cap to zero (representing no cap)
-      onCapAmountChange("0");
+      // For uncapped mode, we set the cap to MAX_SAFE_VALUE (representing no cap)
+      onCapAmountChange(MAX_SAFE_VALUE);
     }
   }, [fundingGoal, hasCap, onCapAmountChange, capAmount]);
 
@@ -89,12 +90,16 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
       onFundingGoalChange(MINIMUM_FUNDING_GOAL.toString());
     }
 
-    // When switching to uncapped mode, set cap to 0
+    // When switching to uncapped mode, set cap to MAX_SAFE_VALUE
     if (!isCapped) {
-      onCapAmountChange("0");
+      onCapAmountChange(MAX_SAFE_VALUE);
     }
     // When switching to capped mode and no cap value, set to 20% more than goal
-    else if (capAmount === "0" || capAmount === "") {
+    else if (
+      capAmount === MAX_SAFE_VALUE ||
+      capAmount === "0" ||
+      capAmount === ""
+    ) {
       const goal = parseFloat(fundingGoal || MINIMUM_FUNDING_GOAL.toString());
       if (!isNaN(goal)) {
         onCapAmountChange(

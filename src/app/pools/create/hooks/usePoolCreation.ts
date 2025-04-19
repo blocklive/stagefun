@@ -173,7 +173,10 @@ export const usePoolCreation = () => {
         ticker,
         description,
         target_amount: Number(toUSDCBaseUnits(fundingGoal)), // Store in base units in DB
-        cap_amount: capAmount === 0 ? 0 : Number(toUSDCBaseUnits(capAmount)), // Store in base units in DB, preserve 0 for uncapped
+        cap_amount:
+          capAmount.toString() === MAX_SAFE_VALUE
+            ? Number(MAX_SAFE_VALUE)
+            : Number(toUSDCBaseUnits(capAmount)), // Ensure cap_amount is a number
         currency: "USDC",
         token_amount: 0,
         token_symbol: ticker,

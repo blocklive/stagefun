@@ -170,6 +170,7 @@ export default function PoolFundsSection({
   const receiveModalRef = useRef<HTMLDivElement>(null);
   const distributeModalRef = useRef<HTMLDivElement>(null);
 
+  console.log("pool", pool);
   // Determine if pool is uncapped (cap_amount is exactly 0)
   const isUncapped = useMemo(() => {
     return pool.cap_amount === 0;

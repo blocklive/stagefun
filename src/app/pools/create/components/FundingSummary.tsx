@@ -7,15 +7,13 @@ import {
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import { colors } from "@/lib/theme";
 import { FC } from "react";
+import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 
 interface FundingSummaryProps {
   tiers: Tier[];
   fundingGoal: string;
   capAmount?: string;
 }
-
-// Using PostgreSQL's max bigint value which is safe for both database and contract
-export const MAX_SAFE_VALUE = "9223372036854775807";
 
 export const FundingSummary: React.FC<FundingSummaryProps> = ({
   tiers,
@@ -27,12 +25,15 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
   }, [tiers]);
 
   const goalAmount = parseFloat(fundingGoal || "0");
-  const capValue = parseFloat(capAmount || "0");
+
+  // Handle capAmount equals MAX_SAFE_VALUE as uncapped
+  const isCapUncapped = capAmount === MAX_SAFE_VALUE;
+  const capValue = isCapUncapped ? 0 : parseFloat(capAmount || "0");
 
   // Ensure maxDisplayFunding respects the cap if set
   const maxDisplayFunding = useMemo(() => {
-    // If unlimited funding potential and no cap set
-    if (isUnlimited && capValue <= 0) {
+    // If unlimited funding potential and no cap set or uncapped
+    if (isUnlimited && (capValue <= 0 || isCapUncapped)) {
       return UNLIMITED_FUNDING;
     }
 
@@ -48,7 +49,7 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
 
     // Otherwise use calculated maximum
     return maxPossibleFunding;
-  }, [maxPossibleFunding, capValue, isUnlimited]);
+  }, [maxPossibleFunding, capValue, isUnlimited, isCapUncapped]);
 
   // Format the maximum funding for display
   const formattedMax = useMemo(() => {
@@ -66,13 +67,14 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
     maximumFractionDigits: 2,
   });
 
-  const formattedCap =
-    capValue > 0
-      ? capValue.toLocaleString("en-US", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }) + " USDC"
-      : "No Cap";
+  const formattedCap = isCapUncapped
+    ? "No Cap"
+    : capValue > 0
+    ? capValue.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + " USDC"
+    : "No Cap";
 
   // A goal is reachable if we have unlimited funding or if the max funding meets/exceeds the goal
   const isGoalReachable =
@@ -153,7 +155,9 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
         </div>
         <div className="p-3 bg-[#FFFFFF08] rounded-md">
           <div className="text-xs text-gray-400 mb-1">Funding Cap</div>
-          <div className="text-md font-semibold text-white">{formattedCap}</div>
+          <div className="text-md font-semibold text-white">
+            {isCapUncapped ? "Uncapped" : formattedCap}
+          </div>
         </div>
         <div className="p-3 bg-[#FFFFFF08] rounded-md">
           <div className="text-xs text-gray-400 mb-1">Maximum Funding</div>
@@ -284,6 +288,13 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
                 : parseFloat(originalTier?.price || "0");
               const maxPatrons = parseInt(originalTier?.maxPatrons || "0");
 
+              // Check if values are uncapped (MAX_SAFE_VALUE)
+              const isPriceUncapped =
+                originalTier?.isVariablePrice &&
+                originalTier.maxPrice === MAX_SAFE_VALUE;
+              const isPatronsUncapped =
+                originalTier?.maxPatrons === MAX_SAFE_VALUE;
+
               return (
                 <div
                   key={tier.name}
@@ -298,15 +309,23 @@ export const FundingSummary: React.FC<FundingSummaryProps> = ({
                     </span>
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    {originalTier?.isVariablePrice ? "Max price" : "Price"}:{" "}
-                    {price === Infinity
-                      ? "Unlimited"
-                      : `${price.toLocaleString()} USDC`}{" "}
-                    ×{" "}
-                    {maxPatrons === Infinity
-                      ? "Unlimited"
-                      : maxPatrons.toLocaleString()}{" "}
-                    patrons
+                    {isPriceUncapped || isPatronsUncapped ? (
+                      // Show a simplified message for uncapped tiers
+                      "Unlimited contribution potential"
+                    ) : (
+                      // Show the regular price × patrons calculation
+                      <>
+                        {originalTier?.isVariablePrice ? "Max price" : "Price"}:{" "}
+                        {price === Infinity
+                          ? "Unlimited"
+                          : `${price.toLocaleString()} USDC`}{" "}
+                        ×{" "}
+                        {maxPatrons === Infinity
+                          ? "Unlimited"
+                          : maxPatrons.toLocaleString()}{" "}
+                        patrons
+                      </>
+                    )}
                   </div>
                 </div>
               );
