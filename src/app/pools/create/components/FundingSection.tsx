@@ -1,6 +1,8 @@
 import React, { useEffect } from "react";
-import Image from "next/image";
+import { USDCInput } from "@/app/components/FloatingLabelInput";
 import { Tier } from "../types";
+import { MINIMUM_FUNDING_GOAL, MINIMUM_PRICE } from "@/lib/constants/pricing";
+import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 
 interface FundingSectionProps {
   fundingGoal: string;
@@ -17,252 +19,269 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
   onCapAmountChange,
   tiers = [],
 }) => {
-  const [hasCap, setHasCap] = React.useState(true); // Default to true
+  const [hasCap, setHasCap] = React.useState(true); // Default to true (capped)
+  const [fundingGoalError, setFundingGoalError] = React.useState<string | null>(
+    null
+  );
+  const [capAmountError, setCapAmountError] = React.useState<string | null>(
+    null
+  );
 
-  // Update cap amount when funding goal changes or when cap is toggled
+  // Validate funding goal and cap amounts
+  useEffect(() => {
+    // Validate funding goal
+    const goalAmount = parseFloat(fundingGoal);
+    if (!isNaN(goalAmount) && goalAmount < MINIMUM_FUNDING_GOAL) {
+      setFundingGoalError(
+        `Funding goal must be at least ${MINIMUM_FUNDING_GOAL} USDC`
+      );
+    } else {
+      setFundingGoalError(null);
+    }
+
+    // Validate cap amount if in capped mode
+    if (hasCap) {
+      const capVal = parseFloat(capAmount);
+      const goalVal = parseFloat(fundingGoal);
+
+      if (!isNaN(capVal) && !isNaN(goalVal) && capVal < goalVal) {
+        setCapAmountError("Cap must be at least equal to the funding goal");
+      } else if (!isNaN(capVal) && capVal < MINIMUM_FUNDING_GOAL) {
+        setCapAmountError(`Cap must be at least ${MINIMUM_FUNDING_GOAL} USDC`);
+      } else {
+        setCapAmountError(null);
+      }
+    } else {
+      setCapAmountError(null);
+    }
+  }, [fundingGoal, capAmount, hasCap]);
+
+  // Update cap amount when funding goal changes or when cap mode changes
   useEffect(() => {
     if (hasCap) {
       if (fundingGoal && fundingGoal !== "") {
         const goal = parseFloat(fundingGoal);
         if (!isNaN(goal)) {
-          const newCap = goal * 1.2;
-          onCapAmountChange(newCap.toString());
+          // If we're in capped mode and no cap has been set yet or cap is less than goal,
+          // set cap to 20% higher than goal
+          const currentCap = parseFloat(capAmount);
+          if (isNaN(currentCap) || currentCap < goal) {
+            const newCap = goal * 1.2;
+            onCapAmountChange(newCap.toString());
+          }
         } else {
           onCapAmountChange("");
         }
       } else {
         onCapAmountChange("");
       }
-    }
-  }, [fundingGoal, hasCap, onCapAmountChange]);
-
-  // When toggling cap on/off
-  const handleCapToggle = (enabled: boolean) => {
-    setHasCap(enabled);
-    if (!enabled) {
-      onCapAmountChange("0"); // Set to "0" explicitly when cap is disabled to represent unlimited cap
-    } else if (fundingGoal) {
-      // Set to 20% more than goal when enabling
-      const goal = parseFloat(fundingGoal);
-      if (!isNaN(goal)) {
-        const newCap = goal * 1.2;
-        onCapAmountChange(newCap.toString());
-      } else {
-        onCapAmountChange(""); // Set to empty string if goal is not a valid number
-      }
     } else {
-      onCapAmountChange(""); // Set to empty string if no funding goal
+      // For uncapped mode, we set the cap to MAX_SAFE_VALUE (representing no cap)
+      onCapAmountChange(MAX_SAFE_VALUE);
     }
+  }, [fundingGoal, hasCap, onCapAmountChange, capAmount]);
+
+  // Handle funding mode change
+  const handleFundingModeChange = (isCapped: boolean) => {
+    setHasCap(isCapped);
+
+    // Set default values if none exist
+    if (fundingGoal === "0" || fundingGoal === "") {
+      onFundingGoalChange(MINIMUM_FUNDING_GOAL.toString());
+    }
+
+    // When switching to uncapped mode, set cap to MAX_SAFE_VALUE
+    if (!isCapped) {
+      onCapAmountChange(MAX_SAFE_VALUE);
+    }
+    // When switching to capped mode and no cap value, set to 20% more than goal
+    else if (
+      capAmount === MAX_SAFE_VALUE ||
+      capAmount === "0" ||
+      capAmount === ""
+    ) {
+      const goal = parseFloat(fundingGoal || MINIMUM_FUNDING_GOAL.toString());
+      if (!isNaN(goal)) {
+        onCapAmountChange(
+          (Math.max(goal, MINIMUM_FUNDING_GOAL) * 1.2).toString()
+        );
+      }
+    }
+  };
+
+  // Incremental buttons for number inputs
+  const createIncrementalButtons = (
+    value: string,
+    onChange: (value: string) => void,
+    minValue: number = MINIMUM_FUNDING_GOAL
+  ) => {
+    return (
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+          onClick={() => {
+            const currentValue = parseFloat(value);
+            if (!isNaN(currentValue)) {
+              onChange((currentValue + 0.01).toString());
+            } else {
+              onChange(MINIMUM_FUNDING_GOAL.toString());
+            }
+          }}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M18 15L12 9L6 15"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
+          onClick={() => {
+            const currentValue = parseFloat(value);
+            if (!isNaN(currentValue) && currentValue > minValue + 0.01) {
+              onChange((currentValue - 0.01).toString());
+            }
+          }}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6 9L12 15L18 9"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    );
   };
 
   return (
     <div className="space-y-6">
-      {/* Funding Goal Input */}
+      {/* Funding Mode Selector */}
       <div>
-        <div className="flex gap-4">
-          {/* Amount Input */}
-          <div className="flex-1 relative">
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-              <Image
-                src="/images/usdc-logo.svg"
-                alt="USDC"
-                width={24}
-                height={24}
-              />
-            </div>
-            <input
-              type="text"
-              inputMode="decimal"
-              pattern="[0-9]*\.?[0-9]*"
-              placeholder="Funding Goal"
-              value={fundingGoal}
-              onChange={(e) => {
-                // Only allow numbers and a single decimal point
-                const value = e.target.value;
-                if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                  onFundingGoalChange(value);
-                }
-              }}
-              className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
-              style={{ appearance: "textfield" }}
-            />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col gap-1">
-              <button
-                type="button"
-                className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
-                onClick={() => {
-                  const currentValue = parseFloat(fundingGoal);
-                  if (!isNaN(currentValue)) {
-                    onFundingGoalChange((currentValue + 1).toString());
-                  } else {
-                    onFundingGoalChange("1");
-                  }
-                }}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M18 15L12 9L6 15"
-                    stroke="white"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
-                onClick={() => {
-                  const currentValue = parseFloat(fundingGoal);
-                  if (!isNaN(currentValue) && currentValue > 0) {
-                    onFundingGoalChange((currentValue - 1).toString());
-                  }
-                }}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M6 9L12 15L18 9"
-                    stroke="white"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Cap Toggle */}
-      <div className="flex items-center">
-        <label className="flex items-center cursor-pointer">
-          <div className="relative">
-            <input
-              type="checkbox"
-              className="sr-only"
-              checked={hasCap}
-              onChange={(e) => handleCapToggle(e.target.checked)}
-            />
-            <div
-              className={`w-10 h-6 rounded-full shadow-inner transition-colors ${
-                hasCap ? "bg-[#836EF9]" : "bg-gray-600"
-              }`}
-            ></div>
-            <div
-              className={`absolute w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                hasCap ? "translate-x-4" : "translate-x-1"
-              } top-1`}
-            ></div>
-          </div>
-          <span className="ml-3 text-white">Enable Cap</span>
+        <label className="block text-sm font-medium text-gray-400 mb-2">
+          Funding Mode
         </label>
+        <div className="flex gap-2 mb-3">
+          <button
+            type="button"
+            className={`flex-1 px-4 py-2 rounded-lg ${
+              hasCap
+                ? "bg-[#836EF9] text-white"
+                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
+            } transition-colors`}
+            onClick={() => handleFundingModeChange(true)}
+          >
+            Capped
+          </button>
+          <button
+            type="button"
+            className={`flex-1 px-4 py-2 rounded-lg ${
+              !hasCap
+                ? "bg-[#836EF9] text-white"
+                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
+            } transition-colors`}
+            onClick={() => handleFundingModeChange(false)}
+          >
+            Uncapped
+          </button>
+        </div>
+        {hasCap ? (
+          <p className="text-sm text-gray-400 mt-2">
+            The pool will stop accepting contributions once the funding cap is
+            reached.
+          </p>
+        ) : (
+          <p className="text-sm text-gray-400 mt-2">
+            The pool will continue accepting contributions beyond the funding
+            goal.
+          </p>
+        )}
       </div>
 
-      {/* Cap Amount Input (only shown if cap is enabled) */}
+      {/* Funding Goal Input - shown for both modes */}
+      <div>
+        <USDCInput
+          value={fundingGoal}
+          onChange={(value) => {
+            if (value === "" || /^\d*\.?\d*$/.test(value)) {
+              onFundingGoalChange(value);
+
+              // If in capped mode and goal is greater than cap, update cap
+              if (hasCap) {
+                const newGoal = parseFloat(value);
+                const currentCap = parseFloat(capAmount);
+                if (
+                  !isNaN(newGoal) &&
+                  !isNaN(currentCap) &&
+                  newGoal > currentCap
+                ) {
+                  onCapAmountChange((newGoal * 1.2).toString());
+                }
+              }
+            }
+          }}
+          placeholder="Funding Goal"
+          rightElements={createIncrementalButtons(
+            fundingGoal,
+            onFundingGoalChange,
+            MINIMUM_FUNDING_GOAL
+          )}
+        />
+        {fundingGoalError && (
+          <p className="text-xs text-red-500 mt-1">{fundingGoalError}</p>
+        )}
+        <p className="text-sm text-gray-400 mt-2">
+          The minimum amount needed for the funding to be considered successful.
+        </p>
+      </div>
+
+      {/* Funding Cap Input - only shown for capped mode */}
       {hasCap && (
         <div>
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-              <Image
-                src="/images/usdc-logo.svg"
-                alt="USDC"
-                width={24}
-                height={24}
-              />
-            </div>
-            <input
-              type="text"
-              inputMode="decimal"
-              pattern="[0-9]*\.?[0-9]*"
-              placeholder="Funding Cap"
-              value={capAmount}
-              onChange={(e) => {
-                // Only allow numbers and a single decimal point
-                const value = e.target.value;
-                if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                  onCapAmountChange(value);
-                }
-              }}
-              className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
-              style={{ appearance: "textfield" }}
-            />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col gap-1">
-              <button
-                type="button"
-                className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
-                onClick={() => {
-                  const currentValue = parseFloat(capAmount);
-                  if (!isNaN(currentValue)) {
-                    onCapAmountChange((currentValue + 1).toString());
-                  } else {
-                    onCapAmountChange("1");
-                  }
-                }}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M18 15L12 9L6 15"
-                    stroke="white"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className="w-6 h-6 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-md flex items-center justify-center focus:outline-none transition-colors"
-                onClick={() => {
-                  const currentValue = parseFloat(capAmount);
-                  const goalValue = parseFloat(fundingGoal || "");
-                  if (
-                    !isNaN(currentValue) &&
-                    (!goalValue || currentValue >= goalValue)
-                  ) {
-                    onCapAmountChange((currentValue - 1).toString());
-                  }
-                }}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M6 9L12 15L18 9"
-                    stroke="white"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
+          <USDCInput
+            value={capAmount}
+            onChange={(value) => {
+              if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                onCapAmountChange(value);
+              }
+            }}
+            placeholder="Funding Cap"
+            rightElements={createIncrementalButtons(
+              capAmount,
+              onCapAmountChange,
+              Math.max(
+                parseFloat(fundingGoal) || MINIMUM_FUNDING_GOAL,
+                MINIMUM_FUNDING_GOAL
+              )
+            )}
+          />
+          {capAmountError && (
+            <p className="text-xs text-red-500 mt-1">{capAmountError}</p>
+          )}
           <p className="text-sm text-gray-400 mt-2">
-            Cap amount must be greater than or equal to the funding goal. To
-            disable the cap completely, toggle off "Enable Cap" above.
+            The maximum amount of funding that can be collected. Must be greater
+            than or equal to the funding goal.
           </p>
         </div>
       )}

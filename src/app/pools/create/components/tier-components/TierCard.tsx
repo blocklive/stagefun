@@ -8,12 +8,20 @@ import { TierImageUploader } from "./TierImageUploader";
 import { TierDetailsForm } from "./TierDetailsForm";
 import { TierRewardsList } from "./TierRewardsList";
 import RichTextEditor from "@/app/components/RichTextEditor";
+import {
+  getTierPriceDisplay,
+  getMaxPatronsDisplay,
+} from "@/lib/utils/contractValues";
 
 interface TierCardProps {
   tier: Tier;
   index: number;
   onRemoveTier: (id: string) => void;
-  onUpdateTier: (tierId: string, field: keyof Tier, value: any) => void;
+  onUpdateTier: (
+    tierId: string,
+    fieldOrFields: keyof Tier | Partial<Tier>,
+    value?: any
+  ) => void;
   onSetCurrentTierId: (id: string) => void;
   onAddRewardImage: (
     imageUrl: string,
@@ -30,11 +38,12 @@ interface TierCardProps {
   onUpdateReward: (
     tierId: string,
     rewardId: string,
-    field: keyof Reward,
+    field: keyof RewardItem,
     value: string
   ) => void;
   disabled?: boolean;
   capAmount?: string;
+  fundingGoal?: string;
 }
 
 export const TierCard: React.FC<TierCardProps> = ({
@@ -54,6 +63,7 @@ export const TierCard: React.FC<TierCardProps> = ({
   onUpdateReward,
   disabled = false,
   capAmount = "0",
+  fundingGoal = "0.1",
 }) => {
   // Handler for image upload start
   const handleUploadStart = (tierId: string) => {
@@ -90,9 +100,9 @@ export const TierCard: React.FC<TierCardProps> = ({
         </button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6 w-full">
+      <div className="flex flex-col md:flex-row gap-6 w-full items-stretch">
         {/* Left side - Tier image */}
-        <div className="order-first md:order-first md:w-80">
+        <div className="order-first md:order-first flex-shrink-0">
           <TierImageUploader
             id={tier.id}
             imageUrl={tier.imageUrl}
@@ -111,6 +121,7 @@ export const TierCard: React.FC<TierCardProps> = ({
             tier={tier}
             onUpdateTier={onUpdateTier}
             capAmount={capAmount}
+            fundingGoal={fundingGoal}
           />
         </div>
       </div>

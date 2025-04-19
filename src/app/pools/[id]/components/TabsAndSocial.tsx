@@ -55,6 +55,8 @@ export default function TabsAndSocial({
   );
 
   const updateCount = updateData?.updates?.length || 0;
+  // Format patron count display
+  const patronCountDisplay = patronCount !== undefined ? patronCount : 0;
 
   return (
     <>
@@ -86,7 +88,7 @@ export default function TabsAndSocial({
                   activeTab === "patrons" ? "text-black/70" : "text-gray-400"
                 }`}
               >
-                {patronCount}
+                {patronCountDisplay}
               </span>
             </button>
             <button

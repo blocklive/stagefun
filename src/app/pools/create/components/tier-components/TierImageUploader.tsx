@@ -87,7 +87,7 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
   };
 
   return (
-    <div className="w-full md:w-[280px] h-[280px]">
+    <div className="w-[300px] h-[300px]">
       <div className="relative w-full h-full rounded-lg overflow-hidden bg-[#FFFFFF14] group">
         {imageUrl ? (
           <Image
@@ -99,7 +99,7 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-center p-4">
-            <div className="text-2xl font-bold text-[#836EF9] opacity-50">
+            <div className="text-3xl font-bold text-[#836EF9] opacity-50">
               UPLOAD IMAGE
             </div>
           </div>

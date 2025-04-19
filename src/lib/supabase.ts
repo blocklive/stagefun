@@ -32,13 +32,27 @@ export type Pool = {
   image_url?: string;
   target_amount: number;
   cap_amount: number;
-  end_date: string;
+  ends_at: string;
   currency: string;
   creator_id: string;
   creator?: User;
   status: string;
+  blockchain_status?: string;
   location?: string;
   social_links?: Record<string, string>;
+  raised_amount?: number;
+  contract_address?: string;
+  lp_token_address?: string;
+  funding_stage?: string;
+  venue?: string;
+  min_commitment?: number;
+  ticker?: string;
+  blockchain_tx_hash?: string;
+  blockchain_block_number?: number;
+  blockchain_network?: string;
+  blockchain_explorer_url?: string;
+  display_public?: boolean;
+  featured?: number;
   tiers?: {
     id: string;
     name: string;
