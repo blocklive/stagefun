@@ -304,10 +304,10 @@ export async function POST(request: NextRequest) {
         }
 
         // For max_price, ensure it's a value the database can handle
-        let maxPrice = tier.isVariablePrice ? tier.maxPrice : null;
+        const maxPrice = tier.isVariablePrice ? tier.maxPrice : null;
 
         // For maxPatrons, ensure it's a value the database can handle
-        let maxPatrons = tier.maxPatrons;
+        const maxPatrons = tier.maxPatrons;
 
         return {
           pool_id: insertedPool.id,

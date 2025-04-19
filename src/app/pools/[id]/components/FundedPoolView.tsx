@@ -12,6 +12,7 @@ import {
   getPoolStatusFromNumber,
 } from "../../../../lib/contracts/types";
 import { useMemo } from "react";
+import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 
 type TabType = "overview" | "patrons";
 
@@ -52,6 +53,9 @@ export default function FundedPoolView({
   // Get cap amount display for UI
   const displayCapAmount = useMemo(() => {
     if (!pool.cap_amount) return "";
+
+    // If cap amount matches MAX_SAFE_VALUE, it's uncapped
+    if (String(pool.cap_amount) === MAX_SAFE_VALUE) return "Unlimited";
 
     // If cap amount is in base units (typically large numbers like 1000000 for $1M)
     try {
@@ -140,7 +144,9 @@ export default function FundedPoolView({
             {!isExecuting && (
               <div className="text-sm text-gray-400 mt-1">
                 Commitments are{" "}
-                {!pool.cap_amount || pool.cap_amount === 0
+                {!pool.cap_amount ||
+                pool.cap_amount === 0 ||
+                String(pool.cap_amount) === MAX_SAFE_VALUE
                   ? "uncapped"
                   : `capped at $${displayCapAmount}`}{" "}
                 and accepted until{" "}
