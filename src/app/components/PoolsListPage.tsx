@@ -3,16 +3,21 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "../../contexts/SupabaseContext";
-import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
+import {
+  usePoolsWithDeposits,
+  PoolTypeFilter,
+} from "../../hooks/usePoolsWithDeposits";
 import PoolsListGrid from "./pools/PoolsListGrid";
 
 type TabType = "open" | "funded" | "unfunded";
 
 export default function PoolsListPage() {
   const router = useRouter();
+  const { dbUser } = useSupabase();
   const [activeTab, setActiveTab] = useState<TabType>("open");
   const [page, setPage] = useState(1);
   const [allPools, setAllPools] = useState<any[]>([]);
+  const [poolType, setPoolType] = useState<PoolTypeFilter>("all");
 
   // Update active tab when URL changes
   useEffect(() => {
@@ -24,6 +29,12 @@ export default function PoolsListPage() {
         // Reset page and pools when tab changes
         setPage(1);
         setAllPools([]);
+      }
+
+      // Also get poolType from URL if present
+      const type = params.get("type") as PoolTypeFilter;
+      if (type && ["all", "my"].includes(type)) {
+        setPoolType(type);
       }
     };
 
@@ -60,6 +71,23 @@ export default function PoolsListPage() {
     }
   };
 
+  // Handle pool type change
+  const handlePoolTypeChange = (type: PoolTypeFilter) => {
+    if (type !== poolType) {
+      setPoolType(type);
+      setPage(1);
+      setAllPools([]);
+
+      // Update URL with the new type
+      const searchParams = new URLSearchParams(window.location.search);
+      searchParams.set("type", type);
+      router.replace(`?${searchParams.toString()}`, { scroll: false });
+
+      // Force refresh to ensure new data is loaded
+      refresh();
+    }
+  };
+
   const {
     pools,
     isLoading: loading,
@@ -68,7 +96,7 @@ export default function PoolsListPage() {
     refresh,
     hasMore,
     loadMore,
-  } = usePoolsWithDeposits(page, activeTab);
+  } = usePoolsWithDeposits(page, activeTab, dbUser?.id, poolType);
 
   // Track whether we're in initial loading state with no pools
   const [initialLoading, setInitialLoading] = useState(true);
@@ -129,6 +157,8 @@ export default function PoolsListPage() {
           onTabChange={handleTabChange}
           onLoadMore={handleLoadMore}
           hasMore={hasMore}
+          poolType={poolType}
+          onPoolTypeChange={handlePoolTypeChange}
         />
       </div>
 
