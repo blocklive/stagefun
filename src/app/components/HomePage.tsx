@@ -8,6 +8,7 @@ import { useFeaturedPools } from "../../hooks/useFeaturedPools";
 import {
   usePoolsWithDepositsHomePage,
   TabType,
+  PoolTypeFilter,
 } from "../../hooks/usePoolsWithDepositsHomePage";
 import FeaturedRoundsCarousel from "./FeaturedRoundsCarousel";
 import PoolsList from "./PoolsList";
@@ -20,6 +21,7 @@ export default function HomePage() {
   const router = useRouter();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState<TabType>("open");
+  const [poolType, setPoolType] = useState<PoolTypeFilter>("all");
 
   // Use our custom hook
   const {
@@ -29,7 +31,12 @@ export default function HomePage() {
     isDbError,
     refresh,
     fetchPoolsForTab,
-  } = usePoolsWithDepositsHomePage("open", MAX_ITEMS_PER_TAB, dbUser?.id);
+  } = usePoolsWithDepositsHomePage(
+    "open",
+    MAX_ITEMS_PER_TAB,
+    dbUser?.id,
+    "all"
+  );
 
   // Update active tab when URL changes
   useEffect(() => {
@@ -38,7 +45,7 @@ export default function HomePage() {
       const tab = params.get("tab") as TabType;
       if (tab && ["open", "funded"].includes(tab)) {
         setActiveTab(tab);
-        fetchPoolsForTab(tab);
+        fetchPoolsForTab(tab, poolType);
       }
     };
 
@@ -51,14 +58,14 @@ export default function HomePage() {
     return () => {
       window.removeEventListener("popstate", handleUrlChange);
     };
-  }, [fetchPoolsForTab]);
+  }, [fetchPoolsForTab, poolType]);
 
   // Handle tab change
   const handleTabChange = (tab: TabType) => {
     // Only handle open and funded tabs
     if (tab === "open" || tab === "funded") {
       setActiveTab(tab);
-      fetchPoolsForTab(tab);
+      fetchPoolsForTab(tab, poolType);
 
       // Update URL without adding to history and prevent scrolling
       const url = new URL(window.location.href);
@@ -69,13 +76,18 @@ export default function HomePage() {
     }
   };
 
+  // Handle pool type change
+  const handlePoolTypeChange = (newPoolType: PoolTypeFilter) => {
+    setPoolType(newPoolType);
+    fetchPoolsForTab(activeTab, newPoolType);
+  };
+
   const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
-  const [poolType, setPoolType] = useState("all"); // "all" or "my"
 
   const { featuredPools, isLoading: featuredLoading } = useFeaturedPools();
 
@@ -125,20 +137,8 @@ export default function HomePage() {
     fetchJoinedPools();
   }, [dbUser]);
 
-  // Replace the custom filtering section with a simpler version
-  // that only filters by pool type (all or my)
-  const filteredPools =
-    allPools?.filter((pool) => {
-      // Only filter by pool type (all or my)
-      if (poolType === "my" && pool.creator_id !== dbUser?.id) {
-        return false;
-      }
-
-      return true;
-    }) || [];
-
   // Sort pools
-  const sortedPools = [...filteredPools];
+  const sortedPools = [...allPools];
 
   if (sortBy === "recent") {
     sortedPools.sort((a, b) => {
@@ -173,6 +173,8 @@ export default function HomePage() {
         refresh={refresh}
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        poolType={poolType}
+        onPoolTypeChange={handlePoolTypeChange}
       />
     </div>
   );

@@ -72,10 +72,18 @@ export const STATUS_MAP: Record<string, string[]> = {
   inactive: ["INACTIVE"],
 };
 
+// Define pool type
+export type PoolTypeFilter = "all" | "my";
+
+// Define sort type
+export type PoolSortOption = "recent" | "amount" | "alphabetical" | "volume";
+
 export function usePoolsWithDeposits(
   page: number = 1,
   status?: string,
-  creatorId?: string | null
+  creatorId?: string | null,
+  poolType: PoolTypeFilter = "all",
+  sortBy: PoolSortOption = "recent"
 ) {
   const [currentPage, setCurrentPage] = useState(page);
   const [hasMore, setHasMore] = useState(true);
@@ -99,7 +107,7 @@ export function usePoolsWithDeposits(
     isLoading,
     mutate: refreshPools,
   } = useSWR(
-    ["db-pools", currentPage, status, creatorId],
+    ["db-pools", currentPage, status, creatorId, poolType, sortBy],
     async () => {
       try {
         setIsDbError(false);
@@ -120,26 +128,42 @@ export function usePoolsWithDeposits(
           )
           .eq("display_public", true);
 
-        // If creatorId is provided, filter by creator_id directly in the query
-        if (creatorId) {
+        // If we're showing "my" pools, use the current user's ID to filter
+        // Only apply when poolType is "my" and we have a creatorId
+        if (poolType === "my" && creatorId) {
           poolQuery = poolQuery.eq("creator_id", creatorId);
+        }
+        // If creatorId is provided and poolType is "all", don't apply creatorId filter
+        // This way when filtering by "all" pools, we don't restrict to creator's pools
+
+        // Apply sorting based on the sortBy parameter
+        if (sortBy === "recent") {
+          poolQuery = poolQuery.order("created_at", { ascending: false });
+        } else if (sortBy === "amount") {
+          poolQuery = poolQuery.order("target_amount", { ascending: false });
+        } else if (sortBy === "alphabetical") {
+          poolQuery = poolQuery.order("name", { ascending: true });
+        } else if (sortBy === "volume") {
+          // For volume, we need to sort by raised_amount which we calculate later
+          // We'll keep the created_at sorting here for consistent results
+          poolQuery = poolQuery.order("created_at", { ascending: false });
         }
 
         // For unfunded tab, don't apply the range limit initially to ensure we find results
         // This helps if unfunded pools are older and would be pushed to later pages
         if (status && status.toLowerCase() === "unfunded") {
-          poolQuery = poolQuery.order("created_at", { ascending: false });
-        } else {
-          // Add pagination and ordering to main query
-          // Only apply pagination if no creatorId is specified or if creatorId is specified but we're not fetching all
-          if (!creatorId) {
-            poolQuery = poolQuery
-              .order("created_at", { ascending: false })
-              .range(from, to);
-          } else {
-            // For creator-specific queries, still sort but don't limit results
+          // Keep only the sorting specific to unfunded if not already set
+          if (
+            sortBy !== "recent" &&
+            sortBy !== "amount" &&
+            sortBy !== "alphabetical" &&
+            sortBy !== "volume"
+          ) {
             poolQuery = poolQuery.order("created_at", { ascending: false });
           }
+        } else {
+          // Add pagination to main query (sorting already applied above)
+          poolQuery = poolQuery.range(from, to);
         }
 
         // Get the pools data

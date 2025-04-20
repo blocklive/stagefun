@@ -7,8 +7,10 @@ import Image from "next/image";
 import UserAvatar from "./UserAvatar";
 import { formatAmount } from "../../lib/utils";
 import { useRouter } from "next/navigation";
-
-type TabType = "open" | "funded";
+import {
+  TabType,
+  PoolTypeFilter,
+} from "../../hooks/usePoolsWithDepositsHomePage";
 
 type OnChainPool = {
   id: string;
@@ -37,6 +39,8 @@ interface PoolsListProps {
   refresh: () => void;
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
+  poolType: PoolTypeFilter;
+  onPoolTypeChange: (poolType: PoolTypeFilter) => void;
 }
 
 export default function PoolsList({
@@ -48,6 +52,8 @@ export default function PoolsList({
   refresh,
   activeTab,
   onTabChange,
+  poolType,
+  onPoolTypeChange,
 }: PoolsListProps) {
   const router = useRouter();
 
@@ -56,7 +62,6 @@ export default function PoolsList({
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
-  const [poolType, setPoolType] = useState("all"); // "all" or "my"
 
   // Handle clicks outside the dropdowns
   useEffect(() => {
@@ -81,19 +86,8 @@ export default function PoolsList({
     };
   }, []);
 
-  // Replace the custom filtering section with a simpler version
-  // that only filters by pool type (all or my)
-  const filteredPools =
-    pools?.filter((pool) => {
-      // Only filter by pool type (all or my)
-      if (poolType === "my" && pool.creator_id !== dbUser?.id) {
-        return false;
-      }
-      return true;
-    }) || [];
-
   // Sort pools
-  const sortedPools = [...filteredPools];
+  const sortedPools = [...pools];
 
   if (sortBy === "recent") {
     sortedPools.sort((a: OnChainPool, b: OnChainPool) => {
@@ -162,8 +156,8 @@ export default function PoolsList({
   };
 
   // Handle type selection
-  const handleTypeSelect = (typeOption: string) => {
-    setPoolType(typeOption);
+  const handleTypeSelect = (typeOption: PoolTypeFilter) => {
+    onPoolTypeChange(typeOption);
     setShowTypeDropdown(false);
   };
 

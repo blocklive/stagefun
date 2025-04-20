@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { FaChevronDown } from "react-icons/fa";
 import { getPoolsByPatron } from "../../../lib/services/patron-service";
@@ -9,6 +9,11 @@ import Image from "next/image";
 import UserAvatar from "../UserAvatar";
 import { formatAmount } from "../../../lib/utils";
 import { useSupabase } from "../../../contexts/SupabaseContext";
+import {
+  PoolTypeFilter,
+  PoolSortOption,
+} from "../../../hooks/usePoolsWithDeposits";
+import { useInView } from "react-intersection-observer";
 
 // Define a type for the pools returned by usePoolsWithDeposits
 type OnChainPool = {
@@ -27,19 +32,24 @@ type OnChainPool = {
   image_url: string | null;
   description: string;
   creator_id: string;
+  cap_amount: number;
 };
 
-type PoolsListGridProps = {
+interface PoolsListGridProps {
   pools: OnChainPool[];
-  activeTab: "open" | "funded" | "unfunded";
+  activeTab: string;
   loading: boolean;
-  error: any;
+  error: boolean;
   isDbError: boolean;
   refresh: () => void;
-  onTabChange: (tab: "open" | "funded" | "unfunded") => void;
+  onTabChange: (tabName: string) => void;
   onLoadMore: () => void;
   hasMore: boolean;
-};
+  poolType: PoolTypeFilter;
+  onPoolTypeChange: (type: PoolTypeFilter) => void;
+  sortBy: PoolSortOption;
+  onSortChange: (sort: PoolSortOption) => void;
+}
 
 export default function PoolsListGrid({
   pools,
@@ -51,55 +61,48 @@ export default function PoolsListGrid({
   onTabChange,
   onLoadMore,
   hasMore,
+  poolType,
+  onPoolTypeChange,
+  sortBy,
+  onSortChange,
 }: PoolsListGridProps) {
   const { dbUser } = useSupabase();
   const router = useRouter();
   const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
-  const [poolType, setPoolType] = useState("all"); // "all" or "my"
 
   // Set up observer for infinite scroll
-  const observer = useRef<IntersectionObserver | null>(null);
-  const lastPoolElementRef = useCallback(
-    (node: HTMLElement | null) => {
-      if (loading) return;
-      if (observer.current) observer.current.disconnect();
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMore) {
-          onLoadMore();
-        }
-      });
-      if (node) observer.current.observe(node);
-    },
-    [loading, hasMore, onLoadMore, activeTab]
-  );
+  const { ref, inView } = useInView({
+    threshold: 0,
+  });
 
-  // Handle clicks outside the dropdowns
+  // Call onLoadMore when bottom is reached
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    if (inView && hasMore) {
+      onLoadMore();
+    }
+  }, [inView, hasMore, onLoadMore]);
+
+  // Handle clicks outside the sort dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
       if (
-        sortDropdownRef.current &&
-        !sortDropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowSortDropdown(false);
-      }
-      if (
+        event.target &&
         typeDropdownRef.current &&
         !typeDropdownRef.current.contains(event.target as Node)
       ) {
         setShowTypeDropdown(false);
       }
-    }
+    };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [dbUser]);
 
   // Fetch joined pools when user changes
   useEffect(() => {
@@ -113,49 +116,50 @@ export default function PoolsListGrid({
     fetchJoinedPools();
   }, [dbUser]);
 
-  // Replace the custom filtering section with a simpler version
-  // that only filters by pool type (all or my)
-  const filteredPools =
-    pools?.filter((pool) => {
-      // Only filter by pool type (all or my)
-      if (poolType === "my" && pool.creator_id !== dbUser?.id) {
-        return false;
-      }
+  // The pools are already sorted by the backend query
+  // No need to re-sort them on the client side
+  const sortedPools = pools;
 
-      return true;
-    }) || [];
+  const formatPercentage = (raised: number, target: number): number => {
+    if (target === 0) return 0;
+    const percentage = (raised / target) * 100;
+    return Math.min(100, Math.round(percentage));
+  };
 
-  // Sort pools
-  const sortedPools = [...filteredPools];
+  const formatPercentageString = (raised: number, target: number): string => {
+    if (target === 0) return "0%";
+    const percentage = (raised / target) * 100;
+    return `${Math.min(100, Math.round(percentage))}%`;
+  };
 
-  if (sortBy === "recent") {
-    sortedPools.sort((a: OnChainPool, b: OnChainPool) => {
-      // Use the created_at field from Supabase for accurate sorting
-      const dateA = new Date(a.created_at || "").getTime();
-      const dateB = new Date(b.created_at || "").getTime();
-      return dateB - dateA; // Sort in descending order (newest first)
-    });
-  } else if (sortBy === "amount") {
-    sortedPools.sort(
-      (a: OnChainPool, b: OnChainPool) => b.raised_amount - a.raised_amount
-    );
-  } else if (sortBy === "alphabetical") {
-    sortedPools.sort((a: OnChainPool, b: OnChainPool) =>
-      a.name.localeCompare(b.name)
-    );
-  } else if (sortBy === "volume") {
-    sortedPools.sort(
-      (a: OnChainPool, b: OnChainPool) => b.raised_amount - a.raised_amount
-    );
-  }
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = date.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  // Calculate percentage complete for each pool
-  const getPercentComplete = (pool: OnChainPool) => {
-    if (!pool.target_amount) return 0;
-    return Math.min(
-      100,
-      Math.round((pool.raised_amount / pool.target_amount) * 100)
-    );
+    if (diffDays <= 0) {
+      return "Ended";
+    } else if (diffDays === 1) {
+      return "1 day left";
+    } else {
+      return `${diffDays} days left`;
+    }
+  };
+
+  // Handle retry click
+  const handleRetryClick = useCallback(() => {
+    refresh();
+  }, [refresh]);
+
+  // Toggle sort dropdown
+  const toggleSortDropdown = () => {
+    setShowSortDropdown(!showSortDropdown);
+  };
+
+  // Toggle type dropdown
+  const toggleTypeDropdown = () => {
+    setShowTypeDropdown(!showTypeDropdown);
   };
 
   // Get pool status indicator
@@ -173,12 +177,49 @@ export default function PoolsListGrid({
       return <span className="text-yellow-400">• Paused</span>;
     }
 
+    // Check if the pool has ended - this takes priority
+    const now = new Date();
+    const endDate = new Date(pool.ends_at);
+    const hasEnded = now > endDate;
+
+    // Format the date as MM/DD/YYYY for display
+    const formattedDate = `${
+      endDate.getMonth() + 1
+    }/${endDate.getDate()}/${endDate.getFullYear()}`;
+
+    // Special handling for any pool that is past its end date
+    if (hasEnded) {
+      // Message for pools past their end date
+      return (
+        <span className="text-gray-400">
+          • Commitments no longer accepted after {formattedDate}
+        </span>
+      );
+    }
+
+    // Special handling for active/funded pools that have a cap and are before end date
+    if (
+      (pool.status === "ACTIVE" ||
+        pool.status === "FUNDED" ||
+        pool.status === "FULLY_FUNDED" ||
+        pool.status === "EXECUTING") &&
+      pool.cap_amount > 0
+    ) {
+      // Display cap message for active pools
+      return (
+        <span className="text-gray-400">
+          • Commitments are capped at ${pool.cap_amount} and accepted until{" "}
+          {formattedDate}
+        </span>
+      );
+    }
+
     return null;
   };
 
   // Handle sort selection
-  const handleSortSelect = (sortOption: string) => {
-    setSortBy(sortOption);
+  const handleSortSelect = (sortOption: PoolSortOption) => {
+    onSortChange(sortOption);
     setShowSortDropdown(false);
   };
 
@@ -199,8 +240,8 @@ export default function PoolsListGrid({
   };
 
   // Handle type selection
-  const handleTypeSelect = (typeOption: string) => {
-    setPoolType(typeOption);
+  const handleTypeSelect = (typeOption: PoolTypeFilter) => {
+    onPoolTypeChange(typeOption);
     setShowTypeDropdown(false);
   };
 
@@ -295,7 +336,7 @@ export default function PoolsListGrid({
           <div className="relative" ref={typeDropdownRef}>
             <button
               className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
-              onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+              onClick={toggleTypeDropdown}
             >
               {getTypeText()} <FaChevronDown className="text-xs ml-1" />
             </button>
@@ -326,7 +367,7 @@ export default function PoolsListGrid({
           <div className="relative" ref={sortDropdownRef}>
             <button
               className="flex items-center gap-2 text-white bg-transparent py-2 text-sm"
-              onClick={() => setShowSortDropdown(!showSortDropdown)}
+              onClick={toggleSortDropdown}
             >
               Sort by: {getSortByText()}{" "}
               <FaChevronDown className="text-xs ml-1" />
@@ -405,7 +446,7 @@ export default function PoolsListGrid({
           <div className="p-8 text-center text-red-400">
             <p>Error loading pools. Please try again later.</p>
             <button
-              onClick={() => refresh()}
+              onClick={handleRetryClick}
               className="mt-4 px-4 py-2 rounded-lg hover:bg-opacity-80 transition-colors"
               style={{ backgroundColor: "#836EF9" }}
             >
@@ -417,9 +458,7 @@ export default function PoolsListGrid({
             {sortedPools.map((pool: OnChainPool, index: number) => (
               <li
                 key={pool.id}
-                ref={
-                  sortedPools.length === index + 1 ? lastPoolElementRef : null
-                }
+                ref={sortedPools.length === index + 1 ? ref : null}
                 className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
                 onClick={() => handlePoolClick(pool.id)}
               >
@@ -479,7 +518,10 @@ export default function PoolsListGrid({
                           </div>
                         </div>
                         <CircularProgress
-                          progress={getPercentComplete(pool)}
+                          progress={formatPercentage(
+                            pool.raised_amount,
+                            pool.target_amount
+                          )}
                           size={48}
                         />
                       </>

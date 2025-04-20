@@ -3,16 +3,23 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "../../contexts/SupabaseContext";
-import { usePoolsWithDeposits } from "../../hooks/usePoolsWithDeposits";
+import {
+  usePoolsWithDeposits,
+  PoolTypeFilter,
+  PoolSortOption,
+} from "../../hooks/usePoolsWithDeposits";
 import PoolsListGrid from "./pools/PoolsListGrid";
 
 type TabType = "open" | "funded" | "unfunded";
 
 export default function PoolsListPage() {
   const router = useRouter();
+  const { dbUser } = useSupabase();
   const [activeTab, setActiveTab] = useState<TabType>("open");
   const [page, setPage] = useState(1);
   const [allPools, setAllPools] = useState<any[]>([]);
+  const [poolType, setPoolType] = useState<PoolTypeFilter>("all");
+  const [sortBy, setSortBy] = useState<PoolSortOption>("recent");
 
   // Update active tab when URL changes
   useEffect(() => {
@@ -24,6 +31,21 @@ export default function PoolsListPage() {
         // Reset page and pools when tab changes
         setPage(1);
         setAllPools([]);
+      }
+
+      // Also get poolType from URL if present
+      const type = params.get("type") as PoolTypeFilter;
+      if (type && ["all", "my"].includes(type)) {
+        setPoolType(type);
+      }
+
+      // Get sortBy from URL if present
+      const sort = params.get("sort") as PoolSortOption;
+      if (
+        sort &&
+        ["recent", "amount", "alphabetical", "volume"].includes(sort)
+      ) {
+        setSortBy(sort);
       }
     };
 
@@ -60,6 +82,40 @@ export default function PoolsListPage() {
     }
   };
 
+  // Handle pool type change
+  const handlePoolTypeChange = (type: PoolTypeFilter) => {
+    if (type !== poolType) {
+      setPoolType(type);
+      setPage(1);
+      setAllPools([]);
+
+      // Update URL with the new type
+      const searchParams = new URLSearchParams(window.location.search);
+      searchParams.set("type", type);
+      router.replace(`?${searchParams.toString()}`, { scroll: false });
+
+      // Force refresh to ensure new data is loaded
+      refresh();
+    }
+  };
+
+  // Handle sort change
+  const handleSortChange = (sort: PoolSortOption) => {
+    if (sort !== sortBy) {
+      setSortBy(sort);
+      setPage(1);
+      setAllPools([]);
+
+      // Update URL with the new sort
+      const searchParams = new URLSearchParams(window.location.search);
+      searchParams.set("sort", sort);
+      router.replace(`?${searchParams.toString()}`, { scroll: false });
+
+      // Force refresh to ensure new data is loaded
+      refresh();
+    }
+  };
+
   const {
     pools,
     isLoading: loading,
@@ -68,7 +124,7 @@ export default function PoolsListPage() {
     refresh,
     hasMore,
     loadMore,
-  } = usePoolsWithDeposits(page, activeTab);
+  } = usePoolsWithDeposits(page, activeTab, dbUser?.id, poolType, sortBy);
 
   // Track whether we're in initial loading state with no pools
   const [initialLoading, setInitialLoading] = useState(true);
@@ -126,9 +182,18 @@ export default function PoolsListPage() {
           error={error}
           isDbError={isDbError}
           refresh={refresh}
-          onTabChange={handleTabChange}
+          onTabChange={(tabName: string) => {
+            // Validate and convert tabName to TabType
+            if (["open", "funded", "unfunded"].includes(tabName)) {
+              handleTabChange(tabName as TabType);
+            }
+          }}
           onLoadMore={handleLoadMore}
           hasMore={hasMore}
+          poolType={poolType}
+          onPoolTypeChange={handlePoolTypeChange}
+          sortBy={sortBy}
+          onSortChange={handleSortChange}
         />
       </div>
 
