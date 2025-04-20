@@ -38,13 +38,20 @@ export interface PoolDetailsV2 {
   mutate: () => void;
 }
 
-const fetcher = async (poolId: string) => {
-  // First get the pool with its contract address
-  const { data: poolData, error: poolError } = await supabase
-    .from("pools")
-    .select("*, contract_address")
-    .eq("id", poolId)
-    .single();
+// Fetcher that can work with either id or slug
+const fetcher = async (params: { id?: string; slug?: string }) => {
+  // Get the pool by either ID or slug
+  let query = supabase.from("pools").select("*, contract_address");
+
+  if (params.id) {
+    query = query.eq("id", params.id);
+  } else if (params.slug) {
+    query = query.eq("slug", params.slug);
+  } else {
+    throw new Error("Either id or slug must be provided");
+  }
+
+  const { data: poolData, error: poolError } = await query.single();
 
   if (poolError) throw poolError;
 
@@ -120,7 +127,7 @@ const fetcher = async (poolId: string) => {
       };
     }) || [];
 
-  // Get the pool with all its related data
+  // Get the pool with all its related data using the pool's ID
   const { data, error } = await supabase
     .from("pools")
     .select(
@@ -146,7 +153,7 @@ const fetcher = async (poolId: string) => {
       )
     `
     )
-    .eq("id", poolId)
+    .eq("id", poolData.id)
     .single();
 
   if (error) throw error;
@@ -211,10 +218,23 @@ const fetcher = async (poolId: string) => {
   return finalData;
 };
 
-export function usePoolDetailsV2(poolId: string): PoolDetailsV2 {
+// For backward compatibility - accepts either a pool ID string directly or params object
+export function usePoolDetailsV2(
+  poolIdentifier: string | { id?: string; slug?: string }
+): PoolDetailsV2 {
+  // Handle the case where we're passed a string (existing usage) or an object (new usage)
+  const params =
+    typeof poolIdentifier === "string"
+      ? { id: poolIdentifier }
+      : poolIdentifier;
+
+  const cacheKey = params.id
+    ? `pool-details-v2-id-${params.id}`
+    : `pool-details-v2-slug-${params.slug}`;
+
   const { data, error, mutate } = useSWR(
-    poolId ? `pool-details-v2-${poolId}` : null,
-    () => fetcher(poolId),
+    params.id || params.slug ? cacheKey : null,
+    () => fetcher(params),
     {
       refreshInterval: 5000, // Refresh every 5 seconds
       revalidateOnFocus: true,

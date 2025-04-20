@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, getSupabaseAdmin } from "@/lib/auth/server";
+import { supabase } from "@/lib/supabase";
+import { validateSlug } from "@/lib/utils/slugValidation";
 
 // Define expected request body structure
 interface UpdatePoolRequestBody {
@@ -11,6 +13,7 @@ interface UpdatePoolRequestBody {
     location?: string;
     social_links?: any;
     image_url?: string | null;
+    slug?: string;
     // Add other fields that can be updated here
   };
 }
@@ -46,29 +49,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get admin client for database operations
-    const adminClient = getSupabaseAdmin();
-
-    // 3. Verify the user is authorized to update this pool
-    const { data: pool, error: verifyError } = await adminClient
+    // Get the pool to check ownership
+    const { data: pool, error: poolError } = await supabase
       .from("pools")
-      .select("id, creator_id")
+      .select("*")
       .eq("id", poolId)
       .single();
 
-    if (verifyError || !pool) {
-      return NextResponse.json({ error: "Pool not found" }, { status: 404 });
+    if (poolError) {
+      return NextResponse.json(
+        { error: "Failed to get pool data" },
+        { status: 500 }
+      );
     }
 
-    if (pool.creator_id !== userId) {
+    // Verify ownership
+    if (pool.creator_id !== authResult.userId) {
       return NextResponse.json(
         { error: "You don't have permission to update this pool" },
         { status: 403 }
       );
     }
 
+    // Validate slug if provided
+    if (updates.slug) {
+      const validation = validateSlug(updates.slug);
+      if (!validation.isValid) {
+        return NextResponse.json(
+          { error: validation.reason || "Invalid slug format" },
+          { status: 400 }
+        );
+      }
+
+      // Check if slug is already in use (skip if it's the current pool's slug)
+      if (updates.slug !== (pool as any).slug) {
+        const { data: existingPool, error: slugCheckError } = await supabase
+          .from("pools")
+          .select("id")
+          .eq("slug", updates.slug)
+          .not("id", "eq", poolId)
+          .single();
+
+        if (existingPool) {
+          return NextResponse.json(
+            { error: "This URL is already taken. Please choose another." },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // 4. Apply the updates
-    const { data: updatedPool, error: updateError } = await adminClient
+    const { data: updatedPool, error: updateError } = await supabase
       .from("pools")
       .update(updates)
       .eq("id", poolId)

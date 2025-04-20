@@ -4,48 +4,48 @@ import { useParams } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
-import { useSupabase } from "../../../contexts/SupabaseContext";
-import { useSmartWalletBalance } from "../../../hooks/useSmartWalletBalance";
-import { usePoolDetailsV2 } from "../../../hooks/usePoolDetailsV2";
-import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
-import { useSmartWallet } from "../../../hooks/useSmartWallet";
-import { User } from "../../../lib/supabase";
-import { Pool, Tier } from "../../../lib/types";
-import { DBTier } from "../../../hooks/usePoolTiers";
-import { scrollToTop } from "../../../utils/scrollHelper";
-import { getUserById } from "../../../lib/services/user-service";
+import { useSupabase } from "../../contexts/SupabaseContext";
+import { useSmartWalletBalance } from "../../hooks/useSmartWalletBalance";
+import { usePoolDetailsV2 } from "../../hooks/usePoolDetailsV2";
+import { usePoolTimeLeft } from "../../hooks/usePoolTimeLeft";
+import { useSmartWallet } from "../../hooks/useSmartWallet";
+import { User } from "../../lib/supabase";
+import { Pool, Tier } from "../../lib/types";
+import { DBTier } from "../../hooks/usePoolTiers";
+import { scrollToTop } from "../../utils/scrollHelper";
+import { getUserById } from "../../lib/services/user-service";
 import {
   getDisplayStatus,
   getPoolEffectiveStatus,
-} from "../../../lib/contracts/types";
-import { useClaimRefund } from "../../../hooks/useClaimRefund";
-import showToast from "../../../utils/toast";
+} from "../../lib/contracts/types";
+import { useClaimRefund } from "../../hooks/useClaimRefund";
+import showToast from "../../utils/toast";
 
 // Import components
-import PoolHeader from "./components/PoolHeader";
-import OpenPoolView from "./components/OpenPoolView";
-import FundedPoolView from "./components/FundedPoolView";
-import TokenSection from "./components/TokenSection";
-import OrganizerSection from "./components/OrganizerSection";
-import UserCommitment from "./components/UserCommitment";
-import PatronsTab from "./components/PatronsTab";
-import PoolFundsSection from "./components/PoolFundsSection";
-import GetTokensModal from "../../components/GetTokensModal";
-import PoolDescription from "./components/PoolDescription";
-import UnfundedPoolView from "./components/UnfundedPoolView";
-import PoolLocation from "./components/PoolLocation";
-import FixedBottomBar from "./components/FixedBottomBar";
-import InfoModal from "../../components/InfoModal";
-import AppHeader from "../../components/AppHeader";
-import TiersSection from "./components/TiersSection";
-import CommitmentBanner from "./components/CommitmentBanner";
-import UpdatesList from "./components/pool-updates/UpdatesList";
+import PoolHeader from "../pools/[id]/components/PoolHeader";
+import OpenPoolView from "../pools/[id]/components/OpenPoolView";
+import FundedPoolView from "../pools/[id]/components/FundedPoolView";
+import TokenSection from "../pools/[id]/components/TokenSection";
+import OrganizerSection from "../pools/[id]/components/OrganizerSection";
+import UserCommitment from "../pools/[id]/components/UserCommitment";
+import PatronsTab from "../pools/[id]/components/PatronsTab";
+import PoolFundsSection from "../pools/[id]/components/PoolFundsSection";
+import GetTokensModal from "../components/GetTokensModal";
+import PoolDescription from "../pools/[id]/components/PoolDescription";
+import UnfundedPoolView from "../pools/[id]/components/UnfundedPoolView";
+import PoolLocation from "../pools/[id]/components/PoolLocation";
+import FixedBottomBar from "../pools/[id]/components/FixedBottomBar";
+import InfoModal from "../components/InfoModal";
+import AppHeader from "../components/AppHeader";
+import TiersSection from "../pools/[id]/components/TiersSection";
+import CommitmentBanner from "../pools/[id]/components/CommitmentBanner";
+import UpdatesList from "../pools/[id]/components/pool-updates/UpdatesList";
 
 // Define TabType to match TabsAndSocial.tsx
 type TabType = "overview" | "patrons" | "updates";
 
 export default function PoolDetailsPage() {
-  const { id } = useParams() as { id: string };
+  const { slug } = useParams() as { slug: string };
   const { user: privyUser, authenticated } = usePrivy();
   const router = useRouter();
   const { dbUser } = useSupabase();
@@ -60,14 +60,17 @@ export default function PoolDetailsPage() {
   const [isCommitModalOpen, setIsCommitModalOpen] = useState(false);
   const [commitAmount, setCommitAmount] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
-  const [showTokensModal, setShowTokensModal] = useState(false);
-  const [showInfoModal, setShowInfoModal] = useState(false);
   const [showShake, setShowShake] = useState(false);
   const [patronCount, setPatronCount] = useState<number | undefined>(undefined);
   const [creatorData, setCreatorData] = useState<User | null>(null);
 
-  // Fetch pool data using our new hook
-  const { pool: rawPool, isLoading, error, mutate } = usePoolDetailsV2({ id });
+  // Fetch pool data using the slug
+  const {
+    pool: rawPool,
+    isLoading,
+    error,
+    mutate,
+  } = usePoolDetailsV2({ slug });
 
   // Cast pool to include required properties
   const pool = rawPool as Pool & {
@@ -124,9 +127,10 @@ export default function PoolDetailsPage() {
   // Determine if user is creator
   const isCreator = dbUser?.id === (pool?.creator?.id || pool?.creator_id);
 
-  // Handle edit click
+  // Handle edit click - navigate to edit page using pool ID
   const handleEditClick = () => {
     if (pool) {
+      // Ensure we use the pool's actual ID for the edit route
       router.push(`/pools/edit/${pool.id}`);
     }
   };
@@ -390,7 +394,7 @@ export default function PoolDetailsPage() {
                 <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
                   <h3 className="text-xl font-semibold mb-4">Updates</h3>
                   <UpdatesList
-                    poolId={id}
+                    poolId={pool?.id ?? ""}
                     isCreator={isCreator}
                     userId={dbUser?.id}
                   />
@@ -436,17 +440,6 @@ export default function PoolDetailsPage() {
             commitButtonText="Commit"
           />
         )} */}
-
-        <GetTokensModal
-          isOpen={showTokensModal}
-          onClose={() => setShowTokensModal(false)}
-          isAuthenticated={authenticated}
-        />
-
-        <InfoModal
-          isOpen={showInfoModal}
-          onClose={() => setShowInfoModal(false)}
-        />
       </div>
     </>
   );

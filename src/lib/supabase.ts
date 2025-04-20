@@ -53,6 +53,7 @@ export type Pool = {
   blockchain_explorer_url?: string;
   display_public?: boolean;
   featured?: number;
+  slug?: string;
   tiers?: {
     id: string;
     name: string;

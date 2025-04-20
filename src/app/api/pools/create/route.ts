@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createPool } from "@/lib/services/pool-service";
 import { REWARD_TYPES } from "@/lib/constants/strings";
 import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
+import { customAlphabet } from "nanoid";
 
 // Environment variables for Supabase Admin access
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -241,7 +242,13 @@ export async function POST(request: NextRequest) {
 
     const adminClient = getSupabaseAdmin();
 
-    // 3. Prepare Pool Data for DB Insertion (with blockchain info)
+    // Generate a unique 8-character alphanumeric slug
+    const alphabet =
+      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    const nanoid = customAlphabet(alphabet, 8);
+    const slug = nanoid();
+
+    // 3. Prepare Pool Data for DB Insertion (with blockchain info and slug)
     const poolDataForInsertion = {
       id: poolData.id,
       name: poolData.name,
@@ -249,41 +256,41 @@ export async function POST(request: NextRequest) {
       description: poolData.description,
       target_amount: poolData.target_amount,
       cap_amount: poolData.cap_amount || poolData.target_amount,
-      currency: poolData.currency || "USDC",
-      token_symbol: poolData.token_symbol || "USDC",
+      currency: poolData.currency,
+      token_symbol: poolData.token_symbol,
       location: poolData.location,
       venue: poolData.venue,
       status: poolData.status || "ACTIVE",
       funding_stage: poolData.funding_stage || "ACTIVE",
       ends_at: new Date(endTimeUnix * 1000).toISOString(),
-      creator_id: userId, // Use authenticated user ID instead of poolData.creator_id
+      creator_id: userId, // Ensure creator_id is the authenticated user
       raised_amount: poolData.raised_amount || 0,
-      image_url: poolData.image_url,
-      social_links: poolData.social_links,
-      // Add blockchain details
-      blockchain_tx_hash: blockchainResult.transactionHash,
-      blockchain_status: "active",
+      image_url: poolData.image_url || null,
+      social_links: poolData.social_links || {},
+      // Blockchain details
       contract_address: blockchainResult.poolAddress,
       lp_token_address: blockchainResult.lpTokenAddress,
+      blockchain_tx_hash: blockchainResult.transactionHash,
+      blockchain_status: "active",
+      slug: slug, // Add the generated slug
     };
 
-    console.log("Inserting pool into database:", poolDataForInsertion.id);
-
-    // 4. Insert Pool
-    const { data: insertedPool, error: poolError } = await adminClient
+    // 4. Create Pool in DB
+    console.log("Attempting to insert pool data:", poolDataForInsertion);
+    const { data: createdPool, error: createPoolError } = await adminClient
       .from("pools")
       .insert(poolDataForInsertion)
       .select()
       .single();
 
-    if (poolError) {
-      console.error("Error inserting pool:", poolError);
+    if (createPoolError) {
+      console.error("Error inserting pool:", createPoolError);
       return NextResponse.json(
-        { error: `Database error creating pool: ${poolError.message}` },
+        { error: `Database error creating pool: ${createPoolError.message}` },
         { status: 500 }
       );
     }
-    console.log("Successfully inserted pool:", insertedPool.id);
+    console.log("Successfully inserted pool:", createdPool.id);
 
     // 5. Insert Tiers
     let insertedTiers: any[] = [];
@@ -310,7 +317,7 @@ export async function POST(request: NextRequest) {
         const maxPatrons = tier.maxPatrons;
 
         return {
-          pool_id: insertedPool.id,
+          pool_id: createdPool.id,
           name: tier.name,
           description: tier.description || `${tier.name} tier`,
           price: tier.isVariablePrice ? 0 : tier.price,
@@ -367,7 +374,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: "Pool created successfully",
-      data: insertedPool,
+      data: createdPool,
     });
   } catch (error: any) {
     console.error("Unhandled error in /api/pools/create:", error);

@@ -51,4 +51,17 @@ export interface Pool {
   tiers?: (Tier & {})[];
   raised_amount?: number;
   contract_address?: string;
+  lp_token_address?: string;
+  funding_stage?: string;
+  venue?: string;
+  min_commitment?: number;
+  ticker?: string;
+  blockchain_tx_hash?: string;
+  blockchain_block_number?: number;
+  blockchain_status?: string;
+  blockchain_network?: string;
+  blockchain_explorer_url?: string;
+  display_public?: boolean;
+  featured?: number;
+  slug?: string;
 }
