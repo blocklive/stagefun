@@ -6,6 +6,7 @@ import { useSupabase } from "../../contexts/SupabaseContext";
 import {
   usePoolsWithDeposits,
   PoolTypeFilter,
+  PoolSortOption,
 } from "../../hooks/usePoolsWithDeposits";
 import PoolsListGrid from "./pools/PoolsListGrid";
 
@@ -18,6 +19,7 @@ export default function PoolsListPage() {
   const [page, setPage] = useState(1);
   const [allPools, setAllPools] = useState<any[]>([]);
   const [poolType, setPoolType] = useState<PoolTypeFilter>("all");
+  const [sortBy, setSortBy] = useState<PoolSortOption>("recent");
 
   // Update active tab when URL changes
   useEffect(() => {
@@ -35,6 +37,15 @@ export default function PoolsListPage() {
       const type = params.get("type") as PoolTypeFilter;
       if (type && ["all", "my"].includes(type)) {
         setPoolType(type);
+      }
+
+      // Get sortBy from URL if present
+      const sort = params.get("sort") as PoolSortOption;
+      if (
+        sort &&
+        ["recent", "amount", "alphabetical", "volume"].includes(sort)
+      ) {
+        setSortBy(sort);
       }
     };
 
@@ -88,6 +99,23 @@ export default function PoolsListPage() {
     }
   };
 
+  // Handle sort change
+  const handleSortChange = (sort: PoolSortOption) => {
+    if (sort !== sortBy) {
+      setSortBy(sort);
+      setPage(1);
+      setAllPools([]);
+
+      // Update URL with the new sort
+      const searchParams = new URLSearchParams(window.location.search);
+      searchParams.set("sort", sort);
+      router.replace(`?${searchParams.toString()}`, { scroll: false });
+
+      // Force refresh to ensure new data is loaded
+      refresh();
+    }
+  };
+
   const {
     pools,
     isLoading: loading,
@@ -96,7 +124,7 @@ export default function PoolsListPage() {
     refresh,
     hasMore,
     loadMore,
-  } = usePoolsWithDeposits(page, activeTab, dbUser?.id, poolType);
+  } = usePoolsWithDeposits(page, activeTab, dbUser?.id, poolType, sortBy);
 
   // Track whether we're in initial loading state with no pools
   const [initialLoading, setInitialLoading] = useState(true);
@@ -154,11 +182,18 @@ export default function PoolsListPage() {
           error={error}
           isDbError={isDbError}
           refresh={refresh}
-          onTabChange={handleTabChange}
+          onTabChange={(tabName: string) => {
+            // Validate and convert tabName to TabType
+            if (["open", "funded", "unfunded"].includes(tabName)) {
+              handleTabChange(tabName as TabType);
+            }
+          }}
           onLoadMore={handleLoadMore}
           hasMore={hasMore}
           poolType={poolType}
           onPoolTypeChange={handlePoolTypeChange}
+          sortBy={sortBy}
+          onSortChange={handleSortChange}
         />
       </div>
 

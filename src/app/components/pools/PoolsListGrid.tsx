@@ -9,7 +9,10 @@ import Image from "next/image";
 import UserAvatar from "../UserAvatar";
 import { formatAmount } from "../../../lib/utils";
 import { useSupabase } from "../../../contexts/SupabaseContext";
-import { PoolTypeFilter } from "../../../hooks/usePoolsWithDeposits";
+import {
+  PoolTypeFilter,
+  PoolSortOption,
+} from "../../../hooks/usePoolsWithDeposits";
 import { useInView } from "react-intersection-observer";
 
 // Define a type for the pools returned by usePoolsWithDeposits
@@ -44,6 +47,8 @@ interface PoolsListGridProps {
   hasMore: boolean;
   poolType: PoolTypeFilter;
   onPoolTypeChange: (type: PoolTypeFilter) => void;
+  sortBy: PoolSortOption;
+  onSortChange: (sort: PoolSortOption) => void;
 }
 
 export default function PoolsListGrid({
@@ -58,11 +63,12 @@ export default function PoolsListGrid({
   hasMore,
   poolType,
   onPoolTypeChange,
+  sortBy,
+  onSortChange,
 }: PoolsListGridProps) {
   const { dbUser } = useSupabase();
   const router = useRouter();
   const [joinedPoolIds, setJoinedPoolIds] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState("recent");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
@@ -110,20 +116,9 @@ export default function PoolsListGrid({
     fetchJoinedPools();
   }, [dbUser]);
 
-  // Sort pools - directly sort, no need to filter locally since filtering is done server-side
-  const sortedPools = [...pools];
-
-  if (sortBy === "recent") {
-    sortedPools.sort(
-      (a, b) => new Date(b.ends_at).getTime() - new Date(a.ends_at).getTime()
-    );
-  } else if (sortBy === "amount") {
-    sortedPools.sort((a, b) => b.target_amount - a.target_amount);
-  } else if (sortBy === "alphabetical") {
-    sortedPools.sort((a, b) => a.name.localeCompare(b.name));
-  } else if (sortBy === "volume") {
-    sortedPools.sort((a, b) => b.raised_amount - a.raised_amount);
-  }
+  // The pools are already sorted by the backend query
+  // No need to re-sort them on the client side
+  const sortedPools = pools;
 
   const formatPercentage = (raised: number, target: number): number => {
     if (target === 0) return 0;
@@ -223,8 +218,8 @@ export default function PoolsListGrid({
   };
 
   // Handle sort selection
-  const handleSortSelect = (sortOption: string) => {
-    setSortBy(sortOption);
+  const handleSortSelect = (sortOption: PoolSortOption) => {
+    onSortChange(sortOption);
     setShowSortDropdown(false);
   };
 
