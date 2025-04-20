@@ -28,6 +28,7 @@ type OnChainPool = {
   image_url: string | null;
   description: string;
   creator_id: string;
+  slug?: string;
 };
 
 interface PoolsListProps {
@@ -198,8 +199,13 @@ export default function PoolsList({
   );
 
   // Handle pool click
-  const handlePoolClick = (poolId: string) => {
-    router.push(`/pools/${poolId}?from_tab=${activeTab}`, { scroll: false });
+  const handlePoolClick = (pool: OnChainPool) => {
+    // Use slug-based route if available, otherwise fall back to ID-based route
+    if (pool.slug) {
+      router.push(`/${pool.slug}?from_tab=${activeTab}`, { scroll: false });
+    } else {
+      router.push(`/pools/${pool.id}?from_tab=${activeTab}`, { scroll: false });
+    }
   };
 
   return (
@@ -356,7 +362,7 @@ export default function PoolsList({
               <li
                 key={pool.id}
                 className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
-                onClick={() => handlePoolClick(pool.id)}
+                onClick={() => handlePoolClick(pool)}
               >
                 <div className="flex items-center gap-3">
                   {/* Pool Image */}

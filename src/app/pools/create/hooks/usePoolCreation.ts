@@ -312,8 +312,12 @@ export const usePoolCreation = () => {
       );
 
       if (result.success) {
-        // Replace current history entry with the new pool details
-        router.replace(`/pools/${result.data.id}`);
+        // Navigate to the slug-based route if available, otherwise fallback to ID
+        if (result.data?.slug) {
+          router.replace(`/${result.data.slug}`);
+        } else {
+          router.replace(`/pools/${result.data.id}`);
+        }
       } else {
         setError(result.error || "Failed to create pool");
         showToast.error(result.error || "Failed to create pool");

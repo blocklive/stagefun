@@ -33,6 +33,7 @@ type OnChainPool = {
   description: string;
   creator_id: string;
   cap_amount: number;
+  slug?: string;
 };
 
 interface PoolsListGridProps {
@@ -164,6 +165,11 @@ export default function PoolsListGrid({
 
   // Get pool status indicator
   const getPoolStatusIndicator = (pool: OnChainPool) => {
+    // Don't show any status indicators for unfunded pools tab
+    if (activeTab === "unfunded") {
+      return null;
+    }
+
     // Display indicator based on status string from database
     if (pool.status === "CLOSED" || pool.status === "CANCELLED") {
       return (
@@ -288,8 +294,13 @@ export default function PoolsListGrid({
   );
 
   // Update the pool click handler
-  const handlePoolClick = (poolId: string) => {
-    router.push(`/pools/${poolId}?from_tab=${activeTab}`, { scroll: false });
+  const handlePoolClick = (pool: OnChainPool) => {
+    // Use slug-based route if available, otherwise fall back to ID-based route
+    if (pool.slug) {
+      router.push(`/${pool.slug}?from_tab=${activeTab}`, { scroll: false });
+    } else {
+      router.push(`/pools/${pool.id}?from_tab=${activeTab}`, { scroll: false });
+    }
   };
 
   return (
@@ -460,7 +471,7 @@ export default function PoolsListGrid({
                 key={pool.id}
                 ref={sortedPools.length === index + 1 ? ref : null}
                 className="p-4 bg-[#FFFFFF0A] rounded-xl cursor-pointer hover:bg-[#2A2640] transition-colors"
-                onClick={() => handlePoolClick(pool.id)}
+                onClick={() => handlePoolClick(pool)}
               >
                 <div className="flex items-center gap-3">
                   {/* Pool Image */}

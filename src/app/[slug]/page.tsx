@@ -131,7 +131,9 @@ export default function PoolDetailsPage() {
   const handleEditClick = () => {
     if (pool) {
       // Ensure we use the pool's actual ID for the edit route
-      router.push(`/pools/edit/${pool.id}`);
+      // NOTE: We must use the ID-based route for the edit page
+      // since the edit form needs to load by ID
+      router.push(`/pools/edit/${pool.id}?slug=${pool.slug || ""}`);
     }
   };
 

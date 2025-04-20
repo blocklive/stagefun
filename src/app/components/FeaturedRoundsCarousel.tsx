@@ -99,8 +99,13 @@ export default function FeaturedRoundsCarousel({
     });
   };
 
-  const handlePoolClick = (poolId: string) => {
-    router.push(`/pools/${poolId}`);
+  const handlePoolClick = (pool: TransformedPool) => {
+    // Use slug-based route if available, otherwise fall back to ID
+    if (pool.slug) {
+      router.push(`/${pool.slug}`);
+    } else {
+      router.push(`/pools/${pool.id}`);
+    }
   };
 
   // Placeholder skeleton UI
@@ -211,7 +216,7 @@ export default function FeaturedRoundsCarousel({
                   scrollSnapAlign: "center",
                 }}
                 whileHover={{ scale: 1.05 }}
-                onClick={() => handlePoolClick(pool.id)}
+                onClick={() => handlePoolClick(pool)}
               >
                 <div className="rounded-lg overflow-hidden" style={{ opacity }}>
                   {/* Image */}
