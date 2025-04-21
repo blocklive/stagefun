@@ -39,6 +39,7 @@ export interface Pool {
   contract_address?: string; // Address of the deployed pool contract
   lp_token_address?: string;
   // Additional fields
+  slug?: string;
   revenue_accumulated?: number;
   patron_count?: number;
   patrons_number?: number;
@@ -48,6 +49,8 @@ export interface Pool {
   emergency_withdrawal_request_time?: number;
   authorized_withdrawer?: string;
   target_reached_time?: number;
+  display_public?: boolean;
+  featured?: number;
   // Social links
   social_links?: {
     website?: string;

@@ -130,6 +130,7 @@ export function useFeaturedPools() {
             description: pool.description || "",
             creator_id: pool.creator_id || "",
             featured: pool.featured || null,
+            slug: pool.slug || undefined,
           };
         });
 

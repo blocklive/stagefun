@@ -206,7 +206,14 @@ export default function PoolList({
             <div
               key={pool.id}
               className="bg-[#FFFFFF0A] rounded-xl overflow-hidden cursor-pointer hover:bg-[#2A2640] transition-colors p-4"
-              onClick={() => router.push(`/pools/${pool.id}`)}
+              onClick={() => {
+                // Use slug-based route if available, otherwise fall back to ID
+                if (pool.slug) {
+                  router.push(`/${pool.slug}`);
+                } else {
+                  router.push(`/pools/${pool.id}`);
+                }
+              }}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-start">

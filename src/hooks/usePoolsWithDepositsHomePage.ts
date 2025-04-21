@@ -41,6 +41,7 @@ export type OnChainPool = {
   image_url: string | null;
   description: string;
   creator_id: string;
+  slug?: string;
 };
 
 interface UsePoolsWithDepositsHomepageReturn {
@@ -175,6 +176,7 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
           image_url: pool.image_url || null,
           description: pool.description || "",
           creator_id: pool.creator_id || "",
+          slug: pool.slug || undefined,
         };
 
         // Apply the getDisplayStatus logic to get the actual current status
@@ -302,6 +304,7 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
         image_url: pool.image_url || null,
         description: pool.description || "",
         creator_id: pool.creator_id || "",
+        slug: pool.slug || undefined,
       };
 
       // Apply the getDisplayStatus logic to get the actual current status

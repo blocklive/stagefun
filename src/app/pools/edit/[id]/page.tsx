@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState,
+  ChangeEvent,
+  Dispatch,
+  SetStateAction,
+} from "react";
 import { useRouter, useParams } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { FaArrowLeft, FaMapMarkerAlt } from "react-icons/fa";
@@ -14,7 +20,7 @@ import {
 } from "react-icons/fa";
 import { useSupabase } from "../../../../contexts/SupabaseContext";
 import { useAuthenticatedSupabase } from "@/hooks/useAuthenticatedSupabase";
-import { Pool } from "@/lib/supabase";
+import { Pool } from "@/lib/types";
 import AppHeader from "../../../components/AppHeader";
 import GetTokensModal from "../../../components/GetTokensModal";
 import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
@@ -27,6 +33,7 @@ import SocialLinksInput, {
   SocialLinksType,
 } from "@/app/components/SocialLinksInput";
 import RichTextEditor from "@/app/components/RichTextEditor";
+import { validateSlug, formatSlug } from "@/lib/utils/slugValidation";
 
 export default function EditPoolPage() {
   const { user: privyUser, getAccessToken } = usePrivy();
@@ -39,13 +46,13 @@ export default function EditPoolPage() {
   } = useContractInteraction();
   const router = useRouter();
   const params = useParams();
-  const poolId = params.id as string;
+  const poolIdentifier = params.id as string;
 
   const {
     pool,
     isLoading: isPoolLoading,
     refresh: refreshPool,
-  } = usePoolDetails(poolId);
+  } = usePoolDetails(poolIdentifier);
 
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [poolName, setPoolName] = useState("");
@@ -53,6 +60,8 @@ export default function EditPoolPage() {
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [socialLinks, setSocialLinks] = useState<SocialLinksType>({});
+  const [slug, setSlug] = useState("");
+  const [slugError, setSlugError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -64,46 +73,27 @@ export default function EditPoolPage() {
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
     const updateHeight = () => {
-      // Use the window's inner height for a more accurate measurement
       setViewportHeight(`${window.innerHeight}px`);
     };
-
-    // Set initial height
     updateHeight();
-
-    // Update on resize
     window.addEventListener("resize", updateHeight);
-
-    // Clean up
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
   // Load pool data when available
   useEffect(() => {
     if (pool) {
-      // Only set these values if they are empty to avoid overwriting user edits
-      if (!poolName) {
-        setPoolName(pool.name);
-      }
-      if (!minCommitment) {
+      if (!poolName) setPoolName(pool.name);
+      if (!minCommitment)
         setMinCommitment(pool.min_commitment?.toString() || "");
-      }
-      // Always load the description from pool data on initial load
       setDescription(pool.description || "");
-      if (!location) {
-        setLocation(pool.location || "");
-      }
-      // Only set social links on first load
-      if (Object.keys(socialLinks).length === 0) {
+      if (!location) setLocation(pool.location || "");
+      if (Object.keys(socialLinks).length === 0)
         setSocialLinks(pool.social_links || {});
-      }
-
-      // Always set the image preview from the pool data if it exists
-      if (pool.image_url) {
-        setImagePreview(pool.image_url);
-      }
+      if (!slug) setSlug(pool.slug || "");
+      if (pool.image_url) setImagePreview(pool.image_url);
     }
-  }, [pool, poolId, poolName, minCommitment, location]); // Removed socialLinks from deps
+  }, [pool, poolIdentifier, poolName, minCommitment, location, slug]);
 
   // Add debug logging for description
   useEffect(() => {
@@ -123,6 +113,7 @@ export default function EditPoolPage() {
       setDescription(pool.description || "");
       setLocation(pool.location || "");
       setSocialLinks(pool.social_links || {});
+      setSlug(pool.slug || "");
       if (pool.image_url) {
         setImagePreview(pool.image_url);
       }
@@ -132,26 +123,20 @@ export default function EditPoolPage() {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Check if user is authenticated
       if (!dbUser || !supabase) {
         alert(
           "Please wait for authentication to complete before uploading images"
         );
         return;
       }
-
-      // Validate file type
       if (!file.type.startsWith("image/")) {
         alert("Please select an image file");
         return;
       }
-
-      // Validate file size (50MB limit)
       if (file.size > 50 * 1024 * 1024) {
         alert("Image size should be less than 50MB");
         return;
       }
-
       setSelectedImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -164,6 +149,27 @@ export default function EditPoolPage() {
   const handleRemoveImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
+  };
+
+  // Handle slug change with validation
+  const handleSlugChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const newSlug = formatSlug(e.target.value);
+    setSlug(newSlug);
+
+    // Clear any previous errors when editing
+    if (slugError) setSlugError(null);
+  };
+
+  // Validate slug when input loses focus
+  const validateSlugOnBlur = () => {
+    if (!slug) return; // Empty is valid
+
+    const validation = validateSlug(slug);
+    if (!validation.isValid) {
+      setSlugError(validation.reason || "Invalid slug");
+    } else {
+      setSlugError(null);
+    }
   };
 
   const handleSubmit = async (
@@ -181,16 +187,24 @@ export default function EditPoolPage() {
       return;
     }
 
-    // Check if user is the creator
     if (dbUser.id !== pool.creator_id) {
       showToast.error("You don't have permission to edit this pool");
       return;
     }
 
+    // Validate slug if present
+    if (slug) {
+      const validation = validateSlug(slug);
+      if (!validation.isValid) {
+        setSlugError(validation.reason || "Invalid slug");
+        showToast.error(validation.reason || "Invalid slug format");
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
 
-      // Upload image if selected
       let imageUrl = pool.image_url;
       if (selectedImage) {
         const uploadResult = await uploadPoolImage(
@@ -198,32 +212,27 @@ export default function EditPoolPage() {
           supabase!,
           setIsUploadingImage
         );
-
-        // Stop pool update if image upload failed
         if (!uploadResult?.imageUrl) {
           setIsSubmitting(false);
           return;
         }
-
         imageUrl = uploadResult.imageUrl;
       }
-
-      // If image was removed, set to null
       if (!imagePreview && !selectedImage) {
         imageUrl = null;
       }
 
-      // Create the update object
       const updates = {
-        name: pool.name,
-        min_commitment: pool.min_commitment,
+        name: poolName,
+        min_commitment: minCommitment ? parseFloat(minCommitment) : null,
         image_url: imageUrl,
         description: description,
         location: location,
         social_links:
           Object.keys(socialLinks).length > 0
-            ? JSON.parse(JSON.stringify(socialLinks)) // Ensure clean JSON object
+            ? JSON.parse(JSON.stringify(socialLinks))
             : null,
+        slug: slug || null,
       };
 
       console.log("Update data:", {
@@ -233,7 +242,6 @@ export default function EditPoolPage() {
         socialLinks,
       });
 
-      // Get Privy access token for authentication
       const token = await getAccessToken();
       if (!token) {
         showToast.error("Authentication error. Please try again.");
@@ -241,40 +249,37 @@ export default function EditPoolPage() {
         return;
       }
 
-      // Call the API to update the pool
       const response = await fetch("/api/pools/update", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          poolId: pool.id,
-          updates,
-        }),
+        body: JSON.stringify({ poolId: pool.id, updates }),
       });
 
       const result = await response.json();
-
       if (!response.ok) {
         showToast.error(result.error || "Failed to update pool");
         setIsSubmitting(false);
         return;
       }
 
-      // Success - show message and navigate back
       showToast.success("Pool updated successfully!");
+      await refreshPool();
 
-      // Force a refresh of the pool data in the SWR cache
-      refreshPool();
-
-      // Navigate back to pool details
-      router.push(`/pools/${pool.id}?refresh=true`);
+      const newSlug = updates.slug || pool.slug;
+      if (newSlug) {
+        router.push(`/${newSlug}`);
+      } else {
+        router.push(`/pools/${pool.id}`); // Fallback to ID route if no slug
+      }
     } catch (error) {
       console.error("Error updating pool:", error);
       showToast.error("An error occurred while updating the pool");
     } finally {
       setIsSubmitting(false);
+      setIsUploadingImage(false);
     }
   };
 
@@ -288,7 +293,8 @@ export default function EditPoolPage() {
   if (isPoolLoading || isClientLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        {" "}
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>{" "}
       </div>
     );
   }
@@ -296,12 +302,15 @@ export default function EditPoolPage() {
   if (!pool) {
     return (
       <div className="flex items-center justify-center min-h-screen">
+        {" "}
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Pool Not Found</h1>
+          {" "}
+          <h1 className="text-2xl font-bold mb-2">Pool Not Found</h1>{" "}
           <p className="text-gray-400">
-            The pool you're looking for doesn't exist.
-          </p>
-        </div>
+            {" "}
+            The pool identified by '{poolIdentifier}' could not be found.{" "}
+          </p>{" "}
+        </div>{" "}
       </div>
     );
   }
@@ -309,28 +318,27 @@ export default function EditPoolPage() {
   if (!isAuthorized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
+        {" "}
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Unauthorized</h1>
+          {" "}
+          <h1 className="text-2xl font-bold mb-2">Unauthorized</h1>{" "}
           <p className="text-gray-400">
-            You don't have permission to edit this pool.
-          </p>
-        </div>
+            {" "}
+            You don't have permission to edit this pool.{" "}
+          </p>{" "}
+        </div>{" "}
       </div>
     );
   }
 
   return (
     <>
-      {/* Main Content */}
       <div className="px-4 md:px-8 max-w-6xl mx-auto">
-        {/* Page Title */}
         <div className="mt-4">
           <h1 className="text-2xl font-bold">Edit Pool Details</h1>
         </div>
 
-        {/* Form */}
         <form id="editPoolForm" onSubmit={handleSubmit} className="mt-6">
-          {/* Pool Image */}
           <PoolImageUpload
             imagePreview={imagePreview}
             isUploadingImage={isUploadingImage}
@@ -339,8 +347,7 @@ export default function EditPoolPage() {
             placeholderText={poolName || "Edit Pool"}
           />
 
-          <div className="mt-8 space-y-6 pb-32 md:pb-24">
-            {/* Description */}
+          <div className="mt-8 space-y-6 pb-12 md:pb-8">
             <div>
               <h2 className="text-2xl font-bold mb-4">Description</h2>
               <RichTextEditor
@@ -350,7 +357,35 @@ export default function EditPoolPage() {
               />
             </div>
 
-            {/* Location */}
+            <div>
+              <h2 className="text-2xl font-bold mb-4">Public URL</h2>
+              <div className="flex items-center bg-[#FFFFFF14] rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-[#836EF9]">
+                <span className="px-4 py-4 text-gray-400 bg-gray-700 border-r border-gray-600">
+                  app.stage.fun/
+                </span>
+                <input
+                  id="poolSlug"
+                  type="text"
+                  value={slug}
+                  onChange={handleSlugChange}
+                  onBlur={validateSlugOnBlur}
+                  placeholder="your-unique-url"
+                  className={`w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none ${
+                    slugError ? "border-red-500" : ""
+                  }`}
+                  maxLength={32}
+                />
+              </div>
+              {slugError ? (
+                <p className="mt-2 text-sm text-red-500">{slugError}</p>
+              ) : (
+                <p className="mt-2 text-sm text-gray-500">
+                  Customize your pool's public link (letters, numbers, hyphens
+                  only). Minimum 3 characters.
+                </p>
+              )}
+            </div>
+
             <div>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
@@ -363,32 +398,39 @@ export default function EditPoolPage() {
                   placeholder="Location (Optional)"
                   name="location"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setLocation(e.target.value)
+                  }
                   className="w-full p-4 pl-16 bg-[#FFFFFF14] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#836EF9]"
                 />
               </div>
             </div>
 
-            {/* Social Links */}
             <div>
               <SocialLinksInput value={socialLinks} onChange={setSocialLinks} />
             </div>
           </div>
         </form>
 
-        {/* Update Button - Fixed at bottom on mobile, normal position on desktop */}
         <div className="fixed bottom-0 left-0 right-0 md:static md:mt-8 bg-[#15161a] z-10">
           <div className="px-4 py-6 md:p-0 max-w-6xl mx-auto">
             <button
-              onClick={handleSubmit}
+              type="submit"
+              form="editPoolForm"
               className="w-full py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isPoolLoading || !!slugError}
             >
               {isSubmitting ? "Updating..." : "Update Pool Details"}
             </button>
+            <div className="h-8 md:h-12"></div>
           </div>
         </div>
       </div>
+
+      <GetTokensModal
+        isOpen={showGetTokensModal}
+        onClose={() => setShowGetTokensModal(false)}
+      />
     </>
   );
 }

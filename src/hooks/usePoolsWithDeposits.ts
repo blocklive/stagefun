@@ -27,7 +27,7 @@ function fromUSDCBaseUnits(amount: number | string): number {
 }
 
 // Type for the transformed pool data
-export type TransformedPool = {
+export interface TransformedPool {
   id: string;
   contract_address: string;
   name: string;
@@ -43,11 +43,12 @@ export type TransformedPool = {
   image_url: string | null;
   description: string;
   creator_id: string;
+  slug?: string; // Optional slug for direct URL access
   lp_token_address?: string;
   // Additional fields for user pools
   user_commitment?: number;
   featured?: number | null;
-};
+}
 
 // Map from UI filter terms to database status strings
 export const STATUS_MAP: Record<string, string[]> = {
@@ -272,6 +273,7 @@ export function usePoolsWithDeposits(
             lp_token_address: pool.lp_token_address,
             user_commitment: pool.user_commitment,
             featured: pool.featured,
+            slug: pool.slug,
           };
         });
 
