@@ -264,45 +264,66 @@ export default function PatronsTab({
                 className="flex flex-col sm:flex-row justify-between sm:items-center py-3 border-b border-[#FFFFFF14] last:border-0 gap-3 sm:gap-0"
               >
                 <div className="flex items-center space-x-4">
-                  <UserAvatar
-                    avatarUrl={patron.user?.avatar_url}
-                    name={
-                      patron.user?.name || patron.user_address.substring(0, 6)
-                    }
-                    size={32}
-                  />
-                  <div>
-                    <div className="flex items-center">
-                      <p className="font-semibold">
-                        {patron.user?.name ||
-                          `${patron.user_address.substring(
-                            0,
-                            6
-                          )}...${patron.user_address.substring(38)}`}
-                      </p>
-                      {isCurrentUser && (
-                        <span className="text-blue-400 ml-2 text-sm">You</span>
-                      )}
+                  {patron.user?.name ? (
+                    <a
+                      href={`/user/${patron.user?.name
+                        ?.replace(/\s+/g, "")
+                        .toLowerCase()}`}
+                      className="flex items-center space-x-4 hover:opacity-80 transition-opacity"
+                    >
+                      <UserAvatar
+                        avatarUrl={patron.user?.avatar_url}
+                        name={
+                          patron.user?.name ||
+                          patron.user_address.substring(0, 6)
+                        }
+                        size={32}
+                      />
+                      <div>
+                        <div className="flex items-center">
+                          <p className="font-semibold">
+                            {patron.user?.name ||
+                              patron.user_address.substring(0, 6)}
+                          </p>
+                          {isCurrentUser && (
+                            <span className="text-blue-400 ml-2 text-sm">
+                              You
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </a>
+                  ) : (
+                    <div className="flex items-center space-x-4">
+                      <UserAvatar
+                        avatarUrl={patron.user?.avatar_url}
+                        name={patron.user_address.substring(0, 6)}
+                        size={32}
+                      />
+                      <div>
+                        <div className="flex items-center">
+                          <p className="font-semibold">
+                            {`${patron.user_address.substring(
+                              0,
+                              6
+                            )}...${patron.user_address.substring(38)}`}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-2 text-sm text-gray-400">
-                      <span>
-                        @
-                        {patron.user?.name?.replace(/\s+/g, "").toLowerCase() ||
-                          patron.user_address.substring(0, 6)}
-                      </span>
-                      <span>•</span>
-                      <span>{formatDate(patron.latest_committed_at)}</span>
-                      <span>•</span>
-                      <span className="text-purple-400">
-                        {patron.tiers
-                          .map((tier) =>
-                            tier.count > 1
-                              ? `${tier.count}×${tier.tierName}`
-                              : tier.tierName
-                          )
-                          .join(", ")}
-                      </span>
-                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-x-2 text-sm text-gray-400 ml-0 mt-0">
+                    <span>{formatDate(patron.latest_committed_at)}</span>
+                    <span>•</span>
+                    <span className="text-purple-400">
+                      {patron.tiers
+                        .map((tier) =>
+                          tier.count > 1
+                            ? `${tier.count}×${tier.tierName}`
+                            : tier.tierName
+                        )
+                        .join(", ")}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center ml-auto sm:ml-0">

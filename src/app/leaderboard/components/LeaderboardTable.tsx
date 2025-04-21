@@ -246,14 +246,34 @@ export default function LeaderboardTable({
 
               <TableCell>
                 <div className="flex items-center space-x-3">
-                  <UserAvatar
-                    name={user.name || "Anonymous"}
-                    avatarUrl={user.avatar_url || undefined}
-                    size={32}
-                  />
-                  <span className="font-medium truncate max-w-[150px]">
-                    {user.name || user.wallet}
-                  </span>
+                  {user.name ? (
+                    <a
+                      href={`/user/${user.name
+                        .replace(/\s+/g, "")
+                        .toLowerCase()}`}
+                      className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
+                    >
+                      <UserAvatar
+                        name={user.name || "Anonymous"}
+                        avatarUrl={user.avatar_url || undefined}
+                        size={32}
+                      />
+                      <span className="font-medium truncate max-w-[150px]">
+                        {user.name}
+                      </span>
+                    </a>
+                  ) : (
+                    <>
+                      <UserAvatar
+                        name="Anonymous"
+                        avatarUrl={user.avatar_url || undefined}
+                        size={32}
+                      />
+                      <span className="font-medium truncate max-w-[150px]">
+                        {user.wallet}
+                      </span>
+                    </>
+                  )}
                   {user.isCurrentUser && (
                     <span className="text-xs bg-[#FFFFFF20] px-2 py-0.5 rounded-full">
                       ⭐

@@ -349,13 +349,14 @@ export const usePoolsWithDepositsHomePage = (
     `pools|${activeTab}|${maxItems}|${userId || ""}|${poolTypeFilter}`,
     fetchPools,
     {
-      revalidateOnFocus: false,
+      revalidateOnFocus: true,
       revalidateOnReconnect: false,
       refreshWhenOffline: false,
       refreshWhenHidden: false,
-      revalidateIfStale: false,
+      revalidateIfStale: true,
       dedupingInterval: 10000, // Increase to prevent oscillations
       errorRetryCount: 3,
+      staleTime: 1000 * 60 * 5, // 5 minutes
     }
   );
 
