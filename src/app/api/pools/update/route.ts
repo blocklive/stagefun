@@ -36,7 +36,9 @@ export async function POST(request: NextRequest) {
     console.log(`Authenticated user ${userId} for pool update.`);
 
     // 2. Parse request body
-    const { poolId, updates }: UpdatePoolRequestBody = await request.json();
+    const requestBody: UpdatePoolRequestBody = await request.json();
+    const { poolId, updates } = requestBody;
+
     console.log("Received pool update request:", {
       poolId,
       updateFields: Object.keys(updates),
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (poolError) {
+      console.error("Error fetching pool for ownership check:", poolError);
       return NextResponse.json(
         { error: "Failed to get pool data" },
         { status: 500 }
@@ -99,8 +102,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4. Apply the updates
-    const { data: updatedPool, error: updateError } = await supabase
+    // 4. Apply the updates using admin client to bypass RLS policies
+    const adminSupabase = getSupabaseAdmin();
+
+    // Perform the update and get the updated pool
+    const { data: updatedPool, error: updateError } = await adminSupabase
       .from("pools")
       .update(updates)
       .eq("id", poolId)

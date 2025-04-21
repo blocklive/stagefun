@@ -242,9 +242,8 @@ export async function POST(request: NextRequest) {
 
     const adminClient = getSupabaseAdmin();
 
-    // Generate a unique 8-character alphanumeric slug
-    const alphabet =
-      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    // Generate a unique 8-character lowercase alphanumeric slug
+    const alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"; // Only lowercase and numbers
     const nanoid = customAlphabet(alphabet, 8);
     const slug = nanoid();
 
