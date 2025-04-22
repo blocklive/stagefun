@@ -14,14 +14,13 @@ import SocialLinksInput, {
 import RichTextEditor from "@/app/components/RichTextEditor";
 import { TiersSection } from "../../create/components/TiersSection";
 import { useTierManagement } from "@/hooks/useTierManagement";
-import { Tier as CreateTier } from "../../create/types";
-import { RewardItem } from "../../create/types";
+import { Tier, RewardItem } from "../../create/types";
 import { useEditPoolTiers } from "@/hooks/useEditPoolTiers";
 import SlugEditor from "./SlugEditor";
-import { usePoolImageUpload } from "@/hooks/usePoolImageUpload";
-import { usePoolDetailsEdit } from "@/hooks/usePoolDetailsEdit";
-import { usePoolSlugEdit } from "@/hooks/usePoolSlugEdit";
-import { usePoolEdit } from "@/hooks/usePoolEdit";
+import { usePoolEdit, PoolUpdateFields } from "@/hooks/usePoolEdit";
+import TierDisplayItem from "./TierDisplayItem";
+import EditTierModal from "./EditTierModal";
+import CreateTierModal from "./CreateTierModal";
 
 interface EditPoolFormProps {
   poolIdentifier: string;
@@ -31,8 +30,21 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
   const { dbUser } = useSupabase();
   const { supabase, isLoading: isClientLoading } = useAuthenticatedSupabase();
   const router = useRouter();
+  const { getAccessToken } = usePrivy();
   const [showGetTokensModal, setShowGetTokensModal] = useState(false);
   const [viewportHeight, setViewportHeight] = useState("100vh");
+
+  // Local state for form fields
+  const [description, setDescription] = useState<string>("");
+  const [location, setLocation] = useState<string>("");
+  const [socialLinks, setSocialLinks] = useState<SocialLinksType>({});
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [slug, setSlug] = useState<string>("");
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const [isEditTierModalOpen, setIsEditTierModalOpen] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
+  const [isCreateTierModalOpen, setIsCreateTierModalOpen] = useState(false);
 
   // Pool data
   const {
@@ -41,21 +53,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     refresh: refreshPool,
   } = usePoolDetails(poolIdentifier);
 
-  // Log pool data for debugging
-  console.log("Pool data loaded:", {
-    hasPool: !!pool,
-    isLoading: isPoolLoading,
-    description: pool?.description,
-    location: pool?.location,
-    social_links: pool?.social_links,
-  });
-
-  // Create wrapper functions for the mutate calls
-  const handleRefreshPool = useCallback(async () => {
-    await refreshPool();
-  }, [refreshPool]);
-
-  // Use the custom hook for tier data only when pool is available
+  // Use the custom hook for tier data
   const {
     tiers,
     availableRewardItems,
@@ -67,68 +65,18 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     supabase,
   });
 
-  const handleRefreshTiers = useCallback(async () => {
-    await refreshTiers();
-  }, [refreshTiers]);
-
-  // IMAGE UPLOAD SECTION - auto-save when image changes
-  const {
-    imagePreview,
-    isUploading: isUploadingImage,
-    handleImageSelect: handleImageUpload,
-    handleRemoveImage,
-  } = usePoolImageUpload({
+  // Use our simplified hook for all pool updates
+  const { updatePool, isUpdating, error, validateSlugField } = usePoolEdit({
     poolId: pool?.id || "",
-    currentImageUrl: pool?.image_url || null,
-    supabase,
-    onSuccess: handleRefreshPool,
-  });
-
-  // POOL DETAILS SECTION - description, location, socials
-  const {
-    description,
-    setDescription,
-    location,
-    setLocation,
-    socialLinks,
-    setSocialLinks,
-    isSubmitting: isSubmittingDetails,
-    handleSubmit: handleSubmitDetails,
-  } = usePoolDetailsEdit({
-    poolId: pool?.id || "",
-    initialDescription: pool?.description || "",
-    initialLocation: pool?.location || "",
-    initialSocialLinks: pool?.social_links || {},
-    onSuccess: handleRefreshPool,
-  });
-
-  // Log form data for debugging
-  console.log("Form data initialized with:", {
-    description,
-    location,
-    socialLinks,
-    imagePreview,
-  });
-
-  // SLUG SECTION - update public URL
-  const {
-    slug,
-    slugError,
-    setSlug,
-    isSubmitting: isSubmittingSlug,
-    handleSubmit: handleSubmitSlug,
-  } = usePoolSlugEdit({
-    poolId: pool?.id || "",
-    initialSlug: pool?.slug || null,
-    onSuccess: (newSlug) => {
+    onSuccess: () => {
       handleRefreshPool();
-      // Don't navigate automatically as it might disrupt the user's flow
+      handleRefreshTiers();
     },
   });
 
   // TIERS SECTION - we'll keep using the existing hook for now
   const {
-    isLoading: isTierUpdateLoading,
+    isLoading: isTierLoading,
     isUpdating: isTierUpdating,
     error: tierUpdateError,
     updateTier,
@@ -143,6 +91,64 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     },
   });
 
+  // Create wrapper functions for the mutate calls
+  const handleRefreshPool = useCallback(async () => {
+    await refreshPool();
+  }, [refreshPool]);
+
+  const handleRefreshTiers = useCallback(async () => {
+    await refreshTiers();
+  }, [refreshTiers]);
+
+  // Log pool data for debugging
+  useEffect(() => {
+    console.log("Pool data loaded:", {
+      hasPool: !!pool,
+      isLoading: isPoolLoading,
+      description: pool?.description,
+      location: pool?.location,
+      social_links: pool?.social_links,
+    });
+  }, [pool, isPoolLoading]);
+
+  // Sync pool data to local state when it changes
+  useEffect(() => {
+    if (pool) {
+      setDescription(pool.description || "");
+      setLocation(pool.location || "");
+      setSocialLinks(pool.social_links || {});
+      setImagePreview(pool.image_url || null);
+      setSlug(pool.slug || "");
+
+      console.log("Synced pool data to local state:", {
+        description: pool.description,
+        location: pool.location,
+        social_links: pool.social_links,
+        slug: pool.slug,
+      });
+    }
+  }, [pool]);
+
+  // Validate slug on change
+  useEffect(() => {
+    if (slug) {
+      const result = validateSlugField(slug);
+      setSlugError(result.isValid ? null : result.reason || "Invalid slug");
+    } else {
+      setSlugError(null);
+    }
+  }, [slug, validateSlugField]);
+
+  // Sync remote tier data to local state when it changes
+  useEffect(() => {
+    if (tiers && tiers.length > 0) {
+      console.log("Tiers from DB:", tiers);
+    }
+    if (availableRewardItems && availableRewardItems.length > 0) {
+      console.log("Reward items from DB:", availableRewardItems);
+    }
+  }, [tiers, availableRewardItems]);
+
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
     const updateHeight = () => {
@@ -153,23 +159,11 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
-  // Sync remote tier data to local state when it changes
-  useEffect(() => {
-    if (tiers && tiers.length > 0) {
-      console.log("Setting initial tiers from DB:", tiers);
-    }
-    if (availableRewardItems && availableRewardItems.length > 0) {
-      console.log(
-        "Setting initial reward items from DB:",
-        availableRewardItems
-      );
-    }
-  }, [tiers, availableRewardItems]);
-
-  // Handle tier changes from TiersSection
-  const handleTiersChange = useCallback((updatedTiers: CreateTier[]) => {
-    console.log("TiersSection updated tiers:", updatedTiers);
-  }, []);
+  // Handle opening the edit tier modal
+  const handleEditTier = (tier: Tier) => {
+    setSelectedTier(tier);
+    setIsEditTierModalOpen(true);
+  };
 
   // Add reward item handler (required by TiersSection)
   const handleAddRewardItem = (reward: Omit<RewardItem, "id">): RewardItem => {
@@ -182,14 +176,11 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
       id: tempId,
     };
 
-    // Add to available rewards list for immediate UI update
-    // setLocalRewardItems((prev) => [...prev, newReward]);
-
     // Return the new reward with temporary ID - actual creation will happen in the backend
     return newReward;
   };
 
-  // Convert file input event to direct file handling
+  // Handle image selection
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -199,11 +190,108 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
         );
         return;
       }
+
+      // Create a preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      // Set the file for upload
+      setImageFile(file);
+
+      // Upload the file immediately
       handleImageUpload(file);
     }
   };
 
-  console.log("Local tiers:", tiers);
+  // Handle image upload
+  const handleImageUpload = async (file: File) => {
+    showToast.loading("Uploading image...");
+
+    try {
+      // Get a signed URL for upload
+      const token = await getAccessToken();
+      if (!token) {
+        showToast.error("Authentication error");
+        return;
+      }
+
+      const getSignedUrlResponse = await fetch("/api/upload/get-signed-url", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentType: file.type,
+          poolId: pool?.id,
+        }),
+      });
+
+      if (!getSignedUrlResponse.ok) {
+        showToast.error("Failed to get upload URL");
+        return;
+      }
+
+      const { signedUrl, imageUrl: newImageUrl } =
+        await getSignedUrlResponse.json();
+
+      // Upload to the signed URL
+      const uploadResponse = await fetch(signedUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        showToast.error("Failed to upload image");
+        return;
+      }
+
+      // Update the pool with the new image URL
+      await updatePool({ image_url: newImageUrl }, "Updating image...");
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      showToast.error("Failed to upload image");
+    }
+  };
+
+  // Handle image removal
+  const handleRemoveImage = async () => {
+    await updatePool({ image_url: null }, "Removing image...");
+    setImageFile(null);
+    setImagePreview(null);
+  };
+
+  // Handle details submit
+  const handleSubmitDetails = async () => {
+    const updates: PoolUpdateFields = {
+      description,
+      location,
+      instagram: socialLinks.instagram,
+      twitter: socialLinks.twitter,
+      discord: socialLinks.discord,
+      website: socialLinks.website,
+    };
+
+    console.log("Submitting details update:", updates);
+    await updatePool(updates, "Updating pool details...");
+  };
+
+  // Handle slug submit
+  const handleSubmitSlug = async () => {
+    if (slugError) {
+      showToast.error(slugError);
+      return;
+    }
+
+    await updatePool({ slug }, "Updating public URL...");
+  };
 
   return (
     <>
@@ -243,7 +331,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                 <div className="w-full" style={{ maxWidth: "220px" }}>
                   <PoolImageUpload
                     imagePreview={imagePreview}
-                    isUploadingImage={isUploadingImage}
+                    isUploadingImage={isUpdating}
                     onImageSelect={handleImageSelect}
                     onRemoveImage={handleRemoveImage}
                     placeholderText={pool.name || "Edit Pool"}
@@ -296,9 +384,9 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                 type="button"
                 onClick={handleSubmitDetails}
                 className="py-3 px-8 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"
-                disabled={isSubmittingDetails}
+                disabled={isUpdating}
               >
-                {isSubmittingDetails ? "Saving..." : "Save Details"}
+                {isUpdating ? "Saving..." : "Save Details"}
               </button>
             </div>
 
@@ -314,9 +402,9 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                   type="button"
                   onClick={handleSubmitSlug}
                   className="py-3 px-6 min-w-[100px] whitespace-nowrap bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"
-                  disabled={isSubmittingSlug || !!slugError}
+                  disabled={isUpdating || !!slugError}
                 >
-                  {isSubmittingSlug ? "Updating..." : "Update"}
+                  {isUpdating ? "Updating..." : "Update"}
                 </button>
               </div>
             </div>
@@ -325,24 +413,42 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
 
             {/* TIERS SECTION */}
             <div className="mt-8 pb-16">
-              <h2 className="text-2xl font-bold mb-6">Tiers</h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Tiers</h2>
+                {!isTiersLoading && tiers && tiers.length > 0 && (
+                  <button
+                    className="py-2 px-6 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-sm text-white font-medium transition-colors flex items-center gap-2"
+                    onClick={() => setIsCreateTierModalOpen(true)}
+                  >
+                    <span>+</span> Add Tier
+                  </button>
+                )}
+              </div>
 
               {isTiersLoading ? (
                 <div className="flex items-center justify-center p-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
                 </div>
-              ) : !isTiersLoading && tiers.length > 0 ? (
-                <TiersSection
-                  tiers={tiers}
-                  onTiersChange={handleTiersChange}
-                  availableRewardItems={availableRewardItems}
-                  onAddRewardItem={handleAddRewardItem}
-                  supabase={supabase!}
-                  poolName={pool.name}
-                  poolImage={imagePreview || ""}
-                />
+              ) : !isTiersLoading && tiers && tiers.length > 0 ? (
+                <div className="space-y-4">
+                  {tiers.map((tier) => (
+                    <TierDisplayItem
+                      key={tier.id}
+                      tier={tier}
+                      onEditTier={handleEditTier}
+                    />
+                  ))}
+                </div>
               ) : (
-                <div>No tiers found</div>
+                <div className="bg-[#FFFFFF0A] p-4 rounded-lg text-center">
+                  <p className="text-white/70">No tiers found</p>
+                  <button
+                    className="mt-4 py-2 px-6 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-sm text-white font-medium transition-colors"
+                    onClick={() => setIsCreateTierModalOpen(true)}
+                  >
+                    Create Tier
+                  </button>
+                </div>
               )}
 
               {tierUpdateError && (
@@ -354,6 +460,41 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
           </>
         )}
       </div>
+
+      {/* Edit Tier Modal */}
+      {pool && (
+        <EditTierModal
+          isOpen={isEditTierModalOpen}
+          onClose={() => setIsEditTierModalOpen(false)}
+          tier={selectedTier}
+          poolId={pool.id}
+          contractAddress={pool.contract_address || ""}
+          poolName={pool.name}
+          poolImage={imagePreview || pool.image_url || ""}
+          availableRewardItems={availableRewardItems}
+          onSuccess={() => {
+            handleRefreshPool();
+            handleRefreshTiers();
+          }}
+        />
+      )}
+
+      {/* Create Tier Modal */}
+      {pool && (
+        <CreateTierModal
+          isOpen={isCreateTierModalOpen}
+          onClose={() => setIsCreateTierModalOpen(false)}
+          poolId={pool.id}
+          contractAddress={pool.contract_address || ""}
+          poolName={pool.name}
+          poolImage={imagePreview || pool.image_url || ""}
+          availableRewardItems={availableRewardItems}
+          onSuccess={() => {
+            handleRefreshPool();
+            handleRefreshTiers();
+          }}
+        />
+      )}
 
       <GetTokensModal
         isOpen={showGetTokensModal}

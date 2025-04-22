@@ -1,321 +1,165 @@
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import { Tier as CreateTier } from "@/app/pools/create/types";
-import { SocialLinksType } from "@/app/components/SocialLinksInput";
-import { uploadPoolImage } from "@/lib/utils/imageUpload";
-import { useTierManagement } from "@/hooks/useTierManagement";
-import { toUSDCBaseUnits } from "@/lib/contracts/StageDotFunPool";
-import { MAX_SAFE_VALUE, isUncapped } from "@/lib/utils/contractValues";
-import { validateSlug } from "@/lib/utils/slugValidation";
 import showToast from "@/utils/toast";
-import { SupabaseClient } from "@supabase/supabase-js";
-import { KeyedMutator } from "swr";
+import { validateSlug } from "@/lib/utils/slugValidation";
 
-interface PoolEditOptions {
+// Types of updates that can be made to a pool
+export interface PoolUpdateFields {
+  name?: string;
+  description?: string;
+  location?: string;
+  image_url?: string | null;
+  slug?: string | null;
+  instagram?: string | null;
+  twitter?: string | null;
+  discord?: string | null;
+  website?: string | null;
+  [key: string]: any; // Allow any other fields
+}
+
+export interface UsePoolEditOptions {
   poolId: string;
-  contractAddress: string | null;
-  creatorId: string;
-  currentSlug: string | null;
-  refreshPool: () => Promise<void>;
-  refreshTiers: () => Promise<void>;
-  supabase: SupabaseClient | null;
+  onSuccess?: (updatedFields: PoolUpdateFields) => void;
 }
 
-interface PoolEditData {
-  poolName: string;
-  minCommitment: string;
-  description: string;
-  location: string;
-  socialLinks: SocialLinksType;
-  slug: string;
-  selectedImage: File | null;
-  imagePreview: string | null;
-  currentImageUrl: string | null;
-  tiers: CreateTier[];
-  rewardItems?: any[]; // For handling temporary reward items
-}
-
-interface UsePoolEditResult {
-  isSubmitting: boolean;
-  isUploadingImage: boolean;
-  slugError: string | null;
-  setSlugError: (error: string | null) => void;
-  handleSubmit: (
-    e: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>,
-    data: PoolEditData
-  ) => Promise<void>;
+export interface UsePoolEditResult {
+  updatePool: (updates: PoolUpdateFields, message?: string) => Promise<boolean>;
+  isUpdating: boolean;
+  error: string | null;
+  validateSlugField: (slug: string) => { isValid: boolean; reason?: string };
 }
 
 export function usePoolEdit({
   poolId,
-  contractAddress,
-  creatorId,
-  currentSlug,
-  refreshPool,
-  refreshTiers,
-  supabase,
-}: PoolEditOptions): UsePoolEditResult {
-  const router = useRouter();
+  onSuccess,
+}: UsePoolEditOptions): UsePoolEditResult {
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { getAccessToken } = usePrivy();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [slugError, setSlugError] = useState<string | null>(null);
 
-  const { updateTier, createTier } = useTierManagement({
-    poolId: poolId,
-    contractAddress: contractAddress || "",
-    onSuccess: () => {
-      refreshPool();
-      refreshTiers();
-    },
-  });
-
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>,
-    data: PoolEditData
-  ) => {
-    e.preventDefault();
-
-    // Validate that we have user and pool info
+  /**
+   * Update pool with the specified fields
+   * @param updates Fields to update
+   * @param message Custom toast message (default: "Updating...")
+   * @returns True if update was successful
+   */
+  const updatePool = async (
+    updates: PoolUpdateFields,
+    message = "Updating..."
+  ): Promise<boolean> => {
     if (!poolId) {
-      showToast.error("Pool data not available");
-      return;
+      showToast.error("Pool ID is required");
+      return false;
     }
 
-    if (!supabase) {
-      showToast.error("Authentication error. Please try again.");
-      return;
-    }
-
-    // Validate slug if present
-    if (data.slug) {
-      const validation = validateSlug(data.slug);
-      if (!validation.isValid) {
-        setSlugError(validation.reason || "Invalid slug");
-        showToast.error(validation.reason || "Invalid slug format");
-        return;
+    // Validate slug if it's being updated
+    if (updates.slug !== undefined) {
+      if (updates.slug) {
+        const validation = validateSlug(updates.slug);
+        if (!validation.isValid) {
+          setError(validation.reason || "Invalid slug format");
+          showToast.error(validation.reason || "Invalid slug format");
+          return false;
+        }
       }
     }
 
     try {
-      setIsSubmitting(true);
+      setIsUpdating(true);
+      setError(null);
+      showToast.loading(message);
 
-      // Handle image upload or removal
-      let imageUrl = data.currentImageUrl;
-      if (data.selectedImage) {
-        setIsUploadingImage(true);
-        const uploadResult = await uploadPoolImage(
-          data.selectedImage,
-          supabase,
-          setIsUploadingImage
-        );
-        if (!uploadResult?.imageUrl) {
-          setIsSubmitting(false);
-          return;
-        }
-        imageUrl = uploadResult.imageUrl;
-      }
-      if (!data.imagePreview && !data.selectedImage) {
-        imageUrl = null;
-      }
-
-      // Basic pool updates
-      const updates = {
-        name: data.poolName,
-        min_commitment: data.minCommitment
-          ? parseFloat(data.minCommitment)
-          : null,
-        image_url: imageUrl,
-        description: data.description,
-        location: data.location,
-        social_links:
-          Object.keys(data.socialLinks).length > 0
-            ? JSON.parse(JSON.stringify(data.socialLinks))
-            : null,
-        slug: data.slug || null,
-      };
-
-      // Process tier updates
-      if (data.tiers.length > 0) {
-        try {
-          // Process tiers one by one
-          for (const tier of data.tiers) {
-            if (tier.id) {
-              // Existing tier - update it
-              const updateSuccess = await updateTier({
-                ...tier,
-                dbId: tier.id, // Pass the database ID for API updates
-                onchainIndex: tier.onchain_index
-                  ? Number(tier.onchain_index)
-                  : 0, // Convert to number
-                isVariablePrice: tier.isVariablePrice,
-                maxPatrons: tier.maxPatrons ? Number(tier.maxPatrons) : 0, // Convert to number
-                minPrice: tier.minPrice ? Number(tier.minPrice) : 0, // Convert to number
-                maxPrice: tier.maxPrice ? Number(tier.maxPrice) : 0, // Convert to number
-                price: tier.price ? Number(tier.price) : 0, // Convert price to number
-                imageUrl: tier.imageUrl || "",
-                isActive: tier.isActive,
-                nftMetadata: tier.nftMetadata || "",
-              });
-
-              if (!updateSuccess) {
-                throw new Error(`Failed to update tier: ${tier.name}`);
-              }
-            } else {
-              // This is a new tier - create it
-              const createSuccess = await createTier({
-                ...tier,
-                onchainIndex: 0, // New tiers will get assigned an index on-chain
-                isVariablePrice: tier.isVariablePrice,
-                maxPatrons: tier.maxPatrons ? Number(tier.maxPatrons) : 0, // Convert to number
-                minPrice: tier.minPrice ? Number(tier.minPrice) : 0, // Convert to number
-                maxPrice: tier.maxPrice ? Number(tier.maxPrice) : 0, // Convert to number
-                price: tier.price ? Number(tier.price) : 0, // Convert price to number
-                imageUrl: tier.imageUrl || "",
-                isActive: tier.isActive !== undefined ? tier.isActive : true, // Default to active if not specified
-                nftMetadata: tier.nftMetadata || "",
-              });
-
-              if (!createSuccess) {
-                throw new Error(`Failed to create tier: ${tier.name}`);
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Error updating tiers:", error);
-          const errorMessage =
-            error instanceof Error ? error.message : "Failed to update tiers";
-          showToast.remove();
-          showToast.error(errorMessage);
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      // Now continue with database updates via API
       const token = await getAccessToken();
       if (!token) {
-        showToast.error("Authentication error. Please try again.");
-        setIsSubmitting(false);
-        return;
+        const errorMsg = "Authentication error. Please try again.";
+        setError(errorMsg);
+        showToast.remove();
+        showToast.error(errorMsg);
+        return false;
       }
 
-      // Prepare tier updates for database - only include modified tiers
-      const tierUpdates = data.tiers.map((tier) => {
-        const tierData: any = {
-          // Only include ID for existing tiers
-          ...(tier.id && { id: tier.id }),
-          name: tier.name,
-          description: tier.description,
-          price: Number(toUSDCBaseUnits(parseFloat(tier.price))),
-          is_variable_price: tier.isVariablePrice,
-          min_price: tier.isVariablePrice
-            ? Number(toUSDCBaseUnits(parseFloat(tier.minPrice)))
-            : null,
-          max_price: tier.isVariablePrice
-            ? isUncapped(tier.maxPrice)
-              ? Number(MAX_SAFE_VALUE)
-              : Number(toUSDCBaseUnits(parseFloat(tier.maxPrice)))
-            : null,
-          max_supply:
-            tier.patronsMode === "limited" ? parseInt(tier.maxPatrons) : null,
-          is_active: tier.isActive,
-          image_url: tier.imageUrl,
-          nft_metadata: tier.nftMetadata || "",
-          onchain_index: tier.onchain_index || null, // Only include for existing tiers
-        };
+      // Process updates
+      const processedUpdates = { ...updates };
 
-        // Add reward items if they've been modified
-        if (tier.modifiedFields?.has("rewardItems")) {
-          // Separate temporary IDs and real IDs
-          const tempRewardIds: string[] = [];
-          const realRewardIds: string[] = [];
+      // Extract social media links and put them in a social_links object
+      const socialLinks: Record<string, string | null> = {};
+      const socialFields = ["instagram", "twitter", "discord", "website"];
 
-          for (const id of tier.rewardItems || []) {
-            if (id.startsWith("temp_")) {
-              tempRewardIds.push(id);
-            } else {
-              realRewardIds.push(id);
-            }
-          }
-
-          // Include real reward IDs
-          Object.assign(tierData, { rewardItems: realRewardIds });
-
-          // Include temporary rewards with their data for creation in the backend
-          if (tempRewardIds.length > 0 && data.rewardItems) {
-            // Get the full reward objects for temporary IDs
-            const newRewards = tempRewardIds
-              .map((id) => data.rewardItems?.find((item) => item.id === id))
-              .filter(Boolean)
-              .map((reward) => ({
-                name: reward.name,
-                description: reward.description || "",
-                type: reward.type || "default",
-              }));
-
-            if (newRewards.length > 0) {
-              Object.assign(tierData, { newRewards });
-            }
-          }
+      socialFields.forEach((field) => {
+        if (field in processedUpdates) {
+          socialLinks[field] = processedUpdates[field];
+          delete processedUpdates[field]; // Remove from main updates
         }
-
-        return tierData;
       });
 
-      // Include tier updates in the request if there are any
-      const requestBody = {
-        poolId: poolId,
-        updates,
-        ...(tierUpdates.length > 0 && { tierUpdates }),
-      };
+      // Only add social_links if we have any social links to update
+      if (Object.keys(socialLinks).length > 0) {
+        processedUpdates.social_links = socialLinks;
+      }
 
-      console.log("Sending update request:", requestBody);
+      // Convert empty strings to null for the database
+      Object.keys(processedUpdates).forEach((key) => {
+        if (processedUpdates[key] === "") {
+          processedUpdates[key] = null;
+        }
+      });
 
+      console.log("Sending updates to API:", processedUpdates);
+
+      // Make the API request
       const response = await fetch("/api/pools/update", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          poolId,
+          updates: processedUpdates,
+        }),
       });
 
       const result = await response.json();
+
       if (!response.ok) {
+        const errorMsg =
+          result.message || result.error || "Failed to update pool";
+        setError(errorMsg);
         showToast.remove();
-        showToast.error(result.error || "Failed to update pool");
-        setIsSubmitting(false);
-        return;
+        showToast.error(errorMsg);
+        return false;
       }
 
       showToast.remove();
-      showToast.success("Pool updated successfully!");
+      showToast.success("Updated successfully");
 
-      // Refresh data after successful update
-      await refreshPool();
-      await refreshTiers();
-
-      const newSlug = updates.slug || currentSlug;
-      if (newSlug) {
-        router.push(`/${newSlug}`);
-      } else {
-        router.push(`/pools/${poolId}`);
+      if (onSuccess) {
+        onSuccess(updates); // Pass back the original updates
       }
+
+      return true;
     } catch (error) {
-      console.error("Error in handleSubmit:", error);
+      console.error("Error updating pool:", error);
+      const errorMsg =
+        error instanceof Error ? error.message : "An unknown error occurred";
+      setError(errorMsg);
       showToast.remove();
       showToast.error("Failed to update pool");
-      setIsSubmitting(false);
+      return false;
+    } finally {
+      setIsUpdating(false);
     }
   };
 
+  // Helper to validate a slug
+  const validateSlugField = (slug: string) => {
+    return validateSlug(slug);
+  };
+
   return {
-    isSubmitting,
-    isUploadingImage,
-    slugError,
-    setSlugError,
-    handleSubmit,
+    updatePool,
+    isUpdating,
+    error,
+    validateSlugField,
   };
 }
