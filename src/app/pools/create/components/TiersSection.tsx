@@ -6,6 +6,7 @@ import { AddRewardModal } from "./AddRewardModal";
 import { Tier, RewardItem } from "../types";
 import showToast from "@/utils/toast";
 import { TierCard } from "./tier-components/TierCard";
+import TabButton from "@/components/ui/TabButton";
 
 export interface TiersSectionProps {
   tiers: Tier[];
@@ -46,6 +47,9 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   const [modifiedTiers, setModifiedTiers] = useState<Record<string, boolean>>(
     {}
   );
+  // Add state for active tab
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Store the list of tier IDs we've seen to avoid reinitializing already initialized tiers
@@ -70,6 +74,16 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showRewardDropdown]);
+
+  // Set active tab to first tier when tiers change or on initial load
+  useEffect(() => {
+    if (
+      tiers.length > 0 &&
+      (!activeTabId || !tiers.find((t) => t.id === activeTabId))
+    ) {
+      setActiveTabId(tiers[0].id);
+    }
+  }, [tiers, activeTabId]);
 
   // Function to generate a default tier name based on tier number
   const generateTierName = React.useCallback(
@@ -301,7 +315,12 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       patronsMode: "limited",
     };
     console.log("New tier created:", newTier);
-    onTiersChange([...tiers, newTier]);
+
+    const newTiers = [...tiers, newTier];
+    onTiersChange(newTiers);
+
+    // Set the new tier as the active tab
+    setActiveTabId(newTier.id);
   }, [
     tiers,
     generateTierName,
@@ -531,6 +550,13 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   ]);
 
   const removeTier = (id: string) => {
+    // Set a new active tab if we're removing the active one
+    if (activeTabId === id && tiers.length > 1) {
+      const currentIndex = tiers.findIndex((t) => t.id === id);
+      const newIndex = Math.max(0, currentIndex - 1);
+      setActiveTabId(tiers[newIndex].id);
+    }
+
     onTiersChange(tiers.filter((tier) => tier.id !== id));
   };
 
@@ -795,11 +821,28 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
         )}
       </div>
 
+      {/* Tabs navigation */}
+      {tiers.length > 0 && (
+        <div className="flex flex-wrap justify-start gap-3 mb-6 overflow-x-auto">
+          {tiers.map((tier) => (
+            <TabButton
+              key={tier.id}
+              label={tier.name || `Tier ${tiers.indexOf(tier) + 1}`}
+              isActive={activeTabId === tier.id}
+              onClick={() => setActiveTabId(tier.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Display only the active tier */}
       <div className="space-y-6 w-full">
         {tiers.map((tier, index) => (
           <div
             key={tier.id}
-            className="border border-gray-700 rounded-lg p-6 relative"
+            className={`border border-gray-700 rounded-lg p-6 relative ${
+              activeTabId === tier.id ? "block" : "hidden"
+            }`}
           >
             {isEditMode && !editingTiers[tier.id] && (
               <div className="absolute top-0 right-0 mt-2 mr-2 z-10">

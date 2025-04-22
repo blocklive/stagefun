@@ -106,8 +106,7 @@ export const TierCard: React.FC<TierCardProps> = ({
 
   return (
     <div key={tier.id} className={`w-full ${disabled ? "opacity-90" : ""}`}>
-      <div className="flex justify-between items-start mb-4">
-        <h3 className="text-xl font-semibold">Tier {index + 1} Details</h3>
+      <div className="flex justify-end">
         {!disabled && (
           <button
             type="button"
