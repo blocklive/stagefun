@@ -1,4 +1,4 @@
-import React, { useEffect, useState, ChangeEvent } from "react";
+import React, { useEffect, useState, ChangeEvent, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { FaArrowLeft, FaMapMarkerAlt } from "react-icons/fa";
@@ -23,6 +23,7 @@ import {
   toUSDCBaseUnits,
 } from "@/lib/contracts/StageDotFunPool";
 import { MAX_SAFE_VALUE, isUncapped } from "@/lib/utils/contractValues";
+import { useEditPoolTiers } from "@/hooks/useEditPoolTiers";
 
 interface EditPoolFormProps {
   poolIdentifier: string;
@@ -56,12 +57,36 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
 
   const [showGetTokensModal, setShowGetTokensModal] = useState(false);
 
-  // Add state for tiers
-  const [tiers, setTiers] = useState<CreateTier[]>([]);
-  const [availableRewardItems, setAvailableRewardItems] = useState<
-    RewardItem[]
-  >([]);
-  const [isTiersLoading, setIsTiersLoading] = useState(true);
+  // Use the custom hook for tier data
+  const {
+    tiers,
+    availableRewardItems,
+    isLoading: isTiersLoading,
+    error: tiersError,
+    mutate: refreshTiers,
+  } = useEditPoolTiers({
+    poolId: pool?.id,
+    supabase,
+  });
+
+  // Local state to track tier changes
+  const [localTiers, setLocalTiers] = useState<CreateTier[]>([]);
+  const [localRewardItems, setLocalRewardItems] = useState<RewardItem[]>([]);
+
+  // Sync remote tier data to local state when it changes
+  useEffect(() => {
+    if (tiers && tiers.length > 0) {
+      console.log("Setting initial tiers from DB:", tiers);
+      setLocalTiers(tiers);
+    }
+    if (availableRewardItems && availableRewardItems.length > 0) {
+      console.log(
+        "Setting initial reward items from DB:",
+        availableRewardItems
+      );
+      setLocalRewardItems(availableRewardItems);
+    }
+  }, [tiers, availableRewardItems]);
 
   const {
     isLoading: isTierUpdateLoading,
@@ -73,7 +98,10 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
   } = useTierManagement({
     poolId: pool?.id || "",
     contractAddress: pool?.contract_address || "",
-    onSuccess: refreshPool,
+    onSuccess: () => {
+      refreshPool();
+      refreshTiers();
+    },
   });
 
   // Set the correct viewport height, accounting for mobile browsers
@@ -125,112 +153,6 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
       }
     }
   }, [pool]);
-
-  // Load tiers for pool when the pool is loaded
-  useEffect(() => {
-    if (!pool || !supabase) return;
-
-    const fetchTiersAndRewards = async () => {
-      setIsTiersLoading(true);
-
-      try {
-        // Fetch tiers with their associated rewards in one query
-        const { data: tierData, error } = await supabase
-          .from("tiers")
-          .select(
-            `
-            *,
-            reward_items (
-              id,
-              name,
-              description,
-              type,
-              metadata,
-              creator_id,
-              is_active
-            )
-          `
-          )
-          .eq("pool_id", pool.id)
-          .order("id");
-
-        console.log(
-          "Fetched tier data with rewards:",
-          JSON.stringify(tierData, null, 2)
-        );
-
-        if (error) {
-          console.error("Error fetching tiers:", error);
-          showToast.error("Failed to load tiers");
-          setIsTiersLoading(false);
-          return;
-        }
-
-        // Convert DB tiers to the format expected by TiersSection
-        const createTiers: CreateTier[] = tierData.map((dbTier) => ({
-          id: dbTier.id,
-          name: dbTier.name,
-          // Convert prices from base units to human-readable values
-          price: fromUSDCBaseUnits(BigInt(dbTier.price)).toString(),
-          isActive: dbTier.is_active,
-          nftMetadata: dbTier.nft_metadata || "",
-          isVariablePrice: dbTier.is_variable_price,
-          minPrice: dbTier.min_price
-            ? fromUSDCBaseUnits(BigInt(dbTier.min_price)).toString()
-            : "0",
-          maxPrice: dbTier.max_price
-            ? fromUSDCBaseUnits(BigInt(dbTier.max_price)).toString()
-            : "0",
-          maxPatrons: dbTier.max_supply ? dbTier.max_supply.toString() : "0",
-          description: dbTier.description || "",
-          // Extract reward item IDs from the joined rewards
-          rewardItems: dbTier.reward_items
-            ? dbTier.reward_items.map((reward: any) => reward.id)
-            : [],
-          imageUrl: dbTier.image_url,
-          modifiedFields: new Set<string>(),
-          // Add default values for required properties
-          pricingMode: dbTier.is_variable_price
-            ? dbTier.max_price
-              ? "range"
-              : "uncapped"
-            : "fixed",
-          patronsMode: dbTier.max_supply ? "limited" : "uncapped",
-          // Add the onchain_index from the database
-          onchain_index: dbTier.onchain_index,
-        }));
-
-        setTiers(createTiers);
-
-        // Collect all reward items from the tiers
-        const allPoolRewards: RewardItem[] = [];
-        tierData.forEach((dbTier) => {
-          if (dbTier.reward_items && dbTier.reward_items.length > 0) {
-            dbTier.reward_items.forEach((reward: any) => {
-              // Check if this reward is already in our list to avoid duplicates
-              if (!allPoolRewards.some((r) => r.id === reward.id)) {
-                allPoolRewards.push({
-                  id: reward.id,
-                  name: reward.name,
-                  description: reward.description || "",
-                  type: reward.type || "default",
-                });
-              }
-            });
-          }
-        });
-
-        // Set the available rewards for this pool
-        setAvailableRewardItems(allPoolRewards);
-      } catch (err) {
-        console.error("Error in fetchTiers:", err);
-      } finally {
-        setIsTiersLoading(false);
-      }
-    };
-
-    fetchTiersAndRewards();
-  }, [pool?.id, supabase, dbUser?.id]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -285,9 +207,10 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
   };
 
   // Handle tier changes from TiersSection
-  const handleTiersChange = async (updatedTiers: CreateTier[]) => {
-    setTiers(updatedTiers);
-  };
+  const handleTiersChange = useCallback((updatedTiers: CreateTier[]) => {
+    console.log("TiersSection updated tiers:", updatedTiers);
+    setLocalTiers(updatedTiers);
+  }, []);
 
   // Add reward item handler (required by TiersSection)
   const handleAddRewardItem = (reward: Omit<RewardItem, "id">): RewardItem => {
@@ -301,7 +224,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     };
 
     // Add to available rewards list for immediate UI update
-    setAvailableRewardItems((prev) => [...prev, newReward]);
+    setLocalRewardItems((prev) => [...prev, newReward]);
 
     // Return the new reward with temporary ID - actual creation will happen in the backend
     return newReward;
@@ -379,10 +302,10 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
       });
 
       // Process tier updates
-      if (tiers.length > 0) {
+      if (localTiers.length > 0) {
         try {
           // Process tiers one by one
-          for (const tier of tiers) {
+          for (const tier of localTiers) {
             if (tier.id) {
               // Existing tier - update it
               const updateSuccess = await updateTier({
@@ -443,7 +366,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
       }
 
       // Prepare tier updates for database - only include modified tiers
-      const tierUpdates = tiers.map((tier) => {
+      const tierUpdates = localTiers.map((tier) => {
         const tierData = {
           // Only include ID for existing tiers
           ...(tier.id && { id: tier.id }),
@@ -488,7 +411,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
           if (tempRewardIds.length > 0) {
             // Get the full reward objects for temporary IDs
             const newRewards = tempRewardIds
-              .map((id) => availableRewardItems.find((item) => item.id === id))
+              .map((id) => localRewardItems.find((item) => item.id === id))
               .filter((reward): reward is RewardItem => reward !== undefined)
               .map((reward) => ({
                 name: reward.name,
@@ -533,7 +456,10 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
 
       showToast.remove();
       showToast.success("Pool updated successfully!");
+
+      // Refresh data after successful update
       await refreshPool();
+      await refreshTiers();
 
       const newSlug = updates.slug || pool.slug;
       if (newSlug) {
@@ -548,6 +474,8 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
       setIsSubmitting(false);
     }
   };
+
+  console.log("Local tiers:", localTiers);
 
   return (
     <>
@@ -663,25 +591,18 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                     <div className="flex items-center justify-center p-12">
                       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
                     </div>
+                  ) : !isTiersLoading && localTiers.length > 0 ? (
+                    <TiersSection
+                      tiers={localTiers}
+                      onTiersChange={handleTiersChange}
+                      availableRewardItems={localRewardItems}
+                      onAddRewardItem={handleAddRewardItem}
+                      supabase={supabase!}
+                      poolName={poolName}
+                      poolImage={imagePreview || ""}
+                    />
                   ) : (
-                    <>
-                      {tierUpdateError && (
-                        <div className="bg-red-900/20 border border-red-500/50 text-red-300 p-4 rounded-lg mb-6">
-                          {tierUpdateError}
-                        </div>
-                      )}
-
-                      {/* Use the TiersSection component from the creation flow */}
-                      <TiersSection
-                        tiers={tiers}
-                        onTiersChange={handleTiersChange}
-                        availableRewardItems={availableRewardItems}
-                        onAddRewardItem={handleAddRewardItem}
-                        supabase={supabase!}
-                        poolName={poolName}
-                        poolImage={imagePreview || ""}
-                      />
-                    </>
+                    <div>No tiers found</div>
                   )}
                 </div>
               </div>
