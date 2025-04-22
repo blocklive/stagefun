@@ -16,6 +16,7 @@ interface TierDetailsFormProps {
   ) => void;
   capAmount?: string;
   fundingGoal?: string;
+  disabled?: boolean;
 }
 
 export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
@@ -23,6 +24,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
   onUpdateTier,
   capAmount = "0",
   fundingGoal = "0.1",
+  disabled = false,
 }) => {
   const [priceError, setPriceError] = useState<string | null>(null);
   const [maxPriceError, setMaxPriceError] = useState<string | null>(null);
@@ -335,6 +337,48 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
     minValue: number = MINIMUM_PRICE,
     step: number = 1
   ) => {
+    if (disabled) {
+      // Return empty buttons that won't work when disabled
+      return (
+        <div className="flex flex-col gap-1 opacity-60">
+          <div className="w-6 h-6 bg-[#FFFFFF14] rounded-md flex items-center justify-center cursor-not-allowed">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 15L12 9L6 15"
+                stroke="gray"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <div className="w-6 h-6 bg-[#FFFFFF14] rounded-md flex items-center justify-center cursor-not-allowed">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M6 9L12 15L18 9"
+                stroke="gray"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col gap-1">
         <button
@@ -405,6 +449,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
           onChange={(value) => onUpdateTier(tier.id, "name", value)}
           placeholder="Name"
           className="w-full"
+          disabled={disabled}
         />
       </div>
 
@@ -420,8 +465,14 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
               pricingMode === "fixed"
                 ? "bg-[#836EF9] text-white"
                 : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors`}
+            } transition-colors ${
+              disabled
+                ? "opacity-60 cursor-not-allowed pointer-events-none border-transparent"
+                : ""
+            }`}
             onClick={() => handlePricingModeChange("fixed")}
+            disabled={disabled}
+            aria-disabled={disabled}
           >
             Fixed Price
           </button>
@@ -431,8 +482,14 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
               pricingMode === "range"
                 ? "bg-[#836EF9] text-white"
                 : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors`}
+            } transition-colors ${
+              disabled
+                ? "opacity-60 cursor-not-allowed pointer-events-none border-transparent"
+                : ""
+            }`}
             onClick={() => handlePricingModeChange("range")}
+            disabled={disabled}
+            aria-disabled={disabled}
           >
             Price Range
           </button>
@@ -442,8 +499,14 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
               pricingMode === "uncapped"
                 ? "bg-[#836EF9] text-white"
                 : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors`}
+            } transition-colors ${
+              disabled
+                ? "opacity-60 cursor-not-allowed pointer-events-none border-transparent"
+                : ""
+            }`}
             onClick={() => handlePricingModeChange("uncapped")}
+            disabled={disabled}
+            aria-disabled={disabled}
           >
             Uncapped Price
           </button>
@@ -463,6 +526,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                   MINIMUM_PRICE,
                   0.01
                 )}
+                disabled={disabled}
               />
               <div className="h-5 mt-1">
                 {priceError && (
@@ -486,6 +550,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                       MINIMUM_PRICE,
                       0.01
                     )}
+                    disabled={disabled}
                   />
                   <div className="h-5 mt-1">
                     {minPriceError && (
@@ -507,6 +572,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                       MINIMUM_PRICE,
                       0.01
                     )}
+                    disabled={disabled}
                   />
                   <div className="h-5 mt-1">
                     {maxPriceError && (
@@ -532,6 +598,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                   MINIMUM_PRICE,
                   0.01
                 )}
+                disabled={disabled}
               />
               <div className="h-5 mt-1">
                 {minPriceError && (
@@ -556,8 +623,14 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
               patronsMode === "limited"
                 ? "bg-[#836EF9] text-white"
                 : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors`}
+            } transition-colors ${
+              disabled
+                ? "opacity-60 cursor-not-allowed pointer-events-none border-transparent"
+                : ""
+            }`}
             onClick={() => handlePatronsModeChange("limited")}
+            disabled={disabled}
+            aria-disabled={disabled}
           >
             Limited
           </button>
@@ -567,8 +640,14 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
               patronsMode === "uncapped"
                 ? "bg-[#836EF9] text-white"
                 : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors`}
+            } transition-colors ${
+              disabled
+                ? "opacity-60 cursor-not-allowed pointer-events-none border-transparent"
+                : ""
+            }`}
             onClick={() => handlePatronsModeChange("uncapped")}
+            disabled={disabled}
+            aria-disabled={disabled}
           >
             Uncapped
           </button>
@@ -592,6 +671,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                 1,
                 1
               )}
+              disabled={disabled}
             />
           </div>
         )}

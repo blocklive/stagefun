@@ -7,6 +7,11 @@ import {
 import showToast from "@/utils/toast";
 import { useRouter } from "next/navigation";
 import { useAuthJwt } from "@/hooks/useAuthJwt";
+import {
+  toUSDCBaseUnits,
+  fromUSDCBaseUnits,
+} from "@/lib/contracts/StageDotFunPool";
+import { createClient } from "@supabase/supabase-js";
 
 interface TierManagerParams {
   poolId: string;
@@ -67,9 +72,6 @@ export function useTierManagement({
         });
 
         // Update toast to show blockchain transaction status
-        showToast.loading("Updating tier data...", {
-          id: loadingToast,
-        });
 
         const onChainResult = await updateTierOnChain(
           contractAddress,
@@ -97,10 +99,16 @@ export function useTierManagement({
           id: tier.dbId, // Use renamed dbId field for database operations
           name: tier.name,
           description: tier.description || "",
-          price: tier.price,
+          price: tier.price
+            ? toUSDCBaseUnits(Number(tier.price)).toString()
+            : undefined,
           is_variable_price: tier.isVariablePrice,
-          min_price: tier.minPrice || 0,
-          max_price: tier.maxPrice || 0,
+          min_price: tier.minPrice
+            ? Number(toUSDCBaseUnits(Number(tier.minPrice)))
+            : 0,
+          max_price: tier.maxPrice
+            ? Number(toUSDCBaseUnits(Number(tier.maxPrice)))
+            : 0,
           max_supply: tier.maxPatrons || 0,
           is_active: tier.isActive,
           image_url: tier.imageUrl,
@@ -215,10 +223,16 @@ export function useTierManagement({
           // No ID for new tiers
           name: tier.name,
           description: tier.description || "",
-          price: tier.price,
+          price: tier.price
+            ? toUSDCBaseUnits(Number(tier.price)).toString()
+            : undefined,
           is_variable_price: tier.isVariablePrice,
-          min_price: tier.minPrice || 0,
-          max_price: tier.maxPrice || 0,
+          min_price: tier.minPrice
+            ? Number(toUSDCBaseUnits(Number(tier.minPrice)))
+            : 0,
+          max_price: tier.maxPrice
+            ? Number(toUSDCBaseUnits(Number(tier.maxPrice)))
+            : 0,
           max_supply: tier.maxPatrons || 0,
           is_active: tier.isActive,
           image_url: tier.imageUrl,
@@ -344,10 +358,16 @@ export function useTierManagement({
           id: tier.dbId, // Use renamed dbId field for database operations
           name: tier.name,
           description: tier.description || "",
-          price: tier.price,
+          price: tier.price
+            ? toUSDCBaseUnits(Number(tier.price)).toString()
+            : undefined,
           is_variable_price: tier.isVariablePrice,
-          min_price: tier.minPrice || 0,
-          max_price: tier.maxPrice || 0,
+          min_price: tier.minPrice
+            ? Number(toUSDCBaseUnits(Number(tier.minPrice)))
+            : 0,
+          max_price: tier.maxPrice
+            ? Number(toUSDCBaseUnits(Number(tier.maxPrice)))
+            : 0,
           max_supply: tier.maxPatrons || 0,
           is_active: !tier.isActive, // Toggle the status
           image_url: tier.imageUrl,

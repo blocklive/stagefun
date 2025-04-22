@@ -18,6 +18,7 @@ export interface TiersSectionProps {
   capAmount?: string;
   poolImage?: string;
   isEditMode?: boolean;
+  onSaveTier?: (tierId: string) => Promise<void>;
 }
 
 export const TiersSection: React.FC<TiersSectionProps> = ({
@@ -31,6 +32,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   capAmount,
   poolImage,
   isEditMode = false,
+  onSaveTier,
 }) => {
   const [isUploadingImage, setIsUploadingImage] = useState<{
     [key: string]: boolean;
@@ -40,7 +42,14 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   const [showRewardDropdown, setShowRewardDropdown] = useState<string | null>(
     null
   );
+  const [editingTiers, setEditingTiers] = useState<Record<string, boolean>>({});
+  const [modifiedTiers, setModifiedTiers] = useState<Record<string, boolean>>(
+    {}
+  );
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // Store the list of tier IDs we've seen to avoid reinitializing already initialized tiers
+  const knownTierIds = useRef<Set<string>>(new Set());
 
   const registerDropdownRef = (id: string, ref: HTMLDivElement | null) => {
     dropdownRefs.current[id] = ref;
@@ -655,45 +664,196 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     setShowAddRewardModal(true);
   };
 
+  // NEW: Function to toggle editing mode for a tier
+  const toggleTierEditMode = (tierId: string) => {
+    setEditingTiers((prev) => {
+      const newState = { ...prev };
+      newState[tierId] = !prev[tierId];
+
+      // When disabling edit mode, clear the modified flag
+      if (!newState[tierId]) {
+        setModifiedTiers((prev) => {
+          const newModified = { ...prev };
+          delete newModified[tierId];
+          return newModified;
+        });
+      }
+
+      return newState;
+    });
+  };
+
+  // Wrap the existing updateTier function to track modifications
+  const updateTierWithTracking = (
+    id: string,
+    fieldOrFields: keyof Tier | Partial<Tier>,
+    value?: string | string[] | boolean
+  ) => {
+    // Mark this tier as modified if we're in edit mode
+    if (isEditMode) {
+      setModifiedTiers((prev) => ({
+        ...prev,
+        [id]: true,
+      }));
+    }
+
+    // Call the original updateTier function
+    updateTier(id, fieldOrFields, value);
+  };
+
+  // NEW: Function to handle saving a tier
+  const handleSaveTier = async (tierId: string) => {
+    if (onSaveTier) {
+      try {
+        // First toggle out of edit mode
+        toggleTierEditMode(tierId);
+
+        // Then save the tier
+        await onSaveTier(tierId);
+
+        // Clear the modified flag
+        setModifiedTiers((prev) => {
+          const newModified = { ...prev };
+          delete newModified[tierId];
+          return newModified;
+        });
+      } catch (error) {
+        console.error(`Error saving tier ${tierId}:`, error);
+        showToast.error("Failed to save tier changes");
+      }
+    } else {
+      // If no save handler, just toggle edit mode
+      toggleTierEditMode(tierId);
+    }
+  };
+
+  // Initialize tiers to non-editable state when in edit mode
+  // Only run on mount and when isEditMode changes
+  useEffect(() => {
+    if (isEditMode && tiers.length > 0) {
+      // Create a new object to track tier edit states
+      setEditingTiers((prevEditingTiers) => {
+        const newEditingTiers = { ...prevEditingTiers };
+
+        // Find any new tiers that we haven't seen before and set them to disabled
+        tiers.forEach((tier) => {
+          // Only set the edit state if we haven't already initialized this tier
+          if (!knownTierIds.current.has(tier.id)) {
+            newEditingTiers[tier.id] = false;
+            knownTierIds.current.add(tier.id);
+          }
+        });
+
+        return newEditingTiers;
+      });
+    }
+  }, [isEditMode]); // Only re-run when isEditMode changes
+
+  // Handle new tiers being added - only need to set edit state for new tiers
+  useEffect(() => {
+    if (isEditMode && tiers.length > 0) {
+      // Check if there are any new tiers
+      const newTiers = tiers.filter(
+        (tier) => !knownTierIds.current.has(tier.id)
+      );
+
+      if (newTiers.length > 0) {
+        console.log(
+          "New tiers detected, initializing edit states:",
+          newTiers.map((t) => t.id)
+        );
+
+        // Initialize these new tiers to disabled state
+        setEditingTiers((prevEditingTiers) => {
+          const newEditingTiers = { ...prevEditingTiers };
+
+          newTiers.forEach((tier) => {
+            newEditingTiers[tier.id] = false;
+            knownTierIds.current.add(tier.id);
+          });
+
+          return newEditingTiers;
+        });
+      }
+    }
+  }, [tiers, isEditMode]);
+
   return (
     <div className="mb-12 w-full">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Tiers</h2>
-        <button
-          type="button"
-          onClick={addTier}
-          className="flex items-center gap-2 px-4 py-2 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white transition-colors"
-        >
-          <PlusIcon className="w-5 h-5" />
-          Add Tier
-        </button>
+        {(!isEditMode ||
+          Object.values(editingTiers).some((editing) => editing)) && (
+          <button
+            type="button"
+            onClick={addTier}
+            className="flex items-center gap-2 px-4 py-2 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white transition-colors"
+          >
+            <PlusIcon className="w-5 h-5" />
+            Add Tier
+          </button>
+        )}
       </div>
 
       <div className="space-y-6 w-full">
         {tiers.map((tier, index) => (
-          <TierCard
+          <div
             key={tier.id}
-            tier={tier}
-            index={index}
-            onRemoveTier={removeTier}
-            onUpdateTier={updateTier}
-            onSetCurrentTierId={setCurrentTierId}
-            onAddRewardImage={handleAddRewardImage}
-            supabase={supabase}
-            isUploadingImage={isUploadingImage[tier.id] || false}
-            setIsUploadingImage={handleSetIsUploadingImage}
-            availableRewardItems={availableRewardItems}
-            onCreateNewReward={handleCreateNewReward}
-            capAmount={capAmount}
-            fundingGoal={fundingGoal}
-            onAddReward={() => {}}
-            onRemoveReward={() => {}}
-            onUpdateReward={() => {}}
-          />
+            className="border border-gray-700 rounded-lg p-6 relative"
+          >
+            {isEditMode && !editingTiers[tier.id] && (
+              <div className="absolute top-0 right-0 mt-2 mr-2 z-10">
+                <div className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs border border-gray-600">
+                  View Only
+                </div>
+              </div>
+            )}
+
+            <TierCard
+              key={tier.id}
+              tier={tier}
+              index={index}
+              onRemoveTier={removeTier}
+              onUpdateTier={updateTierWithTracking}
+              onSetCurrentTierId={setCurrentTierId}
+              onAddRewardImage={handleAddRewardImage}
+              supabase={supabase}
+              isUploadingImage={isUploadingImage[tier.id] || false}
+              setIsUploadingImage={handleSetIsUploadingImage}
+              availableRewardItems={availableRewardItems}
+              onCreateNewReward={handleCreateNewReward}
+              capAmount={capAmount}
+              fundingGoal={fundingGoal}
+              onAddReward={() => {}}
+              onRemoveReward={() => {}}
+              onUpdateReward={() => {}}
+              // Disable inputs when in edit mode and not editing this tier
+              disabled={isEditMode && !editingTiers[tier.id]}
+            />
+
+            {isEditMode && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() =>
+                    editingTiers[tier.id] && modifiedTiers[tier.id]
+                      ? handleSaveTier(tier.id)
+                      : toggleTierEditMode(tier.id)
+                  }
+                  className="py-2 px-6 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"
+                >
+                  {editingTiers[tier.id]
+                    ? modifiedTiers[tier.id]
+                      ? "Save Tier Changes"
+                      : "Done Editing"
+                    : "Edit Tier"}
+                </button>
+              </div>
+            )}
+          </div>
         ))}
       </div>
 
-      {/* Add Reward Modal */}
       {showAddRewardModal && (
         <AddRewardModal
           onClose={() => {

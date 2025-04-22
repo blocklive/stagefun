@@ -354,6 +354,66 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     }
   };
 
+  // Function to save a specific tier's changes
+  const handleSaveSingleTier = async (tierId: string) => {
+    if (!pool?.id) {
+      showToast.error("Pool ID is required to save tier");
+      return;
+    }
+
+    const tier = localTiers.find((t) => t.id === tierId);
+    if (!tier) {
+      showToast.error("Tier not found");
+      return;
+    }
+
+    console.log("Saving single tier:", {
+      id: tier.id,
+      name: tier.name,
+    });
+
+    try {
+      const basicTierData: TierUpdateData = {
+        name: String(tier.name || ""),
+        price: Number(tier.price || 0),
+        description: String(tier.description || ""),
+        isActive: Boolean(tier.isActive),
+        nftMetadata: String(tier.nftMetadata || ""),
+        isVariablePrice: Boolean(tier.isVariablePrice),
+        minPrice: Number(tier.minPrice || 0),
+        maxPrice: Number(tier.maxPrice || 0),
+        maxPatrons: Number(tier.maxPatrons || 0),
+        onchainIndex: Number(tier.onchain_index || 0),
+      };
+
+      if (tier.imageUrl && typeof tier.imageUrl === "string") {
+        basicTierData.imageUrl = tier.imageUrl;
+      }
+
+      // For existing tiers - use the tier.id directly as dbId
+      if (tier.id && !tier.id.startsWith("temp_")) {
+        console.log("Updating existing tier with ID:", tier.id);
+        await updateTier({
+          ...basicTierData,
+          dbId: tier.id, // Directly use tier.id for the database identifier
+        });
+      }
+      // For new tiers
+      else {
+        console.log("Creating new tier:", basicTierData.name);
+        await createTier(basicTierData);
+      }
+
+      showToast.remove();
+      showToast.success(`Tier "${tier.name}" saved successfully`);
+      handleRefreshTiers();
+    } catch (error) {
+      console.error("Error saving tier:", error);
+      showToast.error(`Failed to save tier "${tier.name}"`);
+      throw error; // Re-throw to indicate failure to the caller
+    }
+  };
+
   return (
     <>
       <div className="px-4 md:px-8 max-w-6xl mx-auto">
@@ -507,18 +567,8 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                     capAmount=""
                     poolImage={pool?.image_url || ""}
                     isEditMode={true}
+                    onSaveTier={handleSaveSingleTier}
                   />
-
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={handleSaveTierChanges}
-                      className="py-3 px-8 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"
-                      disabled={isTierUpdating || localTiers.length === 0}
-                    >
-                      {isTierUpdating ? "Saving..." : "Save Tier Changes"}
-                    </button>
-                  </div>
 
                   {tierUpdateError && (
                     <div className="bg-red-900/20 border border-red-500/50 text-red-300 p-4 rounded-lg mt-6">
