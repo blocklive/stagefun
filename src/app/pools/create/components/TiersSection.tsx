@@ -17,6 +17,7 @@ export interface TiersSectionProps {
   fundingGoal?: string;
   capAmount?: string;
   poolImage?: string;
+  isEditMode?: boolean;
 }
 
 export const TiersSection: React.FC<TiersSectionProps> = ({
@@ -29,6 +30,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   fundingGoal,
   capAmount,
   poolImage,
+  isEditMode = false,
 }) => {
   const [isUploadingImage, setIsUploadingImage] = useState<{
     [key: string]: boolean;
@@ -300,12 +302,16 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     supabase,
   ]);
 
-  // Create first tier automatically
+  // Create first tier automatically only if not in edit mode
   useEffect(() => {
-    if (tiers.length === 0) {
+    // Don't auto-create tiers when in edit mode
+    if (tiers.length === 0 && !isEditMode) {
+      console.log("Auto-creating first tier (not in edit mode)");
       addTier();
+    } else if (tiers.length === 0 && isEditMode) {
+      console.log("No tiers found but we're in edit mode - not auto-creating");
     }
-  }, [tiers.length, addTier]);
+  }, [tiers.length, addTier, isEditMode]);
 
   // Update unmodified fields when dependencies change
   useEffect(() => {

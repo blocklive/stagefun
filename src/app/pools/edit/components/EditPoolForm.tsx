@@ -14,13 +14,11 @@ import SocialLinksInput, {
 import RichTextEditor from "@/app/components/RichTextEditor";
 import { TiersSection } from "../../create/components/TiersSection";
 import { useTierManagement } from "@/hooks/useTierManagement";
+import { TierUpdateData } from "@/hooks/usePoolTierUpdate";
 import { Tier, RewardItem } from "../../create/types";
 import { useEditPoolTiers } from "@/hooks/useEditPoolTiers";
 import SlugEditor from "./SlugEditor";
 import { usePoolEdit, PoolUpdateFields } from "@/hooks/usePoolEdit";
-import TierDisplayItem from "./TierDisplayItem";
-import EditTierModal from "./EditTierModal";
-import CreateTierModal from "./CreateTierModal";
 
 interface EditPoolFormProps {
   poolIdentifier: string;
@@ -42,9 +40,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [slug, setSlug] = useState<string>("");
   const [slugError, setSlugError] = useState<string | null>(null);
-  const [isEditTierModalOpen, setIsEditTierModalOpen] = useState(false);
-  const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
-  const [isCreateTierModalOpen, setIsCreateTierModalOpen] = useState(false);
+  const [localTiers, setLocalTiers] = useState<Tier[]>([]);
 
   // Pool data
   const {
@@ -55,7 +51,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
 
   // Use the custom hook for tier data
   const {
-    tiers,
+    tiers: remoteTiers,
     availableRewardItems,
     isLoading: isTiersLoading,
     error: tiersError,
@@ -74,7 +70,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     },
   });
 
-  // TIERS SECTION - we'll keep using the existing hook for now
+  // TIERS SECTION - we'll keep using the existing hook for tier operations
   const {
     isLoading: isTierLoading,
     isUpdating: isTierUpdating,
@@ -129,6 +125,16 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     }
   }, [pool]);
 
+  // Sync remote tier data to local state - revise the useEffect
+  useEffect(() => {
+    if (remoteTiers && remoteTiers.length > 0) {
+      console.log("Setting local tiers from remote data:", remoteTiers);
+      setLocalTiers(remoteTiers);
+    } else {
+      console.log("No remote tiers found:", remoteTiers);
+    }
+  }, [remoteTiers]);
+
   // Validate slug on change
   useEffect(() => {
     if (slug) {
@@ -138,16 +144,6 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
       setSlugError(null);
     }
   }, [slug, validateSlugField]);
-
-  // Sync remote tier data to local state when it changes
-  useEffect(() => {
-    if (tiers && tiers.length > 0) {
-      console.log("Tiers from DB:", tiers);
-    }
-    if (availableRewardItems && availableRewardItems.length > 0) {
-      console.log("Reward items from DB:", availableRewardItems);
-    }
-  }, [tiers, availableRewardItems]);
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -159,10 +155,10 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
-  // Handle opening the edit tier modal
-  const handleEditTier = (tier: Tier) => {
-    setSelectedTier(tier);
-    setIsEditTierModalOpen(true);
+  // Handle local tier changes
+  const handleTiersChange = (updatedTiers: Tier[]) => {
+    console.log("Updating local tiers:", updatedTiers);
+    setLocalTiers(updatedTiers);
   };
 
   // Add reward item handler (required by TiersSection)
@@ -176,7 +172,10 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
       id: tempId,
     };
 
-    // Return the new reward with temporary ID - actual creation will happen in the backend
+    // In a real implementation, we would also save this to the database
+    // For now, we just return the new reward with its temporary ID
+    // The createTier or updateTier functions will handle saving the rewards
+    console.log("Created new reward item:", newReward);
     return newReward;
   };
 
@@ -291,6 +290,68 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     }
 
     await updatePool({ slug }, "Updating public URL...");
+  };
+
+  // Function to save tier changes to the database
+  const handleSaveTierChanges = async () => {
+    if (!pool?.id) {
+      showToast.error("Pool ID is required to save tiers");
+      return;
+    }
+
+    console.log("Saving tiers with data:", {
+      tiersCount: localTiers.length,
+      tiers: localTiers,
+    });
+
+    showToast.loading("Saving tier changes...");
+
+    try {
+      for (const tier of localTiers) {
+        console.log("Processing tier:", {
+          id: tier.id,
+          name: tier.name,
+          isNew: !tier.id || tier.id.startsWith("temp_"),
+        });
+
+        const basicTierData: TierUpdateData = {
+          name: String(tier.name || ""),
+          price: Number(tier.price || 0),
+          description: String(tier.description || ""),
+          isActive: Boolean(tier.isActive),
+          nftMetadata: String(tier.nftMetadata || ""),
+          isVariablePrice: Boolean(tier.isVariablePrice),
+          minPrice: Number(tier.minPrice || 0),
+          maxPrice: Number(tier.maxPrice || 0),
+          maxPatrons: Number(tier.maxPatrons || 0),
+          onchainIndex: Number(tier.onchain_index || 0),
+        };
+
+        if (tier.imageUrl && typeof tier.imageUrl === "string") {
+          basicTierData.imageUrl = tier.imageUrl;
+        }
+
+        // For existing tiers - use the tier.id directly as dbId
+        if (tier.id && !tier.id.startsWith("temp_")) {
+          console.log("Updating existing tier with ID:", tier.id);
+          await updateTier({
+            ...basicTierData,
+            dbId: tier.id, // Directly use tier.id for the database identifier
+          });
+        }
+        // For new tiers
+        else {
+          console.log("Creating new tier:", basicTierData.name);
+          await createTier(basicTierData);
+        }
+      }
+
+      showToast.success("Tiers saved successfully");
+      handleRefreshTiers();
+    } catch (error) {
+      console.error("Error saving tiers:", error);
+      showToast.error("Failed to save tier changes");
+    }
   };
 
   return (
@@ -413,88 +474,63 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
 
             {/* TIERS SECTION */}
             <div className="mt-8 pb-16">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Tiers</h2>
-                {!isTiersLoading && tiers && tiers.length > 0 && (
-                  <button
-                    className="py-2 px-6 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-sm text-white font-medium transition-colors flex items-center gap-2"
-                    onClick={() => setIsCreateTierModalOpen(true)}
-                  >
-                    <span>+</span> Add Tier
-                  </button>
-                )}
-              </div>
-
               {isTiersLoading ? (
                 <div className="flex items-center justify-center p-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
                 </div>
-              ) : !isTiersLoading && tiers && tiers.length > 0 ? (
-                <div className="space-y-4">
-                  {tiers.map((tier) => (
-                    <TierDisplayItem
-                      key={tier.id}
-                      tier={tier}
-                      onEditTier={handleEditTier}
-                    />
-                  ))}
-                </div>
               ) : (
-                <div className="bg-[#FFFFFF0A] p-4 rounded-lg text-center">
-                  <p className="text-white/70">No tiers found</p>
-                  <button
-                    className="mt-4 py-2 px-6 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-sm text-white font-medium transition-colors"
-                    onClick={() => setIsCreateTierModalOpen(true)}
-                  >
-                    Create Tier
-                  </button>
-                </div>
-              )}
+                <>
+                  {/* Add debugging info for tiers */}
+                  {localTiers.length === 0 && (
+                    <div className="bg-yellow-900/20 border border-yellow-500/50 p-4 rounded-lg mb-6">
+                      <p className="text-yellow-200">
+                        No tiers found for this pool. You can add tiers using
+                        the button above.
+                      </p>
+                      <p className="text-yellow-300 text-sm mt-2">
+                        Debug: Remote tiers: {remoteTiers?.length || 0}, Local
+                        tiers: {localTiers.length}
+                      </p>
+                    </div>
+                  )}
 
-              {tierUpdateError && (
-                <div className="bg-red-900/20 border border-red-500/50 text-red-300 p-4 rounded-lg mt-6">
-                  {tierUpdateError}
-                </div>
+                  <TiersSection
+                    tiers={localTiers}
+                    onTiersChange={handleTiersChange}
+                    availableRewardItems={availableRewardItems || []}
+                    onAddRewardItem={handleAddRewardItem}
+                    supabase={supabase!}
+                    poolName={pool?.name || ""}
+                    fundingGoal={
+                      pool?.target_amount ? pool.target_amount.toString() : "0"
+                    }
+                    capAmount=""
+                    poolImage={pool?.image_url || ""}
+                    isEditMode={true}
+                  />
+
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveTierChanges}
+                      className="py-3 px-8 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"
+                      disabled={isTierUpdating || localTiers.length === 0}
+                    >
+                      {isTierUpdating ? "Saving..." : "Save Tier Changes"}
+                    </button>
+                  </div>
+
+                  {tierUpdateError && (
+                    <div className="bg-red-900/20 border border-red-500/50 text-red-300 p-4 rounded-lg mt-6">
+                      {tierUpdateError}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </>
         )}
       </div>
-
-      {/* Edit Tier Modal */}
-      {pool && (
-        <EditTierModal
-          isOpen={isEditTierModalOpen}
-          onClose={() => setIsEditTierModalOpen(false)}
-          tier={selectedTier}
-          poolId={pool.id}
-          contractAddress={pool.contract_address || ""}
-          poolName={pool.name}
-          poolImage={imagePreview || pool.image_url || ""}
-          availableRewardItems={availableRewardItems}
-          onSuccess={() => {
-            handleRefreshPool();
-            handleRefreshTiers();
-          }}
-        />
-      )}
-
-      {/* Create Tier Modal */}
-      {pool && (
-        <CreateTierModal
-          isOpen={isCreateTierModalOpen}
-          onClose={() => setIsCreateTierModalOpen(false)}
-          poolId={pool.id}
-          contractAddress={pool.contract_address || ""}
-          poolName={pool.name}
-          poolImage={imagePreview || pool.image_url || ""}
-          availableRewardItems={availableRewardItems}
-          onSuccess={() => {
-            handleRefreshPool();
-            handleRefreshTiers();
-          }}
-        />
-      )}
 
       <GetTokensModal
         isOpen={showGetTokensModal}
