@@ -7,58 +7,55 @@ import { useAuthenticatedSupabase } from "@/hooks/useAuthenticatedSupabase";
 import GetTokensModal from "../../../components/GetTokensModal";
 import showToast from "@/utils/toast";
 import PoolImageUpload from "@/app/components/PoolImageUpload";
-import { uploadPoolImage } from "@/lib/utils/imageUpload";
 import { usePoolDetails } from "@/hooks/usePoolDetails";
 import SocialLinksInput, {
   SocialLinksType,
 } from "@/app/components/SocialLinksInput";
 import RichTextEditor from "@/app/components/RichTextEditor";
-import { validateSlug, formatSlug } from "@/lib/utils/slugValidation";
 import { TiersSection } from "../../create/components/TiersSection";
 import { useTierManagement } from "@/hooks/useTierManagement";
 import { Tier as CreateTier } from "../../create/types";
 import { RewardItem } from "../../create/types";
-import {
-  fromUSDCBaseUnits,
-  toUSDCBaseUnits,
-} from "@/lib/contracts/StageDotFunPool";
-import { MAX_SAFE_VALUE, isUncapped } from "@/lib/utils/contractValues";
 import { useEditPoolTiers } from "@/hooks/useEditPoolTiers";
 import SlugEditor from "./SlugEditor";
+import { usePoolImageUpload } from "@/hooks/usePoolImageUpload";
+import { usePoolDetailsEdit } from "@/hooks/usePoolDetailsEdit";
+import { usePoolSlugEdit } from "@/hooks/usePoolSlugEdit";
+import { usePoolEdit } from "@/hooks/usePoolEdit";
 
 interface EditPoolFormProps {
   poolIdentifier: string;
 }
 
 export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
-  const { user: privyUser, getAccessToken } = usePrivy();
   const { dbUser } = useSupabase();
   const { supabase, isLoading: isClientLoading } = useAuthenticatedSupabase();
   const router = useRouter();
+  const [showGetTokensModal, setShowGetTokensModal] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState("100vh");
 
+  // Pool data
   const {
     pool,
     isLoading: isPoolLoading,
     refresh: refreshPool,
   } = usePoolDetails(poolIdentifier);
 
-  const [viewportHeight, setViewportHeight] = useState("100vh");
-  const [poolName, setPoolName] = useState("");
-  const [minCommitment, setMinCommitment] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [socialLinks, setSocialLinks] = useState<SocialLinksType>({});
-  const [slug, setSlug] = useState("");
-  const [slugError, setSlugError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Log pool data for debugging
+  console.log("Pool data loaded:", {
+    hasPool: !!pool,
+    isLoading: isPoolLoading,
+    description: pool?.description,
+    location: pool?.location,
+    social_links: pool?.social_links,
+  });
 
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  // Create wrapper functions for the mutate calls
+  const handleRefreshPool = useCallback(async () => {
+    await refreshPool();
+  }, [refreshPool]);
 
-  const [showGetTokensModal, setShowGetTokensModal] = useState(false);
-
-  // Use the custom hook for tier data
+  // Use the custom hook for tier data only when pool is available
   const {
     tiers,
     availableRewardItems,
@@ -70,25 +67,66 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     supabase,
   });
 
-  // Local state to track tier changes
-  const [localTiers, setLocalTiers] = useState<CreateTier[]>([]);
-  const [localRewardItems, setLocalRewardItems] = useState<RewardItem[]>([]);
+  const handleRefreshTiers = useCallback(async () => {
+    await refreshTiers();
+  }, [refreshTiers]);
 
-  // Sync remote tier data to local state when it changes
-  useEffect(() => {
-    if (tiers && tiers.length > 0) {
-      console.log("Setting initial tiers from DB:", tiers);
-      setLocalTiers(tiers);
-    }
-    if (availableRewardItems && availableRewardItems.length > 0) {
-      console.log(
-        "Setting initial reward items from DB:",
-        availableRewardItems
-      );
-      setLocalRewardItems(availableRewardItems);
-    }
-  }, [tiers, availableRewardItems]);
+  // IMAGE UPLOAD SECTION - auto-save when image changes
+  const {
+    imagePreview,
+    isUploading: isUploadingImage,
+    handleImageSelect: handleImageUpload,
+    handleRemoveImage,
+  } = usePoolImageUpload({
+    poolId: pool?.id || "",
+    currentImageUrl: pool?.image_url || null,
+    supabase,
+    onSuccess: handleRefreshPool,
+  });
 
+  // POOL DETAILS SECTION - description, location, socials
+  const {
+    description,
+    setDescription,
+    location,
+    setLocation,
+    socialLinks,
+    setSocialLinks,
+    isSubmitting: isSubmittingDetails,
+    handleSubmit: handleSubmitDetails,
+  } = usePoolDetailsEdit({
+    poolId: pool?.id || "",
+    initialDescription: pool?.description || "",
+    initialLocation: pool?.location || "",
+    initialSocialLinks: pool?.social_links || {},
+    onSuccess: handleRefreshPool,
+  });
+
+  // Log form data for debugging
+  console.log("Form data initialized with:", {
+    description,
+    location,
+    socialLinks,
+    imagePreview,
+  });
+
+  // SLUG SECTION - update public URL
+  const {
+    slug,
+    slugError,
+    setSlug,
+    isSubmitting: isSubmittingSlug,
+    handleSubmit: handleSubmitSlug,
+  } = usePoolSlugEdit({
+    poolId: pool?.id || "",
+    initialSlug: pool?.slug || null,
+    onSuccess: (newSlug) => {
+      handleRefreshPool();
+      // Don't navigate automatically as it might disrupt the user's flow
+    },
+  });
+
+  // TIERS SECTION - we'll keep using the existing hook for now
   const {
     isLoading: isTierUpdateLoading,
     isUpdating: isTierUpdating,
@@ -100,8 +138,8 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     poolId: pool?.id || "",
     contractAddress: pool?.contract_address || "",
     onSuccess: () => {
-      refreshPool();
-      refreshTiers();
+      handleRefreshPool();
+      handleRefreshTiers();
     },
   });
 
@@ -115,88 +153,22 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
-  // Load pool data when available
+  // Sync remote tier data to local state when it changes
   useEffect(() => {
-    if (pool) {
-      if (!poolName) setPoolName(pool.name);
-      if (!minCommitment)
-        setMinCommitment(pool.min_commitment?.toString() || "");
-      setDescription(pool.description || "");
-      if (!location) setLocation(pool.location || "");
-      if (Object.keys(socialLinks).length === 0)
-        setSocialLinks(pool.social_links || {});
-      if (!slug) setSlug(pool.slug || "");
-      if (pool.image_url) setImagePreview(pool.image_url);
+    if (tiers && tiers.length > 0) {
+      console.log("Setting initial tiers from DB:", tiers);
     }
-  }, [pool, poolIdentifier, poolName, minCommitment, location, slug]);
-
-  // Add debug logging for description
-  useEffect(() => {
-    if (pool) {
-      console.log("Description loading state:", {
-        poolDescription: pool.description,
-        currentDescription: description,
-        pool,
-      });
+    if (availableRewardItems && availableRewardItems.length > 0) {
+      console.log(
+        "Setting initial reward items from DB:",
+        availableRewardItems
+      );
     }
-  }, [pool, description]);
-
-  // When pool data is loaded, set the form fields
-  useEffect(() => {
-    if (pool) {
-      setPoolName(pool.name || "");
-      setDescription(pool.description || "");
-      setLocation(pool.location || "");
-      setSocialLinks(pool.social_links || {});
-      setSlug(pool.slug || "");
-      if (pool.image_url) {
-        setImagePreview(pool.image_url);
-      }
-    }
-  }, [pool]);
-
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!dbUser || !supabase) {
-        alert(
-          "Please wait for authentication to complete before uploading images"
-        );
-        return;
-      }
-      if (!file.type.startsWith("image/")) {
-        alert("Please select an image file");
-        return;
-      }
-      if (file.size > 50 * 1024 * 1024) {
-        alert("Image size should be less than 50MB");
-        return;
-      }
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleRemoveImage = () => {
-    setSelectedImage(null);
-    setImagePreview(null);
-  };
-
-  // Handle slug change
-  const handleSlugChange = (newSlug: string) => {
-    setSlug(newSlug);
-    // Clear any previous errors when editing
-    if (slugError) setSlugError(null);
-  };
+  }, [tiers, availableRewardItems]);
 
   // Handle tier changes from TiersSection
   const handleTiersChange = useCallback((updatedTiers: CreateTier[]) => {
     console.log("TiersSection updated tiers:", updatedTiers);
-    setLocalTiers(updatedTiers);
   }, []);
 
   // Add reward item handler (required by TiersSection)
@@ -211,258 +183,27 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     };
 
     // Add to available rewards list for immediate UI update
-    setLocalRewardItems((prev) => [...prev, newReward]);
+    // setLocalRewardItems((prev) => [...prev, newReward]);
 
     // Return the new reward with temporary ID - actual creation will happen in the backend
     return newReward;
   };
 
-  // Update handleSubmit to include tier updates with rewards
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>
-  ) => {
-    e.preventDefault();
-
-    if (!dbUser || isClientLoading) {
-      showToast.error("Please wait for authentication to complete");
-      return;
-    }
-
-    if (!pool) {
-      showToast.error("Pool data not available");
-      return;
-    }
-
-    if (dbUser.id !== pool.creator_id) {
-      showToast.error("You don't have permission to edit this pool");
-      return;
-    }
-
-    // Validate slug if present
-    if (slug) {
-      const validation = validateSlug(slug);
-      if (!validation.isValid) {
-        setSlugError(validation.reason || "Invalid slug");
-        showToast.error(validation.reason || "Invalid slug format");
-        return;
-      }
-    }
-
-    try {
-      setIsSubmitting(true);
-
-      let imageUrl = pool.image_url;
-      if (selectedImage) {
-        const uploadResult = await uploadPoolImage(
-          selectedImage,
-          supabase!,
-          setIsUploadingImage
+  // Convert file input event to direct file handling
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!dbUser || !supabase) {
+        alert(
+          "Please wait for authentication to complete before uploading images"
         );
-        if (!uploadResult?.imageUrl) {
-          setIsSubmitting(false);
-          return;
-        }
-        imageUrl = uploadResult.imageUrl;
-      }
-      if (!imagePreview && !selectedImage) {
-        imageUrl = null;
-      }
-
-      const updates = {
-        name: poolName,
-        min_commitment: minCommitment ? parseFloat(minCommitment) : null,
-        image_url: imageUrl,
-        description: description,
-        location: location,
-        social_links:
-          Object.keys(socialLinks).length > 0
-            ? JSON.parse(JSON.stringify(socialLinks))
-            : null,
-        slug: slug || null,
-      };
-
-      console.log("Update data:", {
-        currentDescription: pool.description,
-        newDescription: description,
-        descriptionChanged: pool.description !== description,
-        socialLinks,
-      });
-
-      // Process tier updates
-      if (localTiers.length > 0) {
-        try {
-          // Process tiers one by one
-          for (const tier of localTiers) {
-            if (tier.id) {
-              // Existing tier - update it
-              const updateSuccess = await updateTier({
-                ...tier,
-                dbId: tier.id, // Pass the database ID for API updates
-                onchainIndex: tier.onchain_index
-                  ? Number(tier.onchain_index)
-                  : 0, // Convert to number
-                isVariablePrice: tier.isVariablePrice,
-                maxPatrons: tier.maxPatrons ? Number(tier.maxPatrons) : 0, // Convert to number
-                minPrice: tier.minPrice ? Number(tier.minPrice) : 0, // Convert to number
-                maxPrice: tier.maxPrice ? Number(tier.maxPrice) : 0, // Convert to number
-                price: tier.price ? Number(tier.price) : 0, // Convert price to number
-                imageUrl: tier.imageUrl || "",
-                isActive: tier.isActive,
-                nftMetadata: tier.nftMetadata || "",
-              });
-
-              if (!updateSuccess) {
-                throw new Error(`Failed to update tier: ${tier.name}`);
-              }
-            } else {
-              // This is a new tier - create it
-              const createSuccess = await createTier({
-                ...tier,
-                onchainIndex: 0, // New tiers will get assigned an index on-chain
-                isVariablePrice: tier.isVariablePrice,
-                maxPatrons: tier.maxPatrons ? Number(tier.maxPatrons) : 0, // Convert to number
-                minPrice: tier.minPrice ? Number(tier.minPrice) : 0, // Convert to number
-                maxPrice: tier.maxPrice ? Number(tier.maxPrice) : 0, // Convert to number
-                price: tier.price ? Number(tier.price) : 0, // Convert price to number
-                imageUrl: tier.imageUrl || "",
-                isActive: tier.isActive !== undefined ? tier.isActive : true, // Default to active if not specified
-                nftMetadata: tier.nftMetadata || "",
-              });
-
-              if (!createSuccess) {
-                throw new Error(`Failed to create tier: ${tier.name}`);
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Error updating tiers:", error);
-          const errorMessage =
-            error instanceof Error ? error.message : "Failed to update tiers";
-          showToast.remove();
-          showToast.error(errorMessage);
-          return;
-        }
-      }
-
-      // Now continue with database updates via API
-      const token = await getAccessToken();
-      if (!token) {
-        showToast.error("Authentication error. Please try again.");
-        setIsSubmitting(false);
         return;
       }
-
-      // Prepare tier updates for database - only include modified tiers
-      const tierUpdates = localTiers.map((tier) => {
-        const tierData = {
-          // Only include ID for existing tiers
-          ...(tier.id && { id: tier.id }),
-          name: tier.name,
-          description: tier.description,
-          price: Number(toUSDCBaseUnits(parseFloat(tier.price))),
-          is_variable_price: tier.isVariablePrice,
-          min_price: tier.isVariablePrice
-            ? Number(toUSDCBaseUnits(parseFloat(tier.minPrice)))
-            : null,
-          max_price: tier.isVariablePrice
-            ? isUncapped(tier.maxPrice)
-              ? Number(MAX_SAFE_VALUE)
-              : Number(toUSDCBaseUnits(parseFloat(tier.maxPrice)))
-            : null,
-          max_supply:
-            tier.patronsMode === "limited" ? parseInt(tier.maxPatrons) : null,
-          is_active: tier.isActive,
-          image_url: tier.imageUrl,
-          nft_metadata: tier.nftMetadata || "",
-          onchain_index: tier.onchain_index || null, // Only include for existing tiers
-        };
-
-        // Add reward items if they've been modified
-        if (tier.modifiedFields.has("rewardItems")) {
-          // Separate temporary IDs and real IDs
-          const tempRewardIds = [];
-          const realRewardIds = [];
-
-          for (const id of tier.rewardItems) {
-            if (id.startsWith("temp_")) {
-              tempRewardIds.push(id);
-            } else {
-              realRewardIds.push(id);
-            }
-          }
-
-          // Include real reward IDs
-          Object.assign(tierData, { rewardItems: realRewardIds });
-
-          // Include temporary rewards with their data for creation in the backend
-          if (tempRewardIds.length > 0) {
-            // Get the full reward objects for temporary IDs
-            const newRewards = tempRewardIds
-              .map((id) => localRewardItems.find((item) => item.id === id))
-              .filter((reward): reward is RewardItem => reward !== undefined)
-              .map((reward) => ({
-                name: reward.name,
-                description: reward.description || "",
-                type: reward.type || "default",
-              }));
-
-            if (newRewards.length > 0) {
-              Object.assign(tierData, { newRewards });
-            }
-          }
-        }
-
-        return tierData;
-      });
-
-      // Include tier updates in the request if there are any
-      const requestBody = {
-        poolId: pool.id,
-        updates,
-        ...(tierUpdates.length > 0 && { tierUpdates }),
-      };
-
-      console.log("Sending update request:", requestBody);
-
-      const response = await fetch("/api/pools/update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        showToast.remove();
-        showToast.error(result.error || "Failed to update pool");
-        setIsSubmitting(false);
-        return;
-      }
-
-      showToast.remove();
-      showToast.success("Pool updated successfully!");
-
-      // Refresh data after successful update
-      await refreshPool();
-      await refreshTiers();
-
-      const newSlug = updates.slug || pool.slug;
-      if (newSlug) {
-        router.push(`/${newSlug}`);
-      } else {
-        router.push(`/pools/${pool.id}`);
-      }
-    } catch (error) {
-      console.error("Error in handleSubmit:", error);
-      showToast.remove();
-      showToast.error("Failed to update pool");
-      setIsSubmitting(false);
+      handleImageUpload(file);
     }
   };
 
-  console.log("Local tiers:", localTiers);
+  console.log("Local tiers:", tiers);
 
   return (
     <>
@@ -495,16 +236,23 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
           </div>
         ) : (
           <>
-            <form id="editPoolForm" onSubmit={handleSubmit} className="mt-6">
-              <PoolImageUpload
-                imagePreview={imagePreview}
-                isUploadingImage={isUploadingImage}
-                onImageSelect={handleImageSelect}
-                onRemoveImage={handleRemoveImage}
-                placeholderText={poolName || "Edit Pool"}
-              />
+            {/* MAIN CONTENT GRID */}
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Image on top in mobile and medium view, right side in large screens */}
+              <div className="order-1 lg:order-2 lg:col-span-5 flex justify-center lg:justify-start px-4">
+                <div className="w-full" style={{ maxWidth: "220px" }}>
+                  <PoolImageUpload
+                    imagePreview={imagePreview}
+                    isUploadingImage={isUploadingImage}
+                    onImageSelect={handleImageSelect}
+                    onRemoveImage={handleRemoveImage}
+                    placeholderText={pool.name || "Edit Pool"}
+                  />
+                </div>
+              </div>
 
-              <div className="mt-8 space-y-6 pb-12 md:pb-8">
+              {/* Left side: Description and Location - below image on mobile and medium */}
+              <div className="order-2 lg:order-1 lg:col-span-7 space-y-6">
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Description</h2>
                   <RichTextEditor
@@ -514,12 +262,8 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                   />
                 </div>
 
-                <SlugEditor
-                  initialSlug={pool?.slug || ""}
-                  onChange={handleSlugChange}
-                />
-
                 <div>
+                  <h2 className="text-2xl font-bold mb-4">Location</h2>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
                       <div className="w-8 h-8 bg-[#FFFFFF14] rounded-full flex items-center justify-center">
@@ -538,59 +282,74 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                     />
                   </div>
                 </div>
-
-                <div>
-                  <SocialLinksInput
-                    value={socialLinks}
-                    onChange={setSocialLinks}
-                  />
-                </div>
-
-                {/* New Tiers Section */}
-                <div className="mt-12 border-t border-gray-800 pt-8">
-                  <h2 className="text-2xl font-bold mb-6">Tiers</h2>
-
-                  {isTiersLoading ? (
-                    <div className="flex items-center justify-center p-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
-                    </div>
-                  ) : !isTiersLoading && localTiers.length > 0 ? (
-                    <TiersSection
-                      tiers={localTiers}
-                      onTiersChange={handleTiersChange}
-                      availableRewardItems={localRewardItems}
-                      onAddRewardItem={handleAddRewardItem}
-                      supabase={supabase!}
-                      poolName={poolName}
-                      poolImage={imagePreview || ""}
-                    />
-                  ) : (
-                    <div>No tiers found</div>
-                  )}
-                </div>
               </div>
-            </form>
+            </div>
 
-            <div className="fixed bottom-0 left-0 right-0 md:static md:mt-8 bg-[#15161a] z-10">
-              <div className="px-4 py-6 md:p-0 max-w-6xl mx-auto">
+            {/* SOCIAL LINKS */}
+            <div className="mt-8">
+              <SocialLinksInput value={socialLinks} onChange={setSocialLinks} />
+            </div>
+
+            {/* SAVE DETAILS BUTTON */}
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={handleSubmitDetails}
+                className="py-3 px-8 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"
+                disabled={isSubmittingDetails}
+              >
+                {isSubmittingDetails ? "Saving..." : "Save Details"}
+              </button>
+            </div>
+
+            <hr className="my-8 border-gray-700" />
+
+            {/* PUBLIC URL SECTION - INLINE BUTTON */}
+            <div className="flex flex-row items-center gap-4">
+              <div className="flex-grow min-w-0 flex-shrink md:max-w-lg">
+                <SlugEditor initialSlug={pool?.slug || ""} onChange={setSlug} />
+              </div>
+              <div className="flex items-center">
                 <button
-                  type="submit"
-                  form="editPoolForm"
-                  className="w-full py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors"
-                  disabled={
-                    isSubmitting ||
-                    isPoolLoading ||
-                    !!slugError ||
-                    isTierUpdating ||
-                    isTiersLoading
-                  }
+                  type="button"
+                  onClick={handleSubmitSlug}
+                  className="py-3 px-6 min-w-[100px] whitespace-nowrap bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"
+                  disabled={isSubmittingSlug || !!slugError}
                 >
-                  {isSubmitting || isTierUpdating
-                    ? "Updating..."
-                    : "Update Pool Details"}
+                  {isSubmittingSlug ? "Updating..." : "Update"}
                 </button>
-                <div className="h-8 md:h-12"></div>
               </div>
+            </div>
+
+            <hr className="my-8 border-gray-700" />
+
+            {/* TIERS SECTION */}
+            <div className="mt-8 pb-16">
+              <h2 className="text-2xl font-bold mb-6">Tiers</h2>
+
+              {isTiersLoading ? (
+                <div className="flex items-center justify-center p-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
+                </div>
+              ) : !isTiersLoading && tiers.length > 0 ? (
+                <TiersSection
+                  tiers={tiers}
+                  onTiersChange={handleTiersChange}
+                  availableRewardItems={availableRewardItems}
+                  onAddRewardItem={handleAddRewardItem}
+                  supabase={supabase!}
+                  poolName={pool.name}
+                  poolImage={imagePreview || ""}
+                />
+              ) : (
+                <div>No tiers found</div>
+              )}
+
+              {tierUpdateError && (
+                <div className="bg-red-900/20 border border-red-500/50 text-red-300 p-4 rounded-lg mt-6">
+                  {tierUpdateError}
+                </div>
+              )}
             </div>
           </>
         )}
