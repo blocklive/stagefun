@@ -397,7 +397,6 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
     );
   };
 
-  console.log("TIER", tier);
   return (
     <div className="flex-1 grid grid-cols-1 gap-4 w-full h-[450px] overflow-y-auto pr-2">
       <div>

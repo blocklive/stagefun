@@ -19,7 +19,6 @@ export function usePoolDetails(poolId: string | null) {
         const pool = await getPoolById(poolId);
         if (!pool) throw new Error("Pool not found");
 
-        console.log("**** Pool details:", pool);
         // Get creator details
         const creator = await getUserById(pool.creator_id);
         if (!creator) throw new Error("Creator not found");
