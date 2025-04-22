@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
       // - Base64 images can be megabytes in size and will break database indexes
       // - The tier.imageUrl and tier.nftMetadata fields should ONLY contain URLs
       // - If you see a base64 string here, it means something went wrong in the upload process
-      const tiersToInsert = poolData.tiers.map((tier: any) => {
+      const tiersToInsert = poolData.tiers.map((tier: any, index: number) => {
         // Validate no base64 images are being stored
         if (tier.imageUrl?.startsWith("data:")) {
           throw new Error(
@@ -328,6 +328,7 @@ export async function POST(request: NextRequest) {
           is_active: tier.isActive !== undefined ? tier.isActive : true,
           nft_metadata: tier.nftMetadata || null, // Save metadata URL to database
           image_url: tier.imageUrl || null, // Save image URL to database
+          onchain_index: index, // Add the onchain index matching the blockchain tiers array index
         };
       });
 

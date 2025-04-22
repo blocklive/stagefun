@@ -69,15 +69,6 @@ contract StageDotFunPool is Ownable {
         uint256 currentPatrons; // Current number of patrons in this tier
     }
     
-    struct RewardItem {
-        string name;
-        string description;
-        string itemType; // "NFT", "MERCH", "TICKET"
-        string metadata;
-        uint256 quantity;
-        bool isClaimed; // Track if this reward has been claimed
-    }
-    
     // Change from dynamic array to fixed-size array
     Tier[MAX_TIERS] public tiers;
     uint256 public tierCount;

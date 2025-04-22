@@ -34,16 +34,20 @@ import SocialLinksInput, {
 } from "@/app/components/SocialLinksInput";
 import RichTextEditor from "@/app/components/RichTextEditor";
 import { validateSlug, formatSlug } from "@/lib/utils/slugValidation";
+import { TiersSection } from "../../create/components/TiersSection";
+import { useTierManagement } from "@/hooks/useTierManagement";
+import { Tier as CreateTier } from "../../create/types";
+import { RewardItem } from "../../create/types";
+import {
+  fromUSDCBaseUnits,
+  toUSDCBaseUnits,
+} from "@/lib/contracts/StageDotFunPool";
+import { MAX_SAFE_VALUE, isUncapped } from "@/lib/utils/contractValues";
 
 export default function EditPoolPage() {
   const { user: privyUser, getAccessToken } = usePrivy();
   const { dbUser } = useSupabase();
   const { supabase, isLoading: isClientLoading } = useAuthenticatedSupabase();
-  const {
-    updatePoolName,
-    updateMinCommitment,
-    isLoading: isContractLoading,
-  } = useContractInteraction();
   const router = useRouter();
   const params = useParams();
   const poolIdentifier = params.id as string;
@@ -69,6 +73,26 @@ export default function EditPoolPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const [showGetTokensModal, setShowGetTokensModal] = useState(false);
+
+  // Add state for tiers
+  const [tiers, setTiers] = useState<CreateTier[]>([]);
+  const [availableRewardItems, setAvailableRewardItems] = useState<
+    RewardItem[]
+  >([]);
+  const [isTiersLoading, setIsTiersLoading] = useState(true);
+
+  const {
+    isLoading: isTierUpdateLoading,
+    isUpdating: isTierUpdating,
+    error: tierUpdateError,
+    updateTier,
+    createTier,
+    toggleTierStatus,
+  } = useTierManagement({
+    poolId: pool?.id || "",
+    contractAddress: pool?.contract_address || "",
+    onSuccess: refreshPool,
+  });
 
   // Set the correct viewport height, accounting for mobile browsers
   useEffect(() => {
@@ -119,6 +143,112 @@ export default function EditPoolPage() {
       }
     }
   }, [pool]);
+
+  // Load tiers for pool when the pool is loaded
+  useEffect(() => {
+    if (!pool || !supabase) return;
+
+    const fetchTiersAndRewards = async () => {
+      setIsTiersLoading(true);
+
+      try {
+        // Fetch tiers with their associated rewards in one query
+        const { data: tierData, error } = await supabase
+          .from("tiers")
+          .select(
+            `
+            *,
+            reward_items (
+              id,
+              name,
+              description,
+              type,
+              metadata,
+              creator_id,
+              is_active
+            )
+          `
+          )
+          .eq("pool_id", pool.id)
+          .order("id");
+
+        console.log(
+          "Fetched tier data with rewards:",
+          JSON.stringify(tierData, null, 2)
+        );
+
+        if (error) {
+          console.error("Error fetching tiers:", error);
+          showToast.error("Failed to load tiers");
+          setIsTiersLoading(false);
+          return;
+        }
+
+        // Convert DB tiers to the format expected by TiersSection
+        const createTiers: CreateTier[] = tierData.map((dbTier) => ({
+          id: dbTier.id,
+          name: dbTier.name,
+          // Convert prices from base units to human-readable values
+          price: fromUSDCBaseUnits(BigInt(dbTier.price)).toString(),
+          isActive: dbTier.is_active,
+          nftMetadata: dbTier.nft_metadata || "",
+          isVariablePrice: dbTier.is_variable_price,
+          minPrice: dbTier.min_price
+            ? fromUSDCBaseUnits(BigInt(dbTier.min_price)).toString()
+            : "0",
+          maxPrice: dbTier.max_price
+            ? fromUSDCBaseUnits(BigInt(dbTier.max_price)).toString()
+            : "0",
+          maxPatrons: dbTier.max_supply ? dbTier.max_supply.toString() : "0",
+          description: dbTier.description || "",
+          // Extract reward item IDs from the joined rewards
+          rewardItems: dbTier.reward_items
+            ? dbTier.reward_items.map((reward: any) => reward.id)
+            : [],
+          imageUrl: dbTier.image_url,
+          modifiedFields: new Set<string>(),
+          // Add default values for required properties
+          pricingMode: dbTier.is_variable_price
+            ? dbTier.max_price
+              ? "range"
+              : "uncapped"
+            : "fixed",
+          patronsMode: dbTier.max_supply ? "limited" : "uncapped",
+          // Add the onchain_index from the database
+          onchain_index: dbTier.onchain_index,
+        }));
+
+        setTiers(createTiers);
+
+        // Collect all reward items from the tiers
+        const allPoolRewards: RewardItem[] = [];
+        tierData.forEach((dbTier) => {
+          if (dbTier.reward_items && dbTier.reward_items.length > 0) {
+            dbTier.reward_items.forEach((reward: any) => {
+              // Check if this reward is already in our list to avoid duplicates
+              if (!allPoolRewards.some((r) => r.id === reward.id)) {
+                allPoolRewards.push({
+                  id: reward.id,
+                  name: reward.name,
+                  description: reward.description || "",
+                  type: reward.type || "default",
+                });
+              }
+            });
+          }
+        });
+
+        // Set the available rewards for this pool
+        setAvailableRewardItems(allPoolRewards);
+      } catch (err) {
+        console.error("Error in fetchTiers:", err);
+      } finally {
+        setIsTiersLoading(false);
+      }
+    };
+
+    fetchTiersAndRewards();
+  }, [pool?.id, supabase, dbUser?.id]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -172,6 +302,30 @@ export default function EditPoolPage() {
     }
   };
 
+  // Handle tier changes from TiersSection
+  const handleTiersChange = async (updatedTiers: CreateTier[]) => {
+    setTiers(updatedTiers);
+  };
+
+  // Add reward item handler (required by TiersSection)
+  const handleAddRewardItem = (reward: Omit<RewardItem, "id">): RewardItem => {
+    // Generate a temporary ID with a 'temp_' prefix to identify it as a new reward that needs to be created on the backend
+    const tempId = `temp_${crypto.randomUUID()}`;
+
+    // Create the reward object with the temporary ID
+    const newReward = {
+      ...reward,
+      id: tempId,
+    };
+
+    // Add to available rewards list for immediate UI update
+    setAvailableRewardItems((prev) => [...prev, newReward]);
+
+    // Return the new reward with temporary ID - actual creation will happen in the backend
+    return newReward;
+  };
+
+  // Update handleSubmit to include tier updates with rewards
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>
   ) => {
@@ -242,6 +396,47 @@ export default function EditPoolPage() {
         socialLinks,
       });
 
+      // Process tier updates
+      if (tiers.length > 0) {
+        try {
+          // Process tiers one by one
+          for (const tier of tiers) {
+            if (tier.id) {
+              // Existing tier - update it
+              const updateSuccess = await updateTier({
+                ...tier,
+                dbId: tier.id, // Pass the database ID for API updates
+                onchainIndex: tier.onchain_index
+                  ? Number(tier.onchain_index)
+                  : 0, // Convert to number
+                isVariablePrice: tier.isVariablePrice,
+                maxPatrons: tier.maxPatrons ? Number(tier.maxPatrons) : 0, // Convert to number
+                minPrice: tier.minPrice ? Number(tier.minPrice) : 0, // Convert to number
+                maxPrice: tier.maxPrice ? Number(tier.maxPrice) : 0, // Convert to number
+                price: tier.price ? Number(tier.price) : 0, // Convert price to number
+                imageUrl: tier.imageUrl || "",
+                isActive: tier.isActive,
+                nftMetadata: tier.nftMetadata || "",
+              });
+
+              if (!updateSuccess) {
+                throw new Error(`Failed to update tier: ${tier.name}`);
+              }
+            } else {
+              // This is a new tier - create it
+              // ... existing code ...
+            }
+          }
+        } catch (error) {
+          console.error("Error updating tiers:", error);
+          const errorMessage =
+            error instanceof Error ? error.message : "Failed to update tiers";
+          showToast.error(errorMessage, { id: updateToastId });
+          return;
+        }
+      }
+
+      // Now continue with database updates via API
       const token = await getAccessToken();
       if (!token) {
         showToast.error("Authentication error. Please try again.");
@@ -249,13 +444,83 @@ export default function EditPoolPage() {
         return;
       }
 
+      // Prepare tier updates for database - only include modified tiers
+      const tierUpdates = tiers.map((tier) => {
+        const tierData = {
+          id: tier.id,
+          name: tier.name,
+          description: tier.description,
+          price: Number(toUSDCBaseUnits(parseFloat(tier.price))),
+          is_variable_price: tier.isVariablePrice,
+          min_price: tier.isVariablePrice
+            ? Number(toUSDCBaseUnits(parseFloat(tier.minPrice)))
+            : null,
+          max_price: tier.isVariablePrice
+            ? isUncapped(tier.maxPrice)
+              ? Number(MAX_SAFE_VALUE)
+              : Number(toUSDCBaseUnits(parseFloat(tier.maxPrice)))
+            : null,
+          max_supply:
+            tier.patronsMode === "limited" ? parseInt(tier.maxPatrons) : null,
+          is_active: tier.isActive,
+          image_url: tier.imageUrl,
+          nft_metadata: tier.nftMetadata || "",
+        };
+
+        // Add reward items if they've been modified
+        if (tier.modifiedFields.has("rewardItems")) {
+          // Separate temporary IDs and real IDs
+          const tempRewardIds = [];
+          const realRewardIds = [];
+
+          for (const id of tier.rewardItems) {
+            if (id.startsWith("temp_")) {
+              tempRewardIds.push(id);
+            } else {
+              realRewardIds.push(id);
+            }
+          }
+
+          // Include real reward IDs
+          Object.assign(tierData, { rewardItems: realRewardIds });
+
+          // Include temporary rewards with their data for creation in the backend
+          if (tempRewardIds.length > 0) {
+            // Get the full reward objects for temporary IDs
+            const newRewards = tempRewardIds
+              .map((id) => availableRewardItems.find((item) => item.id === id))
+              .filter((reward): reward is RewardItem => reward !== undefined)
+              .map((reward) => ({
+                name: reward.name,
+                description: reward.description || "",
+                type: reward.type || "default",
+              }));
+
+            if (newRewards.length > 0) {
+              Object.assign(tierData, { newRewards });
+            }
+          }
+        }
+
+        return tierData;
+      });
+
+      // Include tier updates in the request if there are any
+      const requestBody = {
+        poolId: pool.id,
+        updates,
+        ...(tierUpdates.length > 0 && { tierUpdates }),
+      };
+
+      console.log("Sending update request:", requestBody);
+
       const response = await fetch("/api/pools/update", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ poolId: pool.id, updates }),
+        body: JSON.stringify(requestBody),
       });
 
       const result = await response.json();
@@ -265,6 +530,7 @@ export default function EditPoolPage() {
         return;
       }
 
+      showToast.remove();
       showToast.success("Pool updated successfully!");
       await refreshPool();
 
@@ -272,14 +538,12 @@ export default function EditPoolPage() {
       if (newSlug) {
         router.push(`/${newSlug}`);
       } else {
-        router.push(`/pools/${pool.id}`); // Fallback to ID route if no slug
+        router.push(`/pools/${pool.id}`);
       }
     } catch (error) {
-      console.error("Error updating pool:", error);
-      showToast.error("An error occurred while updating the pool");
-    } finally {
+      console.error("Error in handleSubmit:", error);
+      showToast.error("Failed to update pool");
       setIsSubmitting(false);
-      setIsUploadingImage(false);
     }
   };
 
@@ -409,6 +673,36 @@ export default function EditPoolPage() {
             <div>
               <SocialLinksInput value={socialLinks} onChange={setSocialLinks} />
             </div>
+
+            {/* New Tiers Section */}
+            <div className="mt-12 border-t border-gray-800 pt-8">
+              <h2 className="text-2xl font-bold mb-6">Tiers</h2>
+
+              {isTiersLoading ? (
+                <div className="flex items-center justify-center p-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#836EF9]"></div>
+                </div>
+              ) : (
+                <>
+                  {tierUpdateError && (
+                    <div className="bg-red-900/20 border border-red-500/50 text-red-300 p-4 rounded-lg mb-6">
+                      {tierUpdateError}
+                    </div>
+                  )}
+
+                  {/* Use the TiersSection component from the creation flow */}
+                  <TiersSection
+                    tiers={tiers}
+                    onTiersChange={handleTiersChange}
+                    availableRewardItems={availableRewardItems}
+                    onAddRewardItem={handleAddRewardItem}
+                    supabase={supabase!}
+                    poolName={poolName}
+                    poolImage={imagePreview || ""}
+                  />
+                </>
+              )}
+            </div>
           </div>
         </form>
 
@@ -418,9 +712,17 @@ export default function EditPoolPage() {
               type="submit"
               form="editPoolForm"
               className="w-full py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors"
-              disabled={isSubmitting || isPoolLoading || !!slugError}
+              disabled={
+                isSubmitting ||
+                isPoolLoading ||
+                !!slugError ||
+                isTierUpdating ||
+                isTiersLoading
+              }
             >
-              {isSubmitting ? "Updating..." : "Update Pool Details"}
+              {isSubmitting || isTierUpdating
+                ? "Updating..."
+                : "Update Pool Details"}
             </button>
             <div className="h-8 md:h-12"></div>
           </div>

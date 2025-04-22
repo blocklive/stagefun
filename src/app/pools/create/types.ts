@@ -21,4 +21,5 @@ export interface Tier {
   modifiedFields: Set<string>;
   pricingMode?: "fixed" | "range" | "uncapped";
   patronsMode?: "limited" | "uncapped";
+  onchain_index?: number;
 }
