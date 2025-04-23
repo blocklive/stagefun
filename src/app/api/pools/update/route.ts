@@ -185,10 +185,34 @@ export async function POST(request: NextRequest) {
         // Extract reward items before db update
         const { rewardItems, newRewards, ...tierData } = tier;
 
+        // Create a properly typed object for the database update
+        const tierDataForDb: Record<string, any> = {
+          ...tierData,
+        };
+
+        // Apply proper handling for variable price tier data
+        // This ensures we satisfy the check_variable_price_bounds constraint
+        if (tierDataForDb.is_variable_price) {
+          // For variable price tiers:
+          // - Ensure min_price and max_price are set
+          // - Set price to null to satisfy the constraint
+          tierDataForDb.min_price = tierDataForDb.min_price ?? 0;
+          tierDataForDb.max_price = tierDataForDb.max_price ?? 0;
+          tierDataForDb.price = null; // Price must be null for variable price tiers
+        } else {
+          // For fixed price tiers:
+          // - Ensure price is set
+          // - Set min_price and max_price to null to satisfy the constraint
+          tierDataForDb.min_price = null;
+          tierDataForDb.max_price = null;
+        }
+
+        console.log("Processing tier update with data:", tierDataForDb);
+
         // 1. Update the tier data
         const { data: updatedTier, error: updateError } = await adminSupabase
           .from("tiers")
-          .update(tierData)
+          .update(tierDataForDb)
           .eq("id", tier.id)
           .eq("pool_id", poolId)
           .select()
@@ -269,11 +293,28 @@ export async function POST(request: NextRequest) {
         // Extract reward items before db insert
         const { rewardItems, newRewards, ...tierData } = tier;
 
-        // Add pool_id to the tier data
-        const tierToInsert = {
+        // Create a properly typed object for the database insert
+        const tierDataForDb: Record<string, any> = {
           ...tierData,
           pool_id: poolId,
         };
+
+        // Apply proper handling for variable price tier data
+        // This ensures we satisfy the check_variable_price_bounds constraint
+        if (tierDataForDb.is_variable_price) {
+          // For variable price tiers:
+          // - Ensure min_price and max_price are set
+          // - Set price to null to satisfy the constraint
+          tierDataForDb.min_price = tierDataForDb.min_price ?? 0;
+          tierDataForDb.max_price = tierDataForDb.max_price ?? 0;
+          tierDataForDb.price = null; // Price must be null for variable price tiers
+        } else {
+          // For fixed price tiers:
+          // - Ensure price is set
+          // - Set min_price and max_price to null to satisfy the constraint
+          tierDataForDb.min_price = null;
+          tierDataForDb.max_price = null;
+        }
 
         // Get the current tier count from the database to use as onchain_index for the new tier
         const { data: tierCountData } = await adminSupabase
@@ -283,12 +324,14 @@ export async function POST(request: NextRequest) {
 
         // Set the onchain_index to the current count of tiers for this pool
         const currentTierCount = tierCountData ? tierCountData.length : 0;
-        tierToInsert.onchain_index = currentTierCount;
+        tierDataForDb.onchain_index = currentTierCount;
+
+        console.log("Creating new tier with data:", tierDataForDb);
 
         // 1. Insert the new tier
         const { data: newTier, error: insertError } = await adminSupabase
           .from("tiers")
-          .insert(tierToInsert)
+          .insert(tierDataForDb)
           .select()
           .single();
 

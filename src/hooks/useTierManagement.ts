@@ -196,11 +196,6 @@ export function useTierManagement({
           tier,
         });
 
-        // Update toast for blockchain operation
-        showToast.loading("Creating tier on-chain...", {
-          id: loadingToast,
-        });
-
         const onChainResult = await createTierOnChain(contractAddress, tier);
 
         if (!onChainResult.success) {
@@ -214,6 +209,7 @@ export function useTierManagement({
         });
 
         // Now update the database via API
+        showToast.remove();
         showToast.loading("Saving tier to database...", {
           id: loadingToast,
         });
@@ -227,12 +223,17 @@ export function useTierManagement({
             ? toUSDCBaseUnits(Number(tier.price)).toString()
             : undefined,
           is_variable_price: tier.isVariablePrice,
-          min_price: tier.minPrice
-            ? Number(toUSDCBaseUnits(Number(tier.minPrice)))
-            : 0,
-          max_price: tier.maxPrice
-            ? Number(toUSDCBaseUnits(Number(tier.maxPrice)))
-            : 0,
+          // Handle variable pricing fields according to database constraints
+          min_price: tier.isVariablePrice
+            ? tier.minPrice
+              ? Number(toUSDCBaseUnits(Number(tier.minPrice)))
+              : 0
+            : null, // Must be null when is_variable_price is false
+          max_price: tier.isVariablePrice
+            ? tier.maxPrice
+              ? Number(toUSDCBaseUnits(Number(tier.maxPrice)))
+              : 0
+            : null, // Must be null when is_variable_price is false
           max_supply: tier.maxPatrons || 0,
           is_active: tier.isActive,
           image_url: tier.imageUrl,

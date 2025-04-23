@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { uploadTierImage } from "@/lib/utils/imageUpload";
@@ -20,6 +20,7 @@ export interface TiersSectionProps {
   poolImage?: string;
   isEditMode?: boolean;
   onSaveTier?: (tierId: string) => Promise<void>;
+  onAddTierInEditMode?: () => Promise<void>;
 }
 
 export const TiersSection: React.FC<TiersSectionProps> = ({
@@ -34,6 +35,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   poolImage,
   isEditMode = false,
   onSaveTier,
+  onAddTierInEditMode,
 }) => {
   const [isUploadingImage, setIsUploadingImage] = useState<{
     [key: string]: boolean;
@@ -43,7 +45,23 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   const [showRewardDropdown, setShowRewardDropdown] = useState<string | null>(
     null
   );
-  const [editingTiers, setEditingTiers] = useState<Record<string, boolean>>({});
+
+  // Initialize editingTiers with default values to avoid undefined checks
+  const [editingTiers, setEditingTiers] = useState<Record<string, boolean>>(
+    () => {
+      // If in edit mode, initialize all tiers to view-only mode
+      if (isEditMode && tiers.length > 0) {
+        console.log("⚙️ Initializing editingTiers on component mount");
+        const initialState: Record<string, boolean> = {};
+        tiers.forEach((tier) => {
+          initialState[tier.id] = false; // false = view-only mode
+        });
+        return initialState;
+      }
+      return {};
+    }
+  );
+
   const [modifiedTiers, setModifiedTiers] = useState<Record<string, boolean>>(
     {}
   );
@@ -54,6 +72,9 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
   // Store the list of tier IDs we've seen to avoid reinitializing already initialized tiers
   const knownTierIds = useRef<Set<string>>(new Set());
+
+  // Track whether we've initialized the tiers to view-only mode
+  const hasInitializedRef = useRef(false);
 
   const registerDropdownRef = (id: string, ref: HTMLDivElement | null) => {
     dropdownRefs.current[id] = ref;
@@ -75,12 +96,20 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showRewardDropdown]);
 
+  // Track when the active tab changes
+  useEffect(() => {
+    if (activeTabId) {
+      console.log(`📄 Active tab changed to: ${activeTabId}`);
+    }
+  }, [activeTabId]);
+
   // Set active tab to first tier when tiers change or on initial load
   useEffect(() => {
     if (
       tiers.length > 0 &&
       (!activeTabId || !tiers.find((t) => t.id === activeTabId))
     ) {
+      console.log("🔄 Setting active tab to first tier (no active tab found)");
       setActiveTabId(tiers[0].id);
     }
   }, [tiers, activeTabId]);
@@ -550,13 +579,19 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   ]);
 
   const removeTier = (id: string) => {
+    console.log(`🗑️ Removing tier ${id}, current active tab: ${activeTabId}`);
+
     // Set a new active tab if we're removing the active one
     if (activeTabId === id && tiers.length > 1) {
       const currentIndex = tiers.findIndex((t) => t.id === id);
       const newIndex = Math.max(0, currentIndex - 1);
-      setActiveTabId(tiers[newIndex].id);
+      const newActiveTab = tiers[newIndex].id;
+
+      console.log(`🔄 Setting new active tab to ${newActiveTab} after removal`);
+      setActiveTabId(newActiveTab);
     }
 
+    // Remove the tier
     onTiersChange(tiers.filter((tier) => tier.id !== id));
   };
 
@@ -690,23 +725,31 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     setShowAddRewardModal(true);
   };
 
-  // NEW: Function to toggle editing mode for a tier
+  // Toggle a specific tier between edit and view-only mode - SIMPLIFIED
   const toggleTierEditMode = (tierId: string) => {
-    setEditingTiers((prev) => {
-      const newState = { ...prev };
-      newState[tierId] = !prev[tierId];
+    console.log(`📝 Request to toggle tier ${tierId} edit mode`);
 
-      // When disabling edit mode, clear the modified flag
-      if (!newState[tierId]) {
-        setModifiedTiers((prev) => {
-          const newModified = { ...prev };
-          delete newModified[tierId];
-          return newModified;
-        });
-      }
+    // Force a specific state rather than toggling to avoid issues
+    const currentState = !!editingTiers[tierId];
+    const newState = !currentState;
 
-      return newState;
-    });
+    console.log(
+      `🔄 Setting tier ${tierId} edit mode: ${currentState} → ${newState}`
+    );
+
+    // Create a new object to avoid reference issues
+    const newEditingTiers = { ...editingTiers };
+    newEditingTiers[tierId] = newState;
+    setEditingTiers(newEditingTiers);
+
+    // When disabling edit mode, clear the modified flag
+    if (!newState) {
+      setModifiedTiers((prev) => {
+        const newModified = { ...prev };
+        delete newModified[tierId];
+        return newModified;
+      });
+    }
   };
 
   // Wrap the existing updateTier function to track modifications
@@ -717,10 +760,20 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   ) => {
     // Mark this tier as modified if we're in edit mode
     if (isEditMode) {
-      setModifiedTiers((prev) => ({
-        ...prev,
-        [id]: true,
-      }));
+      // Only track as modified if we're currently editing this tier
+      if (editingTiers[id]) {
+        console.log(`✏️ Updating tier ${id}`, {
+          field: fieldOrFields,
+          value,
+          currentTab: activeTabId,
+        });
+
+        // Mark as modified to enable the save button
+        setModifiedTiers((prev) => ({
+          ...prev,
+          [id]: true,
+        }));
+      }
     }
 
     // Call the original updateTier function
@@ -731,6 +784,11 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   const handleSaveTier = async (tierId: string) => {
     if (onSaveTier) {
       try {
+        console.log(
+          `💾 Saving tier ${tierId}, current edit state:`,
+          editingTiers[tierId]
+        );
+
         // First toggle out of edit mode
         toggleTierEditMode(tierId);
 
@@ -743,97 +801,152 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
           delete newModified[tierId];
           return newModified;
         });
+
+        console.log(`✅ Tier ${tierId} saved successfully`);
       } catch (error) {
         console.error(`Error saving tier ${tierId}:`, error);
         showToast.error("Failed to save tier changes");
       }
     } else {
       // If no save handler, just toggle edit mode
+      console.log(`No save handler, just toggling tier ${tierId} edit mode`);
       toggleTierEditMode(tierId);
     }
   };
 
-  // Initialize tiers to non-editable state when in edit mode
-  // Only run on mount and when isEditMode changes
+  // Use a SIMPLE EFFECT for FIRST-TIME initialization only
   useEffect(() => {
-    if (isEditMode && tiers.length > 0) {
-      // Create a new object to track tier edit states
-      setEditingTiers((prevEditingTiers) => {
-        const newEditingTiers = { ...prevEditingTiers };
+    // Only run in edit mode and when we have tiers
+    if (isEditMode && tiers.length > 0 && !hasInitializedRef.current) {
+      console.log("🔍 First-time initialization of tiers to view-only mode");
 
-        // Find any new tiers that we haven't seen before and set them to disabled
-        tiers.forEach((tier) => {
-          // Only set the edit state if we haven't already initialized this tier
-          if (!knownTierIds.current.has(tier.id)) {
-            newEditingTiers[tier.id] = false;
-            knownTierIds.current.add(tier.id);
-          }
-        });
-
-        return newEditingTiers;
+      // Create view-only state for all tiers
+      const viewOnlyState: Record<string, boolean> = {};
+      tiers.forEach((tier) => {
+        viewOnlyState[tier.id] = false; // false = view-only mode
+        knownTierIds.current.add(tier.id);
       });
-    }
-  }, [isEditMode]); // Only re-run when isEditMode changes
 
-  // Handle new tiers being added - only need to set edit state for new tiers
+      // Set all tiers to view-only mode
+      setEditingTiers(viewOnlyState);
+
+      // Clear any modified flags
+      setModifiedTiers({});
+
+      // Set flag to prevent this from running again
+      hasInitializedRef.current = true;
+
+      console.log(
+        "✓ Initialization complete, flag set to:",
+        hasInitializedRef.current
+      );
+    }
+  }, [isEditMode]); // IMPORTANT: tiers is NOT a dependency
+
+  // Handle new tiers being added - FIXED to preserve active tab
   useEffect(() => {
-    if (isEditMode && tiers.length > 0) {
-      // Check if there are any new tiers
-      const newTiers = tiers.filter(
-        (tier) => !knownTierIds.current.has(tier.id)
+    // Skip if not in edit mode
+    if (!isEditMode) return;
+
+    // Check if there are any new tiers we haven't seen before
+    const newTiers = tiers.filter((tier) => !knownTierIds.current.has(tier.id));
+
+    if (newTiers.length > 0) {
+      console.log(
+        "🆕 New tiers detected:",
+        newTiers.map((t) => t.id)
       );
 
-      if (newTiers.length > 0) {
-        console.log(
-          "New tiers detected, initializing edit states:",
-          newTiers.map((t) => t.id)
-        );
+      // Get the last new tier (most recently added)
+      const lastNewTier = newTiers[newTiers.length - 1];
 
-        // Initialize these new tiers to disabled state
+      // Set this tier as the active tab ONLY if we don't already have an active tab
+      // This prevents unwanted tab changes
+      if (!activeTabId || !tiers.find((t) => t.id === activeTabId)) {
+        console.log(`🔄 Setting active tab to new tier: ${lastNewTier.id}`);
+        setActiveTabId(lastNewTier.id);
+      }
+
+      // Make sure initialization has been done before updating edit states
+      if (hasInitializedRef.current) {
+        // ONLY update editing state for the new tiers - without touching existing tiers
         setEditingTiers((prevEditingTiers) => {
-          const newEditingTiers = { ...prevEditingTiers };
+          // Create a shallow copy of the previous state
+          const updatedEditingTiers = { ...prevEditingTiers };
 
+          // Only modify the state for new tiers - put them in edit mode
           newTiers.forEach((tier) => {
-            newEditingTiers[tier.id] = false;
+            console.log(`Setting new tier ${tier.id} to edit mode`);
+            updatedEditingTiers[tier.id] = true; // true = edit mode
+
+            // Mark as modified
+            setModifiedTiers((prev) => ({
+              ...prev,
+              [tier.id]: true,
+            }));
+
+            // Add to known tiers
             knownTierIds.current.add(tier.id);
           });
 
-          return newEditingTiers;
+          return updatedEditingTiers;
         });
       }
     }
-  }, [tiers, isEditMode]);
+  }, [tiers, isEditMode, activeTabId]); // Added activeTabId to the deps
+
+  // Modified addTier function
+  const handleAddTierClick = async () => {
+    // If in edit mode and onAddTierInEditMode is provided, use it instead
+    if (isEditMode && onAddTierInEditMode) {
+      await onAddTierInEditMode();
+    } else {
+      // Otherwise use the original addTier function
+      addTier();
+    }
+  };
 
   return (
     <div className="mb-12 w-full">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Tiers</h2>
-        {(!isEditMode ||
-          Object.values(editingTiers).some((editing) => editing)) && (
-          <button
-            type="button"
-            onClick={addTier}
-            className="flex items-center gap-2 px-4 py-2 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white transition-colors"
-          >
-            <PlusIcon className="w-5 h-5" />
-            Add Tier
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleAddTierClick}
+          className="flex items-center gap-2 px-4 py-2 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white transition-colors"
+        >
+          <PlusIcon className="w-5 h-5" />
+          Add Tier
+        </button>
       </div>
 
       {/* Tabs navigation */}
       {tiers.length > 0 && (
         <div className="flex mb-8">
           <div className="flex space-x-2">
-            {tiers.map((tier) => (
-              <TabButton
-                key={tier.id}
-                label={tier.name || `Tier ${tiers.indexOf(tier) + 1}`}
-                isActive={activeTabId === tier.id}
-                onClick={() => setActiveTabId(tier.id)}
-                showIndicator={false}
-              />
-            ))}
+            {/* Sort tiers by onchain_index to ensure chronological order (0, 1, 2, etc.) from left to right */}
+            {[...tiers]
+              .sort((a, b) => {
+                // Sort by onchain_index if available, otherwise use the array order
+                const indexA =
+                  a.onchain_index !== undefined
+                    ? a.onchain_index
+                    : tiers.indexOf(a);
+                const indexB =
+                  b.onchain_index !== undefined
+                    ? b.onchain_index
+                    : tiers.indexOf(b);
+                return indexA - indexB;
+              })
+              .map((tier) => (
+                <TabButton
+                  key={tier.id}
+                  label={tier.name || `Tier ${tiers.indexOf(tier) + 1}`}
+                  isActive={activeTabId === tier.id}
+                  onClick={() => setActiveTabId(tier.id)}
+                  showIndicator={false}
+                />
+              ))}
           </div>
         </div>
       )}
@@ -879,13 +992,30 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
             {isEditMode && (
               <div className="mt-4 flex justify-end">
+                {/* Use a fragment for console log to fix TypeScript issue */}
+                {(() => {
+                  console.log(`Tier ${tier.id} edit states:`, {
+                    isEditing: editingTiers[tier.id],
+                    isModified: modifiedTiers[tier.id],
+                  });
+                  return null;
+                })()}
+
                 <button
                   type="button"
-                  onClick={() =>
-                    editingTiers[tier.id] && modifiedTiers[tier.id]
-                      ? handleSaveTier(tier.id)
-                      : toggleTierEditMode(tier.id)
-                  }
+                  onClick={() => {
+                    console.log(
+                      `Button clicked for tier ${
+                        tier.id
+                      } (current edit state: ${!!editingTiers[tier.id]})`
+                    );
+
+                    if (editingTiers[tier.id] && modifiedTiers[tier.id]) {
+                      handleSaveTier(tier.id);
+                    } else {
+                      toggleTierEditMode(tier.id);
+                    }
+                  }}
                   className="py-2 px-6 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"
                 >
                   {editingTiers[tier.id]

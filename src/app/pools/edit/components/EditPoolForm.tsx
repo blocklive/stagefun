@@ -412,6 +412,112 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     }
   };
 
+  // Function to add a new default tier directly to the database
+  const handleAddDefaultTier = async () => {
+    if (!pool?.id) {
+      showToast.error("Pool ID is required to create tier");
+      return;
+    }
+
+    showToast.loading("Creating new tier...");
+
+    try {
+      // Generate a fun tier name - use same logic as creation flow
+      const tierNames = [
+        "GM",
+        "FOMO",
+        "APE",
+        "HODL",
+        "MOON",
+        "WEN",
+        "SER",
+        "BASED",
+        "GIGACHAD",
+      ];
+
+      // Find a name that hasn't been used yet
+      const usedNames = localTiers.map((tier) => tier.name);
+      let defaultName =
+        tierNames.find((name) => !usedNames.includes(name)) || "New Tier";
+
+      // If all names are used, append a number to "GM"
+      if (defaultName === "New Tier") {
+        const gmCount = usedNames.filter((name) =>
+          name.startsWith("GM")
+        ).length;
+        defaultName = `GM ${gmCount + 1}`;
+      }
+
+      // Default to 20 patrons (same as creation flow)
+      const defaultMaxPatrons = 20;
+
+      // Calculate default price based on funding goal (if available)
+      let defaultPrice = 10; // Base default
+      if (pool?.target_amount) {
+        const targetAmount = parseFloat(pool.target_amount.toString());
+        if (!isNaN(targetAmount) && targetAmount > 0) {
+          // Price = goal / patron count (same as creation flow)
+          defaultPrice = Math.max(
+            1,
+            Math.round(targetAmount / defaultMaxPatrons)
+          );
+        }
+      }
+
+      // Create a default tier with proper values for constraints
+      const defaultTierData: TierUpdateData = {
+        name: defaultName,
+        price: defaultPrice,
+        description: `Join the ${defaultName} tier and unlock special perks!`,
+        isActive: true,
+        isVariablePrice: false,
+        // For non-variable pricing, set min/max price to null to avoid constraint violations
+        minPrice: null as any, // Type assertion to avoid TypeScript error
+        maxPrice: null as any, // Type assertion to avoid TypeScript error
+        maxPatrons: defaultMaxPatrons,
+        nftMetadata: "",
+        onchainIndex: 0, // This will be set by the backend
+      };
+
+      // Try to set the image from the pool if available
+      if (pool.image_url) {
+        defaultTierData.imageUrl = pool.image_url;
+      }
+
+      // Use existing createTier function to create the tier in the database and on-chain
+      const success = await createTier(defaultTierData);
+
+      if (success) {
+        // Refresh tiers to show the new one
+        await handleRefreshTiers();
+
+        // After refresh, find the newly created tier and set it as editable
+        // We need a slight delay to ensure the remoteTiers are updated
+        setTimeout(() => {
+          if (localTiers.length > 0) {
+            // Find the newest tier (assumes it's the last one)
+            const newTier = localTiers[localTiers.length - 1];
+
+            // Directly call handleSaveSingleTier to activate edit mode on the new tier
+            // This is a bit of a hack - we're not actually saving, just enabling edit mode
+            handleSaveSingleTier(newTier.id).catch((err) => {
+              console.error("Error activating edit mode on new tier:", err);
+            });
+          }
+        }, 500);
+
+        showToast.success(
+          "New tier created successfully. You can now edit it."
+        );
+      } else {
+        showToast.error("Failed to create new tier");
+      }
+    } catch (error) {
+      console.error("Error creating default tier:", error);
+      showToast.error("Failed to create new tier");
+    }
+  };
+
   return (
     <>
       <div className="px-4 md:px-8 max-w-6xl mx-auto">
@@ -566,6 +672,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                     poolImage={pool?.image_url || ""}
                     isEditMode={true}
                     onSaveTier={handleSaveSingleTier}
+                    onAddTierInEditMode={handleAddDefaultTier}
                   />
 
                   {tierUpdateError && (
