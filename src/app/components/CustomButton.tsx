@@ -1,11 +1,12 @@
 import React from "react";
 
 interface CustomButtonProps {
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent<HTMLDivElement>) => void;
   className?: string;
   disabled?: boolean;
   children: React.ReactNode;
   fullWidth?: boolean;
+  type?: "button" | "submit" | "reset";
 }
 
 const CustomButton: React.FC<CustomButtonProps> = ({
@@ -14,6 +15,7 @@ const CustomButton: React.FC<CustomButtonProps> = ({
   disabled = false,
   children,
   fullWidth = false,
+  type = "button",
 }) => {
   const baseStyles =
     "py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors flex items-center justify-center";
@@ -24,6 +26,18 @@ const CustomButton: React.FC<CustomButtonProps> = ({
       ? "opacity-60 cursor-not-allowed pointer-events-none"
       : "cursor-pointer"
   } ${className}`;
+
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (disabled) return;
+
+    // Prevent form submission if this is not a submit button
+    if (type !== "submit") {
+      e.preventDefault();
+    }
+
+    // Call the onClick handler with the event
+    onClick?.(e);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Handle keyboard accessibility - activate on Enter or Space
@@ -37,10 +51,11 @@ const CustomButton: React.FC<CustomButtonProps> = ({
     <div
       role="button"
       tabIndex={disabled ? -1 : 0}
-      onClick={disabled ? undefined : onClick}
+      onClick={handleClick}
       onKeyDown={handleKeyDown}
       className={combinedStyles}
       aria-disabled={disabled}
+      data-button-type={type}
     >
       {children}
     </div>

@@ -13,14 +13,29 @@ export const TabButton: React.FC<TabButtonProps> = ({
   onClick,
   showIndicator = false,
 }) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Handle keyboard accessibility - activate on Enter or Space
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
-    <button
-      onClick={onClick}
-      className={`px-4 h-9 rounded-xl text-base font-medium ${
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
+      onKeyDown={handleKeyDown}
+      className={`px-4 h-9 rounded-xl text-base font-medium flex items-center cursor-pointer ${
         isActive
           ? "bg-[#FFFFFF1F] border border-[#FFFFFF29] text-white"
           : "bg-[#FFFFFF0F] text-gray-400 hover:text-gray-200"
       }`}
+      aria-pressed={isActive}
     >
       <div className="flex items-center">
         {label}
@@ -28,7 +43,7 @@ export const TabButton: React.FC<TabButtonProps> = ({
           <span className="ml-2 w-2 h-2 rounded-full bg-orange-500"></span>
         )}
       </div>
-    </button>
+    </div>
   );
 };
 

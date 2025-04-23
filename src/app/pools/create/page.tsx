@@ -172,9 +172,16 @@ export default function CreatePoolPage() {
 
   // Handle form submission
   const onSubmit = async (
-    e: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>
+    e?:
+      | React.FormEvent<HTMLFormElement>
+      | React.MouseEvent<HTMLDivElement>
+      | React.MouseEvent<HTMLButtonElement>
   ) => {
-    e.preventDefault();
+    // Safely call preventDefault if it exists
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -481,11 +488,7 @@ export default function CreatePoolPage() {
 
       {/* Launch Button */}
       <div className="fixed bottom-16 left-0 right-0 md:static md:mt-4 px-6 py-6 bg-[#15161a] md:px-0 md:py-0 z-10">
-        <CustomButton
-          onClick={() => onSubmit({} as React.MouseEvent<HTMLButtonElement>)}
-          disabled={isLoading}
-          fullWidth={true}
-        >
+        <CustomButton onClick={onSubmit} disabled={isLoading} fullWidth={true}>
           {isLoading ? "Creating..." : "Launch Party Round"}
         </CustomButton>
       </div>
