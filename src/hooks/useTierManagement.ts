@@ -270,6 +270,7 @@ export function useTierManagement({
         }
 
         // Success!
+        showToast.remove();
         showToast.success(`Tier "${tier.name}" created successfully!`, {
           id: loadingToast,
         });

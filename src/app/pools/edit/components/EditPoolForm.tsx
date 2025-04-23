@@ -419,8 +419,6 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
       return;
     }
 
-    showToast.loading("Creating new tier...");
-
     try {
       // Generate a fun tier name - use same logic as creation flow
       const tierNames = [
@@ -505,10 +503,6 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
             });
           }
         }, 500);
-
-        showToast.success(
-          "New tier created successfully. You can now edit it."
-        );
       } else {
         showToast.error("Failed to create new tier");
       }

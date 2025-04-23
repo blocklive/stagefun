@@ -99,20 +99,12 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showRewardDropdown]);
 
-  // Track when the active tab changes
-  useEffect(() => {
-    if (activeTabId) {
-      console.log(`📄 Active tab changed to: ${activeTabId}`);
-    }
-  }, [activeTabId]);
-
   // Set active tab to first tier when tiers change or on initial load
   useEffect(() => {
     if (
       tiers.length > 0 &&
       (!activeTabId || !tiers.find((t) => t.id === activeTabId))
     ) {
-      console.log("🔄 Setting active tab to first tier (no active tab found)");
       setActiveTabId(tiers[0].id);
     }
   }, [tiers, activeTabId]);
@@ -753,15 +745,9 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
   // Toggle a specific tier between edit and view-only mode - SIMPLIFIED
   const toggleTierEditMode = (tierId: string) => {
-    console.log(`📝 Request to toggle tier ${tierId} edit mode`);
-
     // Force a specific state rather than toggling to avoid issues
     const currentState = !!editingTiers[tierId];
     const newState = !currentState;
-
-    console.log(
-      `🔄 Setting tier ${tierId} edit mode: ${currentState} → ${newState}`
-    );
 
     // Create a new object to avoid reference issues
     const newEditingTiers = { ...editingTiers };
@@ -788,12 +774,6 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     if (isEditMode) {
       // Only track as modified if we're currently editing this tier
       if (editingTiers[id]) {
-        console.log(`✏️ Updating tier ${id}`, {
-          field: fieldOrFields,
-          value,
-          currentTab: activeTabId,
-        });
-
         // Mark as modified to enable the save button
         setModifiedTiers((prev) => ({
           ...prev,
@@ -844,8 +824,6 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   useEffect(() => {
     // Only run in edit mode and when we have tiers
     if (isEditMode && tiers.length > 0 && !hasInitializedRef.current) {
-      console.log("🔍 First-time initialization of tiers to view-only mode");
-
       // Create view-only state for all tiers
       const viewOnlyState: Record<string, boolean> = {};
       tiers.forEach((tier) => {
@@ -861,11 +839,6 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
       // Set flag to prevent this from running again
       hasInitializedRef.current = true;
-
-      console.log(
-        "✓ Initialization complete, flag set to:",
-        hasInitializedRef.current
-      );
     }
   }, [isEditMode]); // IMPORTANT: tiers is NOT a dependency
 
@@ -874,37 +847,24 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     // Only run in edit mode
     if (!isEditMode) return;
 
-    // Check if a new tier was added (tier count increased)
+    // Check if a tier count increased
     if (
       tiers.length > prevTierCountRef.current &&
       prevTierCountRef.current > 0
     ) {
-      console.log(
-        `🔍 Tier count increased: ${prevTierCountRef.current} → ${tiers.length}`
-      );
-
       // Find tiers that aren't in our known set
       const newTiers = tiers.filter(
         (tier) => !knownTierIds.current.has(tier.id)
       );
 
       if (newTiers.length > 0) {
-        console.log(
-          `🆕 New tiers detected:`,
-          newTiers.map((t) => t.id)
-        );
-
         // Get the last new tier
         const newTier = newTiers[newTiers.length - 1];
 
         // Set as active tab
-        console.log(`🔄 Setting active tab to new tier: ${newTier.id}`);
         setActiveTabId(newTier.id);
 
         // Set to edit mode
-        console.log(
-          `Setting new tier ${newTier.id} to edit mode and marking as modified`
-        );
         setEditingTiers((prev) => ({
           ...prev,
           [newTier.id]: true, // true = edit mode
@@ -943,8 +903,6 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
         return indexB - indexA; // Descending order
       })[0];
 
-      console.log(`Found newest tier: ${newestTier.id}, activating it`);
-
       // Set as active tab
       setActiveTabId(newestTier.id);
 
@@ -978,21 +936,13 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       try {
         // Save the known tier IDs before adding
         const beforeIds = new Set([...knownTierIds.current]);
-        console.log(`Before adding: ${beforeIds.size} known tiers`);
 
         // Call the parent's add tier function
-        console.log(
-          `Calling onAddTierInEditMode (current tier count: ${tiers.length})`
-        );
         await onAddTierInEditMode();
-
-        // Now find the new tier by looking for IDs not in our previous set
-        console.log(`After adding: looking for new tiers`);
 
         // Wait a tiny bit for React to update state from the parent
         setTimeout(() => {
-          const newestTier = findAndActivateNewestTier();
-          console.log(`Found and activated tier:`, newestTier);
+          findAndActivateNewestTier();
         }, 50);
       } catch (error) {
         console.error(`Error adding tier:`, error);
@@ -1089,24 +1039,9 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
             {isEditMode && (
               <div className="mt-4 flex justify-end">
-                {/* Use a fragment for console log to fix TypeScript issue */}
-                {(() => {
-                  console.log(`Tier ${tier.id} edit states:`, {
-                    isEditing: editingTiers[tier.id],
-                    isModified: modifiedTiers[tier.id],
-                  });
-                  return null;
-                })()}
-
                 <button
                   type="button"
                   onClick={() => {
-                    console.log(
-                      `Button clicked for tier ${
-                        tier.id
-                      } (current edit state: ${!!editingTiers[tier.id]})`
-                    );
-
                     if (editingTiers[tier.id] && modifiedTiers[tier.id]) {
                       handleSaveTier(tier.id);
                     } else {
