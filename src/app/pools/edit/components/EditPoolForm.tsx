@@ -42,6 +42,8 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
   const [slug, setSlug] = useState<string>("");
   const [slugError, setSlugError] = useState<string | null>(null);
   const [localTiers, setLocalTiers] = useState<Tier[]>([]);
+  // Add state for tracking available rewards
+  const [availableRewards, setAvailableRewards] = useState<RewardItem[]>([]);
 
   // Add separate loading states for each section
   const [isDetailsUpdating, setIsDetailsUpdating] = useState(false);
@@ -147,6 +149,17 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     }
   }, [remoteTiers]);
 
+  // Set initial available rewards from remote data
+  useEffect(() => {
+    if (availableRewardItems && availableRewardItems.length > 0) {
+      console.log(
+        "Setting available rewards from remote data:",
+        availableRewardItems
+      );
+      setAvailableRewards(availableRewardItems);
+    }
+  }, [availableRewardItems]);
+
   // Validate slug on change
   useEffect(() => {
     if (slug) {
@@ -173,21 +186,21 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     setLocalTiers(updatedTiers);
   };
 
-  // Add reward item handler (required by TiersSection)
+  // Add reward item handler (updated to match create flow)
   const handleAddRewardItem = (reward: Omit<RewardItem, "id">): RewardItem => {
-    // Generate a temporary ID with a 'temp_' prefix to identify it as a new reward that needs to be created on the backend
-    const tempId = `temp_${crypto.randomUUID()}`;
-
-    // Create the reward object with the temporary ID
+    // Create a new reward object with a temporary ID for local UI management only
+    // This ID won't be sent to the backend
     const newReward = {
       ...reward,
-      id: tempId,
+      id: crypto.randomUUID(), // Only used for React keys and local tracking
     };
 
-    // In a real implementation, we would also save this to the database
-    // For now, we just return the new reward with its temporary ID
-    // The createTier or updateTier functions will handle saving the rewards
-    console.log("Created new reward item:", newReward);
+    console.log(`Creating new reward "${reward.name}"`);
+
+    // Add the new reward to the list of available rewards
+    setAvailableRewards([...availableRewards, newReward]);
+
+    // Return the new reward with its local ID
     return newReward;
   };
 
@@ -290,68 +303,6 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     }
   };
 
-  // Function to save tier changes to the database
-  const handleSaveTierChanges = async () => {
-    if (!pool?.id) {
-      showToast.error("Pool ID is required to save tiers");
-      return;
-    }
-
-    console.log("Saving tiers with data:", {
-      tiersCount: localTiers.length,
-      tiers: localTiers,
-    });
-
-    showToast.loading("Saving tier changes...");
-
-    try {
-      for (const tier of localTiers) {
-        console.log("Processing tier:", {
-          id: tier.id,
-          name: tier.name,
-          isNew: !tier.id || tier.id.startsWith("temp_"),
-        });
-
-        const basicTierData: TierUpdateData = {
-          name: String(tier.name || ""),
-          price: Number(tier.price || 0),
-          description: String(tier.description || ""),
-          isActive: Boolean(tier.isActive),
-          nftMetadata: String(tier.nftMetadata || ""),
-          isVariablePrice: Boolean(tier.isVariablePrice),
-          minPrice: Number(tier.minPrice || 0),
-          maxPrice: Number(tier.maxPrice || 0),
-          maxPatrons: Number(tier.maxPatrons || 0),
-          onchainIndex: Number(tier.onchain_index || 0),
-        };
-
-        if (tier.imageUrl && typeof tier.imageUrl === "string") {
-          basicTierData.imageUrl = tier.imageUrl;
-        }
-
-        // For existing tiers - use the tier.id directly as dbId
-        if (tier.id && !tier.id.startsWith("temp_")) {
-          console.log("Updating existing tier with ID:", tier.id);
-          await updateTier({
-            ...basicTierData,
-            dbId: tier.id, // Directly use tier.id for the database identifier
-          });
-        }
-        // For new tiers
-        else {
-          console.log("Creating new tier:", basicTierData.name);
-          await createTier(basicTierData);
-        }
-      }
-
-      showToast.success("Tiers saved successfully");
-      handleRefreshTiers();
-    } catch (error) {
-      console.error("Error saving tiers:", error);
-      showToast.error("Failed to save tier changes");
-    }
-  };
-
   // Function to save a specific tier's changes
   const handleSaveSingleTier = async (tierId: string) => {
     if (!pool?.id) {
@@ -368,10 +319,29 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     console.log("Saving single tier:", {
       id: tier.id,
       name: tier.name,
+      rewardItems: tier.rewardItems,
     });
 
     try {
-      const basicTierData: TierUpdateData = {
+      // Gather all full reward objects
+      const fullRewards = [];
+
+      if (tier.rewardItems && tier.rewardItems.length > 0) {
+        for (const rewardId of tier.rewardItems) {
+          // Find the full reward data for this ID
+          const rewardData = availableRewards.find((r) => r.id === rewardId);
+          if (rewardData) {
+            // Send the complete reward object with its ID
+            fullRewards.push(rewardData);
+          }
+        }
+      }
+
+      // Log what we're sending to the backend
+      console.log("Full rewards array for submission:", fullRewards);
+
+      // Use the standard TierUpdateData structure but cast as any to allow full objects
+      const basicTierData = {
         name: String(tier.name || ""),
         price: Number(tier.price || 0),
         description: String(tier.description || ""),
@@ -382,24 +352,30 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
         maxPrice: Number(tier.maxPrice || 0),
         maxPatrons: Number(tier.maxPatrons || 0),
         onchainIndex: Number(tier.onchain_index || 0),
+        // Send full reward objects instead of just IDs
+        rewardItems: fullRewards,
+        imageUrl: tier.imageUrl || "",
       };
 
-      if (tier.imageUrl && typeof tier.imageUrl === "string") {
-        basicTierData.imageUrl = tier.imageUrl;
-      }
+      console.log(
+        "SENDING TO BACKEND:",
+        JSON.stringify(basicTierData, null, 2)
+      );
 
       // For existing tiers - use the tier.id directly as dbId
       if (tier.id && !tier.id.startsWith("temp_")) {
         console.log("Updating existing tier with ID:", tier.id);
+        // Cast to any to bypass TypeScript restrictions
         await updateTier({
           ...basicTierData,
           dbId: tier.id, // Directly use tier.id for the database identifier
-        });
+        } as any);
       }
       // For new tiers
       else {
         console.log("Creating new tier:", basicTierData.name);
-        await createTier(basicTierData);
+        // Cast to any to bypass TypeScript restrictions
+        await createTier(basicTierData as any);
       }
 
       showToast.remove();
@@ -475,6 +451,8 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
         maxPatrons: defaultMaxPatrons,
         nftMetadata: "",
         onchainIndex: 0, // This will be set by the backend
+        // Include reward items
+        rewardItems: [],
       };
 
       // Try to set the image from the pool if available
@@ -655,7 +633,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                   <TiersSection
                     tiers={localTiers}
                     onTiersChange={handleTiersChange}
-                    availableRewardItems={availableRewardItems || []}
+                    availableRewardItems={availableRewards}
                     onAddRewardItem={handleAddRewardItem}
                     supabase={supabase!}
                     poolName={pool?.name || ""}

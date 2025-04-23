@@ -45,6 +45,10 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   const [showRewardDropdown, setShowRewardDropdown] = useState<string | null>(
     null
   );
+  // Add state for local available rewards
+  const [localAvailableRewards, setLocalAvailableRewards] = useState<
+    RewardItem[]
+  >(availableRewardItems || []);
 
   // Initialize editingTiers with default values to avoid undefined checks
   const [editingTiers, setEditingTiers] = useState<Record<string, boolean>>(
@@ -682,11 +686,27 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
   const handleAddReward = async (reward: Omit<RewardItem, "id">) => {
     try {
+      console.log("Creating reward:", reward);
+
       // Use the parent component's function to add reward - it returns the complete reward with ID
       const newReward = onAddRewardItem(reward);
+      console.log("New reward created:", newReward);
 
-      // Now use the ID assigned by the parent component
-      const rewardId = newReward.id;
+      // Add the new reward to our local available rewards so it shows up in the UI
+      setLocalAvailableRewards((prev) => [...prev, newReward]);
+
+      // Store the reward data in local storage to recover it if needed
+      // (this will help when sending to backend)
+      try {
+        // Using sessionStorage to avoid persistence issues
+        const tempRewardsKey = `temp_rewards_${poolName || "unknown"}`;
+        const existingData = sessionStorage.getItem(tempRewardsKey) || "{}";
+        const tempRewards = JSON.parse(existingData);
+        tempRewards[newReward.id] = reward;
+        sessionStorage.setItem(tempRewardsKey, JSON.stringify(tempRewards));
+      } catch (e) {
+        console.error("Failed to save temp reward data to storage:", e);
+      }
 
       // If we have a current tier selected
       if (currentTierId) {
@@ -694,15 +714,22 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
         const tierToUpdate = tiers.find((t) => t.id === currentTierId);
 
         if (!tierToUpdate) {
+          console.error("No tier found with ID:", currentTierId);
           setShowAddRewardModal(false);
           setCurrentTierId(null);
           return;
         }
 
+        console.log("Adding reward to tier:", {
+          tierId: currentTierId,
+          rewardId: newReward.id,
+          currentRewards: tierToUpdate.rewardItems,
+        });
+
         // Create updated tier with the new reward ID
         const updatedTier = {
           ...tierToUpdate,
-          rewardItems: [...tierToUpdate.rewardItems, rewardId],
+          rewardItems: [...(tierToUpdate.rewardItems || []), newReward.id],
           modifiedFields: new Set([
             ...tierToUpdate.modifiedFields,
             "rewardItems",
@@ -714,8 +741,21 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
           t.id === currentTierId ? updatedTier : t
         );
 
+        console.log("Updating tiers with new reward:", {
+          updatedTierId: currentTierId,
+          updatedRewards: updatedTier.rewardItems,
+        });
+
         // Update tiers state
         onTiersChange(updatedTiers);
+
+        // If in edit mode, mark the tier as modified
+        if (isEditMode) {
+          setModifiedTiers((prev) => ({
+            ...prev,
+            [currentTierId]: true,
+          }));
+        }
       }
 
       // Close modal and reset
@@ -947,6 +987,20 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     }
   };
 
+  // Keep localAvailableRewards in sync with props
+  useEffect(() => {
+    setLocalAvailableRewards((prev) => {
+      // Keep newly added rewards (those with temp_ IDs) and add any new rewards from props
+      const existingTempRewards = prev.filter((r) => r.id.startsWith("temp_"));
+      const nonTempPropRewards = availableRewardItems.filter(
+        (r) => !r.id.startsWith("temp_")
+      );
+
+      // Combine both arrays, preserving temp rewards we've added locally
+      return [...existingTempRewards, ...nonTempPropRewards];
+    });
+  }, [availableRewardItems]);
+
   return (
     <div className="mb-12 w-full">
       <div className="flex justify-between items-center mb-6">
@@ -1020,13 +1074,38 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
               supabase={supabase}
               isUploadingImage={isUploadingImage[tier.id] || false}
               setIsUploadingImage={handleSetIsUploadingImage}
-              availableRewardItems={availableRewardItems}
+              availableRewardItems={localAvailableRewards}
               onCreateNewReward={handleCreateNewReward}
               capAmount={capAmount}
               fundingGoal={fundingGoal}
-              onAddReward={() => {}}
-              onRemoveReward={() => {}}
-              onUpdateReward={() => {}}
+              // Empty handlers as these are required by the component interface but unused
+              onAddReward={(tierId: string) => {}}
+              onRemoveReward={(tierId: string, rewardId: string) => {
+                // Actually implement removal for existing functionality
+                const tierToUpdate = tiers.find((t) => t.id === tierId);
+                if (tierToUpdate && tierToUpdate.rewardItems) {
+                  // Update the tier without this reward
+                  updateTier(tierId, {
+                    rewardItems: tierToUpdate.rewardItems.filter(
+                      (id) => id !== rewardId
+                    ),
+                  });
+
+                  // Mark as modified if in edit mode
+                  if (isEditMode) {
+                    setModifiedTiers((prev) => ({
+                      ...prev,
+                      [tierId]: true,
+                    }));
+                  }
+                }
+              }}
+              onUpdateReward={(
+                tierId: string,
+                rewardId: string,
+                field: keyof RewardItem,
+                value: string
+              ) => {}}
               // Disable inputs when in edit mode and not editing this tier
               disabled={isEditMode && !editingTiers[tier.id]}
             />

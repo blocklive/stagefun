@@ -95,7 +95,7 @@ export function useTierManagement({
         });
 
         // Format tier data for API - explicitly using database ID
-        const tierUpdatePayload = {
+        const tierUpdatePayload: any = {
           id: tier.dbId, // Use renamed dbId field for database operations
           name: tier.name,
           description: tier.description || "",
@@ -114,6 +114,7 @@ export function useTierManagement({
           image_url: tier.imageUrl,
           nft_metadata: tier.nftMetadata || "",
           onchain_index: tier.onchainIndex, // Include on-chain index for clarity
+          reward_items: tier.rewardItems,
         };
 
         // Get JWT token for API call
@@ -215,7 +216,7 @@ export function useTierManagement({
         });
 
         // Format tier data for API
-        const tierCreatePayload = {
+        const tierCreatePayload: any = {
           // No ID for new tiers
           name: tier.name,
           description: tier.description || "",
@@ -240,6 +241,12 @@ export function useTierManagement({
           nft_metadata: tier.nftMetadata || "",
           onchain_index: tier.onchainIndex, // Include the on-chain index
         };
+
+        // Process fullRewards array if present
+        // The backend will determine which rewards are new vs existing
+        if (tier.fullRewards && tier.fullRewards.length > 0) {
+          tierCreatePayload.fullRewards = tier.fullRewards;
+        }
 
         // Get JWT token for API call
         let jwt = authJwt;
@@ -356,7 +363,7 @@ export function useTierManagement({
         });
 
         // Format tier data for API with updated status
-        const tierUpdatePayload = {
+        const tierUpdatePayload: any = {
           id: tier.dbId, // Use renamed dbId field for database operations
           name: tier.name,
           description: tier.description || "",
@@ -376,6 +383,12 @@ export function useTierManagement({
           nft_metadata: tier.nftMetadata || "",
           onchain_index: tier.onchainIndex, // Include on-chain index for clarity
         };
+
+        // Process fullRewards array if present
+        // The backend will determine which rewards are new vs existing
+        if (tier.fullRewards && tier.fullRewards.length > 0) {
+          tierUpdatePayload.fullRewards = tier.fullRewards;
+        }
 
         // Get JWT token for API call
         let jwt = authJwt;

@@ -43,13 +43,7 @@ interface TierUpdate {
   onchain_updated?: boolean;
   transaction_hash?: string;
   // Simple array of reward item IDs
-  rewardItems?: string[];
-  // New rewards to create
-  newRewards?: Array<{
-    name: string;
-    description: string;
-    type: string;
-  }>;
+  reward_items?: any;
 }
 
 /**
@@ -180,8 +174,9 @@ export async function POST(request: NextRequest) {
       for (const tier of existingTierUpdates) {
         if (!tier.id) continue; // TypeScript safety
 
+        console.log("Processing tier update with data:", tier);
         // Extract reward items before db update
-        const { rewardItems, newRewards, ...tierData } = tier;
+        const { reward_items, ...tierData } = tier;
 
         // Create a properly typed object for the database update
         const tierDataForDb: Record<string, any> = {
@@ -205,8 +200,6 @@ export async function POST(request: NextRequest) {
           tierDataForDb.min_price = null;
           tierDataForDb.max_price = null;
         }
-
-        console.log("Processing tier update with data:", tierDataForDb);
 
         // 1. Update the tier data
         const { data: updatedTier, error: updateError } = await adminSupabase
@@ -233,52 +226,93 @@ export async function POST(request: NextRequest) {
           .delete()
           .eq("tier_id", tier.id);
 
-        // Track all reward IDs that need to be linked
-        let allRewardIds = rewardItems ? [...rewardItems] : [];
+        // Process reward items
+        if (reward_items && reward_items.length > 0) {
+          console.log(
+            `Processing ${reward_items.length} reward items for tier ${tier.id}`
+          );
 
-        // If there are new rewards to create, create them
-        if (newRewards && newRewards.length > 0) {
-          const rewardsToCreate = newRewards.map((reward) => ({
-            name: reward.name,
-            description: reward.description || "",
-            type: reward.type || "default",
-            creator_id: userId, // Use the authenticated user ID
-            is_active: true,
-            metadata: {},
-          }));
+          // Get existing reward items to check which ones are new vs existing
+          const { data: existingRewards } = await adminSupabase
+            .from("reward_items")
+            .select("id, name, description, type")
+            .in(
+              "id",
+              reward_items
+                .map((r: any) => (typeof r === "string" ? r : r.id))
+                .filter(Boolean)
+            );
 
-          // Create the rewards in the database
-          const { data: createdRewards, error: rewardError } =
-            await adminSupabase
-              .from("reward_items")
-              .insert(rewardsToCreate)
-              .select();
+          // Create a set of existing IDs for faster lookup
+          const existingIds = new Set(existingRewards?.map((r) => r.id) || []);
 
-          if (rewardError) {
-            console.error("Error creating rewards:", rewardError);
-            // Continue with existing rewards even if creating new ones fails
-          } else if (createdRewards) {
-            // Add the new reward IDs to our list
-            const newIds = createdRewards.map((reward: any) => reward.id);
-            allRewardIds = [...allRewardIds, ...newIds];
+          // Identify which items are new (don't have IDs that match existing rewards)
+          const newRewardItems = reward_items.filter((r: any) => {
+            if (typeof r === "string") {
+              return !existingIds.has(r);
+            } else {
+              return r.id ? !existingIds.has(r.id) : true;
+            }
+          });
+
+          console.log(
+            `Found ${newRewardItems.length} new reward items to create`
+          );
+
+          // Track all IDs that need to be linked
+          let allRewardIds: string[] =
+            existingIds.size > 0 ? (Array.from(existingIds) as string[]) : [];
+
+          // Create new rewards if needed
+          if (newRewardItems.length > 0) {
+            const rewardsToCreate = newRewardItems.map((reward: any) => {
+              const rewardObj =
+                typeof reward === "string"
+                  ? { name: "Unnamed Reward", description: "", type: "default" }
+                  : reward;
+              return {
+                name: rewardObj.name || "Unnamed Reward",
+                description: rewardObj.description || "",
+                type: rewardObj.type || "default",
+                creator_id: userId,
+                is_active: true,
+                metadata: {},
+              };
+            });
+
+            // Create the rewards in the database
+            const { data: createdRewards, error: rewardError } =
+              await adminSupabase
+                .from("reward_items")
+                .insert(rewardsToCreate)
+                .select();
+
+            if (rewardError) {
+              console.error("Error creating rewards:", rewardError);
+              // Continue with existing rewards even if creating new ones fails
+            } else if (createdRewards) {
+              // Add the new reward IDs to our list
+              const newIds = createdRewards.map((reward: any) => reward.id);
+              allRewardIds = [...allRewardIds, ...newIds];
+            }
           }
-        }
 
-        // Create associations for all rewards
-        if (allRewardIds.length > 0) {
-          const tierRewardLinks = allRewardIds.map((rewardId) => ({
-            tier_id: tier.id,
-            reward_item_id: rewardId,
-            quantity: 1,
-          }));
+          // Create associations for all rewards
+          if (allRewardIds.length > 0) {
+            const tierRewardLinks = allRewardIds.map((rewardId) => ({
+              tier_id: tier.id,
+              reward_item_id: rewardId,
+              quantity: 1,
+            }));
 
-          const { error: linkError } = await adminSupabase
-            .from("tier_reward_items")
-            .insert(tierRewardLinks);
+            const { error: linkError } = await adminSupabase
+              .from("tier_reward_items")
+              .insert(tierRewardLinks);
 
-          if (linkError) {
-            console.error("Error linking rewards to tier:", linkError);
-            // Continue processing other tiers even if linking fails
+            if (linkError) {
+              console.error("Error linking rewards to tier:", linkError);
+              // Continue processing other tiers even if linking fails
+            }
           }
         }
 
@@ -290,7 +324,7 @@ export async function POST(request: NextRequest) {
       // Insert new tiers
       for (const tier of newTierUpdates) {
         // Extract reward items before db insert
-        const { rewardItems, newRewards, ...tierData } = tier;
+        const { reward_items, ...tierData } = tier;
 
         // Create a properly typed object for the database insert
         const tierDataForDb: Record<string, any> = {
@@ -346,33 +380,82 @@ export async function POST(request: NextRequest) {
         // 2. Process rewards for this tier
 
         // Track all reward IDs that need to be linked
-        let allRewardIds = rewardItems ? [...rewardItems] : [];
+        let allRewardIds: string[] = [];
 
-        // If there are new rewards to create, create them
-        if (newRewards && newRewards.length > 0 && newTier) {
-          const rewardsToCreate = newRewards.map((reward) => ({
-            name: reward.name,
-            description: reward.description || "",
-            type: reward.type || "default",
-            creator_id: userId, // Use the authenticated user ID
-            is_active: true,
-            metadata: {},
-          }));
+        // Process reward items
+        if (reward_items && reward_items.length > 0) {
+          console.log(
+            `Processing ${reward_items.length} reward items for new tier`
+          );
 
-          // Create the rewards in the database
-          const { data: createdRewards, error: rewardError } =
-            await adminSupabase
-              .from("reward_items")
-              .insert(rewardsToCreate)
-              .select();
+          // Get existing reward items to check which ones are new vs existing
+          const { data: existingRewards } = await adminSupabase
+            .from("reward_items")
+            .select("id, name, description, type")
+            .in(
+              "id",
+              reward_items
+                .map((r: any) => (typeof r === "string" ? r : r.id))
+                .filter(Boolean)
+            );
 
-          if (rewardError) {
-            console.error("Error creating rewards:", rewardError);
-            // Continue with existing rewards even if creating new ones fails
-          } else if (createdRewards) {
-            // Add the new reward IDs to our list
-            const newIds = createdRewards.map((reward: any) => reward.id);
-            allRewardIds = [...allRewardIds, ...newIds];
+          // Create a set of existing IDs for faster lookup
+          const existingIds = new Set(
+            existingRewards?.map((r: any) => r.id) || []
+          );
+
+          // Identify which items are new (don't have IDs that match existing rewards)
+          const newRewardItems = reward_items.filter((r: any) => {
+            if (typeof r === "string") {
+              return !existingIds.has(r);
+            } else {
+              return r.id ? !existingIds.has(r.id) : true;
+            }
+          });
+
+          console.log(
+            `Found ${newRewardItems.length} new reward items to create for new tier`
+          );
+
+          // Start with existing reward IDs
+          allRewardIds =
+            existingIds.size > 0 ? (Array.from(existingIds) as string[]) : [];
+
+          // Create new rewards if needed
+          if (newRewardItems.length > 0) {
+            const rewardsToCreate = newRewardItems.map((reward: any) => {
+              const rewardObj =
+                typeof reward === "string"
+                  ? { name: "Unnamed Reward", description: "", type: "default" }
+                  : reward;
+              return {
+                name: rewardObj.name || "Unnamed Reward",
+                description: rewardObj.description || "",
+                type: rewardObj.type || "default",
+                creator_id: userId,
+                is_active: true,
+                metadata: {},
+              };
+            });
+
+            // Create the rewards in the database
+            const { data: createdRewards, error: rewardError } =
+              await adminSupabase
+                .from("reward_items")
+                .insert(rewardsToCreate)
+                .select();
+
+            if (rewardError) {
+              console.error(
+                "Error creating rewards for new tier:",
+                rewardError
+              );
+              // Continue with existing rewards even if creating new ones fails
+            } else if (createdRewards) {
+              // Add the new reward IDs to our list
+              const newIds = createdRewards.map((reward: any) => reward.id);
+              allRewardIds = [...allRewardIds, ...newIds];
+            }
           }
         }
 

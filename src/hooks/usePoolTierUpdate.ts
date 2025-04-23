@@ -28,6 +28,10 @@ export interface TierUpdateData {
   maxPatrons: number;
   isActive: boolean;
   imageUrl?: string;
+  // Reward items array
+  rewardItems?: string[];
+  // Full reward objects with all details
+  fullRewards?: any[];
 }
 
 // Define the result interface
