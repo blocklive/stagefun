@@ -415,16 +415,6 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
             // Skip this price update if we already have a valid price from the database
             const hasValidPrice = tier.price && parseFloat(tier.price) > 0;
 
-            console.log(
-              `[DEBUG] Checking if tier ${tier.id} needs price update:`,
-              {
-                isEditMode,
-                hasExistingPrice: !!tier.price,
-                hasValidPrice,
-                existingPrice: tier.price,
-              }
-            );
-
             // IMPORTANT: Never override valid prices in edit mode
             if (!hasValidPrice && (!isEditMode || !tier.price)) {
               const goalAmount = parseFloat(fundingGoal);
@@ -441,16 +431,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                 updates.price = (goalAmount / patronCount)
                   .toFixed(2)
                   .toString();
-                console.log(
-                  `[DEBUG] Setting calculated price for tier ${tier.id}:`,
-                  updates.price
-                );
               }
-            } else {
-              console.log(
-                `[DEBUG] Preserving existing price for tier ${tier.id}:`,
-                tier.price
-              );
             }
           }
 

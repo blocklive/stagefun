@@ -15,16 +15,11 @@ import { formatAmount } from "@/lib/utils";
 import UserAvatar from "@/app/components/UserAvatar";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { getPoolEffectiveStatus } from "../../../../lib/contracts/types";
 import {
-  getDisplayStatus,
-  getPoolEffectiveStatus,
-} from "../../../../lib/contracts/types";
-import {
-  formatRangeDisplay,
   isUncapped,
   formatCommitmentCounter,
 } from "@/lib/utils/contractValues";
-import TierCommits from "./TierCommits";
 
 interface TiersSectionProps {
   pool: Pool;
@@ -180,9 +175,9 @@ const TiersSection: React.FC<TiersSectionProps> = ({
 
             if (isVariablePrice) {
               if (minPrice !== null && maxPrice !== null) {
-                // Check if this is an uncapped tier
+                // Check if this is an uncapped tier - need to check before formating the value
                 if (tier.max_price && isUncapped(tier.max_price.toString())) {
-                  // For uncapped pricing, just show "Flexible" without any price values
+                  // For uncapped pricing, show "Flexible" without any price values
                   priceDisplay = "Flexible USDC";
                 } else {
                   // For normal range pricing, show the full range

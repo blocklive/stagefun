@@ -3,7 +3,10 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import { useSmartWallet } from "./useSmartWallet";
 import { StageDotFunPoolABI } from "../lib/contracts/StageDotFunPool";
-import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
+import {
+  MAX_SAFE_VALUE,
+  safeToUSDCBaseUnits,
+} from "@/lib/utils/contractValues";
 import showToast from "@/utils/toast";
 import {
   ensureSmartWallet,
@@ -115,10 +118,11 @@ export function usePoolTierUpdate() {
 
         if (tierData.isVariablePrice) {
           minPriceBaseUnits = BigInt(Math.floor(tierData.minPrice * 1000000));
-          // For uncapped variable price, use maximum safe value
-          maxPriceBaseUnits = tierData.maxPrice
-            ? BigInt(Math.floor(tierData.maxPrice * 1000000))
-            : BigInt(MAX_SAFE_VALUE.toString());
+          // For uncapped variable price, use safeToUSDCBaseUnits to ensure consistency
+          maxPriceBaseUnits =
+            String(tierData.maxPrice) === MAX_SAFE_VALUE
+              ? safeToUSDCBaseUnits(MAX_SAFE_VALUE, true)
+              : BigInt(Math.floor(tierData.maxPrice * 1000000));
         }
 
         // For unlimited patrons, use 0
@@ -246,10 +250,11 @@ export function usePoolTierUpdate() {
 
         if (tierData.isVariablePrice) {
           minPriceBaseUnits = BigInt(Math.floor(tierData.minPrice * 1000000));
-          // For uncapped variable price, use maximum safe value
-          maxPriceBaseUnits = tierData.maxPrice
-            ? BigInt(Math.floor(tierData.maxPrice * 1000000))
-            : BigInt(MAX_SAFE_VALUE.toString());
+          // For uncapped variable price, use safeToUSDCBaseUnits to ensure consistency
+          maxPriceBaseUnits =
+            String(tierData.maxPrice) === MAX_SAFE_VALUE
+              ? safeToUSDCBaseUnits(MAX_SAFE_VALUE, true)
+              : BigInt(Math.floor(tierData.maxPrice * 1000000));
         }
 
         // For unlimited patrons, use 0

@@ -390,16 +390,10 @@ export function usePoolCreationContract(): PoolCreationHookResult {
               const maxPriceStr = tier.maxPrice.toString();
               const maxPatronsStr = tier.maxPatrons.toString();
 
-              // Handle special MAX_SAFE_VALUE values differently
-              const maxPriceNum =
-                maxPriceStr === MAX_SAFE_VALUE
-                  ? Number.MAX_SAFE_INTEGER // Use MAX_SAFE_INTEGER as a safe alternative
-                  : Number(tier.maxPrice);
-
-              const maxPatronsNum =
-                maxPatronsStr === MAX_SAFE_VALUE
-                  ? Number.MAX_SAFE_INTEGER // Use MAX_SAFE_INTEGER as a safe alternative
-                  : Number(tier.maxPatrons);
+              // For price values, we need to use the same decimal conversion for all values,
+              // including MAX_SAFE_VALUE. Using safeToUSDCBaseUnits handles this for us.
+              const maxPriceNum = Number(tier.maxPrice);
+              const maxPatronsNum = Number(tier.maxPatrons);
 
               console.log("Final tier values for contract:", {
                 name: tier.name,

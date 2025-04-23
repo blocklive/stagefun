@@ -72,7 +72,6 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
   // Simply pass through the input value with no interference
   const handleInputChange = (field: keyof Tier, value: string) => {
     // Pass through ANY value the user types with absolutely no validation or processing
-    console.log(`[DEBUG] User changed ${field} to: ${value}`);
     onUpdateTier(tier.id, field, value);
   };
 
@@ -495,33 +494,14 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
 
   // Add debug logging for tier values on component mount
   useEffect(() => {
-    console.log(`[DEBUG] TierDetailsForm mounted for tier ${tier.id}:`, {
-      price: tier.price,
-      isVariablePrice: tier.isVariablePrice,
-      minPrice: tier.minPrice,
-      maxPrice: tier.maxPrice,
-      pricingMode: tier.pricingMode || pricingMode,
-    });
-
-    // Track price changes in a separate effect
-    const timerRef = setTimeout(() => {
-      console.log(`[DEBUG] Post-mount price check for tier ${tier.id}:`, {
-        price: tier.price,
-        isVariablePrice: tier.isVariablePrice,
-        pricingMode: tier.pricingMode || pricingMode,
-      });
-    }, 500);
-
+    // Add a cleanup function for the timer
+    const timerRef = setTimeout(() => {}, 500);
     return () => clearTimeout(timerRef);
   }, []);
 
   // Track price changes
   useEffect(() => {
-    console.log(`[DEBUG] Price changed for tier ${tier.id}:`, {
-      price: tier.price,
-      isVariablePrice: tier.isVariablePrice,
-      pricingMode: tier.pricingMode || pricingMode,
-    });
+    // Price change tracking
   }, [tier.price]);
 
   return (

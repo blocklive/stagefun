@@ -446,7 +446,7 @@ export function toUSDCBaseUnits(amount: number): bigint {
 }
 
 /**
- * Safely converts a value to USDC base units, with special handling for values that
+ * Convert a value to USDC base units (multiplied by 10^6), handling special case for MAX_SAFE_VALUE which is used to
  * represent the maximum uint256 value (uncapped).
  *
  * @param value The string value to convert
@@ -459,12 +459,14 @@ export function safeToUSDCBaseUnits(
 ): bigint {
   // If the value is already a string, check if it equals MAX_SAFE_VALUE
   if (isStringValue && value === MAX_SAFE_VALUE) {
-    return BigInt(MAX_SAFE_VALUE);
+    // Multiply by USDC_DECIMAL_FACTOR for consistency with other price values
+    return BigInt(MAX_SAFE_VALUE) * BigInt(USDC_DECIMAL_FACTOR);
   }
 
   // If the value is a number that matches MAX_SAFE_VALUE when converted to string
   if (!isStringValue && String(value) === MAX_SAFE_VALUE) {
-    return BigInt(MAX_SAFE_VALUE);
+    // Multiply by USDC_DECIMAL_FACTOR for consistency with other price values
+    return BigInt(MAX_SAFE_VALUE) * BigInt(USDC_DECIMAL_FACTOR);
   }
 
   // Regular conversion for normal values
