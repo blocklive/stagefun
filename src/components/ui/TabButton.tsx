@@ -1,26 +1,33 @@
-import React from "react";
+import React, { ReactNode } from "react";
 
 interface TabButtonProps {
   label: string;
   isActive: boolean;
   onClick: () => void;
+  showIndicator?: boolean;
 }
 
 export const TabButton: React.FC<TabButtonProps> = ({
   label,
   isActive,
   onClick,
+  showIndicator = false,
 }) => {
   return (
     <button
       onClick={onClick}
-      className={`min-w-[120px] px-6 h-[36px] flex items-center justify-center rounded-full text-center transition-colors ${
+      className={`px-4 h-9 rounded-xl text-base font-medium ${
         isActive
-          ? "bg-[#2a2a2a] text-white border border-[#333333]"
-          : "bg-[#1a1a1a] text-gray-400 hover:text-gray-300"
+          ? "bg-[#FFFFFF1F] border border-[#FFFFFF29] text-white"
+          : "bg-[#FFFFFF0F] text-gray-400 hover:text-gray-200"
       }`}
     >
-      {label}
+      <div className="flex items-center">
+        {label}
+        {showIndicator && (
+          <span className="ml-2 w-2 h-2 rounded-full bg-orange-500"></span>
+        )}
+      </div>
     </button>
   );
 };

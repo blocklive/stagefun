@@ -823,15 +823,18 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
       {/* Tabs navigation */}
       {tiers.length > 0 && (
-        <div className="flex flex-wrap justify-start gap-3 mb-6 overflow-x-auto">
-          {tiers.map((tier) => (
-            <TabButton
-              key={tier.id}
-              label={tier.name || `Tier ${tiers.indexOf(tier) + 1}`}
-              isActive={activeTabId === tier.id}
-              onClick={() => setActiveTabId(tier.id)}
-            />
-          ))}
+        <div className="flex mb-8">
+          <div className="flex space-x-2">
+            {tiers.map((tier) => (
+              <TabButton
+                key={tier.id}
+                label={tier.name || `Tier ${tiers.indexOf(tier) + 1}`}
+                isActive={activeTabId === tier.id}
+                onClick={() => setActiveTabId(tier.id)}
+                showIndicator={false}
+              />
+            ))}
+          </div>
         </div>
       )}
 
