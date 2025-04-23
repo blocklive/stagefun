@@ -19,6 +19,7 @@ import { Tier, RewardItem } from "../../create/types";
 import { useEditPoolTiers } from "@/hooks/useEditPoolTiers";
 import SlugEditor from "./SlugEditor";
 import { usePoolEdit, PoolUpdateFields } from "@/hooks/usePoolEdit";
+import { uploadPoolImage } from "@/lib/utils/imageUpload";
 
 interface EditPoolFormProps {
   poolIdentifier: string;
@@ -41,6 +42,11 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
   const [slug, setSlug] = useState<string>("");
   const [slugError, setSlugError] = useState<string | null>(null);
   const [localTiers, setLocalTiers] = useState<Tier[]>([]);
+
+  // Add separate loading states for each section
+  const [isDetailsUpdating, setIsDetailsUpdating] = useState(false);
+  const [isSlugUpdating, setIsSlugUpdating] = useState(false);
+  const [isImageUploading, setIsImageUploading] = useState(false);
 
   // Pool data
   const {
@@ -67,6 +73,10 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     onSuccess: () => {
       handleRefreshPool();
       handleRefreshTiers();
+      // Reset all loading states
+      setIsDetailsUpdating(false);
+      setIsSlugUpdating(false);
+      setIsImageUploading(false);
     },
   });
 
@@ -113,6 +123,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
       setDescription(pool.description || "");
       setLocation(pool.location || "");
       setSocialLinks(pool.social_links || {});
+      console.log("Setting imagePreview from pool.image_url:", pool.image_url);
       setImagePreview(pool.image_url || null);
       setSlug(pool.slug || "");
 
@@ -121,6 +132,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
         location: pool.location,
         social_links: pool.social_links,
         slug: pool.slug,
+        image_url: pool.image_url,
       });
     }
   }, [pool]);
@@ -207,49 +219,23 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
 
   // Handle image upload
   const handleImageUpload = async (file: File) => {
-    showToast.loading("Uploading image...");
+    setIsImageUploading(true);
 
     try {
-      // Get a signed URL for upload
-      const token = await getAccessToken();
-      if (!token) {
-        showToast.error("Authentication error");
-        return;
+      if (!supabase) {
+        throw new Error("Supabase client not available");
       }
 
-      const getSignedUrlResponse = await fetch("/api/upload/get-signed-url", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type,
-          poolId: pool?.id,
-        }),
-      });
+      // Use the existing uploadPoolImage utility function
+      const { imageUrl: newImageUrl } = await uploadPoolImage(
+        file,
+        supabase,
+        setIsImageUploading,
+        pool?.name
+      );
 
-      if (!getSignedUrlResponse.ok) {
-        showToast.error("Failed to get upload URL");
-        return;
-      }
-
-      const { signedUrl, imageUrl: newImageUrl } =
-        await getSignedUrlResponse.json();
-
-      // Upload to the signed URL
-      const uploadResponse = await fetch(signedUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type,
-        },
-        body: file,
-      });
-
-      if (!uploadResponse.ok) {
-        showToast.error("Failed to upload image");
-        return;
+      if (!newImageUrl) {
+        throw new Error("Failed to upload image");
       }
 
       // Update the pool with the new image URL
@@ -257,11 +243,13 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     } catch (error) {
       console.error("Error uploading image:", error);
       showToast.error("Failed to upload image");
+      setIsImageUploading(false);
     }
   };
 
   // Handle image removal
   const handleRemoveImage = async () => {
+    setIsImageUploading(true);
     await updatePool({ image_url: null }, "Removing image...");
     setImageFile(null);
     setImagePreview(null);
@@ -269,6 +257,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
 
   // Handle details submit
   const handleSubmitDetails = async () => {
+    setIsDetailsUpdating(true);
     const updates: PoolUpdateFields = {
       description,
       location,
@@ -279,7 +268,11 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     };
 
     console.log("Submitting details update:", updates);
-    await updatePool(updates, "Updating pool details...");
+    try {
+      await updatePool(updates, "Updating pool details...");
+    } catch (error) {
+      setIsDetailsUpdating(false);
+    }
   };
 
   // Handle slug submit
@@ -289,7 +282,12 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
       return;
     }
 
-    await updatePool({ slug }, "Updating public URL...");
+    setIsSlugUpdating(true);
+    try {
+      await updatePool({ slug }, "Updating public URL...");
+    } catch (error) {
+      setIsSlugUpdating(false);
+    }
   };
 
   // Function to save tier changes to the database
@@ -452,7 +450,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                 <div className="w-full" style={{ maxWidth: "220px" }}>
                   <PoolImageUpload
                     imagePreview={imagePreview}
-                    isUploadingImage={isUpdating}
+                    isUploadingImage={isImageUploading}
                     onImageSelect={handleImageSelect}
                     onRemoveImage={handleRemoveImage}
                     placeholderText={pool.name || "Edit Pool"}
@@ -505,9 +503,9 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                 type="button"
                 onClick={handleSubmitDetails}
                 className="py-3 px-8 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"
-                disabled={isUpdating}
+                disabled={isDetailsUpdating}
               >
-                {isUpdating ? "Saving..." : "Save Details"}
+                {isDetailsUpdating ? "Saving..." : "Save Details"}
               </button>
             </div>
 
@@ -523,9 +521,9 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                   type="button"
                   onClick={handleSubmitSlug}
                   className="py-3 px-6 min-w-[100px] whitespace-nowrap bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"
-                  disabled={isUpdating || !!slugError}
+                  disabled={isSlugUpdating || !!slugError}
                 >
-                  {isUpdating ? "Updating..." : "Update"}
+                  {isSlugUpdating ? "Updating..." : "Update"}
                 </button>
               </div>
             </div>
