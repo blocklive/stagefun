@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       const existingTierUpdates = tierUpdates.filter((tier) => tier.id);
       const newTierUpdates = tierUpdates.filter((tier) => !tier.id);
 
-      let processedTiers = [];
+      const processedTiers = [];
 
       // Update existing tiers
       for (const tier of existingTierUpdates) {
