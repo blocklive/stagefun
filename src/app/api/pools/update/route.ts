@@ -195,10 +195,11 @@ export async function POST(request: NextRequest) {
         if (tierDataForDb.is_variable_price) {
           // For variable price tiers:
           // - Ensure min_price and max_price are set
-          // - Set price to null to satisfy the constraint
+          // - The DB has conflicting constraints: price must be NOT NULL but check constraint wants it NULL
+          // - Set price to a default value (0) as a compromise
           tierDataForDb.min_price = tierDataForDb.min_price ?? 0;
           tierDataForDb.max_price = tierDataForDb.max_price ?? 0;
-          tierDataForDb.price = null; // Price must be null for variable price tiers
+          tierDataForDb.price = 0; // Set to 0 instead of null to satisfy NOT NULL constraint
         } else {
           // For fixed price tiers:
           // - Ensure price is set
@@ -304,10 +305,11 @@ export async function POST(request: NextRequest) {
         if (tierDataForDb.is_variable_price) {
           // For variable price tiers:
           // - Ensure min_price and max_price are set
-          // - Set price to null to satisfy the constraint
+          // - The DB has conflicting constraints: price must be NOT NULL but check constraint wants it NULL
+          // - Set price to a default value (0) as a compromise
           tierDataForDb.min_price = tierDataForDb.min_price ?? 0;
           tierDataForDb.max_price = tierDataForDb.max_price ?? 0;
-          tierDataForDb.price = null; // Price must be null for variable price tiers
+          tierDataForDb.price = 0; // Set to 0 instead of null to satisfy NOT NULL constraint
         } else {
           // For fixed price tiers:
           // - Ensure price is set

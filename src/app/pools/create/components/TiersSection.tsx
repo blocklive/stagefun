@@ -76,6 +76,9 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   // Track whether we've initialized the tiers to view-only mode
   const hasInitializedRef = useRef(false);
 
+  // Track the previous tier count to detect when a new tier is added
+  const prevTierCountRef = useRef(0);
+
   const registerDropdownRef = (id: string, ref: HTMLDivElement | null) => {
     dropdownRefs.current[id] = ref;
   };
@@ -349,7 +352,29 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     onTiersChange(newTiers);
 
     // Set the new tier as the active tab
+    console.log(`🔄 Setting active tab to newly created tier: ${newTier.id}`);
     setActiveTabId(newTier.id);
+
+    // Register this tier ID as known
+    knownTierIds.current.add(newTier.id);
+
+    // If not in edit mode, we're done
+    if (!isEditMode) return;
+
+    // For edit mode, also set the tier to edit mode and mark as modified
+    console.log(`Setting new tier ${newTier.id} to edit mode`);
+    setEditingTiers((prev) => ({
+      ...prev,
+      [newTier.id]: true, // true = edit mode
+    }));
+
+    // Mark as modified
+    setModifiedTiers((prev) => ({
+      ...prev,
+      [newTier.id]: true,
+    }));
+
+    return newTier;
   }, [
     tiers,
     generateTierName,
@@ -357,6 +382,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     poolImage,
     onTiersChange,
     supabase,
+    isEditMode,
   ]);
 
   // Create first tier automatically only if not in edit mode
@@ -843,63 +869,134 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     }
   }, [isEditMode]); // IMPORTANT: tiers is NOT a dependency
 
-  // Handle new tiers being added - FIXED to preserve active tab
+  // Effect to handle tier additions in edit mode
   useEffect(() => {
-    // Skip if not in edit mode
+    // Only run in edit mode
     if (!isEditMode) return;
 
-    // Check if there are any new tiers we haven't seen before
-    const newTiers = tiers.filter((tier) => !knownTierIds.current.has(tier.id));
-
-    if (newTiers.length > 0) {
+    // Check if a new tier was added (tier count increased)
+    if (
+      tiers.length > prevTierCountRef.current &&
+      prevTierCountRef.current > 0
+    ) {
       console.log(
-        "🆕 New tiers detected:",
-        newTiers.map((t) => t.id)
+        `🔍 Tier count increased: ${prevTierCountRef.current} → ${tiers.length}`
       );
 
-      // Get the last new tier (most recently added)
-      const lastNewTier = newTiers[newTiers.length - 1];
+      // Find tiers that aren't in our known set
+      const newTiers = tiers.filter(
+        (tier) => !knownTierIds.current.has(tier.id)
+      );
 
-      // Set this tier as the active tab ONLY if we don't already have an active tab
-      // This prevents unwanted tab changes
-      if (!activeTabId || !tiers.find((t) => t.id === activeTabId)) {
-        console.log(`🔄 Setting active tab to new tier: ${lastNewTier.id}`);
-        setActiveTabId(lastNewTier.id);
-      }
+      if (newTiers.length > 0) {
+        console.log(
+          `🆕 New tiers detected:`,
+          newTiers.map((t) => t.id)
+        );
 
-      // Make sure initialization has been done before updating edit states
-      if (hasInitializedRef.current) {
-        // ONLY update editing state for the new tiers - without touching existing tiers
-        setEditingTiers((prevEditingTiers) => {
-          // Create a shallow copy of the previous state
-          const updatedEditingTiers = { ...prevEditingTiers };
+        // Get the last new tier
+        const newTier = newTiers[newTiers.length - 1];
 
-          // Only modify the state for new tiers - put them in edit mode
-          newTiers.forEach((tier) => {
-            console.log(`Setting new tier ${tier.id} to edit mode`);
-            updatedEditingTiers[tier.id] = true; // true = edit mode
+        // Set as active tab
+        console.log(`🔄 Setting active tab to new tier: ${newTier.id}`);
+        setActiveTabId(newTier.id);
 
-            // Mark as modified
-            setModifiedTiers((prev) => ({
-              ...prev,
-              [tier.id]: true,
-            }));
+        // Set to edit mode
+        console.log(
+          `Setting new tier ${newTier.id} to edit mode and marking as modified`
+        );
+        setEditingTiers((prev) => ({
+          ...prev,
+          [newTier.id]: true, // true = edit mode
+        }));
 
-            // Add to known tiers
-            knownTierIds.current.add(tier.id);
-          });
+        // Mark as modified
+        setModifiedTiers((prev) => ({
+          ...prev,
+          [newTier.id]: true,
+        }));
 
-          return updatedEditingTiers;
+        // Add all new tiers to known set
+        newTiers.forEach((tier) => {
+          knownTierIds.current.add(tier.id);
         });
       }
     }
-  }, [tiers, isEditMode, activeTabId]); // Added activeTabId to the deps
 
-  // Modified addTier function
+    // Update the previous count
+    prevTierCountRef.current = tiers.length;
+  }, [tiers.length, isEditMode, tiers]);
+
+  // Direct helper to identify the newest tier and set it active
+  const findAndActivateNewestTier = () => {
+    // Get all currently known tier IDs
+    const knownIds = new Set(knownTierIds.current);
+
+    // Get all tiers that aren't in the known set
+    const newTiers = tiers.filter((tier) => !knownIds.has(tier.id));
+
+    if (newTiers.length > 0) {
+      // Sort by highest onchain_index (newest should have highest index)
+      const newestTier = [...newTiers].sort((a, b) => {
+        const indexA = a.onchain_index !== undefined ? a.onchain_index : 0;
+        const indexB = b.onchain_index !== undefined ? b.onchain_index : 0;
+        return indexB - indexA; // Descending order
+      })[0];
+
+      console.log(`Found newest tier: ${newestTier.id}, activating it`);
+
+      // Set as active tab
+      setActiveTabId(newestTier.id);
+
+      // Set to edit mode
+      setEditingTiers((prev) => ({
+        ...prev,
+        [newestTier.id]: true,
+      }));
+
+      // Mark as modified
+      setModifiedTiers((prev) => ({
+        ...prev,
+        [newestTier.id]: true,
+      }));
+
+      // Add all new tiers to known set
+      newTiers.forEach((tier) => {
+        knownTierIds.current.add(tier.id);
+      });
+
+      return newestTier;
+    }
+
+    return null;
+  };
+
+  // Modified addTier function for edit mode
   const handleAddTierClick = async () => {
     // If in edit mode and onAddTierInEditMode is provided, use it instead
     if (isEditMode && onAddTierInEditMode) {
-      await onAddTierInEditMode();
+      try {
+        // Save the known tier IDs before adding
+        const beforeIds = new Set([...knownTierIds.current]);
+        console.log(`Before adding: ${beforeIds.size} known tiers`);
+
+        // Call the parent's add tier function
+        console.log(
+          `Calling onAddTierInEditMode (current tier count: ${tiers.length})`
+        );
+        await onAddTierInEditMode();
+
+        // Now find the new tier by looking for IDs not in our previous set
+        console.log(`After adding: looking for new tiers`);
+
+        // Wait a tiny bit for React to update state from the parent
+        setTimeout(() => {
+          const newestTier = findAndActivateNewestTier();
+          console.log(`Found and activated tier:`, newestTier);
+        }, 50);
+      } catch (error) {
+        console.error(`Error adding tier:`, error);
+      }
     } else {
       // Otherwise use the original addTier function
       addTier();
