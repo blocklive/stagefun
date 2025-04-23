@@ -163,19 +163,50 @@ const fetcher = async (params: { id?: string; slug?: string }) => {
     ...data,
     tiers:
       data.tiers?.map((tier: any, index: number) => {
+        // Log tier info for debugging
+        console.log(
+          `Processing tier: ${tier.name}, ID: ${tier.id}, Index: ${index}, OnchainIndex: ${tier.onchain_index}`
+        );
+
         // Find commitments for this tier - handle both string and numeric tier_ids
-        // Some commitments have numeric tier_id that corresponds to the tier index
-        // For tier_id of 0 or null with only one tier, assign to the first tier
+        // The tier_id in tier_commitments table is the onchain_index (0, 1, 2, etc.)
         const tierCommitments =
           commitmentsWithUsers?.filter((c) => {
-            // Direct tier_id match
-            if (c.tier_id === tier.id) return true;
+            // PRIMARY MATCH - Match commitment's tier_id with tier's onchain_index
+            // This is the most accurate match and should be prioritized
+            if (
+              tier.onchain_index !== undefined &&
+              c.tier_id === tier.onchain_index
+            ) {
+              console.log(
+                `✅ Matched commitment to tier ${tier.name} by onchain_index=${tier.onchain_index}`
+              );
+              return true;
+            }
 
-            // Numeric index match (0-based)
-            if (c.tier_id === index) return true;
+            // Direct tier_id match
+            if (c.tier_id === tier.id) {
+              console.log(
+                `✅ Matched commitment to tier ${tier.name} by direct UUID match`
+              );
+              return true;
+            }
+
+            // Numeric index match (0-based) - This is a fallback that may not be reliable
+            if (c.tier_id === index) {
+              console.log(
+                `⚠️ Matched commitment to tier ${tier.name} by array index ${index} (less reliable)`
+              );
+              return true;
+            }
 
             // String conversion match
-            if (c.tier_id?.toString() === index.toString()) return true;
+            if (c.tier_id?.toString() === index.toString()) {
+              console.log(
+                `⚠️ Matched commitment to tier ${tier.name} by string conversion ${index} (less reliable)`
+              );
+              return true;
+            }
 
             // Special case for single tier pools - assign null and 0 tier_ids to first tier
             if (
@@ -183,11 +214,18 @@ const fetcher = async (params: { id?: string; slug?: string }) => {
               index === 0 &&
               data.tiers.length === 1
             ) {
+              console.log(
+                `⚠️ Matched commitment to first tier ${tier.name} by special case`
+              );
               return true;
             }
 
             return false;
           }) || [];
+
+        console.log(
+          `Tier ${tier.name} has ${tierCommitments.length} commitments`
+        );
 
         return {
           ...tier,
