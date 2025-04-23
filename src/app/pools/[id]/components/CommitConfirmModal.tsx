@@ -201,14 +201,36 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
     try {
       setIsCommitting(true);
 
-      // Find the tier index in the pool.tiers array
+      // Use the tier's onchain_index property instead of finding the index in the array
+      // This ensures we're committing to the correct tier index on the blockchain
+      const tierOnchainIndex = tier.onchain_index;
+
+      // If onchain_index is not available, fall back to finding the index in the array
+      // but log a warning
+      if (tierOnchainIndex === undefined) {
+        console.warn(
+          "Tier is missing onchain_index property, falling back to array position which may be incorrect",
+          { tierId: tier.id, tierName: tier.name }
+        );
+      }
+
       const tierIndex =
-        pool.tiers?.findIndex((t: Tier) => t.id === tier.id) ?? -1;
+        tierOnchainIndex !== undefined
+          ? tierOnchainIndex
+          : pool.tiers?.findIndex((t: Tier) => t.id === tier.id) ?? -1;
 
       if (tierIndex === -1) {
         console.error("Tier not found in pool tiers");
         return;
       }
+
+      console.log("Committing to tier:", {
+        tierId: tier.id,
+        tierName: tier.name,
+        tierOnchainIndex,
+        tierIndex,
+        usingOnchainIndex: tierOnchainIndex !== undefined,
+      });
 
       // Calculate the amount to commit in base units
       let amountInBaseUnits: number;

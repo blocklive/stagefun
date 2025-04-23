@@ -88,8 +88,25 @@ const TiersSection: React.FC<TiersSectionProps> = ({
     return showAllTiers || userCommitment !== undefined;
   };
 
-  // Filter tiers to show
-  const visibleTiers = tiers.filter(shouldShowTier);
+  // First sort tiers by onchain_index if available
+  const sortedTiers = [...tiers].sort((a, b) => {
+    // Sort by onchain_index if available
+    const indexA =
+      a.onchain_index !== undefined ? a.onchain_index : Number.MAX_SAFE_INTEGER;
+    const indexB =
+      b.onchain_index !== undefined ? b.onchain_index : Number.MAX_SAFE_INTEGER;
+
+    // Use onchain_index as primary sort
+    if (indexA !== indexB) {
+      return indexA - indexB; // Ascending order by index
+    }
+
+    // Fall back to id for consistent ordering when onchain_index is missing or equal
+    return a.id.localeCompare(b.id);
+  });
+
+  // Then filter the sorted tiers to show
+  const visibleTiers = sortedTiers.filter(shouldShowTier);
 
   // Helper function to get the appropriate icon for a reward type
   const getRewardIcon = (type: string) => {
