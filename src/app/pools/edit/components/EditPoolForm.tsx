@@ -44,6 +44,8 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
   const [localTiers, setLocalTiers] = useState<Tier[]>([]);
   // Add state for tracking available rewards
   const [availableRewards, setAvailableRewards] = useState<RewardItem[]>([]);
+  // Add state for active tier ID
+  const [activeTierId, setActiveTierId] = useState<string | null>(null);
 
   // Add separate loading states for each section
   const [isDetailsUpdating, setIsDetailsUpdating] = useState(false);
@@ -396,6 +398,9 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     }
 
     try {
+      // Store initial tier count to detect new tier after refresh
+      const initialTierCount = remoteTiers?.length || 0;
+
       // Generate a fun tier name - use same logic as creation flow
       const tierNames = [
         "GM",
@@ -461,28 +466,26 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
       }
 
       // Use existing createTier function to create the tier in the database and on-chain
-      const success = await createTier(defaultTierData);
+      const newTierId = await createTier(defaultTierData);
 
-      if (success) {
-        // Refresh tiers to show the new one
-        await handleRefreshTiers();
+      if (newTierId) {
+        console.log("New tier created successfully with ID:", newTierId);
 
-        // After refresh, find the newly created tier and set it as editable
-        // We need a slight delay to ensure the remoteTiers are updated
-        setTimeout(() => {
-          if (localTiers.length > 0) {
-            // Find the newest tier (assumes it's the last one)
-            const newTier = localTiers[localTiers.length - 1];
-
-            // Directly call handleSaveSingleTier to activate edit mode on the new tier
-            // This is a bit of a hack - we're not actually saving, just enabling edit mode
-            handleSaveSingleTier(newTier.id).catch((err) => {
-              console.error("Error activating edit mode on new tier:", err);
-            });
-          }
-        }, 500);
+        // Set the active tier ID immediately
+        setActiveTierId(newTierId);
       } else {
-        showToast.error("Failed to create new tier");
+        console.log("Tier created but no ID returned from API");
+      }
+
+      // Always refresh tiers to get the complete data, even if we didn't get an ID
+      await handleRefreshTiers();
+
+      // After refresh, try to find and activate the newest tier if we didn't get an ID
+      if (!newTierId && remoteTiers && remoteTiers.length > initialTierCount) {
+        // If we added a tier but didn't get the ID, activate the latest tier
+        const newTier = remoteTiers[remoteTiers.length - 1];
+        console.log("Activating newest tier:", newTier.id);
+        setActiveTierId(newTier.id);
       }
     } catch (error) {
       console.error("Error creating default tier:", error);
@@ -645,6 +648,8 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                     isEditMode={true}
                     onSaveTier={handleSaveSingleTier}
                     onAddTierInEditMode={handleAddDefaultTier}
+                    activeTierId={activeTierId}
+                    onActiveTierChange={setActiveTierId}
                   />
 
                   {tierUpdateError && (

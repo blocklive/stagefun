@@ -24,7 +24,7 @@ interface TierManagerResult {
   isUpdating: boolean;
   error: string | null;
   updateTier: (tier: TierUpdateData) => Promise<boolean>;
-  createTier: (tier: TierUpdateData) => Promise<boolean>;
+  createTier: (tier: TierUpdateData) => Promise<string | null>;
   toggleTierStatus: (tier: TierUpdateData) => Promise<boolean>;
 }
 
@@ -180,7 +180,7 @@ export function useTierManagement({
 
   // Create a new tier (on-chain first, then database)
   const createTier = useCallback(
-    async (tier: TierUpdateData): Promise<boolean> => {
+    async (tier: TierUpdateData): Promise<string | null> => {
       setIsUpdating(true);
       setError(null);
 
@@ -271,9 +271,34 @@ export function useTierManagement({
           }),
         });
 
+        // Get the response data
+        let responseData;
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          console.warn("Could not parse response:", e);
+          if (!response.ok) {
+            throw new Error("Failed to save tier to database");
+          }
+        }
+
+        // Check for errors
         if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Failed to save tier to database");
+          throw new Error(
+            responseData?.error || "Failed to save tier to database"
+          );
+        }
+
+        // Get the tier ID from the response if available
+        let newTierId: string | null = null;
+        if (
+          responseData &&
+          responseData.tiers &&
+          responseData.tiers.length > 0
+        ) {
+          // The API should return the created tiers with their IDs
+          newTierId = responseData.tiers[0].id;
+          console.log("New tier created with ID:", newTierId);
         }
 
         // Success!
@@ -290,7 +315,7 @@ export function useTierManagement({
         // Refresh the page data to show the updates
         router.refresh();
 
-        return true;
+        return newTierId;
       } catch (error) {
         console.error("Error in createTier:", error);
         const errorMessage =
@@ -299,7 +324,7 @@ export function useTierManagement({
             : "Unknown error creating tier";
         setError(errorMessage);
         showToast.error(errorMessage, { id: loadingToast });
-        return false;
+        return null;
       } finally {
         setIsUpdating(false);
       }

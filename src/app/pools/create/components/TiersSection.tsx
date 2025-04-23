@@ -21,6 +21,8 @@ export interface TiersSectionProps {
   isEditMode?: boolean;
   onSaveTier?: (tierId: string) => Promise<void>;
   onAddTierInEditMode?: () => Promise<void>;
+  activeTierId?: string | null;
+  onActiveTierChange?: (tierId: string | null) => void;
 }
 
 export const TiersSection: React.FC<TiersSectionProps> = ({
@@ -36,6 +38,8 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   isEditMode = false,
   onSaveTier,
   onAddTierInEditMode,
+  activeTierId,
+  onActiveTierChange,
 }) => {
   const [isUploadingImage, setIsUploadingImage] = useState<{
     [key: string]: boolean;
@@ -777,24 +781,68 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     setShowAddRewardModal(true);
   };
 
-  // Toggle a specific tier between edit and view-only mode - SIMPLIFIED
-  const toggleTierEditMode = (tierId: string) => {
-    // Force a specific state rather than toggling to avoid issues
-    const currentState = !!editingTiers[tierId];
-    const newState = !currentState;
-
-    // Create a new object to avoid reference issues
-    const newEditingTiers = { ...editingTiers };
-    newEditingTiers[tierId] = newState;
-    setEditingTiers(newEditingTiers);
-
-    // When disabling edit mode, clear the modified flag
-    if (!newState) {
-      setModifiedTiers((prev) => {
-        const newModified = { ...prev };
-        delete newModified[tierId];
-        return newModified;
+  // Update editingTiers when activeTierId changes
+  useEffect(() => {
+    if (isEditMode && activeTierId && onActiveTierChange) {
+      // Set all tiers to view mode except the active one
+      const updatedEditingTiers: Record<string, boolean> = {};
+      tiers.forEach((tier) => {
+        updatedEditingTiers[tier.id] = tier.id === activeTierId;
       });
+      setEditingTiers(updatedEditingTiers);
+    }
+  }, [isEditMode, activeTierId, tiers, onActiveTierChange]);
+
+  const toggleTierEditMode = (tierId: string) => {
+    if (isEditMode) {
+      // In edit mode (with dedicated save button), we need to track which tier is being edited
+      if (onActiveTierChange) {
+        // If this tier is already active, deactivate it
+        if (activeTierId === tierId) {
+          onActiveTierChange(null);
+          // When disabling edit mode, clear the modified flag
+          setModifiedTiers((prev) => {
+            const newModified = { ...prev };
+            delete newModified[tierId];
+            return newModified;
+          });
+        } else {
+          // Otherwise activate this tier
+          onActiveTierChange(tierId);
+        }
+      } else {
+        // Fallback to old behavior if onActiveTierChange is not provided
+        const newState = !editingTiers[tierId];
+        setEditingTiers((prev) => ({
+          ...Object.fromEntries(Object.keys(prev).map((id) => [id, false])),
+          [tierId]: newState,
+        }));
+
+        // When disabling edit mode, clear the modified flag
+        if (!newState) {
+          setModifiedTiers((prev) => {
+            const newModified = { ...prev };
+            delete newModified[tierId];
+            return newModified;
+          });
+        }
+      }
+    } else {
+      // Original behavior for create flow - only one tier editable at a time
+      const newState = !editingTiers[tierId];
+      setEditingTiers((prev) => ({
+        ...Object.fromEntries(Object.keys(prev).map((id) => [id, false])),
+        [tierId]: newState,
+      }));
+
+      // When disabling edit mode, clear the modified flag
+      if (!newState) {
+        setModifiedTiers((prev) => {
+          const newModified = { ...prev };
+          delete newModified[tierId];
+          return newModified;
+        });
+      }
     }
   };
 
