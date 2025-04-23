@@ -559,12 +559,6 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
           // Only update if we have changes and they're different from current values
           if (Object.keys(updates).length > 0) {
             const updatedTier = { ...tier, ...updates };
-            console.log("Tier updates:", {
-              tierId: tier.id,
-              updates,
-              before: tier,
-              after: updatedTier,
-            });
             if (JSON.stringify(updatedTier) !== JSON.stringify(tier)) {
               return updatedTier;
             }

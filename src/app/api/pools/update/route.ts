@@ -170,8 +170,6 @@ export async function POST(request: NextRequest) {
     // 4. Handle tier updates if provided
     let updatedTiers = null;
     if (tierUpdates && tierUpdates.length > 0) {
-      console.log("Processing tier updates:", tierUpdates);
-
       // Process existing tier updates vs new tier creation separately
       const existingTierUpdates = tierUpdates.filter((tier) => tier.id);
       const newTierUpdates = tierUpdates.filter((tier) => !tier.id);

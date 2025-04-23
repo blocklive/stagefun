@@ -6,6 +6,7 @@ import FloatingLabelInput, {
 } from "@/app/components/FloatingLabelInput";
 import Image from "next/image";
 import { MINIMUM_PRICE } from "@/lib/constants/pricing";
+import SelectorButton from "@/app/components/SelectorButton";
 
 interface TierDetailsFormProps {
   tier: Tier;
@@ -459,57 +460,27 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
           Commit Type
         </label>
         <div className="flex gap-2 mb-3">
-          <button
-            type="button"
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              pricingMode === "fixed"
-                ? "bg-[#836EF9] text-white"
-                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors ${
-              disabled
-                ? "opacity-60 cursor-not-allowed pointer-events-none border-transparent"
-                : ""
-            }`}
+          <SelectorButton
             onClick={() => handlePricingModeChange("fixed")}
             disabled={disabled}
-            aria-disabled={disabled}
+            isActive={pricingMode === "fixed"}
           >
             Fixed Price
-          </button>
-          <button
-            type="button"
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              pricingMode === "range"
-                ? "bg-[#836EF9] text-white"
-                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors ${
-              disabled
-                ? "opacity-60 cursor-not-allowed pointer-events-none border-transparent"
-                : ""
-            }`}
+          </SelectorButton>
+          <SelectorButton
             onClick={() => handlePricingModeChange("range")}
             disabled={disabled}
-            aria-disabled={disabled}
+            isActive={pricingMode === "range"}
           >
             Price Range
-          </button>
-          <button
-            type="button"
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              pricingMode === "uncapped"
-                ? "bg-[#836EF9] text-white"
-                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors ${
-              disabled
-                ? "opacity-60 cursor-not-allowed pointer-events-none border-transparent"
-                : ""
-            }`}
+          </SelectorButton>
+          <SelectorButton
             onClick={() => handlePricingModeChange("uncapped")}
             disabled={disabled}
-            aria-disabled={disabled}
+            isActive={pricingMode === "uncapped"}
           >
             Uncapped Price
-          </button>
+          </SelectorButton>
         </div>
 
         {/* Price input fields based on selected mode */}
@@ -617,40 +588,20 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
         </label>
 
         <div className="flex gap-2 mb-3">
-          <button
-            type="button"
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              patronsMode === "limited"
-                ? "bg-[#836EF9] text-white"
-                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors ${
-              disabled
-                ? "opacity-60 cursor-not-allowed pointer-events-none border-transparent"
-                : ""
-            }`}
+          <SelectorButton
             onClick={() => handlePatronsModeChange("limited")}
             disabled={disabled}
-            aria-disabled={disabled}
+            isActive={patronsMode === "limited"}
           >
             Limited
-          </button>
-          <button
-            type="button"
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              patronsMode === "uncapped"
-                ? "bg-[#836EF9] text-white"
-                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors ${
-              disabled
-                ? "opacity-60 cursor-not-allowed pointer-events-none border-transparent"
-                : ""
-            }`}
+          </SelectorButton>
+          <SelectorButton
             onClick={() => handlePatronsModeChange("uncapped")}
             disabled={disabled}
-            aria-disabled={disabled}
+            isActive={patronsMode === "uncapped"}
           >
             Uncapped
-          </button>
+          </SelectorButton>
         </div>
 
         {patronsMode === "limited" && (

@@ -32,6 +32,7 @@ import useEndTime from "./hooks/useEndTime";
 import usePoolCreation from "./hooks/usePoolCreation";
 import { supabase } from "@/lib/supabase";
 import { calculateMaxPossibleFunding } from "./hooks/calculateMaxFunding";
+import CustomButton from "@/app/components/CustomButton";
 
 // Helper function to format a date for datetime-local input
 function formatDateForInput(date: Date): string {
@@ -427,13 +428,12 @@ export default function CreatePoolPage() {
                 Supabase client not available. This is required for creating
                 tiers.
               </p>
-              <button
-                type="button"
+              <CustomButton
                 className="mt-2 px-4 py-2 bg-red-600 text-white rounded-md"
                 onClick={() => window.location.reload()}
               >
                 Reload Page
-              </button>
+              </CustomButton>
             </div>
           )}
 
@@ -481,13 +481,13 @@ export default function CreatePoolPage() {
 
       {/* Launch Button */}
       <div className="fixed bottom-16 left-0 right-0 md:static md:mt-4 px-6 py-6 bg-[#15161a] md:px-0 md:py-0 z-10">
-        <button
-          onClick={onSubmit}
-          className="w-full py-4 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium text-lg transition-colors"
+        <CustomButton
+          onClick={() => onSubmit({} as React.MouseEvent<HTMLButtonElement>)}
           disabled={isLoading}
+          fullWidth={true}
         >
           {isLoading ? "Creating..." : "Launch Party Round"}
-        </button>
+        </CustomButton>
       </div>
     </div>
   );
