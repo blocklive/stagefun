@@ -23,6 +23,7 @@ export interface TiersSectionProps {
   onAddTierInEditMode?: () => Promise<void>;
   activeTierId?: string | null;
   onActiveTierChange?: (tierId: string | null) => void;
+  isTierUpdating?: boolean;
 }
 
 export const TiersSection: React.FC<TiersSectionProps> = ({
@@ -40,6 +41,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
   onAddTierInEditMode,
   activeTierId,
   onActiveTierChange,
+  isTierUpdating = false,
 }) => {
   const [isUploadingImage, setIsUploadingImage] = useState<{
     [key: string]: boolean;
@@ -410,18 +412,45 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
 
           // Update price and max patrons if not modified and funding goal changes
           if (!tier.modifiedFields.has("price") && fundingGoal) {
-            const goalAmount = parseFloat(fundingGoal);
-            if (!isNaN(goalAmount)) {
-              // Set default max patrons to 20 if not modified
-              if (!tier.modifiedFields.has("maxPatrons")) {
-                updates.maxPatrons = "20";
-              }
+            // Skip this price update if we already have a valid price from the database
+            const hasValidPrice = tier.price && parseFloat(tier.price) > 0;
 
-              // Calculate price based on goal and patron count (either the default 20 or current value)
-              const patronCount = parseInt(
-                updates.maxPatrons || tier.maxPatrons || "20"
+            console.log(
+              `[DEBUG] Checking if tier ${tier.id} needs price update:`,
+              {
+                isEditMode,
+                hasExistingPrice: !!tier.price,
+                hasValidPrice,
+                existingPrice: tier.price,
+              }
+            );
+
+            // IMPORTANT: Never override valid prices in edit mode
+            if (!hasValidPrice && (!isEditMode || !tier.price)) {
+              const goalAmount = parseFloat(fundingGoal);
+              if (!isNaN(goalAmount)) {
+                // Set default max patrons to 20 if not modified
+                if (!tier.modifiedFields.has("maxPatrons")) {
+                  updates.maxPatrons = "20";
+                }
+
+                // Calculate price based on goal and patron count (either the default 20 or current value)
+                const patronCount = parseInt(
+                  updates.maxPatrons || tier.maxPatrons || "20"
+                );
+                updates.price = (goalAmount / patronCount)
+                  .toFixed(2)
+                  .toString();
+                console.log(
+                  `[DEBUG] Setting calculated price for tier ${tier.id}:`,
+                  updates.price
+                );
+              }
+            } else {
+              console.log(
+                `[DEBUG] Preserving existing price for tier ${tier.id}:`,
+                tier.price
               );
-              updates.price = (goalAmount / patronCount).toFixed(2).toString();
             }
           }
 
@@ -878,7 +907,10 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
         );
 
         // First toggle out of edit mode
-        toggleTierEditMode(tierId);
+        setEditingTiers((prev) => ({
+          ...prev,
+          [tierId]: false,
+        }));
 
         // Then save the tier
         await onSaveTier(tierId);
@@ -898,7 +930,10 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     } else {
       // If no save handler, just toggle edit mode
       console.log(`No save handler, just toggling tier ${tierId} edit mode`);
-      toggleTierEditMode(tierId);
+      setEditingTiers((prev) => ({
+        ...prev,
+        [tierId]: false,
+      }));
     }
   };
 
@@ -1166,7 +1201,10 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                     if (editingTiers[tier.id] && modifiedTiers[tier.id]) {
                       handleSaveTier(tier.id);
                     } else {
-                      toggleTierEditMode(tier.id);
+                      setEditingTiers((prev) => ({
+                        ...prev,
+                        [tier.id]: true,
+                      }));
                     }
                   }}
                   className="py-2 px-6 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"

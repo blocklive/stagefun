@@ -107,8 +107,16 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
   }, [refreshPool]);
 
   const handleRefreshTiers = useCallback(async () => {
+    console.log(
+      `[DEBUG] EditPoolForm - About to refresh tiers, activeTierId before:`,
+      activeTierId
+    );
     await refreshTiers();
-  }, [refreshTiers]);
+    console.log(
+      `[DEBUG] EditPoolForm - Tiers refreshed, activeTierId after:`,
+      activeTierId
+    );
+  }, [refreshTiers, activeTierId]);
 
   // Log pool data for debugging
   useEffect(() => {
@@ -493,6 +501,31 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
     }
   };
 
+  // Wrapper for setActiveTierId with debugging
+  const handleActiveTierChange = useCallback((tierId: string | null) => {
+    console.log(`[DEBUG] EditPoolForm - Setting activeTierId to:`, tierId);
+    setActiveTierId(tierId);
+  }, []);
+
+  // Monitor activeTierId changes
+  useEffect(() => {
+    console.log(
+      `[DEBUG] EditPoolForm - activeTierId changed to:`,
+      activeTierId
+    );
+  }, [activeTierId]);
+
+  // Monitor remoteTiers changes to check for potential conflicts
+  useEffect(() => {
+    if (remoteTiers) {
+      console.log(
+        `[DEBUG] EditPoolForm - remoteTiers refreshed, count:`,
+        remoteTiers.length
+      );
+      console.log(`[DEBUG] EditPoolForm - current activeTierId:`, activeTierId);
+    }
+  }, [remoteTiers, activeTierId]);
+
   return (
     <>
       <div className="px-4 md:px-8 max-w-6xl mx-auto">
@@ -649,7 +682,8 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
                     onSaveTier={handleSaveSingleTier}
                     onAddTierInEditMode={handleAddDefaultTier}
                     activeTierId={activeTierId}
-                    onActiveTierChange={setActiveTierId}
+                    onActiveTierChange={handleActiveTierChange}
+                    isTierUpdating={isTierUpdating}
                   />
 
                   {tierUpdateError && (

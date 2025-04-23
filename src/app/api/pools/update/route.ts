@@ -178,6 +178,18 @@ export async function POST(request: NextRequest) {
         // Extract reward items before db update
         const { reward_items, ...tierData } = tier;
 
+        // Check current tier data in database
+        const { data: currentTierData } = await adminSupabase
+          .from("tiers")
+          .select("*")
+          .eq("id", tier.id)
+          .single();
+
+        console.log(
+          "Current tier data in database before update:",
+          currentTierData
+        );
+
         // Create a properly typed object for the database update
         const tierDataForDb: Record<string, any> = {
           ...tierData,
@@ -193,10 +205,24 @@ export async function POST(request: NextRequest) {
           tierDataForDb.min_price = tierDataForDb.min_price ?? 0;
           tierDataForDb.max_price = tierDataForDb.max_price ?? 0;
           tierDataForDb.price = 0; // Set to 0 instead of null to satisfy NOT NULL constraint
+          console.log(
+            `Variable price tier - min: ${tierDataForDb.min_price}, max: ${tierDataForDb.max_price}, price set to: ${tierDataForDb.price}`
+          );
         } else {
           // For fixed price tiers:
           // - Ensure price is set
           // - Set min_price and max_price to null to satisfy the constraint
+          console.log(
+            `Fixed price tier - converting price from: "${
+              tierDataForDb.price
+            }" (${typeof tierDataForDb.price})`
+          );
+          tierDataForDb.price = Number(tierDataForDb.price) || 0; // Explicitly convert to number
+          console.log(
+            `Fixed price tier - converted price to: ${
+              tierDataForDb.price
+            } (${typeof tierDataForDb.price})`
+          );
           tierDataForDb.min_price = null;
           tierDataForDb.max_price = null;
         }
@@ -217,6 +243,8 @@ export async function POST(request: NextRequest) {
             { status: 500 }
           );
         }
+
+        console.log("Tier updated in database, returned data:", updatedTier);
 
         // 2. Process rewards for this tier
 
@@ -342,10 +370,24 @@ export async function POST(request: NextRequest) {
           tierDataForDb.min_price = tierDataForDb.min_price ?? 0;
           tierDataForDb.max_price = tierDataForDb.max_price ?? 0;
           tierDataForDb.price = 0; // Set to 0 instead of null to satisfy NOT NULL constraint
+          console.log(
+            `Variable price tier - min: ${tierDataForDb.min_price}, max: ${tierDataForDb.max_price}, price set to: ${tierDataForDb.price}`
+          );
         } else {
           // For fixed price tiers:
           // - Ensure price is set
           // - Set min_price and max_price to null to satisfy the constraint
+          console.log(
+            `Fixed price tier - converting price from: "${
+              tierDataForDb.price
+            }" (${typeof tierDataForDb.price})`
+          );
+          tierDataForDb.price = Number(tierDataForDb.price) || 0; // Explicitly convert to number
+          console.log(
+            `Fixed price tier - converted price to: ${
+              tierDataForDb.price
+            } (${typeof tierDataForDb.price})`
+          );
           tierDataForDb.min_price = null;
           tierDataForDb.max_price = null;
         }
