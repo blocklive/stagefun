@@ -20,7 +20,7 @@ export default function ResponsiveButton({
       onClick={onClick}
       className={`flex items-center justify-center transition-colors bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-[23px] ${className}`}
     >
-      <div className="lg:hidden w-11 h-11 flex items-center justify-center">
+      <div className="lg:hidden w-10 h-10 flex items-center justify-center">
         {icon}
       </div>
       <div className="hidden lg:flex items-center gap-2 px-4 py-2">

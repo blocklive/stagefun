@@ -100,19 +100,22 @@ export default function AppHeader({
             />
           )}
 
+          {/* Faucet Button - Only visible on desktop */}
           {showGetTokensButton && (
-            <ResponsiveButton
-              icon={
-                <Image
-                  src="/icons/ic-droop.svg"
-                  alt="Get Tokens"
-                  width={20}
-                  height={20}
-                />
-              }
-              label="Faucet"
-              onClick={onGetTokensClick}
-            />
+            <div className="hidden lg:block">
+              <ResponsiveButton
+                icon={
+                  <Image
+                    src="/icons/ic-droop.svg"
+                    alt="Get Tokens"
+                    width={20}
+                    height={20}
+                  />
+                }
+                label="Faucet"
+                onClick={onGetTokensClick}
+              />
+            </div>
           )}
 
           {/* Create button is always visible but has different behavior based on auth status */}
@@ -146,7 +149,11 @@ export default function AppHeader({
 
           {/* Profile Dropdown - Only show when authenticated */}
           {showProfileButton && isAuthenticated && (
-            <ProfileDropdown user={dbUser} />
+            <ProfileDropdown
+              user={dbUser}
+              showFaucetOnMobile={showGetTokensButton}
+              onFaucetClick={onGetTokensClick}
+            />
           )}
         </div>
       </header>

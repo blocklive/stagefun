@@ -6,15 +6,20 @@ import { usePrivy } from "@privy-io/react-auth";
 import { FaUser, FaSignOutAlt } from "react-icons/fa";
 import UserAvatar from "./UserAvatar";
 import { User } from "@/lib/supabase";
+import Image from "next/image";
 
 interface ProfileDropdownProps {
   user: User | null;
   className?: string;
+  onFaucetClick?: () => void;
+  showFaucetOnMobile?: boolean;
 }
 
 export default function ProfileDropdown({
   user,
   className = "",
+  onFaucetClick,
+  showFaucetOnMobile = false,
 }: ProfileDropdownProps) {
   const router = useRouter();
   const { logout } = usePrivy();
@@ -48,6 +53,11 @@ export default function ProfileDropdown({
     logout();
   };
 
+  const handleFaucetClick = () => {
+    setIsDropdownOpen(false);
+    if (onFaucetClick) onFaucetClick();
+  };
+
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       {/* Profile Button - Responsive version to match other buttons */}
@@ -57,9 +67,9 @@ export default function ProfileDropdown({
         aria-label="Profile"
       >
         {/* Mobile view - circle */}
-        <div className="lg:hidden w-11 h-11 flex items-center justify-center">
+        <div className="lg:hidden w-10 h-10 flex items-center justify-center">
           {user ? (
-            <UserAvatar user={user} size={36} />
+            <UserAvatar user={user} size={32} />
           ) : (
             <FaUser className="text-white w-5 h-5" />
           )}
@@ -108,6 +118,36 @@ export default function ProfileDropdown({
             </div>
             <span>Portfolio</span>
           </button>
+
+          {/* Faucet Option - Only shown on mobile if enabled */}
+          {showFaucetOnMobile && onFaucetClick && (
+            <button
+              onClick={handleFaucetClick}
+              className="lg:hidden w-full px-4 py-3 text-left flex items-center hover:bg-[#FFFFFF14] transition-colors text-white"
+            >
+              <div className="w-5 h-5 mr-3 flex items-center justify-center text-[#836EF9]">
+                <div className="w-4 h-4" style={{ color: "#836EF9" }}>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M12 21C15.3137 21 18 18.3137 18 15C18 12.8889 17 10 12 3C7 10 6 12.8889 6 15C6 18.3137 8.68629 21 12 21Z"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <span>Faucet</span>
+            </button>
+          )}
+
           <button
             onClick={handleSignOutClick}
             className="w-full px-4 py-3 text-left flex items-center hover:bg-[#FFFFFF14] transition-colors text-white"
