@@ -26,6 +26,7 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
   const [capAmountError, setCapAmountError] = React.useState<string | null>(
     null
   );
+  const [hasManuallyEditedCap, setHasManuallyEditedCap] = React.useState(false);
 
   // Validate funding goal and cap amounts
   useEffect(() => {
@@ -58,7 +59,8 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
 
   // Update cap amount when funding goal changes or when cap mode changes
   useEffect(() => {
-    if (hasCap) {
+    // Only auto-update if the user hasn't manually edited the cap
+    if (hasCap && !hasManuallyEditedCap) {
       if (fundingGoal && fundingGoal !== "") {
         const goal = parseFloat(fundingGoal);
         if (!isNaN(goal)) {
@@ -75,11 +77,11 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
       } else {
         onCapAmountChange("");
       }
-    } else {
+    } else if (!hasCap) {
       // For uncapped mode, we set the cap to MAX_SAFE_VALUE (representing no cap)
       onCapAmountChange(MAX_SAFE_VALUE);
     }
-  }, [fundingGoal, hasCap, onCapAmountChange, capAmount]);
+  }, [fundingGoal, hasCap, onCapAmountChange, capAmount, hasManuallyEditedCap]);
 
   // Handle funding mode change
   const handleFundingModeChange = (isCapped: boolean) => {
@@ -106,6 +108,8 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
           (Math.max(goal, MINIMUM_FUNDING_GOAL) * 1.2).toString()
         );
       }
+      // Reset the manual edit flag when switching to capped mode
+      setHasManuallyEditedCap(false);
     }
   };
 
@@ -124,8 +128,14 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
             const currentValue = parseFloat(value);
             if (!isNaN(currentValue)) {
               onChange((currentValue + 0.01).toString());
+              if (onChange === onCapAmountChange) {
+                setHasManuallyEditedCap(true);
+              }
             } else {
               onChange(MINIMUM_FUNDING_GOAL.toString());
+              if (onChange === onCapAmountChange) {
+                setHasManuallyEditedCap(true);
+              }
             }
           }}
         >
@@ -152,6 +162,9 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
             const currentValue = parseFloat(value);
             if (!isNaN(currentValue) && currentValue > minValue + 0.01) {
               onChange((currentValue - 0.01).toString());
+              if (onChange === onCapAmountChange) {
+                setHasManuallyEditedCap(true);
+              }
             }
           }}
         >
@@ -228,7 +241,8 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
               onFundingGoalChange(value);
 
               // If in capped mode and goal is greater than cap, update cap
-              if (hasCap) {
+              // Only auto-update if the user hasn't manually edited the cap
+              if (hasCap && !hasManuallyEditedCap) {
                 const newGoal = parseFloat(value);
                 const currentCap = parseFloat(capAmount);
                 if (
@@ -264,6 +278,7 @@ export const FundingSection: React.FC<FundingSectionProps> = ({
             onChange={(value) => {
               if (value === "" || /^\d*\.?\d*$/.test(value)) {
                 onCapAmountChange(value);
+                setHasManuallyEditedCap(true);
               }
             }}
             placeholder="Funding Cap"
