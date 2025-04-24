@@ -20,12 +20,14 @@ interface BalanceSectionProps {
   onSendClick: (asset: Asset, e: React.MouseEvent) => void;
   walletAddress?: string | null;
   chainId?: string;
+  isOwnProfile?: boolean;
 }
 
 export default function BalanceSection({
   onSendClick,
   walletAddress = null,
   chainId = "monad-test-v2",
+  isOwnProfile = true,
 }: BalanceSectionProps) {
   // Handler for Zerion assets
   const handleZerionSendClick = (zerionAsset: ZerionAsset) => {
@@ -67,6 +69,7 @@ export default function BalanceSection({
         className="mt-4"
         onSendClick={handleZerionSendClick}
         hideTitle={true}
+        isOwnProfile={isOwnProfile}
       />
     </div>
   );

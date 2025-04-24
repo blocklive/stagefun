@@ -658,6 +658,7 @@ export default function ProfileComponent({
                   onSendClick={handleSendClick}
                   walletAddress={user.smart_wallet_address || null}
                   chainId="monad-test-v2"
+                  isOwnProfile={Boolean(isOwnProfile)}
                 />
               ) : activeTab === "hosted" ? (
                 <PoolList

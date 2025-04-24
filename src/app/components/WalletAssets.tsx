@@ -13,6 +13,7 @@ interface WalletAssetsProps {
   onSendClick?: (asset: Asset) => void;
   refreshAssetsRef?: RefObject<() => void>;
   hideTitle?: boolean;
+  isOwnProfile?: boolean;
 }
 
 const formatCurrency = (value: number | null): string => {
@@ -65,7 +66,8 @@ const isLPToken = (symbol: string): boolean => {
 const AssetCard: React.FC<{
   asset: Asset;
   onSendClick: (asset: Asset) => void;
-}> = ({ asset, onSendClick }) => {
+  isOwnProfile?: boolean;
+}> = ({ asset, onSendClick, isOwnProfile = true }) => {
   const { fungible_info: token, quantity, value } = asset.attributes;
 
   // Get the token decimals for formatting
@@ -140,15 +142,17 @@ const AssetCard: React.FC<{
           </div>
         </div>
         <div className="text-right flex items-center">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSendClick(asset);
-            }}
-            className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors"
-          >
-            Send
-          </button>
+          {isOwnProfile && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSendClick(asset);
+              }}
+              className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors"
+            >
+              Send
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -162,6 +166,7 @@ export default function WalletAssets({
   onSendClick = () => {},
   refreshAssetsRef,
   hideTitle = false,
+  isOwnProfile = true,
 }: WalletAssetsProps) {
   const { assets, totalValue, isLoading, error, refresh } = useWalletAssets(
     walletAddress,
@@ -220,6 +225,7 @@ export default function WalletAssets({
                 key={asset.id}
                 asset={asset}
                 onSendClick={handleSendClick}
+                isOwnProfile={isOwnProfile}
               />
             ))}
         </div>

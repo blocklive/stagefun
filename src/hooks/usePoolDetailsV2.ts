@@ -163,11 +163,6 @@ const fetcher = async (params: { id?: string; slug?: string }) => {
     ...data,
     tiers:
       data.tiers?.map((tier: any, index: number) => {
-        // Log tier info for debugging
-        console.log(
-          `Processing tier: ${tier.name}, ID: ${tier.id}, Index: ${index}, OnchainIndex: ${tier.onchain_index}`
-        );
-
         // Find commitments for this tier - handle both string and numeric tier_ids
         // The tier_id in tier_commitments table is the onchain_index (0, 1, 2, etc.)
         const tierCommitments =
@@ -178,33 +173,21 @@ const fetcher = async (params: { id?: string; slug?: string }) => {
               tier.onchain_index !== undefined &&
               c.tier_id === tier.onchain_index
             ) {
-              console.log(
-                `✅ Matched commitment to tier ${tier.name} by onchain_index=${tier.onchain_index}`
-              );
               return true;
             }
 
             // Direct tier_id match
             if (c.tier_id === tier.id) {
-              console.log(
-                `✅ Matched commitment to tier ${tier.name} by direct UUID match`
-              );
               return true;
             }
 
             // Numeric index match (0-based) - This is a fallback that may not be reliable
             if (c.tier_id === index) {
-              console.log(
-                `⚠️ Matched commitment to tier ${tier.name} by array index ${index} (less reliable)`
-              );
               return true;
             }
 
             // String conversion match
             if (c.tier_id?.toString() === index.toString()) {
-              console.log(
-                `⚠️ Matched commitment to tier ${tier.name} by string conversion ${index} (less reliable)`
-              );
               return true;
             }
 
@@ -214,18 +197,11 @@ const fetcher = async (params: { id?: string; slug?: string }) => {
               index === 0 &&
               data.tiers.length === 1
             ) {
-              console.log(
-                `⚠️ Matched commitment to first tier ${tier.name} by special case`
-              );
               return true;
             }
 
             return false;
           }) || [];
-
-        console.log(
-          `Tier ${tier.name} has ${tierCommitments.length} commitments`
-        );
 
         return {
           ...tier,
