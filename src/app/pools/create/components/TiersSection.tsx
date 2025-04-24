@@ -1132,14 +1132,6 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
               activeTabId === tier.id ? "block" : "hidden"
             }`}
           >
-            {isEditMode && !editingTiers[tier.id] && (
-              <div className="absolute top-0 right-0 mt-2 mr-2 z-10">
-                <div className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs border border-gray-600">
-                  View Only
-                </div>
-              </div>
-            )}
-
             <TierCard
               key={tier.id}
               tier={tier}
