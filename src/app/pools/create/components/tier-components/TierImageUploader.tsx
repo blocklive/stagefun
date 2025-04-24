@@ -16,6 +16,7 @@ interface TierImageUploaderProps {
   ) => void;
   onUploadError: (error: Error) => void;
   supabase: SupabaseClient;
+  disabled?: boolean;
 }
 
 export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
@@ -27,8 +28,11 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
   onUploadComplete,
   onUploadError,
   supabase,
+  disabled = false,
 }) => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
+
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -87,7 +91,7 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
   };
 
   return (
-    <div className="w-[300px] h-[300px]">
+    <div className={`w-[300px] h-[300px] ${disabled ? "opacity-70" : ""}`}>
       <div className="relative w-full h-full rounded-lg overflow-hidden bg-[#FFFFFF14] group">
         {imageUrl ? (
           <Image
@@ -99,40 +103,47 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-center p-4">
-            <div className="text-3xl font-bold text-[#836EF9] opacity-50">
+            <div
+              className={`text-3xl font-bold text-[#836EF9] opacity-50 ${
+                disabled ? "text-gray-400" : ""
+              }`}
+            >
               UPLOAD IMAGE
             </div>
           </div>
         )}
-        <label
-          htmlFor={`tier-image-${id}`}
-          className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-        >
-          <input
-            id={`tier-image-${id}`}
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="hidden"
-          />
-          <div className="flex flex-col items-center gap-2">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-            </svg>
-            <span className="text-white">
-              {isUploading ? "Uploading..." : "Upload Image"}
-            </span>
-          </div>
-        </label>
+        {!disabled && (
+          <label
+            htmlFor={`tier-image-${id}`}
+            className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+          >
+            <input
+              id={`tier-image-${id}`}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+              disabled={disabled}
+            />
+            <div className="flex flex-col items-center gap-2">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+              </svg>
+              <span className="text-white">
+                {isUploading ? "Uploading..." : "Upload Image"}
+              </span>
+            </div>
+          </label>
+        )}
       </div>
     </div>
   );

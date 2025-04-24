@@ -159,7 +159,6 @@ export default function PoolFundsSection({
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [receiveAmount, setReceiveAmount] = useState("");
   const [distributeAmount, setDistributeAmount] = useState("");
-  const { sendTransaction } = useSendTransaction();
   const { wallets } = useWallets();
   const { smartWalletAddress, callContractFunction } = useSmartWallet();
   const { balance: smartWalletBalance, refresh: refreshSmartWalletBalance } =
@@ -170,7 +169,6 @@ export default function PoolFundsSection({
   const receiveModalRef = useRef<HTMLDivElement>(null);
   const distributeModalRef = useRef<HTMLDivElement>(null);
 
-  console.log("pool", pool);
   // Determine if pool is uncapped (cap_amount is exactly 0)
   const isUncapped = useMemo(() => {
     return pool.cap_amount === 0;

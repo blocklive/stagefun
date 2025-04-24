@@ -6,6 +6,7 @@ import FloatingLabelInput, {
 } from "@/app/components/FloatingLabelInput";
 import Image from "next/image";
 import { MINIMUM_PRICE } from "@/lib/constants/pricing";
+import SelectorButton from "@/app/components/SelectorButton";
 
 interface TierDetailsFormProps {
   tier: Tier;
@@ -16,6 +17,7 @@ interface TierDetailsFormProps {
   ) => void;
   capAmount?: string;
   fundingGoal?: string;
+  disabled?: boolean;
 }
 
 export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
@@ -23,6 +25,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
   onUpdateTier,
   capAmount = "0",
   fundingGoal = "0.1",
+  disabled = false,
 }) => {
   const [priceError, setPriceError] = useState<string | null>(null);
   const [maxPriceError, setMaxPriceError] = useState<string | null>(null);
@@ -74,7 +77,14 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
 
   // Handle price mode change - ONLY place we set defaults
   const handlePricingModeChange = (mode: "fixed" | "range" | "uncapped") => {
-    console.log(`Changing pricing mode to ${mode}`);
+    console.log(`[DEBUG] Changing pricing mode to ${mode}. Current values:`, {
+      tierId: tier.id,
+      currentMode: tier.pricingMode,
+      price: tier.price,
+      minPrice: tier.minPrice,
+      maxPrice: tier.maxPrice,
+      isVariablePrice: tier.isVariablePrice,
+    });
 
     // Update local state to control UI
     setPricingMode(mode);
@@ -87,15 +97,15 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
 
     // Always apply mode properties first with separate update to ensure they are set
     onUpdateTier(tier.id, modeProperties);
-    console.log("Set core pricing properties:", modeProperties);
+    console.log("[DEBUG] Set core pricing properties:", modeProperties);
 
     // Calculate suggested minimum price once
     const suggestedMinPrice = getTrueFundingGoal() / 20;
+    console.log(`[DEBUG] Suggested min price: ${suggestedMinPrice}`);
 
     // Handle specific mode logic
     if (mode === "uncapped") {
       // For uncapped mode, we only set values if they don't exist
-      // or if we're switching from a different mode
       const updates: Partial<Tier> = {
         maxPrice: MAX_SAFE_VALUE,
         // Force isVariablePrice true for uncapped mode to ensure consistency
@@ -103,24 +113,24 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
         pricingMode: "uncapped",
       };
 
-      // Only set minPrice if:
-      // 1. It doesn't exist
-      // 2. It's less than the suggested minimum
-      // 3. We're switching modes (empty or from a different mode)
-      const currentMode = tier.pricingMode || "";
-      const needsDefaultMinPrice =
-        !tier.minPrice ||
-        parseFloat(tier.minPrice) < suggestedMinPrice ||
-        currentMode !== "uncapped";
+      // SIMPLIFIED LOGIC: Only set minPrice if it doesn't exist or is invalid
+      const hasValidMinPrice =
+        tier.minPrice && parseFloat(tier.minPrice) >= MINIMUM_PRICE;
+      console.log(
+        `[DEBUG] Has valid min price: ${hasValidMinPrice}, value: ${tier.minPrice}`
+      );
 
-      if (needsDefaultMinPrice) {
+      if (!hasValidMinPrice) {
         updates.minPrice = suggestedMinPrice.toString();
+        console.log(`[DEBUG] Setting default minPrice: ${updates.minPrice}`);
+      } else {
+        console.log(`[DEBUG] Keeping existing minPrice: ${tier.minPrice}`);
       }
 
       // Apply updates together
       onUpdateTier(tier.id, updates);
 
-      console.log("Uncapped mode set:", {
+      console.log("[DEBUG] Uncapped mode set:", {
         minPrice: updates.minPrice || tier.minPrice,
         maxPrice: MAX_SAFE_VALUE,
         isVariablePrice: true,
@@ -134,43 +144,46 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
         pricingMode: "range",
       };
 
-      // Only update minPrice if we're switching modes or it's unset/invalid
-      const currentMode = tier.pricingMode || "";
-      const needsDefaultMinPrice =
-        !tier.minPrice ||
-        parseFloat(tier.minPrice) < suggestedMinPrice ||
-        currentMode !== "range";
+      // SIMPLIFIED LOGIC: Only set minPrice if it doesn't exist or is invalid
+      const hasValidMinPrice =
+        tier.minPrice && parseFloat(tier.minPrice) >= MINIMUM_PRICE;
+      console.log(
+        `[DEBUG] Has valid min price: ${hasValidMinPrice}, value: ${tier.minPrice}`
+      );
 
-      if (needsDefaultMinPrice) {
+      if (!hasValidMinPrice) {
         updates.minPrice = suggestedMinPrice.toString();
+        console.log(`[DEBUG] Setting default minPrice: ${updates.minPrice}`);
+      } else {
+        console.log(`[DEBUG] Keeping existing minPrice: ${tier.minPrice}`);
       }
 
-      // Only update maxPrice if we're switching modes or it's unset/invalid
-      // or if we just updated minPrice (to maintain correct relationship)
+      // Only set maxPrice if it doesn't exist, is invalid or less than minPrice
       const currentMinPrice = updates.minPrice || tier.minPrice || "0";
-      const currentMaxPrice = tier.maxPrice || "0";
       const parsedMinPrice = parseFloat(currentMinPrice);
-      const parsedMaxPrice = parseFloat(currentMaxPrice);
+      const hasValidMaxPrice =
+        tier.maxPrice &&
+        parseFloat(tier.maxPrice) >= MINIMUM_PRICE &&
+        parseFloat(tier.maxPrice) > parsedMinPrice;
 
-      // Set max price if:
-      // 1. It doesn't exist
-      // 2. It's less than twice the min price
-      // 3. We're switching modes
-      const needsDefaultMaxPrice =
-        !tier.maxPrice ||
-        parsedMaxPrice < parsedMinPrice * 1.5 ||
-        currentMode !== "range";
+      console.log(
+        `[DEBUG] Has valid max price: ${hasValidMaxPrice}, value: ${tier.maxPrice}`
+      );
 
-      if (needsDefaultMaxPrice) {
+      if (!hasValidMaxPrice) {
         updates.maxPrice = (parsedMinPrice * 2).toString();
+        console.log(`[DEBUG] Setting default maxPrice: ${updates.maxPrice}`);
+      } else {
+        console.log(`[DEBUG] Keeping existing maxPrice: ${tier.maxPrice}`);
       }
 
       // Only send update if we have changes
-      if (Object.keys(updates).length > 0) {
+      if (Object.keys(updates).length > 1) {
+        // > 1 because we always have pricingMode
         onUpdateTier(tier.id, updates);
       }
 
-      console.log("Range mode set:", {
+      console.log("[DEBUG] Range mode set:", {
         minPrice: updates.minPrice || tier.minPrice,
         maxPrice: updates.maxPrice || tier.maxPrice,
         isVariablePrice: true,
@@ -184,20 +197,24 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
         pricingMode: "fixed",
       };
 
-      // Only set price if:
-      // 1. Price doesn't exist
-      // 2. We're switching from a different mode
-      const currentMode = tier.pricingMode || "";
-      const needsDefaultPrice = !tier.price || currentMode !== "fixed";
+      // SIMPLIFIED LOGIC: Only set price if it doesn't exist or is invalid
+      const hasValidPrice =
+        tier.price && parseFloat(tier.price) >= MINIMUM_PRICE;
+      console.log(
+        `[DEBUG] Has valid price: ${hasValidPrice}, value: ${tier.price}`
+      );
 
-      if (needsDefaultPrice) {
+      if (!hasValidPrice) {
         updates.price = getTrueFundingGoal().toString();
+        console.log(`[DEBUG] Setting default price: ${updates.price}`);
+      } else {
+        console.log(`[DEBUG] Keeping existing price: ${tier.price}`);
       }
 
       // Apply updates
       onUpdateTier(tier.id, updates);
 
-      console.log("Fixed mode set:", {
+      console.log("[DEBUG] Fixed mode set:", {
         price: updates.price || tier.price,
         isVariablePrice: false,
         pricingMode: "fixed",
@@ -335,6 +352,48 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
     minValue: number = MINIMUM_PRICE,
     step: number = 1
   ) => {
+    if (disabled) {
+      // Return empty buttons that won't work when disabled
+      return (
+        <div className="flex flex-col gap-1 opacity-60">
+          <div className="w-6 h-6 bg-[#FFFFFF14] rounded-md flex items-center justify-center cursor-not-allowed">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 15L12 9L6 15"
+                stroke="gray"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <div className="w-6 h-6 bg-[#FFFFFF14] rounded-md flex items-center justify-center cursor-not-allowed">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M6 9L12 15L18 9"
+                stroke="gray"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col gap-1">
         <button
@@ -397,7 +456,54 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
     );
   };
 
-  console.log("TIER", tier);
+  // Add a ref to track if initial setup has been done
+  const initialSetupDone = useRef(false);
+
+  // Only handle pricing mode changes triggered by user interaction
+  // Use this instead of the original handlePricingModeChange
+  const handleUserPricingModeChange = (
+    mode: "fixed" | "range" | "uncapped"
+  ) => {
+    console.log(`User changed pricing mode to ${mode}`);
+    handlePricingModeChange(mode);
+  };
+
+  // Determine initial pricing mode without side effects
+  useEffect(() => {
+    if (initialSetupDone.current) return;
+
+    console.log("Setting initial pricing mode without side effects");
+    // Set the correct mode based on tier properties, but don't update the tier
+    const initialMode = tier.isVariablePrice
+      ? isUncapped(tier.maxPrice)
+        ? "uncapped"
+        : "range"
+      : "fixed";
+
+    // Only update component state, don't trigger tier updates
+    setPricingMode(initialMode);
+
+    // Add tier.pricingMode if it doesn't exist (without triggering updates)
+    if (!tier.pricingMode) {
+      tier.pricingMode = initialMode;
+      console.log("Set initial pricingMode in tier object:", initialMode);
+    }
+
+    initialSetupDone.current = true;
+  }, [tier.id]); // Only run when tier ID changes (new tier)
+
+  // Add debug logging for tier values on component mount
+  useEffect(() => {
+    // Add a cleanup function for the timer
+    const timerRef = setTimeout(() => {}, 500);
+    return () => clearTimeout(timerRef);
+  }, []);
+
+  // Track price changes
+  useEffect(() => {
+    // Price change tracking
+  }, [tier.price]);
+
   return (
     <div className="flex-1 grid grid-cols-1 gap-4 w-full h-[450px] overflow-y-auto pr-2">
       <div>
@@ -406,6 +512,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
           onChange={(value) => onUpdateTier(tier.id, "name", value)}
           placeholder="Name"
           className="w-full"
+          disabled={disabled}
         />
       </div>
 
@@ -415,39 +522,27 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
           Commit Type
         </label>
         <div className="flex gap-2 mb-3">
-          <button
-            type="button"
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              pricingMode === "fixed"
-                ? "bg-[#836EF9] text-white"
-                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors`}
-            onClick={() => handlePricingModeChange("fixed")}
+          <SelectorButton
+            onClick={() => handleUserPricingModeChange("fixed")}
+            disabled={disabled}
+            isActive={pricingMode === "fixed"}
           >
             Fixed Price
-          </button>
-          <button
-            type="button"
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              pricingMode === "range"
-                ? "bg-[#836EF9] text-white"
-                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors`}
-            onClick={() => handlePricingModeChange("range")}
+          </SelectorButton>
+          <SelectorButton
+            onClick={() => handleUserPricingModeChange("range")}
+            disabled={disabled}
+            isActive={pricingMode === "range"}
           >
             Price Range
-          </button>
-          <button
-            type="button"
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              pricingMode === "uncapped"
-                ? "bg-[#836EF9] text-white"
-                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors`}
-            onClick={() => handlePricingModeChange("uncapped")}
+          </SelectorButton>
+          <SelectorButton
+            onClick={() => handleUserPricingModeChange("uncapped")}
+            disabled={disabled}
+            isActive={pricingMode === "uncapped"}
           >
             Uncapped Price
-          </button>
+          </SelectorButton>
         </div>
 
         {/* Price input fields based on selected mode */}
@@ -464,6 +559,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                   MINIMUM_PRICE,
                   0.01
                 )}
+                disabled={disabled}
               />
               <div className="h-5 mt-1">
                 {priceError && (
@@ -487,6 +583,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                       MINIMUM_PRICE,
                       0.01
                     )}
+                    disabled={disabled}
                   />
                   <div className="h-5 mt-1">
                     {minPriceError && (
@@ -508,6 +605,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                       MINIMUM_PRICE,
                       0.01
                     )}
+                    disabled={disabled}
                   />
                   <div className="h-5 mt-1">
                     {maxPriceError && (
@@ -533,6 +631,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                   MINIMUM_PRICE,
                   0.01
                 )}
+                disabled={disabled}
               />
               <div className="h-5 mt-1">
                 {minPriceError && (
@@ -551,28 +650,20 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
         </label>
 
         <div className="flex gap-2 mb-3">
-          <button
-            type="button"
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              patronsMode === "limited"
-                ? "bg-[#836EF9] text-white"
-                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors`}
+          <SelectorButton
             onClick={() => handlePatronsModeChange("limited")}
+            disabled={disabled}
+            isActive={patronsMode === "limited"}
           >
             Limited
-          </button>
-          <button
-            type="button"
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              patronsMode === "uncapped"
-                ? "bg-[#836EF9] text-white"
-                : "bg-[#FFFFFF14] text-gray-300 hover:bg-[#FFFFFF24]"
-            } transition-colors`}
+          </SelectorButton>
+          <SelectorButton
             onClick={() => handlePatronsModeChange("uncapped")}
+            disabled={disabled}
+            isActive={patronsMode === "uncapped"}
           >
             Uncapped
-          </button>
+          </SelectorButton>
         </div>
 
         {patronsMode === "limited" && (
@@ -593,6 +684,7 @@ export const TierDetailsForm: React.FC<TierDetailsFormProps> = ({
                 1,
                 1
               )}
+              disabled={disabled}
             />
           </div>
         )}

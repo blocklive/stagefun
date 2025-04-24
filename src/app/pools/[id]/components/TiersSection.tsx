@@ -15,16 +15,11 @@ import { formatAmount } from "@/lib/utils";
 import UserAvatar from "@/app/components/UserAvatar";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { getPoolEffectiveStatus } from "../../../../lib/contracts/types";
 import {
-  getDisplayStatus,
-  getPoolEffectiveStatus,
-} from "../../../../lib/contracts/types";
-import {
-  formatRangeDisplay,
   isUncapped,
   formatCommitmentCounter,
 } from "@/lib/utils/contractValues";
-import TierCommits from "./TierCommits";
 
 interface TiersSectionProps {
   pool: Pool;
@@ -88,8 +83,25 @@ const TiersSection: React.FC<TiersSectionProps> = ({
     return showAllTiers || userCommitment !== undefined;
   };
 
-  // Filter tiers to show
-  const visibleTiers = tiers.filter(shouldShowTier);
+  // First sort tiers by onchain_index if available
+  const sortedTiers = [...tiers].sort((a, b) => {
+    // Sort by onchain_index if available
+    const indexA =
+      a.onchain_index !== undefined ? a.onchain_index : Number.MAX_SAFE_INTEGER;
+    const indexB =
+      b.onchain_index !== undefined ? b.onchain_index : Number.MAX_SAFE_INTEGER;
+
+    // Use onchain_index as primary sort
+    if (indexA !== indexB) {
+      return indexA - indexB; // Ascending order by index
+    }
+
+    // Fall back to id for consistent ordering when onchain_index is missing or equal
+    return a.id.localeCompare(b.id);
+  });
+
+  // Then filter the sorted tiers to show
+  const visibleTiers = sortedTiers.filter(shouldShowTier);
 
   // Helper function to get the appropriate icon for a reward type
   const getRewardIcon = (type: string) => {
@@ -163,9 +175,9 @@ const TiersSection: React.FC<TiersSectionProps> = ({
 
             if (isVariablePrice) {
               if (minPrice !== null && maxPrice !== null) {
-                // Check if this is an uncapped tier
+                // Check if this is an uncapped tier - need to check before formating the value
                 if (tier.max_price && isUncapped(tier.max_price.toString())) {
-                  // For uncapped pricing, just show "Flexible" without any price values
+                  // For uncapped pricing, show "Flexible" without any price values
                   priceDisplay = "Flexible USDC";
                 } else {
                   // For normal range pricing, show the full range

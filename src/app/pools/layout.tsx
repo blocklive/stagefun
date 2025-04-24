@@ -35,9 +35,8 @@ export default function PoolsLayout({ children }: PoolsLayoutProps) {
   // Handle back button click
   const handleBackClick = () => {
     if (pathname.includes("/pools/edit")) {
-      // When editing, go back to the pool details page
-      const poolId = pathname.split("/").pop();
-      router.push(`/pools/${poolId}`);
+      // When on the edit page, simply go back to the previous page in history
+      router.back();
     } else if (pathname.includes("/pools/")) {
       // When viewing a pool, go back to the home page
       router.push("/");

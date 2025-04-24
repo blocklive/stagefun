@@ -21,6 +21,7 @@ export interface Tier {
   pool_id: string;
   benefits?: Benefit[];
   patron_count?: number;
+  onchain_index?: number;
 }
 
 export interface RewardItem {

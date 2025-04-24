@@ -21,12 +21,14 @@ interface RichTextEditorProps {
   content: string;
   onChange: (content: string) => void;
   placeholder?: string;
+  readOnly?: boolean;
 }
 
 export default function RichTextEditor({
   content,
   onChange,
   placeholder = "Write your story...",
+  readOnly = false,
 }: RichTextEditorProps) {
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
@@ -80,79 +82,83 @@ export default function RichTextEditor({
     [supabase]
   );
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Image,
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          rel: "noopener noreferrer",
-          class: "text-[#836EF9] hover:underline",
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit,
+        Image,
+        Link.configure({
+          openOnClick: false,
+          HTMLAttributes: {
+            rel: "noopener noreferrer",
+            class: "text-[#836EF9] hover:underline",
+          },
+        }),
+        Placeholder.configure({
+          placeholder,
+        }),
+      ],
+      content,
+      editable: !readOnly,
+      editorProps: {
+        attributes: {
+          class:
+            "w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none min-h-[100px] prose prose-invert max-w-none",
         },
-      }),
-      Placeholder.configure({
-        placeholder,
-      }),
-    ],
-    content,
-    editorProps: {
-      attributes: {
-        class:
-          "w-full p-4 bg-transparent text-white placeholder-gray-400 focus:outline-none min-h-[100px] prose prose-invert max-w-none",
-      },
-      handleDOMEvents: {
-        paste: (view, event) => {
-          // Check if paste event contains files (images)
-          const items = Array.from(event.clipboardData?.items || []);
-          const imageItems = items.filter((item) =>
-            item.type.startsWith("image")
-          );
+        handleDOMEvents: {
+          paste: (view, event) => {
+            // Check if paste event contains files (images)
+            const items = Array.from(event.clipboardData?.items || []);
+            const imageItems = items.filter((item) =>
+              item.type.startsWith("image")
+            );
 
-          if (imageItems.length === 0) {
-            // No images in clipboard, let the default paste handler work
-            return false;
-          }
+            if (imageItems.length === 0) {
+              // No images in clipboard, let the default paste handler work
+              return false;
+            }
 
-          // Prevent default paste behavior for images
-          event.preventDefault();
+            // Prevent default paste behavior for images
+            event.preventDefault();
 
-          // Show a loading indicator (handled in uploadImage now)
+            // Show a loading indicator (handled in uploadImage now)
 
-          // Process each image
-          Promise.all(
-            imageItems.map(async (item) => {
-              const file = item.getAsFile();
-              if (!file) return null;
+            // Process each image
+            Promise.all(
+              imageItems.map(async (item) => {
+                const file = item.getAsFile();
+                if (!file) return null;
 
-              // Upload the image
-              const imageUrl = await uploadImage(file);
-              return imageUrl;
-            })
-          ).then((imageUrls) => {
-            // Insert all valid uploaded images
-            imageUrls.filter(Boolean).forEach((url) => {
-              if (url && editor) {
-                editor
-                  .chain()
-                  .focus()
-                  .insertContent({
-                    type: "image",
-                    attrs: { src: url },
-                  })
-                  .run();
-              }
+                // Upload the image
+                const imageUrl = await uploadImage(file);
+                return imageUrl;
+              })
+            ).then((imageUrls) => {
+              // Insert all valid uploaded images
+              imageUrls.filter(Boolean).forEach((url) => {
+                if (url && editor) {
+                  editor
+                    .chain()
+                    .focus()
+                    .insertContent({
+                      type: "image",
+                      attrs: { src: url },
+                    })
+                    .run();
+                }
+              });
             });
-          });
 
-          return true;
+            return true;
+          },
         },
       },
+      onUpdate: ({ editor }) => {
+        onChange(editor.getHTML());
+      },
     },
-    onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
-    },
-  });
+    [readOnly]
+  );
 
   // Update editor content when content prop changes
   useEffect(() => {
@@ -208,7 +214,11 @@ export default function RichTextEditor({
   };
 
   return (
-    <div className="bg-[#FFFFFF14] rounded-lg overflow-hidden relative">
+    <div
+      className={`bg-[#FFFFFF14] rounded-lg overflow-hidden relative ${
+        readOnly ? "opacity-70" : ""
+      }`}
+    >
       <EditorContent editor={editor} />
 
       {/* Loading overlay for pasted images */}
@@ -218,56 +228,58 @@ export default function RichTextEditor({
         </div>
       )}
 
-      {/* Text formatting toolbar */}
-      <div className="flex items-center p-2 border-t border-gray-700">
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`p-2 ${
-            editor.isActive("bold") ? "text-white" : "text-gray-400"
-          } hover:text-white`}
-        >
-          <FaBold />
-        </button>
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`p-2 ${
-            editor.isActive("italic") ? "text-white" : "text-gray-400"
-          } hover:text-white`}
-        >
-          <FaItalic />
-        </button>
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={`p-2 ${
-            editor.isActive("bulletList") ? "text-white" : "text-gray-400"
-          } hover:text-white`}
-        >
-          <FaListUl />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            editor.chain().focus();
-            setShowLinkInput(true);
-          }}
-          className={`p-2 ${
-            editor.isActive("link") ? "text-white" : "text-gray-400"
-          } hover:text-white`}
-        >
-          <FaLink />
-        </button>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="p-2 text-gray-400 hover:text-white"
-          title="Upload image (or paste directly)"
-        >
-          <FaImage />
-        </button>
-      </div>
+      {/* Text formatting toolbar - only show if not readOnly */}
+      {!readOnly && (
+        <div className="flex items-center p-2 border-t border-gray-700">
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            className={`p-2 ${
+              editor.isActive("bold") ? "text-white" : "text-gray-400"
+            } hover:text-white`}
+          >
+            <FaBold />
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            className={`p-2 ${
+              editor.isActive("italic") ? "text-white" : "text-gray-400"
+            } hover:text-white`}
+          >
+            <FaItalic />
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            className={`p-2 ${
+              editor.isActive("bulletList") ? "text-white" : "text-gray-400"
+            } hover:text-white`}
+          >
+            <FaListUl />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              editor.chain().focus();
+              setShowLinkInput(true);
+            }}
+            className={`p-2 ${
+              editor.isActive("link") ? "text-white" : "text-gray-400"
+            } hover:text-white`}
+          >
+            <FaLink />
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 text-gray-400 hover:text-white"
+            title="Upload image (or paste directly)"
+          >
+            <FaImage />
+          </button>
+        </div>
+      )}
 
       {/* Hidden file input for image upload */}
       <input

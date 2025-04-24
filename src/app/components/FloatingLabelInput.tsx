@@ -26,6 +26,7 @@ interface FloatingLabelInputProps {
   onFocus?: () => void;
   formatValue?: (value: string) => string;
   displayValue?: string;
+  disabled?: boolean;
 }
 
 const FloatingLabelInput: React.FC<FloatingLabelInputProps> = ({
@@ -45,11 +46,13 @@ const FloatingLabelInput: React.FC<FloatingLabelInputProps> = ({
   onFocus,
   formatValue,
   displayValue,
+  disabled = false,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFocus = () => {
+    if (disabled) return; // Prevent focus when disabled
     setIsFocused(true);
     if (onFocus) onFocus();
   };
@@ -60,6 +63,7 @@ const FloatingLabelInput: React.FC<FloatingLabelInputProps> = ({
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return; // Prevent changes when disabled
     onChange(e.target.value);
   };
 
@@ -73,20 +77,26 @@ const FloatingLabelInput: React.FC<FloatingLabelInputProps> = ({
   return (
     <div className={`relative ${className}`}>
       <div
-        className="relative w-full h-16 rounded-lg overflow-hidden border transition-colors duration-200 bg-[#FFFFFF14] flex items-center"
-        onClick={() => inputRef.current?.focus()}
+        className={`relative w-full h-16 rounded-lg overflow-hidden border transition-colors duration-200 bg-[#FFFFFF14] flex items-center 
+          ${disabled ? "opacity-70 pointer-events-none" : "cursor-text"}`}
+        onClick={() => {
+          if (!disabled && inputRef.current) {
+            inputRef.current.focus();
+          }
+        }}
         style={{
-          borderColor: isFocused ? "#836EF9" : "transparent",
+          borderColor: isFocused && !disabled ? "#836EF9" : "transparent",
         }}
       >
         <div className="w-full h-full relative flex items-center">
           {/* Floating Label */}
           <span
-            className={`absolute transition-all duration-200 pointer-events-none text-gray-400 
+            className={`absolute transition-all duration-200 pointer-events-none
               ${leftIcon ? "left-12" : "left-4"} 
               ${
                 showLabel ? "top-2 text-xs" : "top-1/2 -translate-y-1/2 text-sm"
-              }`}
+              }
+              ${disabled ? "text-gray-500" : "text-gray-400"}`}
           >
             {placeholder}
             {required && <span className="text-red-500 ml-1">*</span>}
@@ -94,7 +104,11 @@ const FloatingLabelInput: React.FC<FloatingLabelInputProps> = ({
 
           {/* Left Icon */}
           {leftIcon && (
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+            <div
+              className={`absolute left-4 top-1/2 transform -translate-y-1/2 ${
+                disabled ? "opacity-70" : ""
+              }`}
+            >
               {leftIcon}
             </div>
           )}
@@ -114,13 +128,22 @@ const FloatingLabelInput: React.FC<FloatingLabelInputProps> = ({
             className={`w-full h-full bg-transparent text-white focus:outline-none
               ${leftIcon ? "pl-12" : "pl-4"}
               ${showLabel ? "pt-2" : "pt-0"}
+              ${disabled ? "cursor-not-allowed text-gray-400" : ""}
               pr-4 text-base`}
             style={{ appearance: "textfield" }}
+            disabled={disabled}
+            aria-disabled={disabled}
+            readOnly={disabled} // Add readOnly as an extra measure
+            tabIndex={disabled ? -1 : undefined} // Remove from tab order when disabled
           />
 
           {/* Right Elements */}
           {rightElements && (
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+            <div
+              className={`absolute right-4 top-1/2 transform -translate-y-1/2 ${
+                disabled ? "opacity-60 pointer-events-none" : ""
+              }`}
+            >
               {rightElements}
             </div>
           )}

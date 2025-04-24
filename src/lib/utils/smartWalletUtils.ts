@@ -165,16 +165,16 @@ export async function syncSmartWalletWithDB(user: User): Promise<boolean> {
  * Uses the existing smart wallet address and functions from hooks
  *
  * @param user - The Privy user object
- * @param loadingToast - The ID of an active toast for showing loading states
+ * @param loadingToast - The ID of an active toast for showing loading states (optional)
  * @param smartWalletAddress - Smart wallet address from useSmartWallet hook
  * @param callContractFunction - Function from useSmartWallet hook
  * @returns Result object with success status
  */
 export async function validateSmartWallet(
   user: any,
-  loadingToast: string,
-  smartWalletAddress: string | undefined,
-  callContractFunction: any
+  loadingToast?: string,
+  smartWalletAddress?: string,
+  callContractFunction?: any
 ): Promise<{ success: boolean; error?: string }> {
   // Ensure smart wallet is available with DB synchronization
   const smartWalletResult = await ensureSmartWallet(user, loadingToast);
@@ -182,7 +182,9 @@ export async function validateSmartWallet(
   if (!smartWalletResult.success) {
     const errorMsg =
       smartWalletResult.error || "Smart wallet sync in progress, please retry";
-    showToast.error(errorMsg, { id: loadingToast });
+    if (loadingToast) {
+      showToast.error(errorMsg, { id: loadingToast });
+    }
     return { success: false, error: errorMsg };
   }
 
@@ -190,7 +192,9 @@ export async function validateSmartWallet(
   if (!smartWalletAddress || !callContractFunction) {
     const errorMsg =
       "Smart wallet functions not available. Please try again later.";
-    showToast.error(errorMsg, { id: loadingToast });
+    if (loadingToast) {
+      showToast.error(errorMsg, { id: loadingToast });
+    }
     return { success: false, error: errorMsg };
   }
 

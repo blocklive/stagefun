@@ -67,6 +67,7 @@ export const TierCard: React.FC<TierCardProps> = ({
 }) => {
   // Handler for image upload start
   const handleUploadStart = (tierId: string) => {
+    if (disabled) return; // Don't allow uploads when disabled
     setIsUploadingImage(tierId, true);
   };
 
@@ -87,17 +88,34 @@ export const TierCard: React.FC<TierCardProps> = ({
     showToast.error(error.message || "Failed to upload image");
   };
 
+  // Create wrapper functions that respect the disabled state
+  const handleTierUpdate = (
+    tierId: string,
+    fieldOrFields: keyof Tier | Partial<Tier>,
+    value?: any
+  ) => {
+    if (disabled) return; // Don't update when disabled
+    onUpdateTier(tierId, fieldOrFields, value);
+  };
+
+  const handleCreateReward = () => {
+    if (disabled) return; // Don't create rewards when disabled
+    onSetCurrentTierId(tier.id);
+    onCreateNewReward(tier.id);
+  };
+
   return (
-    <div key={tier.id} className="w-full">
-      <div className="flex justify-between items-start mb-4">
-        <h3 className="text-xl font-semibold">Tier {index + 1} Details</h3>
-        <button
-          type="button"
-          onClick={() => onRemoveTier(tier.id)}
-          className="p-2 text-red-400 hover:text-red-300 transition-colors"
-        >
-          <TrashIcon className="w-5 h-5" />
-        </button>
+    <div key={tier.id} className={`w-full ${disabled ? "opacity-90" : ""}`}>
+      <div className="flex justify-end">
+        {!disabled && (
+          <button
+            type="button"
+            onClick={() => onRemoveTier(tier.id)}
+            className="p-2 text-red-400 hover:text-red-300 transition-colors"
+          >
+            <TrashIcon className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row gap-6 w-full items-stretch">
@@ -112,6 +130,7 @@ export const TierCard: React.FC<TierCardProps> = ({
             onUploadComplete={handleUploadComplete}
             onUploadError={handleUploadError}
             supabase={supabase}
+            disabled={disabled}
           />
         </div>
 
@@ -119,9 +138,10 @@ export const TierCard: React.FC<TierCardProps> = ({
         <div className="order-last md:order-last flex-grow">
           <TierDetailsForm
             tier={tier}
-            onUpdateTier={onUpdateTier}
+            onUpdateTier={handleTierUpdate}
             capAmount={capAmount}
             fundingGoal={fundingGoal}
+            disabled={disabled}
           />
         </div>
       </div>
@@ -131,23 +151,27 @@ export const TierCard: React.FC<TierCardProps> = ({
         <label className="block text-sm font-medium text-gray-400 mb-2">
           Tier Description
         </label>
-        <RichTextEditor
-          content={tier.description}
-          onChange={(value) => onUpdateTier(tier.id, "description", value)}
-          placeholder="Describe what this tier includes..."
-        />
+        <div className={disabled ? "opacity-70 pointer-events-none" : ""}>
+          <RichTextEditor
+            content={tier.description}
+            onChange={(value) =>
+              handleTierUpdate(tier.id, "description", value)
+            }
+            placeholder="Describe what this tier includes..."
+            readOnly={disabled}
+          />
+        </div>
       </div>
 
       {/* Rewards section */}
-      <TierRewardsList
-        tier={tier}
-        availableRewardItems={availableRewardItems}
-        onUpdateTier={onUpdateTier}
-        onCreateNewReward={() => {
-          onSetCurrentTierId(tier.id);
-          onCreateNewReward(tier.id);
-        }}
-      />
+      <div className={disabled ? "opacity-70 pointer-events-none" : ""}>
+        <TierRewardsList
+          tier={tier}
+          availableRewardItems={availableRewardItems}
+          onUpdateTier={handleTierUpdate}
+          onCreateNewReward={handleCreateReward}
+        />
+      </div>
     </div>
   );
 };

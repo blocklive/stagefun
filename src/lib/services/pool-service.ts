@@ -205,12 +205,6 @@ export async function getPoolById(id: string): Promise<Pool | null> {
         process.env.NEXT_PUBLIC_RPC_URL
       );
 
-      // Single critical log for contract address
-      console.log("[Pool Details] Contract:", {
-        address: dbPool.contract_address,
-        rpcUrl: process.env.NEXT_PUBLIC_RPC_URL?.substring(0, 20) + "...",
-      });
-
       chainData = await getPoolDetails(provider, dbPool.contract_address);
     } catch (error) {
       // Only log actual errors
