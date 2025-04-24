@@ -62,10 +62,10 @@ export default function TabsAndSocial({
     <>
       {/* Navigation Tabs */}
       <div className="mb-6">
-        <div className="flex overflow-x-auto">
+        <div className="flex overflow-x-auto scrollbar-hide">
           <div className="flex space-x-2">
             <button
-              className={`px-6 py-3 rounded-full ${
+              className={`px-6 py-3 rounded-full flex-shrink-0 ${
                 activeTab === "overview"
                   ? "bg-white text-black font-medium"
                   : "bg-transparent text-white border border-gray-700"
@@ -75,7 +75,7 @@ export default function TabsAndSocial({
               Overview
             </button>
             <button
-              className={`px-6 py-3 rounded-full ${
+              className={`px-6 py-3 rounded-full flex-shrink-0 ${
                 activeTab === "patrons"
                   ? "bg-white text-black font-medium"
                   : "bg-transparent text-white border border-gray-700"
@@ -92,7 +92,7 @@ export default function TabsAndSocial({
               </span>
             </button>
             <button
-              className={`px-6 py-3 rounded-full ${
+              className={`px-6 py-3 rounded-full flex-shrink-0 ${
                 activeTab === "updates"
                   ? "bg-white text-black font-medium"
                   : "bg-transparent text-white border border-gray-700"

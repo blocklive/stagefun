@@ -5,6 +5,7 @@ interface TabButtonProps {
   isActive: boolean;
   onClick: () => void;
   showIndicator?: boolean;
+  className?: string;
 }
 
 export const TabButton: React.FC<TabButtonProps> = ({
@@ -12,6 +13,7 @@ export const TabButton: React.FC<TabButtonProps> = ({
   isActive,
   onClick,
   showIndicator = false,
+  className = "",
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Handle keyboard accessibility - activate on Enter or Space
@@ -30,11 +32,11 @@ export const TabButton: React.FC<TabButtonProps> = ({
         onClick();
       }}
       onKeyDown={handleKeyDown}
-      className={`px-4 h-9 rounded-xl text-base font-medium flex items-center cursor-pointer ${
+      className={`px-4 h-9 rounded-xl text-base font-medium flex items-center cursor-pointer flex-shrink-0 ${
         isActive
           ? "bg-[#FFFFFF1F] border border-[#FFFFFF29] text-white"
           : "bg-[#FFFFFF0F] text-gray-400 hover:text-gray-200"
-      }`}
+      } ${className}`}
       aria-pressed={isActive}
     >
       <div className="flex items-center">

@@ -561,7 +561,7 @@ export default function EditPoolForm({ poolIdentifier }: EditPoolFormProps) {
             <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Image on top in mobile and medium view, right side in large screens */}
               <div className="order-1 lg:order-2 lg:col-span-5 flex justify-center lg:justify-start px-4">
-                <div className="w-full" style={{ maxWidth: "220px" }}>
+                <div className="w-full md:w-72 lg:w-60 xl:w-72">
                   <PoolImageUpload
                     imagePreview={imagePreview}
                     isUploadingImage={isImageUploading}

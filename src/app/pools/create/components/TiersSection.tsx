@@ -1095,7 +1095,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       {/* Tabs navigation */}
       {tiers.length > 0 && (
         <div className="flex mb-8">
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 overflow-x-auto scrollbar-hide w-full pb-2">
             {/* Sort tiers by onchain_index to ensure chronological order (0, 1, 2, etc.) from left to right */}
             {[...tiers]
               .sort((a, b) => {
@@ -1117,6 +1117,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                   isActive={activeTabId === tier.id}
                   onClick={() => setActiveTabId(tier.id)}
                   showIndicator={false}
+                  className="flex-shrink-0"
                 />
               ))}
           </div>
