@@ -878,7 +878,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
     updateTier(id, fieldOrFields, value);
   };
 
-  // NEW: Function to handle saving a tier
+  // Function to handle saving a tier
   const handleSaveTier = async (tierId: string) => {
     if (onSaveTier) {
       try {
@@ -907,6 +907,12 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
       } catch (error) {
         console.error(`Error saving tier ${tierId}:`, error);
         showToast.error("Failed to save tier changes");
+
+        // If save fails, put it back in edit mode
+        setEditingTiers((prev) => ({
+          ...prev,
+          [tierId]: true,
+        }));
       }
     } else {
       // If no save handler, just toggle edit mode
@@ -915,6 +921,13 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
         ...prev,
         [tierId]: false,
       }));
+
+      // Still clear any modified flags for consistency
+      setModifiedTiers((prev) => {
+        const newModified = { ...prev };
+        delete newModified[tierId];
+        return newModified;
+      });
     }
   };
 
@@ -1179,7 +1192,7 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (editingTiers[tier.id] && modifiedTiers[tier.id]) {
+                    if (editingTiers[tier.id]) {
                       handleSaveTier(tier.id);
                     } else {
                       setEditingTiers((prev) => ({
@@ -1188,13 +1201,19 @@ export const TiersSection: React.FC<TiersSectionProps> = ({
                       }));
                     }
                   }}
-                  className="py-2 px-6 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors"
+                  disabled={isTierUpdating}
+                  className="py-2 px-6 bg-[#836EF9] hover:bg-[#7058E8] rounded-full text-white font-medium transition-colors flex items-center justify-center"
                 >
-                  {editingTiers[tier.id]
-                    ? modifiedTiers[tier.id]
-                      ? "Save Tier Changes"
-                      : "Done Editing"
-                    : "Edit Tier"}
+                  {isTierUpdating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                      <span>Saving...</span>
+                    </>
+                  ) : editingTiers[tier.id] ? (
+                    "Save Tier Changes"
+                  ) : (
+                    "Edit Tier"
+                  )}
                 </button>
               </div>
             )}
