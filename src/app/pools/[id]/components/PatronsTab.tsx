@@ -263,56 +263,62 @@ export default function PatronsTab({
                 key={`${patron.user_address}-${index}`}
                 className="flex flex-col sm:flex-row justify-between sm:items-center py-3 border-b border-[#FFFFFF14] last:border-0 gap-3 sm:gap-0"
               >
-                <div className="flex items-center space-x-4">
-                  {patron.user?.name ? (
-                    <a
-                      href={`/user/${patron.user?.name
-                        ?.replace(/\s+/g, "")
-                        .toLowerCase()}`}
-                      className="flex items-center space-x-4 hover:opacity-80 transition-opacity"
-                    >
-                      <UserAvatar
-                        avatarUrl={patron.user?.avatar_url}
-                        name={
-                          patron.user?.name ||
-                          patron.user_address.substring(0, 6)
-                        }
-                        size={32}
-                      />
-                      <div>
-                        <div className="flex items-center">
-                          <p className="font-semibold">
-                            {patron.user?.name ||
-                              patron.user_address.substring(0, 6)}
-                          </p>
-                          {isCurrentUser && (
-                            <span className="text-blue-400 ml-2 text-sm">
-                              You
-                            </span>
-                          )}
+                {/* User info + metadata on desktop */}
+                <div className="flex flex-col sm:flex-row sm:items-center">
+                  {/* User avatar and name */}
+                  <div className="flex items-center">
+                    {patron.user?.name ? (
+                      <a
+                        href={`/user/${patron.user?.name
+                          ?.replace(/\s+/g, "")
+                          .toLowerCase()}`}
+                        className="flex items-center space-x-4 hover:opacity-80 transition-opacity"
+                      >
+                        <UserAvatar
+                          avatarUrl={patron.user?.avatar_url}
+                          name={
+                            patron.user?.name ||
+                            patron.user_address.substring(0, 6)
+                          }
+                          size={32}
+                        />
+                        <div>
+                          <div className="flex items-center">
+                            <p className="font-semibold">
+                              {patron.user?.name ||
+                                patron.user_address.substring(0, 6)}
+                            </p>
+                            {isCurrentUser && (
+                              <span className="text-blue-400 ml-2 text-sm">
+                                You
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </a>
+                    ) : (
+                      <div className="flex items-center space-x-4">
+                        <UserAvatar
+                          avatarUrl={patron.user?.avatar_url}
+                          name={patron.user_address.substring(0, 6)}
+                          size={32}
+                        />
+                        <div>
+                          <div className="flex items-center">
+                            <p className="font-semibold">
+                              {`${patron.user_address.substring(
+                                0,
+                                6
+                              )}...${patron.user_address.substring(38)}`}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </a>
-                  ) : (
-                    <div className="flex items-center space-x-4">
-                      <UserAvatar
-                        avatarUrl={patron.user?.avatar_url}
-                        name={patron.user_address.substring(0, 6)}
-                        size={32}
-                      />
-                      <div>
-                        <div className="flex items-center">
-                          <p className="font-semibold">
-                            {`${patron.user_address.substring(
-                              0,
-                              6
-                            )}...${patron.user_address.substring(38)}`}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex flex-wrap items-center gap-x-2 text-sm text-gray-400 ml-0 mt-0">
+                    )}
+                  </div>
+
+                  {/* Date and tier info - on desktop it's next to the name */}
+                  <div className="flex flex-wrap items-center gap-x-2 text-sm text-gray-400 mt-1 sm:mt-0 sm:ml-4 pl-12 sm:pl-0">
                     <span>{formatDate(patron.latest_committed_at)}</span>
                     <span>•</span>
                     <span className="text-purple-400">
@@ -326,7 +332,9 @@ export default function PatronsTab({
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center ml-auto sm:ml-0">
+
+                {/* USDC amount - always on the right/bottom */}
+                <div className="flex items-center ml-0 pl-12 sm:pl-0 sm:ml-auto">
                   <span className="text-lg font-bold mr-2">
                     {formatBalance(patron.total_amount.toString())}
                   </span>

@@ -44,12 +44,14 @@ const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
 // Known token icons map
 const TOKEN_ICONS: Record<string, string> = {
   USDC: "/icons/usdc-logo.svg",
+  MON: "/icons/mon-logo.svg",
   // Add more tokens as needed
 };
 
 // Token display name mapping
 const TOKEN_DISPLAY_NAMES: Record<string, string> = {
   USDC: "USD Coin",
+  MON: "Monad",
   // Add more token display name mappings as needed
 };
 
@@ -63,6 +65,16 @@ const isLPToken = (symbol: string): boolean => {
   );
 };
 
+// Function to detect if an asset is the native currency
+const isNativeCurrency = (asset: Asset): boolean => {
+  // Check if it's the base asset for the Monad chain
+  return (
+    asset.id === "base-monad-test-v2-asset-asset" ||
+    (asset.attributes.fungible_info?.symbol === "MON" &&
+      asset.attributes.fungible_info?.implementations?.[0]?.address === null)
+  );
+};
+
 const AssetCard: React.FC<{
   asset: Asset;
   onSendClick: (asset: Asset) => void;
@@ -70,12 +82,21 @@ const AssetCard: React.FC<{
 }> = ({ asset, onSendClick, isOwnProfile = true }) => {
   const { fungible_info: token, quantity, value } = asset.attributes;
 
+  // Detect if this is the native MON currency
+  const isNativeMON = isNativeCurrency(asset);
+
+  // Use MON symbol for native currency if detected
+  const tokenSymbol = isNativeMON ? "MON" : token.symbol;
+
+  // Check if this is a pinned asset (MON or USDC)
+  const isPinned = isNativeMON || tokenSymbol === "USDC";
+
   // Get the token decimals for formatting
   const tokenDecimals =
     quantity.decimals || token.implementations?.[0]?.decimals || 6;
 
   // Check if this is an LP token that should have the multiplier applied for display
-  const isLp = isLPToken(token.symbol);
+  const isLp = isLPToken(tokenSymbol);
 
   // Apply the LP token display enhancement for LP tokens (show 1000x more tokens)
   // This is purely visual and doesn't affect actual balances
@@ -98,8 +119,10 @@ const AssetCard: React.FC<{
       : 0;
   const displayValue = `$${actualValue.toFixed(2)}`;
 
-  // Get a better display name for the token
-  const displayName = TOKEN_DISPLAY_NAMES[token.symbol] || token.name;
+  // Get a better display name for the token - use MON override for native currency
+  const displayName = isNativeMON
+    ? TOKEN_DISPLAY_NAMES["MON"]
+    : TOKEN_DISPLAY_NAMES[tokenSymbol] || token.name;
 
   // Updated component with styling to match PoolList
   return (
@@ -109,10 +132,19 @@ const AssetCard: React.FC<{
           className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
           style={{ backgroundColor: "#2A2640" }}
         >
-          {TOKEN_ICONS[token.symbol] ? (
+          {/* Use the MON icon for native currency, otherwise use existing logic */}
+          {isNativeMON ? (
             <Image
-              src={TOKEN_ICONS[token.symbol]}
-              alt={token.symbol}
+              src={TOKEN_ICONS["MON"]}
+              alt="MON"
+              width={48}
+              height={48}
+              className="object-contain"
+            />
+          ) : TOKEN_ICONS[tokenSymbol] ? (
+            <Image
+              src={TOKEN_ICONS[tokenSymbol]}
+              alt={tokenSymbol}
               width={48}
               height={48}
               className="object-contain"
@@ -120,24 +152,32 @@ const AssetCard: React.FC<{
           ) : token.icon?.url ? (
             <Image
               src={token.icon.url}
-              alt={token.symbol}
+              alt={tokenSymbol}
               width={48}
               height={48}
               className="object-contain"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
-              {token.symbol.length > 3
-                ? `${token.symbol.slice(0, 3)}`
-                : token.symbol}
+              {tokenSymbol.length > 3
+                ? `${tokenSymbol.slice(0, 3)}`
+                : tokenSymbol}
             </div>
           )}
         </div>
         <div className="ml-4 flex-1">
-          <h3 className="font-bold">{displayName}</h3>
+          <h3 className="font-bold flex items-center">
+            {displayName}
+            {isPinned && (
+              <span
+                className="inline-block h-2 w-2 ml-1.5 bg-[#836EF9] opacity-60 rounded-full"
+                aria-label="Pinned asset"
+              ></span>
+            )}
+          </h3>
           <div className="flex items-center text-sm">
             <span className="text-gray-400">
-              {displayNumeric || displayAmount} {token.symbol}
+              {displayNumeric || displayAmount} {tokenSymbol}
             </span>
           </div>
         </div>
@@ -185,6 +225,17 @@ export default function WalletAssets({
     onSendClick(asset);
   };
 
+  // Custom priority ordering for specific tokens
+  const getPriorityOrder = (asset: Asset): number => {
+    const symbol = asset.attributes.fungible_info?.symbol;
+    const isNative = isNativeCurrency(asset);
+
+    // Priority order: MON first, USDC second, then others
+    if (isNative || symbol === "MON") return 0;
+    if (symbol === "USDC") return 1;
+    return 100; // Any other token
+  };
+
   if (error) {
     return (
       <div className={`text-center py-4 ${className}`}>
@@ -214,12 +265,22 @@ export default function WalletAssets({
       ) : assets.length > 0 ? (
         <div className="space-y-4">
           {assets
-            // Sort by quantity (highest first)
-            .sort(
-              (a, b) =>
+            // Sort with priority tokens first, then by quantity
+            .sort((a, b) => {
+              const priorityA = getPriorityOrder(a);
+              const priorityB = getPriorityOrder(b);
+
+              // If tokens have different priorities, sort by priority
+              if (priorityA !== priorityB) {
+                return priorityA - priorityB;
+              }
+
+              // If same priority, sort by quantity (highest first)
+              return (
                 (b.attributes.quantity?.float || 0) -
                 (a.attributes.quantity?.float || 0)
-            )
+              );
+            })
             .map((asset) => (
               <AssetCard
                 key={asset.id}
