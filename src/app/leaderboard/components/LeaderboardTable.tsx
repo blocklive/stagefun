@@ -118,204 +118,206 @@ export default function LeaderboardTable({
   // Always display the original rank from the API
   // This maintains consistent ranks regardless of sorting
   return (
-    <div className="rounded-md border border-gray-800">
-      <Table>
-        {showHeader && (
-          <TableHeader>
-            <TableRow>
-              <TableHead
-                className="w-[80px] cursor-pointer"
-                onClick={() => handleSort("rank")}
-              >
-                <div className="flex items-center">
-                  Rank
-                  {sortField === "rank" && (
-                    <span className="ml-1">
-                      {sortDirection === "asc" ? (
-                        <FiArrowUp size={14} />
-                      ) : (
-                        <FiArrowDown size={14} />
-                      )}
-                    </span>
-                  )}
-                </div>
-              </TableHead>
-
-              <TableHead>User</TableHead>
-
-              <TableHead
-                className="text-right cursor-pointer"
-                onClick={() => handleSort("points")}
-              >
-                <div className="flex items-center justify-end">
-                  Points
-                  {sortField === "points" && (
-                    <span className="ml-1">
-                      {sortDirection === "asc" ? (
-                        <FiArrowUp size={14} />
-                      ) : (
-                        <FiArrowDown size={14} />
-                      )}
-                    </span>
-                  )}
-                </div>
-              </TableHead>
-
-              <TableHead
-                className="text-right cursor-pointer"
-                onClick={() => handleSort("fundedPoints")}
-              >
-                <div className="flex items-center justify-end">
-                  Funded Points
-                  {sortField === "fundedPoints" && (
-                    <span className="ml-1">
-                      {sortDirection === "asc" ? (
-                        <FiArrowUp size={14} />
-                      ) : (
-                        <FiArrowDown size={14} />
-                      )}
-                    </span>
-                  )}
-                </div>
-              </TableHead>
-
-              <TableHead
-                className="text-right cursor-pointer"
-                onClick={() => handleSort("raisedPoints")}
-              >
-                <div className="flex items-center justify-end">
-                  Raised Points
-                  {sortField === "raisedPoints" && (
-                    <span className="ml-1">
-                      {sortDirection === "asc" ? (
-                        <FiArrowUp size={14} />
-                      ) : (
-                        <FiArrowDown size={14} />
-                      )}
-                    </span>
-                  )}
-                </div>
-              </TableHead>
-
-              <TableHead
-                className="text-right cursor-pointer"
-                onClick={() => handleSort("fundedAmount")}
-              >
-                <div className="flex items-center justify-end">
-                  Funded
-                  {sortField === "fundedAmount" && (
-                    <span className="ml-1">
-                      {sortDirection === "asc" ? (
-                        <FiArrowUp size={14} />
-                      ) : (
-                        <FiArrowDown size={14} />
-                      )}
-                    </span>
-                  )}
-                </div>
-              </TableHead>
-
-              <TableHead
-                className="text-right cursor-pointer"
-                onClick={() => handleSort("raisedAmount")}
-              >
-                <div className="flex items-center justify-end">
-                  Raised
-                  {sortField === "raisedAmount" && (
-                    <span className="ml-1">
-                      {sortDirection === "asc" ? (
-                        <FiArrowUp size={14} />
-                      ) : (
-                        <FiArrowDown size={14} />
-                      )}
-                    </span>
-                  )}
-                </div>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-        )}
-
-        <TableBody>
-          {sortedUsers.map((user) => (
-            <TableRow
-              key={user.id}
-              className={user.isCurrentUser ? "bg-[#FFFFFF10]" : ""}
-            >
-              <TableCell className="font-medium">{user.rank}</TableCell>
-
-              <TableCell>
-                <div className="flex items-center space-x-3">
-                  {user.name ? (
-                    <a
-                      href={`/user/${user.name
-                        .replace(/\s+/g, "")
-                        .toLowerCase()}`}
-                      className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
-                    >
-                      <UserAvatar
-                        name={user.name || "Anonymous"}
-                        avatarUrl={user.avatar_url || undefined}
-                        size={32}
-                      />
-                      <span className="font-medium truncate max-w-[150px]">
-                        {user.name}
+    <div className="overflow-x-auto">
+      <div className="rounded-md border border-gray-800 min-w-[1000px]">
+        <Table>
+          {showHeader && (
+            <TableHeader>
+              <TableRow>
+                <TableHead
+                  className="w-[80px] cursor-pointer"
+                  onClick={() => handleSort("rank")}
+                >
+                  <div className="flex items-center">
+                    Rank
+                    {sortField === "rank" && (
+                      <span className="ml-1">
+                        {sortDirection === "asc" ? (
+                          <FiArrowUp size={14} />
+                        ) : (
+                          <FiArrowDown size={14} />
+                        )}
                       </span>
-                    </a>
-                  ) : (
-                    <>
-                      <UserAvatar
-                        name="Anonymous"
-                        avatarUrl={user.avatar_url || undefined}
-                        size={32}
-                      />
-                      <span className="font-medium truncate max-w-[150px]">
-                        {user.wallet}
+                    )}
+                  </div>
+                </TableHead>
+
+                <TableHead>User</TableHead>
+
+                <TableHead
+                  className="text-right cursor-pointer"
+                  onClick={() => handleSort("points")}
+                >
+                  <div className="flex items-center justify-end">
+                    Points
+                    {sortField === "points" && (
+                      <span className="ml-1">
+                        {sortDirection === "asc" ? (
+                          <FiArrowUp size={14} />
+                        ) : (
+                          <FiArrowDown size={14} />
+                        )}
                       </span>
-                    </>
-                  )}
-                  {user.isCurrentUser && (
-                    <span className="text-xs bg-[#FFFFFF20] px-2 py-0.5 rounded-full">
-                      ⭐
-                    </span>
-                  )}
-                </div>
-              </TableCell>
+                    )}
+                  </div>
+                </TableHead>
 
-              <TableCell className="text-right font-medium">
-                {typeof user.points === "object" && user.points
-                  ? (
-                      (user.points.funded || 0) +
-                      (user.points.raised || 0) +
-                      (user.points.onboarding || 0) +
-                      (user.points.checkin || 0)
-                    ).toLocaleString()
-                  : "0"}
-              </TableCell>
+                <TableHead
+                  className="text-right cursor-pointer"
+                  onClick={() => handleSort("fundedPoints")}
+                >
+                  <div className="flex items-center justify-end">
+                    Funded Points
+                    {sortField === "fundedPoints" && (
+                      <span className="ml-1">
+                        {sortDirection === "asc" ? (
+                          <FiArrowUp size={14} />
+                        ) : (
+                          <FiArrowDown size={14} />
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </TableHead>
 
-              <TableCell className="text-right font-medium">
-                {typeof user.points === "object" && user.points
-                  ? (user.points.funded || 0).toLocaleString()
-                  : "0"}
-              </TableCell>
+                <TableHead
+                  className="text-right cursor-pointer"
+                  onClick={() => handleSort("raisedPoints")}
+                >
+                  <div className="flex items-center justify-end">
+                    Raised Points
+                    {sortField === "raisedPoints" && (
+                      <span className="ml-1">
+                        {sortDirection === "asc" ? (
+                          <FiArrowUp size={14} />
+                        ) : (
+                          <FiArrowDown size={14} />
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </TableHead>
 
-              <TableCell className="text-right font-medium">
-                {typeof user.points === "object" && user.points
-                  ? (user.points.raised || 0).toLocaleString()
-                  : "0"}
-              </TableCell>
+                <TableHead
+                  className="text-right cursor-pointer"
+                  onClick={() => handleSort("fundedAmount")}
+                >
+                  <div className="flex items-center justify-end">
+                    Funded
+                    {sortField === "fundedAmount" && (
+                      <span className="ml-1">
+                        {sortDirection === "asc" ? (
+                          <FiArrowUp size={14} />
+                        ) : (
+                          <FiArrowDown size={14} />
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </TableHead>
 
-              <TableCell className="text-right font-medium">
-                {formatUSD(user.fundedAmount)}
-              </TableCell>
+                <TableHead
+                  className="text-right cursor-pointer"
+                  onClick={() => handleSort("raisedAmount")}
+                >
+                  <div className="flex items-center justify-end">
+                    Raised
+                    {sortField === "raisedAmount" && (
+                      <span className="ml-1">
+                        {sortDirection === "asc" ? (
+                          <FiArrowUp size={14} />
+                        ) : (
+                          <FiArrowDown size={14} />
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+          )}
 
-              <TableCell className="text-right font-medium">
-                {formatUSD(user.raisedAmount)}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          <TableBody>
+            {sortedUsers.map((user) => (
+              <TableRow
+                key={user.id}
+                className={user.isCurrentUser ? "bg-[#FFFFFF10]" : ""}
+              >
+                <TableCell className="font-medium">{user.rank}</TableCell>
+
+                <TableCell>
+                  <div className="flex items-center space-x-3">
+                    {user.name ? (
+                      <a
+                        href={`/user/${user.name
+                          .replace(/\s+/g, "")
+                          .toLowerCase()}`}
+                        className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
+                      >
+                        <UserAvatar
+                          name={user.name || "Anonymous"}
+                          avatarUrl={user.avatar_url || undefined}
+                          size={32}
+                        />
+                        <span className="font-medium truncate max-w-[150px]">
+                          {user.name}
+                        </span>
+                      </a>
+                    ) : (
+                      <>
+                        <UserAvatar
+                          name="Anonymous"
+                          avatarUrl={user.avatar_url || undefined}
+                          size={32}
+                        />
+                        <span className="font-medium truncate max-w-[150px]">
+                          {user.wallet}
+                        </span>
+                      </>
+                    )}
+                    {user.isCurrentUser && (
+                      <span className="text-xs bg-[#FFFFFF20] px-2 py-0.5 rounded-full">
+                        ⭐
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
+
+                <TableCell className="text-right font-medium">
+                  {typeof user.points === "object" && user.points
+                    ? (
+                        (user.points.funded || 0) +
+                        (user.points.raised || 0) +
+                        (user.points.onboarding || 0) +
+                        (user.points.checkin || 0)
+                      ).toLocaleString()
+                    : "0"}
+                </TableCell>
+
+                <TableCell className="text-right font-medium">
+                  {typeof user.points === "object" && user.points
+                    ? (user.points.funded || 0).toLocaleString()
+                    : "0"}
+                </TableCell>
+
+                <TableCell className="text-right font-medium">
+                  {typeof user.points === "object" && user.points
+                    ? (user.points.raised || 0).toLocaleString()
+                    : "0"}
+                </TableCell>
+
+                <TableCell className="text-right font-medium">
+                  {formatUSD(user.fundedAmount)}
+                </TableCell>
+
+                <TableCell className="text-right font-medium">
+                  {formatUSD(user.raisedAmount)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
