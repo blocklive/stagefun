@@ -172,11 +172,11 @@ export default function PoolList({
       {/* Status Tabs */}
       {availableTabs.length > 0 && (
         <div className="flex mb-8">
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide w-full">
             {availableTabs.map((tabName) => (
               <button
                 key={tabName}
-                className={`px-4 h-9 rounded-xl text-base font-medium ${
+                className={`px-4 h-9 rounded-xl text-base font-medium flex-shrink-0 ${
                   activeTab === tabName
                     ? "bg-[#FFFFFF1F] border border-[#FFFFFF29] text-white"
                     : "bg-[#FFFFFF0F] text-gray-400 hover:text-gray-200"

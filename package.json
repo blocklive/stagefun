@@ -53,6 +53,7 @@
     "sonner": "^2.0.3",
     "swr": "^2.3.2",
     "tailwind-merge": "^3.2.0",
+    "tailwind-scrollbar-hide": "^2.0.0",
     "use-sync-external-store": "^1.4.0",
     "uuid": "^11.1.0",
     "viem": "^2.23.5"

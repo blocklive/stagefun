@@ -18,11 +18,11 @@ export default function TabComponent({
 }: TabComponentProps) {
   return (
     <div className="border-b border-gray-800">
-      <div className="flex">
+      <div className="flex overflow-x-auto scrollbar-hide">
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            className={`px-8 py-4 text-xl font-medium transition-colors relative ${
+            className={`px-8 py-4 text-xl font-medium transition-colors relative flex-shrink-0 ${
               activeTab === tab.id
                 ? "text-white"
                 : "text-gray-400 hover:text-gray-200"
