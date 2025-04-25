@@ -69,6 +69,30 @@ export async function awardPoints({
     return { success: false, error: "Point amount must be at least 1" };
   }
 
+  // Check for idempotency if txHash is provided in metadata
+  if (metadata.txHash) {
+    // Check if we've already processed this transaction to ensure idempotency
+    const { data: existingPoints, error: checkError } = await supabase
+      .from("point_transactions")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("action_type", `${type}:${description}`)
+      .eq("metadata->txHash", metadata.txHash)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error("Error checking for existing points:", checkError);
+    } else if (existingPoints) {
+      console.log(
+        `Transaction ${metadata.txHash} already awarded points, skipping.`
+      );
+      return {
+        success: true,
+        error: "Points already awarded for this transaction",
+      };
+    }
+  }
+
   // Fetch current value
   const { data, error: fetchError } = await supabase
     .from("user_points")

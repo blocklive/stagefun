@@ -144,7 +144,7 @@ const eventIface = new ethers.Interface([
 ]);
 
 // Helper function to create a Supabase client
-function createSupabaseClient() {
+export function createSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -196,7 +196,29 @@ export async function handlePoolCreatedEvent(
     }
   } else {
     try {
-      // Decode the event data
+      // First, check if we've already processed this transaction to ensure idempotency
+      const { data: existingPool, error: findError } = await supabase
+        .from("pool_stream")
+        .select("id, contract_address, name")
+        .eq("blockchain_tx_hash", event.transactionHash)
+        .maybeSingle();
+
+      if (findError) {
+        console.error("Error checking for existing pool record:", findError);
+      } else if (existingPool) {
+        console.log(
+          `Pool creation transaction ${event.transactionHash} already processed, skipping. Pool: ${existingPool.contract_address} (${existingPool.name})`
+        );
+        return {
+          event: "PoolCreated",
+          status: "success",
+          action: "skip_duplicate",
+          pool: existingPool.contract_address,
+          name: existingPool.name,
+        };
+      }
+
+      // If we get here, the pool hasn't been processed yet - decode the event and continue
       const log = {
         topics: event.topics,
         data: event.data,
@@ -630,8 +652,123 @@ export async function handlePoolStatusUpdatedEvent(
   }
 }
 
+/**
+ * Filters out already processed events from the incoming events list
+ * Returns uniqueEvents (not yet processed) and skippedEvents (already processed)
+ */
+async function filterAlreadyProcessedEvents(
+  events: any[],
+  supabase: any
+): Promise<{
+  uniqueEvents: any[];
+  skippedEvents: Array<{
+    event: string;
+    status: string;
+    action: string;
+    [key: string]: any;
+  }>;
+}> {
+  const uniqueEvents: any[] = [];
+  const skippedEvents: Array<{
+    event: string;
+    status: string;
+    action: string;
+    [key: string]: any;
+  }> = [];
+
+  try {
+    // Create lookup keys for each event
+    const eventKeys = events.map((event) => {
+      const logIndex = parseInt(event.index?.toString() || event.logIndex, 16);
+      return {
+        event,
+        key: `monad-testnet-${event.transactionHash}-${logIndex}`,
+      };
+    });
+
+    // Get all transaction hashes to check
+    const txHashes = events.map((e) => e.transactionHash);
+
+    // Check which events already exist in the database
+    const { data: existingEvents } = await supabase
+      .from("blockchain_events")
+      .select("blockchain_network, transaction_hash, log_index, status")
+      .in("transaction_hash", txHashes);
+
+    // Create a set of keys for quick lookup
+    const processedEventKeys = new Set<string>();
+    if (existingEvents && existingEvents.length > 0) {
+      existingEvents.forEach(
+        (e: {
+          blockchain_network: string;
+          transaction_hash: string;
+          log_index: number;
+          status: string;
+        }) => {
+          const key = `${e.blockchain_network}-${e.transaction_hash}-${e.log_index}`;
+          // Only consider events as processed if they have a terminal status
+          if (e.status === "processed" || e.status === "skipped") {
+            processedEventKeys.add(key);
+          }
+        }
+      );
+    }
+
+    // Filter events that haven't been processed yet
+    for (const { event, key } of eventKeys) {
+      if (processedEventKeys.has(key)) {
+        console.log(`Skipping already processed event: ${key}`);
+        // Add to skipped results
+        const eventTopic = event.topics[0]?.toLowerCase();
+        let resultType = "unknown";
+        let additionalInfo: Record<string, any> = {};
+
+        if (eventTopic === EVENT_TOPICS.POOL_CREATED) {
+          resultType = "PoolCreated";
+          additionalInfo = { pool: event.address.toLowerCase() };
+        } else if (eventTopic === EVENT_TOPICS.TIER_COMMITTED) {
+          resultType = "TierCommitted";
+          if (event.topics[1]) {
+            const userAddress = "0x" + event.topics[1].slice(26).toLowerCase();
+            additionalInfo = {
+              user: userAddress,
+              poolAddress: event.address.toLowerCase(),
+              tierId: event.topics[2] ? parseInt(event.topics[2], 16) : null,
+            };
+          }
+        } else if (eventTopic === EVENT_TOPICS.POOL_STATUS_UPDATED) {
+          resultType = "PoolStatusUpdated";
+          additionalInfo = { pool: event.address.toLowerCase() };
+        }
+
+        skippedEvents.push({
+          event: resultType,
+          status: "success",
+          action: "skip_already_processed",
+          ...additionalInfo,
+        });
+      } else {
+        uniqueEvents.push(event);
+      }
+    }
+
+    console.log(
+      `Found ${uniqueEvents.length} new events to process and ${skippedEvents.length} already processed`
+    );
+  } catch (error) {
+    console.error("Error checking for already processed events:", error);
+    // If there's an error, return all events as unique to be safe
+    uniqueEvents.push(...events);
+  }
+
+  return { uniqueEvents, skippedEvents };
+}
+
 // Process webhook events
-export async function processWebhookEvents(events: any[]) {
+export async function processWebhookEvents(
+  events: any[],
+  options: { skipEventStorage?: boolean; source?: string } = {}
+) {
   if (events.length === 0) {
     return { message: "No events to process", results: [] };
   }
@@ -645,10 +782,69 @@ export async function processWebhookEvents(events: any[]) {
     return { error: "Server configuration error", status: 500 };
   }
 
-  // Process each event
-  const results = [];
+  // Filter out already processed events early
+  let uniqueEvents: any[] = [];
+  let skippedEvents: Array<{
+    event: string;
+    status: string;
+    action: string;
+    [key: string]: any;
+  }> = [];
 
-  for (const event of events) {
+  if (!options.skipEventStorage) {
+    // Use the dedicated function to filter out already processed events
+    const filterResult = await filterAlreadyProcessedEvents(events, supabase);
+    uniqueEvents = filterResult.uniqueEvents;
+    skippedEvents = filterResult.skippedEvents;
+  } else {
+    // If skipping storage, process all events
+    uniqueEvents = [...events];
+  }
+
+  // If we have no new events, return early
+  if (uniqueEvents.length === 0) {
+    return {
+      message: "All events already processed",
+      processed: 0,
+      skipped: skippedEvents.length,
+      results: skippedEvents,
+    };
+  }
+
+  // Step 1: Store raw events in blockchain_events table for tracking (unless explicitly skipped)
+  let eventIds: string[] = [];
+  if (!options.skipEventStorage) {
+    try {
+      const storeResult = await storeEventsInTable(
+        uniqueEvents,
+        supabase,
+        options.source || "unknown"
+      );
+      eventIds = storeResult.eventIds || [];
+      console.log(
+        `Stored ${eventIds.length} events in blockchain_events table`
+      );
+
+      // Update status to processing
+      if (eventIds.length > 0) {
+        await supabase
+          .from("blockchain_events")
+          .update({
+            status: "processing",
+            updated_at: new Date(),
+          })
+          .in("id", eventIds);
+      }
+    } catch (error) {
+      console.error("Error storing events in blockchain_events table:", error);
+      // Continue with processing even if storage fails
+    }
+  }
+
+  // Step 2: Process each event as before
+  const results = [...skippedEvents]; // Add already skipped events to results
+
+  for (const event of uniqueEvents) {
     try {
       // Skip events that don't match our known event signatures
       const eventTopic = event.topics[0]?.toLowerCase();
@@ -692,12 +888,122 @@ export async function processWebhookEvents(events: any[]) {
         event: "unknown",
         status: "error",
         error: error.message,
-      });
+      } as any); // Use type assertion to avoid type errors
+    }
+  }
+
+  // Step 3: Update the status of events in blockchain_events table
+  if (!options.skipEventStorage && eventIds.length > 0) {
+    try {
+      // Match events with results (excluding skipped ones)
+      const processedResults = results.slice(skippedEvents.length);
+      for (let i = 0; i < eventIds.length && i < processedResults.length; i++) {
+        const result = processedResults[i] as any; // Use type assertion for flexibility
+        const eventId = eventIds[i];
+
+        // Determine status based on result
+        let status = "processed";
+        let errorMessage = null;
+
+        if (result?.status === "error") {
+          status = "failed";
+          errorMessage = result.error || "Unknown processing error";
+        }
+
+        // Update individual event status
+        await supabase
+          .from("blockchain_events")
+          .update({
+            status,
+            error_message: errorMessage,
+            processed_at: new Date(),
+            updated_at: new Date(),
+          })
+          .eq("id", eventId);
+      }
+
+      console.log(
+        `Updated status for ${Math.min(
+          eventIds.length,
+          processedResults.length
+        )} processed events`
+      );
+    } catch (error) {
+      console.error("Error updating event status:", error);
+      // We don't throw here, as this is a post-processing step
     }
   }
 
   return {
-    processed: events.length,
+    processed: uniqueEvents.length,
+    skipped: skippedEvents.length,
+    total: events.length,
     results,
   };
+}
+
+/**
+ * Store events in the blockchain_events table
+ */
+async function storeEventsInTable(
+  events: any[],
+  supabase: any,
+  source: string = "unknown"
+): Promise<{ inserted: number; eventIds: string[] }> {
+  if (events.length === 0) return { inserted: 0, eventIds: [] };
+
+  try {
+    const eventsToInsert = events.map((event) => {
+      const eventTopic = event.topics[0]?.toLowerCase();
+      let relatedPoolAddress = null;
+      let relatedUserAddress = null;
+
+      // Extract related addresses based on event type
+      if (eventTopic) {
+        // The pool address is the contract that emitted the event
+        relatedPoolAddress = event.address.toLowerCase();
+
+        // For TierCommitted events, extract the user address from topic 1
+        if (eventTopic === EVENT_TOPICS.TIER_COMMITTED && event.topics[1]) {
+          relatedUserAddress = "0x" + event.topics[1].slice(26).toLowerCase();
+        }
+      }
+
+      return {
+        blockchain_network: "monad-testnet",
+        block_number: parseInt(event.blockNumber, 16),
+        transaction_hash: event.transactionHash,
+        log_index: parseInt(event.index?.toString() || event.logIndex, 16),
+        event_topic: eventTopic || "unknown",
+        contract_address: event.address.toLowerCase(),
+        raw_event: event,
+        status: "pending",
+        source: source,
+        related_pool_address: relatedPoolAddress,
+        related_user_address: relatedUserAddress,
+      };
+    });
+
+    // Use upsert to avoid duplicate key errors
+    const { data, error } = await supabase
+      .from("blockchain_events")
+      .upsert(eventsToInsert, {
+        onConflict: "blockchain_network,transaction_hash,log_index",
+        ignoreDuplicates: true,
+      })
+      .select("id");
+
+    if (error) {
+      console.error("Error storing events in blockchain_events:", error);
+      return { inserted: 0, eventIds: [] };
+    }
+
+    return {
+      inserted: data?.length || 0,
+      eventIds: data?.map((row: { id: string }) => row.id) || [],
+    };
+  } catch (error) {
+    console.error("Error in storeEventsInTable:", error);
+    return { inserted: 0, eventIds: [] };
+  }
 }
