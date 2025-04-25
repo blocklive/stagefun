@@ -44,8 +44,15 @@ export async function fetchBlockchainEvents(
       `==== Starting blockchain query for ${totalBlocksToProcess} blocks (${fromBlock} to ${toBlock}) ====`
     );
 
-    // If range is small enough, make a single request
-    if (blockRange <= (options.chunkSize || 100)) {
+    // Alchemy API has a limit of 500 blocks per request
+    const ALCHEMY_MAX_BLOCKS = 500;
+    const MAX_BLOCK_RANGE = options.chunkSize || ALCHEMY_MAX_BLOCKS;
+
+    console.log(
+      `Using max block range of ${MAX_BLOCK_RANGE} blocks per request`
+    );
+
+    if (blockRange <= MAX_BLOCK_RANGE) {
       console.log(
         `Fetching events in single request from block ${fromBlock} to ${toBlock}`
       );
@@ -54,13 +61,12 @@ export async function fetchBlockchainEvents(
       return logs;
     }
 
-    // Otherwise, chunk the requests to stay within provider limits
+    // Otherwise, chunk the requests to stay within Alchemy's limit
     console.log(
-      `Block range too large (${blockRange} blocks), chunking into smaller requests...`
+      `Block range too large (${blockRange} blocks), chunking into ${MAX_BLOCK_RANGE}-block requests...`
     );
 
-    const MAX_BLOCK_RANGE = options.chunkSize || 100; // Maximum blocks per request
-    const DELAY_MS = options.delayBetweenChunks || 300; // Delay between chunks to avoid rate limiting
+    const DELAY_MS = options.delayBetweenChunks || 100; // Delay between chunks
     const allLogs: any[] = [];
 
     // Calculate number of chunks needed
@@ -101,12 +107,17 @@ export async function fetchBlockchainEvents(
         toBlock: chunkEnd,
       };
 
-      const logs = await provider.getLogs(chunkFilter);
-      allLogs.push(...logs);
+      try {
+        const logs = await provider.getLogs(chunkFilter);
+        allLogs.push(...logs);
 
-      console.log(
-        `[Chunk ${chunksProcessed}/${totalChunks}] Found ${logs.length} logs (total so far: ${allLogs.length})`
-      );
+        console.log(
+          `[Chunk ${chunksProcessed}/${totalChunks}] Found ${logs.length} logs (total so far: ${allLogs.length})`
+        );
+      } catch (chunkError) {
+        console.error(`Error processing chunk ${chunksProcessed}:`, chunkError);
+        console.log(`Continuing to next chunk...`);
+      }
 
       // Add a delay between requests to avoid rate limiting
       if (chunkStart + MAX_BLOCK_RANGE <= toBlock) {

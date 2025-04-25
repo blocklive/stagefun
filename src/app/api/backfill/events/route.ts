@@ -11,8 +11,8 @@ import {
   filterNewEvents,
 } from "@/lib/services/blockchain/queries.service";
 
-// Monad Testnet RPC URL should come from environment variable for security
-const MONAD_RPC_URL = process.env.MONAD_TESTNET_RPC_URL;
+// Alchemy API configuration
+const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 
 // Default is to require API key for protection, can be disabled in dev
 const BACKFILL_API_KEY = process.env.BACKFILL_API_KEY;
@@ -67,16 +67,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
   }
 
-  if (!MONAD_RPC_URL) {
+  if (!ALCHEMY_API_KEY) {
     return NextResponse.json(
-      { error: "MONAD_RPC_URL environment variable not configured" },
+      { error: "No Alchemy API key configured" },
       { status: 500 }
     );
   }
 
   try {
     // Initialize provider and Supabase
-    const provider = getEthersProvider(MONAD_RPC_URL);
+    const provider = getEthersProvider(
+      `https://monad-testnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+    );
     const supabase = createSupabaseClient();
 
     // Get the latest block number
@@ -202,8 +204,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Configure chunking parameters
-    const chunkSize = parseInt(searchParams.get("chunkSize") || "100");
-    const delayMs = parseInt(searchParams.get("delayMs") || "300");
+    const chunkSize = parseInt(searchParams.get("chunkSize") || "500");
+    const delayMs = parseInt(searchParams.get("delayMs") || "100");
 
     // Fetch events using the shared blockchain query service
     const events = await fetchBlockchainEvents(provider, eventFilter, {
