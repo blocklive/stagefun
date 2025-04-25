@@ -115,12 +115,18 @@ async function processAlchemyWebhookEvents(events: AlchemyLog[]) {
       blockHash: event.blockHash || "",
       transactionIndex: `0x${event.transaction.index.toString(16)}`,
 
+      // Pass the original index for consistent identification
+      index: event.index,
+
       // Add any other fields required by your specific implementation
     };
   });
 
   // Call the existing processWebhookEvents function with transformed data
-  const result = await processWebhookEvents(transformedEvents);
+  // Specify source as 'webhook' for tracking
+  const result = await processWebhookEvents(transformedEvents, {
+    source: "webhook",
+  });
 
   return result;
 }
