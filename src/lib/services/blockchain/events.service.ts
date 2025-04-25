@@ -652,6 +652,118 @@ export async function handlePoolStatusUpdatedEvent(
   }
 }
 
+/**
+ * Filters out already processed events from the incoming events list
+ * Returns uniqueEvents (not yet processed) and skippedEvents (already processed)
+ */
+async function filterAlreadyProcessedEvents(
+  events: any[],
+  supabase: any
+): Promise<{
+  uniqueEvents: any[];
+  skippedEvents: Array<{
+    event: string;
+    status: string;
+    action: string;
+    [key: string]: any;
+  }>;
+}> {
+  const uniqueEvents: any[] = [];
+  const skippedEvents: Array<{
+    event: string;
+    status: string;
+    action: string;
+    [key: string]: any;
+  }> = [];
+
+  try {
+    // Create lookup keys for each event
+    const eventKeys = events.map((event) => {
+      const logIndex = parseInt(event.index?.toString() || event.logIndex, 16);
+      return {
+        event,
+        key: `monad-testnet-${event.transactionHash}-${logIndex}`,
+      };
+    });
+
+    // Get all transaction hashes to check
+    const txHashes = events.map((e) => e.transactionHash);
+
+    // Check which events already exist in the database
+    const { data: existingEvents } = await supabase
+      .from("blockchain_events")
+      .select("blockchain_network, transaction_hash, log_index, status")
+      .in("transaction_hash", txHashes);
+
+    // Create a set of keys for quick lookup
+    const processedEventKeys = new Set<string>();
+    if (existingEvents && existingEvents.length > 0) {
+      existingEvents.forEach(
+        (e: {
+          blockchain_network: string;
+          transaction_hash: string;
+          log_index: number;
+          status: string;
+        }) => {
+          const key = `${e.blockchain_network}-${e.transaction_hash}-${e.log_index}`;
+          // Only consider events as processed if they have a terminal status
+          if (e.status === "processed" || e.status === "skipped") {
+            processedEventKeys.add(key);
+          }
+        }
+      );
+    }
+
+    // Filter events that haven't been processed yet
+    for (const { event, key } of eventKeys) {
+      if (processedEventKeys.has(key)) {
+        console.log(`Skipping already processed event: ${key}`);
+        // Add to skipped results
+        const eventTopic = event.topics[0]?.toLowerCase();
+        let resultType = "unknown";
+        let additionalInfo: Record<string, any> = {};
+
+        if (eventTopic === EVENT_TOPICS.POOL_CREATED) {
+          resultType = "PoolCreated";
+          additionalInfo = { pool: event.address.toLowerCase() };
+        } else if (eventTopic === EVENT_TOPICS.TIER_COMMITTED) {
+          resultType = "TierCommitted";
+          if (event.topics[1]) {
+            const userAddress = "0x" + event.topics[1].slice(26).toLowerCase();
+            additionalInfo = {
+              user: userAddress,
+              poolAddress: event.address.toLowerCase(),
+              tierId: event.topics[2] ? parseInt(event.topics[2], 16) : null,
+            };
+          }
+        } else if (eventTopic === EVENT_TOPICS.POOL_STATUS_UPDATED) {
+          resultType = "PoolStatusUpdated";
+          additionalInfo = { pool: event.address.toLowerCase() };
+        }
+
+        skippedEvents.push({
+          event: resultType,
+          status: "success",
+          action: "skip_already_processed",
+          ...additionalInfo,
+        });
+      } else {
+        uniqueEvents.push(event);
+      }
+    }
+
+    console.log(
+      `Found ${uniqueEvents.length} new events to process and ${skippedEvents.length} already processed`
+    );
+  } catch (error) {
+    console.error("Error checking for already processed events:", error);
+    // If there's an error, return all events as unique to be safe
+    uniqueEvents.push(...events);
+  }
+
+  return { uniqueEvents, skippedEvents };
+}
+
 // Process webhook events
 export async function processWebhookEvents(
   events: any[],
@@ -670,12 +782,41 @@ export async function processWebhookEvents(
     return { error: "Server configuration error", status: 500 };
   }
 
+  // Filter out already processed events early
+  let uniqueEvents: any[] = [];
+  let skippedEvents: Array<{
+    event: string;
+    status: string;
+    action: string;
+    [key: string]: any;
+  }> = [];
+
+  if (!options.skipEventStorage) {
+    // Use the dedicated function to filter out already processed events
+    const filterResult = await filterAlreadyProcessedEvents(events, supabase);
+    uniqueEvents = filterResult.uniqueEvents;
+    skippedEvents = filterResult.skippedEvents;
+  } else {
+    // If skipping storage, process all events
+    uniqueEvents = [...events];
+  }
+
+  // If we have no new events, return early
+  if (uniqueEvents.length === 0) {
+    return {
+      message: "All events already processed",
+      processed: 0,
+      skipped: skippedEvents.length,
+      results: skippedEvents,
+    };
+  }
+
   // Step 1: Store raw events in blockchain_events table for tracking (unless explicitly skipped)
   let eventIds: string[] = [];
   if (!options.skipEventStorage) {
     try {
       const storeResult = await storeEventsInTable(
-        events,
+        uniqueEvents,
         supabase,
         options.source || "unknown"
       );
@@ -701,9 +842,9 @@ export async function processWebhookEvents(
   }
 
   // Step 2: Process each event as before
-  const results = [];
+  const results = [...skippedEvents]; // Add already skipped events to results
 
-  for (const event of events) {
+  for (const event of uniqueEvents) {
     try {
       // Skip events that don't match our known event signatures
       const eventTopic = event.topics[0]?.toLowerCase();
@@ -747,16 +888,17 @@ export async function processWebhookEvents(
         event: "unknown",
         status: "error",
         error: error.message,
-      });
+      } as any); // Use type assertion to avoid type errors
     }
   }
 
   // Step 3: Update the status of events in blockchain_events table
   if (!options.skipEventStorage && eventIds.length > 0) {
     try {
-      // Match events with results
-      for (let i = 0; i < eventIds.length && i < results.length; i++) {
-        const result = results[i];
+      // Match events with results (excluding skipped ones)
+      const processedResults = results.slice(skippedEvents.length);
+      for (let i = 0; i < eventIds.length && i < processedResults.length; i++) {
+        const result = processedResults[i] as any; // Use type assertion for flexibility
         const eventId = eventIds[i];
 
         // Determine status based on result
@@ -783,7 +925,7 @@ export async function processWebhookEvents(
       console.log(
         `Updated status for ${Math.min(
           eventIds.length,
-          results.length
+          processedResults.length
         )} processed events`
       );
     } catch (error) {
@@ -793,7 +935,9 @@ export async function processWebhookEvents(
   }
 
   return {
-    processed: events.length,
+    processed: uniqueEvents.length,
+    skipped: skippedEvents.length,
+    total: events.length,
     results,
   };
 }
