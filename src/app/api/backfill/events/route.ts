@@ -10,6 +10,10 @@ import {
   fetchBlockchainEvents,
   filterNewEvents,
 } from "@/lib/services/blockchain/queries.service";
+import {
+  startBlockchainSyncRun,
+  completeBlockchainSyncRun,
+} from "@/lib/services/blockchain/sync-tracking.service";
 
 // Alchemy API configuration
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
@@ -73,6 +77,9 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
+
+  // Variable to store the sync run ID
+  let syncRunId: string | null = null;
 
   try {
     // Initialize provider and Supabase
@@ -207,6 +214,20 @@ export async function GET(req: NextRequest) {
     const chunkSize = parseInt(searchParams.get("chunkSize") || "500");
     const delayMs = parseInt(searchParams.get("delayMs") || "100");
 
+    // Start tracking the sync run
+    syncRunId = await startBlockchainSyncRun({
+      jobName: "blockchain-backfill",
+      source: `backfill-${mode}`,
+      startBlock: Number(eventFilter.fromBlock),
+      endBlock: Number(eventFilter.toBlock),
+      metadata: {
+        contractAddress: eventFilter.address,
+        mode,
+        chunkSize,
+        delayMs,
+      },
+    });
+
     // Fetch events using the shared blockchain query service
     const events = await fetchBlockchainEvents(provider, eventFilter, {
       chunkSize,
@@ -214,6 +235,16 @@ export async function GET(req: NextRequest) {
     });
 
     if (events.length === 0) {
+      // Complete the run with zero events
+      if (syncRunId) {
+        await completeBlockchainSyncRun({
+          runId: syncRunId,
+          eventsFound: 0,
+          blocksProcessed:
+            Number(eventFilter.toBlock) - Number(eventFilter.fromBlock) + 1,
+        });
+      }
+
       return NextResponse.json({
         message: "No events found in the specified range",
         filter: {
@@ -239,6 +270,23 @@ export async function GET(req: NextRequest) {
       JSON.stringify(result, null, 2)
     );
 
+    // Complete the run with results
+    if (syncRunId) {
+      const eventsSkipped = events.length - newEvents.length;
+      const eventsFailed =
+        result.results?.filter((r: any) => r.status === "error").length || 0;
+
+      await completeBlockchainSyncRun({
+        runId: syncRunId,
+        eventsFound: events.length,
+        eventsProcessed: result.processed || 0,
+        eventsSkipped,
+        eventsFailed,
+        blocksProcessed:
+          Number(eventFilter.toBlock) - Number(eventFilter.fromBlock) + 1,
+      });
+    }
+
     return NextResponse.json({
       summary: {
         mode,
@@ -249,11 +297,22 @@ export async function GET(req: NextRequest) {
         },
         eventsFound: events.length,
         newEventsFound: newEvents.length,
+        syncRunId,
       },
       result,
     });
   } catch (error: any) {
     console.error("Error processing backfill request:", error);
+
+    // Record failed run
+    if (syncRunId) {
+      await completeBlockchainSyncRun({
+        runId: syncRunId,
+        status: "failed",
+        errorMessage: error.message,
+      });
+    }
+
     return NextResponse.json(
       { error: "Failed to process backfill request", details: error.message },
       { status: 500 }

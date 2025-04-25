@@ -5,7 +5,7 @@ export const BLOCKS_PER_HOUR = 1800; // ~2 sec block time on Monad
 
 // Event interface
 export interface EventFilter {
-  topics: string[];
+  topics?: (string | string[] | null)[];
   fromBlock?: string | number;
   toBlock?: string | number;
   address?: string | string[];
