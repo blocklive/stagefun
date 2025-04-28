@@ -53,6 +53,11 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
         },
         defaultChain: MONAD_TESTNET,
         supportedChains: [MONAD_TESTNET],
+        externalWallets: {
+          walletConnect: {
+            enabled: false,
+          },
+        },
         fiatOnRamp: {
           useSandbox: true,
         },
