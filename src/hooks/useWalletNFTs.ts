@@ -11,6 +11,10 @@ export interface NFT {
   tokenType: string;
   timeLastUpdated: string;
   metadata: any;
+  acquiredAt?: {
+    blockTimestamp: string;
+    blockNumber: string;
+  };
 }
 
 interface NFTResponse {

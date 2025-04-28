@@ -147,8 +147,11 @@ export default function NFTList({
   // Other NFTs
   const otherNFTs = nfts.filter((nft) => !stageNFTs.includes(nft));
 
-  // Display all NFTs, with Stage NFTs first
-  const sortedNFTs = [...stageNFTs, ...otherNFTs];
+  // Sort all NFTs alphabetically by name
+  const sortedNFTs = [...nfts].sort((a, b) => {
+    // Sort alphabetically by name
+    return a.name.localeCompare(b.name);
+  });
 
   if (error) {
     const errorMessage = error?.message?.includes("is not enabled")

@@ -103,6 +103,14 @@ export async function GET(req: NextRequest) {
 
     const data: AlchemyNFTResponse = await response.json();
 
+    // Log sample NFT data to see all available properties
+    if (data.ownedNfts.length > 0) {
+      console.log(
+        "Sample NFT data from Alchemy:",
+        JSON.stringify(data.ownedNfts[0], null, 2)
+      );
+    }
+
     // Format and return the NFT data
     return NextResponse.json({
       nfts: data.ownedNfts.map(formatNFT),
