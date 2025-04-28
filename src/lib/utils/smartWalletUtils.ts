@@ -1,6 +1,7 @@
 import { User } from "@privy-io/react-auth";
 import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
 import showToast from "@/utils/toast";
+import { getAuthHeaders } from "../auth/client";
 
 /**
  * Actively initialize the smart wallet client which triggers smart wallet creation if not already done
@@ -40,12 +41,15 @@ export async function ensureSmartWallet(
 
   // First check if we have a smart wallet address in our database
   try {
+    // Get auth headers with the token
+    const headers = await getAuthHeaders().catch((err) => {
+      console.error("Failed to get auth headers:", err);
+      return { "Content-Type": "application/json" };
+    });
+
     const response = await fetch("/api/user/profile", {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        // Auth token is automatically added by browser
-      },
+      headers,
     });
 
     if (response.ok) {
@@ -133,12 +137,15 @@ export async function ensureSmartWallet(
  */
 export async function syncSmartWalletWithDB(user: User): Promise<boolean> {
   try {
+    // Get auth headers with the token
+    const headers = await getAuthHeaders().catch((err) => {
+      console.error("Failed to get auth headers:", err);
+      return { "Content-Type": "application/json" };
+    });
+
     const response = await fetch("/api/auth/complete-login", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // Auth token is automatically added by the browser
-      },
+      headers,
       body: JSON.stringify({
         privyUserData: {
           linkedAccounts: user.linkedAccounts,
