@@ -4,7 +4,7 @@ export interface NFT {
   tokenId: string;
   name: string;
   description: string;
-  image: string;
+  image: string | null;
   contractAddress: string;
   collectionName: string;
   contractSymbol: string;

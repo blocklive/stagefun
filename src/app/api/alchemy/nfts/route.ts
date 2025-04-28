@@ -13,7 +13,13 @@ interface NFT {
     totalSupply: string;
     tokenType: string;
   };
-  tokenId: string;
+  tokenId?: string; // May not be present in Alchemy response
+  id?: {
+    tokenId: string;
+    tokenMetadata?: {
+      tokenType: string;
+    };
+  };
   tokenType: string;
   title: string;
   description: string;
@@ -115,8 +121,16 @@ export async function GET(req: NextRequest) {
  * Format NFT data for frontend consumption
  */
 function formatNFT(nft: NFT) {
+  // Extract tokenId from the correct location in the Alchemy response structure
+  const tokenId = nft.id?.tokenId
+    ? // Convert from hex to decimal if it's in hex format (0x...)
+      nft.id.tokenId.startsWith("0x")
+      ? parseInt(nft.id.tokenId, 16).toString()
+      : nft.id.tokenId
+    : undefined;
+
   return {
-    tokenId: nft.tokenId,
+    tokenId: tokenId,
     name: nft.title || nft.metadata?.name || "Unnamed NFT",
     description: nft.description || nft.metadata?.description || "",
     image: getImageUrl(nft),
@@ -133,7 +147,7 @@ function formatNFT(nft: NFT) {
 /**
  * Get the best available image URL for an NFT
  */
-function getImageUrl(nft: NFT): string {
+function getImageUrl(nft: NFT): string | null {
   // Try to get image from metadata first
   if (nft.metadata?.image) {
     return nft.metadata.image;
@@ -154,8 +168,8 @@ function getImageUrl(nft: NFT): string {
     return nft.contractMetadata.openSea.imageUrl;
   }
 
-  // Default placeholder if no image is found
-  return "https://placehold.co/400x400?text=No+Image";
+  // Return null when no image is available
+  return null;
 }
 
 /**

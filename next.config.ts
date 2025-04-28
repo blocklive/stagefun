@@ -19,11 +19,6 @@ const nextConfig = {
         hostname: "*.supabase.co",
         pathname: "**",
       },
-      {
-        protocol: "https",
-        hostname: "placehold.co",
-        pathname: "**",
-      },
     ],
   },
   typescript: {

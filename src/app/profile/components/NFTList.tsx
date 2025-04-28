@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { NFT } from "../../../hooks/useWalletNFTs";
+import { FaExternalLinkAlt } from "react-icons/fa";
 
 interface NFTListProps {
   nfts: NFT[];
@@ -12,28 +13,116 @@ interface NFTListProps {
   isOwnProfile?: boolean;
 }
 
+// Helper function to get Magic Eden URL for an NFT
+const getMagicEdenUrl = (nft: NFT) => {
+  const tokenId = nft.tokenId;
+  const contractAddress = nft.contractAddress;
+
+  // Direct link to Monad testnet NFT on Magic Eden
+  if (contractAddress && tokenId) {
+    return `https://magiceden.us/item-details/monad-testnet/${contractAddress}/${tokenId}`;
+  }
+
+  // Fallback to Monad testnet marketplace if we don't have complete NFT info
+  return "https://magiceden.us/collections/monad-testnet";
+};
+
+// Helper to get the tier name from NFT metadata or name
+const getTierName = (nft: NFT) => {
+  // First try to find tier in metadata
+  if (nft.metadata) {
+    if (nft.metadata.tier) return nft.metadata.tier;
+
+    // Check in attributes
+    if (nft.metadata.attributes) {
+      const tierAttribute = nft.metadata.attributes.find(
+        (attr: any) =>
+          attr.trait_type?.toLowerCase() === "tier" ||
+          attr.trait_type?.toLowerCase() === "level" ||
+          attr.trait_type?.toLowerCase() === "rank"
+      );
+      if (tierAttribute) return tierAttribute.value;
+    }
+  }
+
+  // If not in metadata, try to extract from name if it contains "Tier" or similar
+  const nameParts = nft.name.split(/\s+/);
+  for (let i = 0; i < nameParts.length - 1; i++) {
+    if (
+      nameParts[i].toLowerCase() === "tier" ||
+      nameParts[i].toLowerCase() === "level" ||
+      nameParts[i].toLowerCase() === "pass"
+    ) {
+      return `${nameParts[i]} ${nameParts[i + 1]}`;
+    }
+  }
+
+  // Fallback: if name has "Patron" in it, just return "Patron Pass"
+  if (nft.name.toLowerCase().includes("patron")) {
+    return "Patron Pass";
+  }
+
+  // Default
+  return "Pass";
+};
+
+// Simple dark placeholder - just a dark gray square with text
+const PLACEHOLDER_IMAGE =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23202020'/%3E%3Cpath d='M35 30H65C67.7614 30 70 32.2386 70 35V65C70 67.7614 67.7614 70 65 70H35C32.2386 70 30 67.7614 30 65V35C30 32.2386 32.2386 30 35 30ZM35 33C33.8954 33 33 33.8954 33 35V56.25L41.25 48L46.25 53L58.75 40.5L67 48.75V35C67 33.8954 66.1046 33 65 33H35ZM45 45C45 47.7614 42.7614 50 40 50C37.2386 50 35 47.7614 35 45C35 42.2386 37.2386 40 40 40C42.7614 40 45 42.2386 45 45Z' fill='%236E5DD7' fill-rule='evenodd'/%3E%3C/svg%3E";
+
 // NFT Card Component
 const NFTCard: React.FC<{ nft: NFT }> = ({ nft }) => {
   const [imageError, setImageError] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
 
-  // Base64 encoded simple placeholder image (gray square with text)
-  const placeholderImage =
-    "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMjAyMDIwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgZmlsbD0iI2ZmZmZmZiI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+";
+  // Get Magic Eden link for this NFT
+  const magicEdenUrl = getMagicEdenUrl(nft);
 
+  // Get tier name
+  const tierName = getTierName(nft);
+
+  // Check if NFT might have viewing issues
+  const mightHaveViewingIssues = !nft.tokenId;
+
+  // Alternative implementation without Image component for better compatibility
   return (
     <div className="bg-[#1E1F23] rounded-xl overflow-hidden flex flex-row items-center mb-3">
       <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 m-3">
-        <Image
-          src={!imageError ? nft.image : placeholderImage}
-          alt={nft.name}
-          fill
-          className="object-cover"
-          onError={() => setImageError(true)}
-        />
+        <div className="w-full h-full">
+          <Image
+            src={!imageError && nft.image ? nft.image : PLACEHOLDER_IMAGE}
+            alt={nft.name || "NFT"}
+            width={64}
+            height={64}
+            className="object-cover h-full w-full"
+            onError={() => setImageError(true)}
+            unoptimized={true}
+          />
+        </div>
       </div>
       <div className="p-4 flex-1">
         <p className="text-gray-400 text-sm">{nft.collectionName}</p>
-        <h3 className="text-white font-medium truncate">{nft.name}</h3>
+        <h3 className="text-white font-medium truncate">{tierName}</h3>
+      </div>
+      <div className="relative mr-4">
+        <a
+          href={magicEdenUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-2 hover:bg-[#3A3650] rounded-full transition-colors inline-flex"
+          aria-label="View on Magic Eden"
+          onMouseEnter={() => mightHaveViewingIssues && setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+        >
+          <FaExternalLinkAlt className="text-gray-400 hover:text-white w-4 h-4" />
+        </a>
+
+        {showTooltip && mightHaveViewingIssues && (
+          <div className="absolute right-0 bottom-full mb-2 bg-[#121212] text-white text-xs p-2 rounded shadow-lg w-48 z-10">
+            This NFT may not display correctly on Magic Eden due to missing
+            token data
+          </div>
+        )}
       </div>
     </div>
   );
