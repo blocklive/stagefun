@@ -41,6 +41,8 @@ import { useSmartWalletInitializer } from "../../../hooks/useSmartWalletInitiali
 import { useAvatarUpload } from "../../../hooks/useAvatarUpload";
 import { mutate } from "swr";
 import BalanceSection from "./BalanceSection";
+import { useWalletNFTs } from "../../../hooks/useWalletNFTs";
+import NFTList from "./NFTList";
 
 interface ProfileComponentProps {
   isUsernameRoute?: boolean;
@@ -62,9 +64,9 @@ export default function ProfileComponent({
   const { dbUser, isLoadingUser, refreshUser } = useSupabase();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<"assets" | "hosted" | "funded">(
-    "assets"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "assets" | "hosted" | "funded" | "passes"
+  >("assets");
   const { smartWalletAddress } = useSmartWallet();
 
   // Avatar upload state
@@ -644,10 +646,11 @@ export default function ProfileComponent({
                 { id: "assets", label: "Assets" },
                 { id: "hosted", label: "Hosted" },
                 { id: "funded", label: "Committed" },
+                { id: "passes", label: "Passes" },
               ]}
               activeTab={activeTab}
               onTabChange={(tabId) =>
-                setActiveTab(tabId as "assets" | "hosted" | "funded")
+                setActiveTab(tabId as "assets" | "hosted" | "funded" | "passes")
               }
             />
 
@@ -675,7 +678,7 @@ export default function ProfileComponent({
                   isOwnProfile={Boolean(isOwnProfile)}
                   profileName={displayName}
                 />
-              ) : (
+              ) : activeTab === "funded" ? (
                 <PoolList
                   pools={userFundedPools}
                   isLoading={fundedPoolsLoading}
@@ -698,6 +701,13 @@ export default function ProfileComponent({
                       );
                     }
                   }}
+                />
+              ) : (
+                // Passes tab content
+                <PassesContent
+                  walletAddress={user.smart_wallet_address || null}
+                  isOwnProfile={Boolean(isOwnProfile)}
+                  displayName={displayName}
                 />
               )}
             </div>
@@ -725,5 +735,38 @@ export default function ProfileComponent({
         }}
       />
     </>
+  );
+}
+
+// Passes tab content component
+function PassesContent({
+  walletAddress,
+  isOwnProfile,
+  displayName,
+}: {
+  walletAddress: string | null;
+  isOwnProfile: boolean;
+  displayName: string;
+}) {
+  // Only fetch NFTs from Monad testnet where our contract is deployed
+  const { nfts, isLoading, error } = useWalletNFTs(
+    walletAddress,
+    "monad-test-v2"
+  );
+
+  const emptyMessage = isOwnProfile
+    ? "You don't have any NFT passes yet."
+    : `${displayName} doesn't have any NFT passes yet.`;
+
+  return (
+    <div className="mt-6">
+      <NFTList
+        nfts={nfts}
+        isLoading={isLoading}
+        error={error}
+        emptyMessage={emptyMessage}
+        isOwnProfile={isOwnProfile}
+      />
+    </div>
   );
 }
