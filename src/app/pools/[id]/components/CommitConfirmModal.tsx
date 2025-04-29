@@ -96,8 +96,13 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
   if (isVariablePrice) {
     if (minPrice !== null && maxPrice !== null) {
       if (tier.max_price && isUncapped(tier.max_price.toString())) {
-        // For uncapped pricing, just show "Flexible" without any price values
-        priceRangeDisplay = "Flexible USDC";
+        // For uncapped pricing with min > 1, show "From X"
+        if (minPrice > 1) {
+          priceRangeDisplay = `From ${formatAmount(minPrice)} USDC`;
+        } else {
+          // For uncapped pricing with min <= 1, show "Flexible USDC"
+          priceRangeDisplay = "Flexible USDC";
+        }
       } else {
         // For capped pricing, show range
         priceRangeDisplay = `${formatAmount(minPrice)}-${formatAmount(
@@ -105,8 +110,12 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
         )} USDC`;
       }
     } else if (minPrice !== null) {
-      // If only min price is set but we don't want to show it
-      priceRangeDisplay = "Flexible USDC";
+      // If only min price is set
+      if (minPrice > 1) {
+        priceRangeDisplay = `From ${formatAmount(minPrice)} USDC`;
+      } else {
+        priceRangeDisplay = "Flexible USDC";
+      }
     } else if (maxPrice !== null) {
       priceRangeDisplay = `Up to ${formatAmount(maxPrice)} USDC`;
     } else {
@@ -392,8 +401,10 @@ const CommitConfirmModal: React.FC<CommitConfirmModalProps> = ({
             </div>
           ) : insufficientFunds ? (
             "Insufficient funds"
-          ) : !isVariableAmountValid ? (
+          ) : !isVariableAmountValid && variableAmount ? (
             "Invalid amount"
+          ) : variableAmount === "" && isVariablePrice ? (
+            "Enter amount"
           ) : (
             "Commit"
           )}

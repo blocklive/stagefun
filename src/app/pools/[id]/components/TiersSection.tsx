@@ -177,8 +177,13 @@ const TiersSection: React.FC<TiersSectionProps> = ({
               if (minPrice !== null && maxPrice !== null) {
                 // Check if this is an uncapped tier - need to check before formating the value
                 if (tier.max_price && isUncapped(tier.max_price.toString())) {
-                  // For uncapped pricing, show "Flexible" without any price values
-                  priceDisplay = "Flexible USDC";
+                  // For uncapped pricing with min > 1, show "From X"
+                  if (minPrice > 1) {
+                    priceDisplay = `From ${formatAmount(minPrice)} USDC`;
+                  } else {
+                    // For uncapped pricing with min <= 1, show "Flexible USDC"
+                    priceDisplay = "Flexible USDC";
+                  }
                 } else {
                   // For normal range pricing, show the full range
                   priceDisplay = `${formatAmount(minPrice)}-${formatAmount(
@@ -186,8 +191,12 @@ const TiersSection: React.FC<TiersSectionProps> = ({
                   )} USDC`;
                 }
               } else if (minPrice !== null) {
-                // If only min price is set but we don't want to show it
-                priceDisplay = "Flexible USDC";
+                // If only min price is set
+                if (minPrice > 1) {
+                  priceDisplay = `From ${formatAmount(minPrice)} USDC`;
+                } else {
+                  priceDisplay = "Flexible USDC";
+                }
               } else if (maxPrice !== null) {
                 // Max price only with K/M formatting
                 priceDisplay = `Up to ${formatAmount(maxPrice)} USDC`;
