@@ -63,7 +63,8 @@ export async function GET(request: NextRequest) {
           funded_points,
           raised_points,
           onboarding_points,
-          checkin_points
+          checkin_points,
+          total_points
         )
       `
       )
@@ -71,7 +72,10 @@ export async function GET(request: NextRequest) {
       .neq("name", "spatializes")
       .neq("name", "stagedotfun")
       .neq("name", "4ormund")
-      // We'll sort the data after calculating the proper total points
+      // Order by total_points in the user_points table in descending order
+      // Use the correct syntax for ordering by a foreign table column
+      .order("user_points(total_points)", { ascending: false })
+      // Then limit to top 100
       .limit(100);
 
     const { data: usersResult, error } = await query;
