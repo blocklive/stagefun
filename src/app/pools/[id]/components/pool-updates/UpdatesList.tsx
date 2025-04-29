@@ -7,6 +7,7 @@ import UpdateCard from "./UpdateCard";
 import CreateUpdateForm from "./CreateUpdateForm";
 import { FaPlus } from "react-icons/fa";
 import showToast from "@/utils/toast";
+import Image from "next/image";
 
 interface UpdatesListProps {
   poolId: string;
@@ -81,10 +82,24 @@ export default function UpdatesList({
           Error loading updates. Please try again.
         </div>
       ) : updates.length === 0 ? (
-        <div className="py-12 text-center text-gray-400">
-          {isCreator
-            ? "No updates have been posted yet. Share news about your project!"
-            : "No updates have been posted yet."}
+        <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+          <div className="w-36 h-36 mb-6 opacity-90">
+            <Image
+              src="/images/emptystage.png"
+              alt="Empty stage"
+              width={144}
+              height={144}
+              className="object-contain"
+            />
+          </div>
+          <h3 className="text-xl font-medium text-white mb-2">
+            No Updates Yet
+          </h3>
+          <p className="text-gray-400 max-w-md">
+            {isCreator
+              ? "No updates have been posted. Share news about your project!"
+              : "No updates have been posted."}
+          </p>
         </div>
       ) : (
         <div className="space-y-6">

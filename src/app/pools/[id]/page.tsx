@@ -374,7 +374,6 @@ export default function PoolDetailsPage() {
             {contentTab === "patrons" && (
               <div className="mt-6">
                 <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
-                  <h3 className="text-xl font-semibold mb-4">Patrons</h3>
                   <PatronsTab
                     pool={pool}
                     isLoading={isLoading}
@@ -388,7 +387,6 @@ export default function PoolDetailsPage() {
             {contentTab === "updates" && (
               <div className="mt-6">
                 <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
-                  <h3 className="text-xl font-semibold mb-4">Updates</h3>
                   <UpdatesList
                     poolId={id}
                     isCreator={isCreator}
@@ -400,7 +398,7 @@ export default function PoolDetailsPage() {
           </div>
 
           {/* Right Column - Tiers Section (hidden on mobile) */}
-          <div className="hidden lg:block">
+          <div className="hidden lg:block" id="tiers-section">
             <TiersSection
               pool={pool}
               tiers={(pool.tiers as any[]) || []}
@@ -415,7 +413,7 @@ export default function PoolDetailsPage() {
         </div>
 
         {/* Mobile Tiers Section (only shown on mobile) */}
-        <div className="mt-6 lg:hidden">
+        <div className="mt-6 lg:hidden" id="tiers-section-mobile">
           <TiersSection
             pool={pool}
             tiers={(pool.tiers as any[]) || []}

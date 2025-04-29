@@ -380,7 +380,6 @@ export default function PoolDetailsPage() {
             {contentTab === "patrons" && (
               <div className="mt-6">
                 <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
-                  <h3 className="text-xl font-semibold mb-4">Patrons</h3>
                   <PatronsTab
                     pool={pool}
                     isLoading={isLoading}
@@ -394,7 +393,6 @@ export default function PoolDetailsPage() {
             {contentTab === "updates" && (
               <div className="mt-6">
                 <div className="bg-[#FFFFFF0A] p-4 rounded-[16px] mb-6 w-full">
-                  <h3 className="text-xl font-semibold mb-4">Updates</h3>
                   <UpdatesList
                     poolId={pool?.id ?? ""}
                     isCreator={isCreator}

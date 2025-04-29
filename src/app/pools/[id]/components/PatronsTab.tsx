@@ -208,16 +208,51 @@ export default function PatronsTab({
 
   if (error) {
     return (
-      <div className="text-center py-8 text-red-500">
-        Error loading patrons: {error.message}
+      <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+        <div className="w-24 h-24 mb-6 opacity-80">
+          <svg
+            width="100%"
+            height="100%"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 8V12M12 16H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z"
+              stroke="#EF6A6A"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+        <h3 className="text-xl font-medium text-white mb-2">
+          Something Went Wrong
+        </h3>
+        <p className="text-gray-400 mb-4">
+          We're having trouble loading the patron data. Please try again later.
+        </p>
       </div>
     );
   }
 
   if (deduplicatedCommitments.length === 0 && !isLoading) {
     return (
-      <div className="text-center py-8 text-gray-400">
-        No patrons found for this pool yet.
+      <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+        <div className="w-36 h-36 mb-6 opacity-90">
+          <Image
+            src="/images/emptystage.png"
+            alt="Empty stage"
+            width={144}
+            height={144}
+            className="object-contain"
+          />
+        </div>
+        <h3 className="text-xl font-medium text-white mb-2">No Patrons Yet</h3>
+        <p className="text-gray-400 max-w-md">
+          This pool is waiting for its first patron! When someone supports this
+          project, they'll appear here.
+        </p>
       </div>
     );
   }
@@ -232,12 +267,50 @@ export default function PatronsTab({
           ></div>
         </div>
       ) : error ? (
-        <div className="text-center py-4 text-red-400">
-          Failed to load patrons. Please try again later.
+        <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+          <div className="w-24 h-24 mb-6 opacity-80">
+            <svg
+              width="100%"
+              height="100%"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 8V12M12 16H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z"
+                stroke="#EF6A6A"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <h3 className="text-xl font-medium text-white mb-2">
+            Something Went Wrong
+          </h3>
+          <p className="text-gray-400 mb-4">
+            We're having trouble loading the patron data. Please try again
+            later.
+          </p>
         </div>
       ) : deduplicatedCommitments.length === 0 ? (
-        <div className="text-center py-4 text-gray-400">
-          No patrons yet. Be the first to commit!
+        <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+          <div className="w-36 h-36 mb-6 opacity-90">
+            <Image
+              src="/images/emptystage.png"
+              alt="Empty stage"
+              width={144}
+              height={144}
+              className="object-contain"
+            />
+          </div>
+          <h3 className="text-xl font-medium text-white mb-2">
+            No Patrons Yet
+          </h3>
+          <p className="text-gray-400 max-w-md">
+            This pool is waiting for its first patron! When someone supports
+            this project, they'll appear here.
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
