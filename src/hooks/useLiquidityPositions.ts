@@ -209,17 +209,21 @@ export function useLiquidityPositions() {
             continue; // Skip to next pair
           }
 
-          // Skip pairs where user has no LP tokens
-          if (lpBalance <= 0) {
-            console.log(`User has no LP tokens for pair ${i}, skipping`);
-            continue;
-          }
-
-          // Get total supply of LP tokens
+          // Calculate user's share of the pool
           let totalSupply;
+          let shareOfPool = "0";
           try {
             totalSupply = await pairContract.totalSupply();
             console.log(`Total supply for pair ${i}: ${totalSupply}`);
+
+            // Calculate share only if user has LP tokens
+            if (lpBalance > 0) {
+              shareOfPool = (
+                (Number(ethers.formatUnits(lpBalance, 18)) /
+                  Number(ethers.formatUnits(totalSupply, 18))) *
+                100
+              ).toFixed(6);
+            }
           } catch (supplyError) {
             console.error(
               `Error getting total supply for pair ${i}:`,
@@ -251,133 +255,68 @@ export function useLiquidityPositions() {
               getTokenInfo(token0Address, provider),
               getTokenInfo(token1Address, provider),
             ]);
-            console.log(
-              `Tokens in pair ${i}: ${token0Info.symbol}, ${token1Info.symbol}`
-            );
           } catch (infoError) {
             console.error(`Error getting token info for pair ${i}:`, infoError);
             continue;
           }
 
-          // Get reserves - this is where the error was happening
-          let reserve0, reserve1;
+          // Get reserves
+          let reserves;
           try {
-            console.log(
-              `Attempting to get reserves for pair ${i} at ${pairAddress}`
-            );
-            const reserves = await pairContract.getReserves();
-            reserve0 = reserves[0];
-            reserve1 = reserves[1];
-            console.log(`Reserves for pair ${i}: ${reserve0}, ${reserve1}`);
-          } catch (reservesError: any) {
+            reserves = await pairContract.getReserves();
+          } catch (reservesError) {
             console.error(
               `Error getting reserves for pair ${i}:`,
               reservesError
             );
-            console.error(`Error details:`, {
-              pairAddress,
-              token0: token0Info.symbol,
-              token1: token1Info.symbol,
-              error: reservesError.message || "Unknown error",
-            });
-
-            // For debugging: try calling other methods on the contract
-            try {
-              const symbol = await pairContract.symbol();
-              console.log(`Pair ${i} symbol: ${symbol}`);
-            } catch (e) {
-              console.error(`Cannot get symbol for pair ${i}`);
-            }
-
-            // Special handling for known MON/USDC pair
-            if (pairAddress === "0x58F634Df208a8329D60d995100f44e06cDEe8820") {
-              console.log("Using hardcoded estimates for MON/USDC pair");
-
-              // Which token is token0?
-              if (token0Info.symbol === "MON") {
-                // MON is token0, USDC is token1
-                // Use conservative placeholder estimates
-                reserve0 = BigInt("1000000000000000000"); // 1 MON
-                reserve1 = BigInt("7800000"); // 7.8 USDC
-              } else {
-                // USDC is token0, MON is token1
-                reserve0 = BigInt("7800000"); // 7.8 USDC
-                reserve1 = BigInt("1000000000000000000"); // 1 MON
-              }
-            } else {
-              // Use placeholder reserves for other pairs
-              reserve0 = BigInt(0);
-              reserve1 = BigInt(0);
-            }
-
-            console.log(`Using placeholder reserves for pair ${i}`);
+            continue;
           }
 
-          // Calculate share of pool
-          const shareOfPool =
-            totalSupply > 0
-              ? ((Number(lpBalance) / Number(totalSupply)) * 100).toFixed(4)
-              : "0";
+          const reserve0 = ethers.formatUnits(reserves[0], token0Info.decimals);
+          const reserve1 = ethers.formatUnits(reserves[1], token1Info.decimals);
 
-          // Calculate token amounts based on share
-          let amount0, amount1;
-          try {
-            amount0 =
-              totalSupply > 0
-                ? ethers.formatUnits(
-                    (reserve0 * BigInt(lpBalance)) / BigInt(totalSupply),
-                    token0Info.decimals
-                  )
-                : "0";
+          // Calculate user's token amounts based on their share of the pool
+          let amount0 = "0";
+          let amount1 = "0";
 
-            amount1 =
-              totalSupply > 0
-                ? ethers.formatUnits(
-                    (reserve1 * BigInt(lpBalance)) / BigInt(totalSupply),
-                    token1Info.decimals
-                  )
-                : "0";
-          } catch (calcError) {
-            console.error(
-              `Error calculating token amounts for pair ${i}:`,
-              calcError
+          if (lpBalance > 0 && totalSupply > 0) {
+            // First calculate the proportion of the pool the user owns
+            const userPoolShare = Number(lpBalance) / Number(totalSupply);
+
+            // Then multiply by the reserves and format to the appropriate decimals
+            amount0 = (userPoolShare * Number(reserve0)).toFixed(
+              token0Info.decimals
             );
-            amount0 = "0";
-            amount1 = "0";
+            amount1 = (userPoolShare * Number(reserve1)).toFixed(
+              token1Info.decimals
+            );
           }
 
-          // Create position object
-          const position: LiquidityPosition = {
+          // Add position to array
+          positions.push({
             pairAddress,
-            lpTokenBalance: ethers.formatUnits(lpBalance, 18), // LP tokens typically have 18 decimals
+            lpTokenBalance: ethers.formatUnits(lpBalance, 18),
             shareOfPool,
             token0: token0Info,
             token1: token1Info,
-            reserve0: reserve0
-              ? ethers.formatUnits(reserve0, token0Info.decimals)
-              : "0",
-            reserve1: reserve1
-              ? ethers.formatUnits(reserve1, token1Info.decimals)
-              : "0",
+            reserve0,
+            reserve1,
             tokenAmounts: {
               amount0,
               amount1,
             },
-          };
-
-          console.log(`Successfully added position for pair ${i}`);
-          positions.push(position);
+          });
         } catch (error) {
-          console.error(`Error processing pair ${i} (${pairAddress}):`, error);
-          // Continue with next pair
+          console.error(`Error processing pair ${i}:`, error);
+          // Continue to next pair
+          continue;
         }
       }
 
-      console.log(`Total positions found: ${positions.length}`);
       return positions;
     } catch (error) {
       console.error("Error fetching liquidity positions:", error);
-      return [];
+      throw error;
     }
   };
 
