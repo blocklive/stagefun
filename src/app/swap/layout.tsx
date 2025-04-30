@@ -2,10 +2,13 @@
 
 import React from "react";
 import Link from "next/link";
-import { SwapPoolInterface } from "@/components/swap/SwapPoolInterface";
 import { usePathname } from "next/navigation";
 
-export default function SwapPoolPage() {
+export default function SwapLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
 
   return (
@@ -28,9 +31,9 @@ export default function SwapPoolPage() {
             Swap
           </Link>
           <Link
-            href="/swap/swappool"
+            href="/swap/liquidity"
             className={`text-lg font-medium ${
-              pathname === "/swap/swappool"
+              pathname === "/swap/liquidity"
                 ? "text-[#836ef9] border-b-2 border-[#836ef9] pb-1"
                 : "text-gray-400 hover:text-white pb-1"
             }`}
@@ -49,7 +52,7 @@ export default function SwapPoolPage() {
           </Link>
         </div>
 
-        <SwapPoolInterface />
+        {children}
       </div>
     </div>
   );

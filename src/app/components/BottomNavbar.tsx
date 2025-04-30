@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { IoFlash } from "react-icons/io5";
-import { FaTrophy, FaExchangeAlt } from "react-icons/fa";
+import { FaTrophy } from "react-icons/fa";
 
 interface BottomNavbarProps {
-  activeTab?: "party" | "portfolio" | "leaderboard" | "swap" | "";
+  activeTab?: "party" | "portfolio" | "leaderboard" | "";
   isAuthenticated?: boolean;
 }
 
@@ -92,24 +92,6 @@ export default function BottomNavbar({
           }`}
         >
           Portfolio
-        </span>
-      </div>
-
-      <div
-        className="flex flex-col items-center"
-        onClick={() => router.push("/swap")}
-      >
-        <FaExchangeAlt
-          className={`text-2xl ${
-            activeTab === "swap" ? "text-[#8B7EF8]" : "text-gray-500"
-          }`}
-        />
-        <span
-          className={`text-xs mt-1 ${
-            activeTab === "swap" ? "text-[#8B7EF8]" : "text-gray-500"
-          }`}
-        >
-          Swap
         </span>
       </div>
 
