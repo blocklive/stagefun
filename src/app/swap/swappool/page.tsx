@@ -37,6 +37,16 @@ export default function SwapPoolPage() {
           >
             Add Liquidity
           </Link>
+          <Link
+            href="/swap/positions"
+            className={`text-lg font-medium ${
+              pathname === "/swap/positions"
+                ? "text-[#836ef9] border-b-2 border-[#836ef9] pb-1"
+                : "text-gray-400 hover:text-white pb-1"
+            }`}
+          >
+            Positions
+          </Link>
         </div>
 
         <SwapPoolInterface />
