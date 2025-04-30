@@ -42,6 +42,15 @@ export interface AddLiquidityParams {
   deadline: number;
 }
 
+export interface AddLiquidityETHParams {
+  token: string;
+  amountTokenDesired: string;
+  amountTokenMin: string;
+  amountETHMin: string;
+  to: string;
+  deadline: number;
+}
+
 export interface UseStageSwapResult {
   isLoading: boolean;
   error: string | null;
@@ -51,9 +60,13 @@ export interface UseStageSwapResult {
   getAmountsOut: (
     params: SwapQuoteParams
   ) => Promise<{ success: boolean; amounts?: string[]; error?: string }>;
-  addLiquidity: (
-    params: AddLiquidityParams
-  ) => Promise<{
+  addLiquidity: (params: AddLiquidityParams) => Promise<{
+    success: boolean;
+    error?: string;
+    txHash?: string;
+    liquidity?: string;
+  }>;
+  addLiquidityETH: (params: AddLiquidityETHParams) => Promise<{
     success: boolean;
     error?: string;
     txHash?: string;
@@ -459,6 +472,151 @@ export function useStageSwap(): UseStageSwapResult {
     [user, getProvider, smartWalletAddress, callContractFunction]
   );
 
+  // Add liquidity with ETH
+  const addLiquidityETH = useCallback(
+    async (
+      params: AddLiquidityETHParams
+    ): Promise<{
+      success: boolean;
+      error?: string;
+      txHash?: string;
+      liquidity?: string;
+    }> => {
+      if (!user) {
+        return {
+          success: false,
+          error: "User is not authenticated. Please log in.",
+        };
+      }
+
+      // Clear any previous errors
+      setError(null);
+      setIsLoading(true);
+
+      // Create a toast for loading status
+      const loadingToast = showToast.loading("Adding liquidity with MON...");
+
+      try {
+        // Ensure smart wallet is available
+        const smartWalletResult = await ensureSmartWallet(user, loadingToast);
+
+        if (!smartWalletResult.success) {
+          throw new Error(
+            smartWalletResult.error ||
+              "Smart wallet sync in progress, please retry"
+          );
+        }
+
+        if (!smartWalletAddress || !callContractFunction) {
+          throw new Error(
+            "Smart wallet functions not available. Please try again later."
+          );
+        }
+
+        console.log(
+          "Using smart wallet for adding liquidity with MON:",
+          smartWalletAddress
+        );
+        showToast.loading("Using smart wallet with gas sponsorship...", {
+          id: loadingToast,
+        });
+
+        // Get provider and contracts
+        const provider = await getProvider();
+        const routerContract = await getRouterContract(provider);
+        const routerAddress = await routerContract.getAddress();
+
+        // Check and approve the token if needed
+        const tokenAllowance = await getTokenAllowance(
+          params.token,
+          smartWalletAddress,
+          routerAddress,
+          provider
+        );
+
+        if (tokenAllowance < BigInt(params.amountTokenDesired)) {
+          showToast.loading("Approving token...", { id: loadingToast });
+
+          const tokenABI = [
+            "function approve(address spender, uint256 value) returns (bool)",
+          ];
+
+          const approvalResult = await callContractFunction(
+            params.token as `0x${string}`,
+            tokenABI,
+            "approve",
+            [routerAddress, params.amountTokenDesired],
+            "Approve token for liquidity"
+          );
+
+          if (!approvalResult.success) {
+            throw new Error(approvalResult.error || "Failed to approve token");
+          }
+
+          await provider.waitForTransaction(approvalResult.txHash as string);
+        }
+
+        // Add liquidity with ETH
+        showToast.loading("Adding liquidity with MON...", { id: loadingToast });
+
+        const routerABI = [
+          "function addLiquidityETH(address token, uint amountTokenDesired, uint amountTokenMin, uint amountETHMin, address to, uint deadline) external payable returns (uint amountToken, uint amountETH, uint liquidity)",
+        ];
+
+        const result = await callContractFunction(
+          routerAddress as `0x${string}`,
+          routerABI,
+          "addLiquidityETH",
+          [
+            params.token,
+            params.amountTokenDesired,
+            params.amountTokenMin,
+            params.amountETHMin,
+            smartWalletAddress, // Use smart wallet as recipient
+            params.deadline,
+          ],
+          "Add liquidity with MON",
+          { value: params.amountETHMin } // Send the native MON amount
+        );
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to add liquidity with MON");
+        }
+
+        // Wait for transaction confirmation
+        const receipt = await provider.waitForTransaction(
+          result.txHash as string
+        );
+
+        if (!receipt || receipt.status === 0) {
+          throw new Error("Transaction failed on-chain");
+        }
+
+        showToast.success("Liquidity added successfully!", {
+          id: loadingToast,
+        });
+        return {
+          success: true,
+          txHash: result.txHash,
+          liquidity: "Liquidity token amount",
+        };
+      } catch (error) {
+        console.error("Error in addLiquidityETH:", error);
+
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
+        const standardizedError = standardizeSmartWalletError(errorMessage);
+
+        setError(standardizedError);
+        showToast.error(standardizedError, { id: loadingToast });
+        return { success: false, error: standardizedError };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user, getProvider, smartWalletAddress, callContractFunction]
+  );
+
   // Remove liquidity
   const removeLiquidity = useCallback(
     async (
@@ -606,6 +764,7 @@ export function useStageSwap(): UseStageSwapResult {
     swapExactTokensForTokens,
     getAmountsOut,
     addLiquidity,
+    addLiquidityETH,
     removeLiquidity,
   };
 }

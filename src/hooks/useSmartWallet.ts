@@ -86,7 +86,8 @@ export function useSmartWallet() {
     abi: any,
     functionName: string,
     args: any[],
-    description: string = `Call ${functionName}`
+    description: string = `Call ${functionName}`,
+    options: { value?: string | bigint } = {}
   ) => {
     if (!client) {
       console.error("Smart wallet client not available");
@@ -115,13 +116,14 @@ export function useSmartWallet() {
       const txRequest = {
         to: contractAddress,
         data,
-        value: BigInt(0),
+        value: options.value ? BigInt(options.value) : BigInt(0),
       };
 
       console.log(`Calling ${functionName} with smart wallet:`, {
         to: contractAddress,
         functionName,
         args,
+        value: options.value ? BigInt(options.value).toString() : "0",
       });
 
       const txHash = await client.sendTransaction(txRequest, { uiOptions });

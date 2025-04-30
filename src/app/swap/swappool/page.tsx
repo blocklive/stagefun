@@ -2,10 +2,10 @@
 
 import React from "react";
 import Link from "next/link";
-import { SwapInterface } from "@/components/swap/SwapInterface";
+import { SwapPoolInterface } from "@/components/swap/SwapPoolInterface";
 import { usePathname } from "next/navigation";
 
-export default function SwapPage() {
+export default function SwapPoolPage() {
   const pathname = usePathname();
 
   return (
@@ -39,7 +39,7 @@ export default function SwapPage() {
           </Link>
         </div>
 
-        <SwapInterface />
+        <SwapPoolInterface />
       </div>
     </div>
   );
