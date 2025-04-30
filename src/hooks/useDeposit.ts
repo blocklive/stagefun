@@ -1,15 +1,10 @@
 import { useState, useCallback } from "react";
-import { usePrivy, useWallets, useSendTransaction } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
 import showToast from "@/utils/toast";
-import {
-  DepositService,
-  DepositResult,
-} from "../lib/services/blockchain/deposit.service";
-import { StageDotFunPoolABI } from "../lib/contracts/StageDotFunPool";
+import { DepositService } from "../lib/services/blockchain/deposit.service";
 import { useSmartWallet } from "./useSmartWallet";
 import { useSmartWalletBalance } from "./useSmartWalletBalance";
-import { getUSDCContract } from "../lib/contracts/StageDotFunPool";
 import {
   ensureSmartWallet,
   standardizeSmartWalletError,

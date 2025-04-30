@@ -62,6 +62,7 @@ export default function AccessCodePage() {
           showGetTokensButton={false}
           showInfoButton={false}
           showLogo={false}
+          showProfileButton={false}
           backgroundColor="black"
           onInfoClick={handleInfoClick}
         />
