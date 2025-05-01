@@ -443,5 +443,159 @@ describe("Pool Management and Revenue Distribution", function () {
         isWithinOneWei(user2FinalBalance, user2InitialBalance + user2Share)
       ).to.be.true;
     });
+
+    it("should allow users to claim their revenue share individually using pull-based model", async function () {
+      // Verify pool is funded and can accept more commitments
+      const status = await pool.status();
+      expect(status).to.equal(4); // PoolStatus.FUNDED
+
+      // Add more deposits from user2
+      await usdc.connect(user2).approve(await pool.getAddress(), TIER_PRICE);
+      await pool.connect(user2).commitToTier(0, TIER_PRICE);
+
+      // Transition to EXECUTING state
+      await transitionToExecuting(pool, owner);
+
+      // Make sure fee parameters are zero
+      await pool.connect(owner).setFeeRecipient(ethers.ZeroAddress);
+      await pool.connect(owner).setFeeBps(0);
+
+      // Send revenue to pool
+      const revenueAmount = ethers.parseUnits("200", 6); // 200 USDC for this test
+      await usdc.connect(owner).approve(await pool.getAddress(), revenueAmount);
+      await pool.connect(owner).receiveRevenue(revenueAmount);
+
+      // Check pool state after revenue received
+      const revenueAccumulated = await pool.revenueAccumulated();
+      console.log("Revenue tracking:", {
+        sent: revenueAmount.toString(),
+        accumulated: revenueAccumulated.toString(),
+      });
+
+      // Get initial balances
+      const user1InitialBalance = await usdc.balanceOf(user1.address);
+      const user2InitialBalance = await usdc.balanceOf(user2.address);
+      const poolInitialBalance = await usdc.balanceOf(await pool.getAddress());
+      console.log("Initial balances:", {
+        user1: user1InitialBalance.toString(),
+        user2: user2InitialBalance.toString(),
+        pool: poolInitialBalance.toString(),
+      });
+
+      // Get LP balances
+      const lpToken = await ethers.getContractAt(
+        "StageDotFunLiquidity",
+        await pool.lpToken()
+      );
+      const totalSupply = await lpToken.totalSupply();
+      const user1LpBalance = await lpToken.balanceOf(user1.address);
+      const user2LpBalance = await lpToken.balanceOf(user2.address);
+      console.log("LP token distribution:", {
+        totalSupply: totalSupply.toString(),
+        user1: user1LpBalance.toString(),
+        user2: user2LpBalance.toString(),
+        user1Percentage:
+          ((Number(user1LpBalance) * 100) / Number(totalSupply)).toFixed(2) +
+          "%",
+        user2Percentage:
+          ((Number(user2LpBalance) * 100) / Number(totalSupply)).toFixed(2) +
+          "%",
+      });
+
+      // Calculate expected rewards
+      const user1ExpectedReward =
+        (revenueAmount * user1LpBalance) / totalSupply;
+      const user2ExpectedReward =
+        (revenueAmount * user2LpBalance) / totalSupply;
+      console.log("Expected rewards:", {
+        user1: user1ExpectedReward.toString(),
+        user2: user2ExpectedReward.toString(),
+        total: (user1ExpectedReward + user2ExpectedReward).toString(),
+        originalAmount: revenueAmount.toString(),
+        difference: (
+          revenueAmount -
+          (user1ExpectedReward + user2ExpectedReward)
+        ).toString(),
+      });
+
+      // Check pending rewards match expected rewards
+      const user1PendingReward = await pool.pendingRewards(user1.address);
+      const user2PendingReward = await pool.pendingRewards(user2.address);
+      console.log("Actual pending rewards:", {
+        user1: user1PendingReward.toString(),
+        user2: user2PendingReward.toString(),
+        total: (user1PendingReward + user2PendingReward).toString(),
+        difference: (
+          revenueAmount -
+          (user1PendingReward + user2PendingReward)
+        ).toString(),
+      });
+
+      // Allow for tiny precision loss (1 wei per million)
+      const isWithinPrecisionMargin = (actual, expected) => {
+        const diff = actual > expected ? actual - expected : expected - actual;
+        return diff <= expected / 1000000n + 1n;
+      };
+
+      expect(isWithinPrecisionMargin(user1PendingReward, user1ExpectedReward))
+        .to.be.true;
+      expect(isWithinPrecisionMargin(user2PendingReward, user2ExpectedReward))
+        .to.be.true;
+
+      // User1 claims their rewards
+      await expect(pool.connect(user1).claimDistribution())
+        .to.emit(pool, "Claimed")
+        .withArgs(user1.address, user1PendingReward);
+
+      // User2 claims their rewards
+      await expect(pool.connect(user2).claimDistribution())
+        .to.emit(pool, "Claimed")
+        .withArgs(user2.address, user2PendingReward);
+
+      // Verify balances increased by the claimed amounts
+      const user1FinalBalance = await usdc.balanceOf(user1.address);
+      const user2FinalBalance = await usdc.balanceOf(user2.address);
+      console.log("User1 final balance:", user1FinalBalance.toString());
+      console.log("User2 final balance:", user2FinalBalance.toString());
+
+      // Allow for 1 wei difference due to rounding in integer math
+      const isWithinOneWei = (a, b) => {
+        const diff = a > b ? a - b : b - a;
+        return diff <= 1n;
+      };
+
+      expect(
+        isWithinOneWei(
+          user1FinalBalance,
+          user1InitialBalance + user1PendingReward
+        )
+      ).to.be.true;
+      expect(
+        isWithinOneWei(
+          user2FinalBalance,
+          user2InitialBalance + user2PendingReward
+        )
+      ).to.be.true;
+
+      // Verify pending rewards are now zero
+      expect(await pool.pendingRewards(user1.address)).to.equal(0);
+      expect(await pool.pendingRewards(user2.address)).to.equal(0);
+
+      // Check the final state of the pool
+      const poolFinalBalance = await usdc.balanceOf(await pool.getAddress());
+      const revenueAccumulatedFinal = await pool.revenueAccumulated();
+
+      console.log("Final state:", {
+        poolInitialBalance: poolInitialBalance.toString(),
+        poolFinalBalance: poolFinalBalance.toString(),
+        difference: (poolInitialBalance - poolFinalBalance).toString(),
+        revenueAccumulated: revenueAccumulatedFinal.toString(),
+        totalClaimed: (user1PendingReward + user2PendingReward).toString(),
+        dust: (
+          revenueAmount -
+          (user1PendingReward + user2PendingReward)
+        ).toString(),
+      });
+    });
   });
 });
