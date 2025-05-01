@@ -58,7 +58,8 @@ contract StageDotFunPoolFactory is Ownable {
         uint256 capAmount,
         IStageDotFunPool.TierInitData[] memory tiers,
         address feeRecipient,
-        uint16 feeBps
+        uint16 fundingFeeBps,
+        uint16 revenueFeeBps
     ) external returns (address) {
         require(bytes(name).length > 0, "Name cannot be empty");
         require(bytes(uniqueId).length > 0, "Unique ID cannot be empty");
@@ -67,7 +68,8 @@ contract StageDotFunPoolFactory is Ownable {
         require(creator != address(0), "Invalid creator");
         require(targetAmount > 0, "Target amount must be greater than 0");
         require(capAmount == 0 || capAmount >= targetAmount, "Cap amount must be >= target amount");
-        require(feeBps <= 1000, "Fee basis points cannot exceed 10%");
+        require(fundingFeeBps <= 1000, "Funding fee cannot exceed 10%");
+        require(revenueFeeBps <= 1000, "Revenue fee cannot exceed 10%");
         
         // Create pool using minimal proxy
         address pool = Clones.clone(poolImplementation);
@@ -87,7 +89,8 @@ contract StageDotFunPoolFactory is Ownable {
             nftImplementation,
             tiers,
             feeRecipient,
-            feeBps
+            fundingFeeBps,
+            revenueFeeBps
         );
         
         deployedPools.push(pool);

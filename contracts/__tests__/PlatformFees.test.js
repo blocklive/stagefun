@@ -20,7 +20,8 @@ describe("Platform Fee Functionality", function () {
   const CAP_AMOUNT = ethers.parseUnits("2000", 6); // 2000 USDC
   const TIER_PRICE = ethers.parseUnits("100", 6); // 100 USDC
   const REVENUE_AMOUNT = ethers.parseUnits("500", 6); // 500 USDC
-  const FEE_BPS = 250; // 2.5% fee
+  const FUNDING_FEE_BPS = 300; // 3% funding fee
+  const REVENUE_FEE_BPS = 50; // 0.5% revenue fee
 
   beforeEach(async function () {
     // Get signers
@@ -88,7 +89,8 @@ describe("Platform Fee Functionality", function () {
       CAP_AMOUNT,
       tiers,
       feeRecipient.address,
-      FEE_BPS
+      FUNDING_FEE_BPS,
+      REVENUE_FEE_BPS
     );
     const receipt = await tx.wait();
     const event = receipt.logs.find(
@@ -103,10 +105,12 @@ describe("Platform Fee Functionality", function () {
   describe("Fee Configuration", function () {
     it("should initialize with correct fee parameters", async function () {
       const actualFeeRecipient = await pool.feeRecipient();
-      const actualFeeBps = await pool.feeBps();
+      const actualFundingFeeBps = await pool.fundingFeeBps();
+      const actualRevenueFeeBps = await pool.revenueFeeBps();
 
       expect(actualFeeRecipient).to.equal(feeRecipient.address);
-      expect(actualFeeBps).to.equal(FEE_BPS);
+      expect(actualFundingFeeBps).to.equal(FUNDING_FEE_BPS);
+      expect(actualRevenueFeeBps).to.equal(REVENUE_FEE_BPS);
     });
 
     it("should allow owner to update fee recipient", async function () {
@@ -115,15 +119,20 @@ describe("Platform Fee Functionality", function () {
     });
 
     it("should allow owner to update fee basis points", async function () {
-      const newFeeBps = 500; // 5%
-      await pool.connect(owner).setFeeBps(newFeeBps);
-      expect(await pool.feeBps()).to.equal(newFeeBps);
+      const newFundingFeeBps = 500; // 5%
+      await pool.connect(owner).setFundingFeeBps(newFundingFeeBps);
+      expect(await pool.fundingFeeBps()).to.equal(newFundingFeeBps);
+
+      const newRevenueFeeBps = 100; // 1%
+      await pool.connect(owner).setRevenueFeeBps(newRevenueFeeBps);
+      expect(await pool.revenueFeeBps()).to.equal(newRevenueFeeBps);
     });
 
     it("should not allow non-owner to update fee settings", async function () {
       await expect(pool.connect(user1).setFeeRecipient(user2.address)).to.be
         .reverted;
-      await expect(pool.connect(user1).setFeeBps(300)).to.be.reverted;
+      await expect(pool.connect(user1).setFundingFeeBps(300)).to.be.reverted;
+      await expect(pool.connect(user1).setRevenueFeeBps(100)).to.be.reverted;
     });
   });
 
@@ -151,7 +160,7 @@ describe("Platform Fee Functionality", function () {
       await pool.connect(owner).beginExecution();
 
       // Check fee was collected
-      const expectedFee = (TARGET_AMOUNT * BigInt(FEE_BPS)) / 10000n;
+      const expectedFee = (TARGET_AMOUNT * BigInt(FUNDING_FEE_BPS)) / 10000n;
       const finalFeeRecipientBalance = await usdc.balanceOf(
         feeRecipient.address
       );
@@ -181,7 +190,7 @@ describe("Platform Fee Functionality", function () {
       expect(status).to.equal(7); // PoolStatus.EXECUTING
 
       // Check fee was collected
-      const expectedFee = (CAP_AMOUNT * BigInt(FEE_BPS)) / 10000n;
+      const expectedFee = (CAP_AMOUNT * BigInt(FUNDING_FEE_BPS)) / 10000n;
       const finalFeeRecipientBalance = await usdc.balanceOf(
         feeRecipient.address
       );
@@ -221,7 +230,8 @@ describe("Platform Fee Functionality", function () {
       await pool.connect(owner).receiveRevenue(REVENUE_AMOUNT);
 
       // Check revenue fee was collected
-      const expectedRevenueFee = (REVENUE_AMOUNT * BigInt(FEE_BPS)) / 10000n;
+      const expectedRevenueFee =
+        (REVENUE_AMOUNT * BigInt(REVENUE_FEE_BPS)) / 10000n;
       const finalFeeRecipientBalance = await usdc.balanceOf(
         feeRecipient.address
       );
@@ -253,7 +263,7 @@ describe("Platform Fee Functionality", function () {
       // Move to executing state
       await pool.connect(owner).beginExecution();
 
-      // Set fee recipient to zero address
+      // Set fee recipient to zero address (keeps the fee rates the same)
       await pool.connect(owner).setFeeRecipient(ethers.ZeroAddress);
 
       // Deposit revenue
@@ -265,6 +275,81 @@ describe("Platform Fee Functionality", function () {
       // Check revenue is fully recorded with no fee deduction
       const revenueAccumulated = await pool.revenueAccumulated();
       expect(revenueAccumulated).to.equal(REVENUE_AMOUNT);
+    });
+  });
+
+  describe("Tiered Fee Structure", function () {
+    it("should use different fee rates for funding vs revenue", async function () {
+      // Check the initial fees
+      const initialFundingFeeBps = await pool.fundingFeeBps();
+      const initialRevenueFeeBps = await pool.revenueFeeBps();
+
+      console.log("Initial fees:", {
+        fundingFee: `${Number(initialFundingFeeBps) / 100}%`,
+        revenueFee: `${Number(initialRevenueFeeBps) / 100}%`,
+      });
+
+      // Get initial balances
+      const initialFeeRecipientBalance = await usdc.balanceOf(
+        feeRecipient.address
+      );
+
+      // Fund the pool to reach target
+      const commitsNeeded = Math.ceil(
+        Number(TARGET_AMOUNT) / Number(TIER_PRICE)
+      );
+      for (let i = 0; i < commitsNeeded; i++) {
+        await usdc.connect(user1).approve(await pool.getAddress(), TIER_PRICE);
+        await pool.connect(user1).commitToTier(0, TIER_PRICE);
+      }
+
+      // Begin execution to trigger success fee collection using the funding fee rate
+      await pool.connect(owner).beginExecution();
+
+      // Check success fee was collected at the funding rate
+      const expectedSuccessFee =
+        (TARGET_AMOUNT * BigInt(initialFundingFeeBps)) / 10000n;
+      let currentFeeRecipientBalance = await usdc.balanceOf(
+        feeRecipient.address
+      );
+
+      const successFeeCollected =
+        currentFeeRecipientBalance - initialFeeRecipientBalance;
+      expect(successFeeCollected).to.equal(expectedSuccessFee);
+
+      // Deposit revenue - which will use the revenue fee rate
+      await usdc
+        .connect(owner)
+        .approve(await pool.getAddress(), REVENUE_AMOUNT);
+      await pool.connect(owner).receiveRevenue(REVENUE_AMOUNT);
+
+      // Check revenue fee was collected at the revenue rate
+      const expectedRevenueFee =
+        (REVENUE_AMOUNT * BigInt(initialRevenueFeeBps)) / 10000n;
+      const finalFeeRecipientBalance = await usdc.balanceOf(
+        feeRecipient.address
+      );
+
+      const revenueFeeCollected =
+        finalFeeRecipientBalance - currentFeeRecipientBalance;
+      expect(revenueFeeCollected).to.equal(expectedRevenueFee);
+
+      console.log("Fee comparison:");
+      console.log(
+        `- Success fee: ${Number(successFeeCollected) / 1e6} USDC (${
+          Number(initialFundingFeeBps) / 100
+        }%)`
+      );
+      console.log(
+        `- Revenue fee: ${Number(revenueFeeCollected) / 1e6} USDC (${
+          Number(initialRevenueFeeBps) / 100
+        }%)`
+      );
+      console.log(
+        `- Total platform fees: ${
+          Number(successFeeCollected + revenueFeeCollected) / 1e6
+        } USDC`
+      );
     });
   });
 });

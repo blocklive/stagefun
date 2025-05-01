@@ -31,7 +31,8 @@ contract StageDotFunPool is Ownable {
     
     // Fee related state
     address public feeRecipient;
-    uint16 public feeBps;              // basis points (e.g. 250 = 2.5%)
+    uint16 public fundingFeeBps;     // basis points for funding success fee (e.g. 250 = 2.5%)
+    uint16 public revenueFeeBps;     // basis points for revenue fee (e.g. 50 = 0.5%)
     uint256 public platformFeeAccrued; // running tally of fees collected
     
     // Timestamp tracking for milestones
@@ -113,7 +114,8 @@ contract StageDotFunPool is Ownable {
     event Claimed(address indexed user, uint256 amount);
     event PlatformFeePaid(uint256 amount, string feeType);
     event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
-    event FeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
+    event FundingFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
+    event RevenueFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     
     // Get user's tier commitments
     function getUserTierCommitments(address user) external view returns (uint256[] memory) {
@@ -145,7 +147,8 @@ contract StageDotFunPool is Ownable {
         address _nftImplementation,
         IStageDotFunPool.TierInitData[] memory _tiers,
         address _feeRecipient,
-        uint16 _feeBps
+        uint16 _fundingFeeBps,
+        uint16 _revenueFeeBps
     ) external initializer {
         name = _name;
         uniqueId = _uniqueId;
@@ -159,9 +162,9 @@ contract StageDotFunPool is Ownable {
         capReachedTime = 0;
         
         // Initialize fee-related state
-        require(_feeBps <= 1_000, "max 10%"); // Sanity check: max 10% fee
         feeRecipient = _feeRecipient;
-        feeBps = _feeBps;
+        fundingFeeBps = _fundingFeeBps;
+        revenueFeeBps = _revenueFeeBps;
         platformFeeAccrued = 0;
         
         string memory tokenName = string(abi.encodePacked(_name));
@@ -394,8 +397,8 @@ contract StageDotFunPool is Ownable {
         uint256 fee = 0;
         uint256 netAmount = amount;
         
-        if (feeRecipient != address(0) && feeBps > 0) {
-            fee = (amount * feeBps) / 10_000;
+        if (feeRecipient != address(0) && revenueFeeBps > 0) {
+            fee = (amount * revenueFeeBps) / 10_000;
             if (fee > 0) {
                 require(depositToken.transfer(feeRecipient, fee), "Fee transfer failed");
                 platformFeeAccrued += fee;
@@ -621,11 +624,11 @@ contract StageDotFunPool is Ownable {
 
     // Internal function to collect platform success fee
     function _collectPlatformSuccessFee() internal returns (bool) {
-        if (feeRecipient == address(0) || feeBps == 0) {
+        if (feeRecipient == address(0) || fundingFeeBps == 0) {
             return false; // No fee to collect
         }
         
-        uint256 fee = (totalDeposits * feeBps) / 10_000;
+        uint256 fee = (totalDeposits * fundingFeeBps) / 10_000;
         if (fee == 0) {
             return false; // Fee too small
         }
@@ -760,10 +763,16 @@ contract StageDotFunPool is Ownable {
         emit FeeRecipientUpdated(oldRecipient, _feeRecipient);
     }
     
-    function setFeeBps(uint16 _feeBps) external onlyOwner {
-        uint16 oldFeeBps = feeBps;
-        feeBps = _feeBps;
-        emit FeeBpsUpdated(oldFeeBps, _feeBps);
+    function setFundingFeeBps(uint16 _fundingFeeBps) external onlyOwner {
+        uint16 oldFundingFeeBps = fundingFeeBps;
+        fundingFeeBps = _fundingFeeBps;
+        emit FundingFeeBpsUpdated(oldFundingFeeBps, _fundingFeeBps);
+    }
+    
+    function setRevenueFeeBps(uint16 _revenueFeeBps) external onlyOwner {
+        uint16 oldRevenueFeeBps = revenueFeeBps;
+        revenueFeeBps = _revenueFeeBps;
+        emit RevenueFeeBpsUpdated(oldRevenueFeeBps, _revenueFeeBps);
     }
 
     // Remove the constructor since we're using initialize

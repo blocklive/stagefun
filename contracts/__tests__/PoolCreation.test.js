@@ -101,7 +101,8 @@ describe("Pool Creation and Tier Commitment", function () {
       CAP_AMOUNT,
       tiers,
       ethers.ZeroAddress, // feeRecipient
-      0 // feeBps
+      0, // fundingFeeBps
+      0 // revenueFeeBps
     );
     const receipt = await tx.wait();
     const event = receipt.logs.find(
@@ -174,7 +175,8 @@ describe("Pool Creation and Tier Commitment", function () {
       CAP_AMOUNT,
       tiers,
       ethers.ZeroAddress, // feeRecipient
-      0 // feeBps
+      0, // fundingFeeBps
+      0 // revenueFeeBps
     );
     const receipt = await tx.wait();
     const event = receipt.logs.find(
@@ -220,7 +222,8 @@ describe("Pool Creation and Tier Commitment", function () {
       CAP_AMOUNT,
       tiers,
       ethers.ZeroAddress, // feeRecipient
-      0 // feeBps
+      0, // fundingFeeBps
+      0 // revenueFeeBps
     );
     const receipt = await tx.wait();
     const event = receipt.logs.find(
@@ -269,7 +272,8 @@ describe("Pool Creation and Tier Commitment", function () {
       CAP_AMOUNT,
       tiers,
       ethers.ZeroAddress, // feeRecipient
-      0 // feeBps
+      0, // fundingFeeBps
+      0 // revenueFeeBps
     );
     const receipt = await tx.wait();
     const event = receipt.logs.find(
@@ -312,7 +316,8 @@ describe("Pool Creation and Tier Commitment", function () {
       CAP_AMOUNT,
       tiers,
       ethers.ZeroAddress, // feeRecipient
-      0 // feeBps
+      0, // fundingFeeBps
+      0 // revenueFeeBps
     );
     const receipt = await tx.wait();
     const event = receipt.logs.find(
@@ -361,7 +366,8 @@ describe("Pool Creation and Tier Commitment", function () {
       CAP_AMOUNT,
       tiers,
       ethers.ZeroAddress, // feeRecipient
-      0 // feeBps
+      0, // fundingFeeBps
+      0 // revenueFeeBps
     );
     const receipt = await tx.wait();
 

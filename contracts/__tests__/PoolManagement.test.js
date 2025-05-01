@@ -86,7 +86,8 @@ describe("Pool Management and Revenue Distribution", function () {
       CAP_AMOUNT,
       tiers,
       ethers.ZeroAddress, // feeRecipient
-      0 // feeBps
+      0, // fundingFeeBps
+      0 // revenueFeeBps
     );
     const receipt = await tx.wait();
     const event = receipt.logs.find(
@@ -153,7 +154,8 @@ describe("Pool Management and Revenue Distribution", function () {
         CAP_AMOUNT,
         tiers,
         ethers.ZeroAddress, // feeRecipient
-        0 // feeBps
+        0, // fundingFeeBps
+        0 // revenueFeeBps
       );
       const receipt = await tx.wait();
       const event = receipt.logs.find(
@@ -286,7 +288,8 @@ describe("Pool Management and Revenue Distribution", function () {
         CAP_AMOUNT,
         tiers,
         ethers.ZeroAddress, // feeRecipient
-        0 // feeBps
+        0, // fundingFeeBps
+        0 // revenueFeeBps
       );
       const receipt = await tx.wait();
       const event = receipt.logs.find(
@@ -351,16 +354,23 @@ describe("Pool Management and Revenue Distribution", function () {
 
       // Check that fee parameters are set correctly
       const feeRecipient = await pool.feeRecipient();
-      const feeBps = await pool.feeBps();
+      const fundingFeeBps = await pool.fundingFeeBps();
+      const revenueFeeBps = await pool.revenueFeeBps();
       console.log("Fee parameters on pool:", {
         feeRecipient,
-        feeBps: feeBps.toString(),
+        fundingFeeBps: fundingFeeBps.toString(),
+        revenueFeeBps: revenueFeeBps.toString(),
       });
 
       // Explicitly set fee parameters to zero
-      if (feeRecipient !== ethers.ZeroAddress || feeBps !== 0n) {
+      if (
+        feeRecipient !== ethers.ZeroAddress ||
+        fundingFeeBps !== 0n ||
+        revenueFeeBps !== 0n
+      ) {
         await pool.connect(owner).setFeeRecipient(ethers.ZeroAddress);
-        await pool.connect(owner).setFeeBps(0);
+        await pool.connect(owner).setFundingFeeBps(0);
+        await pool.connect(owner).setRevenueFeeBps(0);
         console.log("Reset fee parameters to zero");
       }
 
@@ -458,7 +468,8 @@ describe("Pool Management and Revenue Distribution", function () {
 
       // Make sure fee parameters are zero
       await pool.connect(owner).setFeeRecipient(ethers.ZeroAddress);
-      await pool.connect(owner).setFeeBps(0);
+      await pool.connect(owner).setFundingFeeBps(0);
+      await pool.connect(owner).setRevenueFeeBps(0);
 
       // Send revenue to pool
       const revenueAmount = ethers.parseUnits("200", 6); // 200 USDC for this test
