@@ -12,7 +12,7 @@ contract StageDotFunPool is Ownable {
     // Constants
     uint256 public constant MAX_TIERS = 20;
     uint256 public constant LP_TOKEN_MULTIPLIER = 1000; // 1000x multiplier for LP tokens
-    uint256 private constant PRECISION = 1e6; // Match LP token decimals (6 decimals)
+    uint256 private constant PRECISION = 1e18;
 
     // State variables
     IERC20 public depositToken;
@@ -112,6 +112,8 @@ contract StageDotFunPool is Ownable {
     event RevenueWithdrawnEmergency(address indexed sender, uint256 amount);
     event Claimed(address indexed user, uint256 amount);
     event PlatformFeePaid(uint256 amount, string feeType);
+    event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
+    event FeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     
     // Get user's tier commitments
     function getUserTierCommitments(address user) external view returns (uint256[] memory) {
@@ -750,6 +752,18 @@ contract StageDotFunPool is Ownable {
         
         status = PoolStatus.COMPLETED;
         emit PoolStatusUpdated(PoolStatus.COMPLETED);
+    }
+
+    function setFeeRecipient(address _feeRecipient) external onlyOwner {
+        address oldRecipient = feeRecipient;
+        feeRecipient = _feeRecipient;
+        emit FeeRecipientUpdated(oldRecipient, _feeRecipient);
+    }
+    
+    function setFeeBps(uint16 _feeBps) external onlyOwner {
+        uint16 oldFeeBps = feeBps;
+        feeBps = _feeBps;
+        emit FeeBpsUpdated(oldFeeBps, _feeBps);
     }
 
     // Remove the constructor since we're using initialize
