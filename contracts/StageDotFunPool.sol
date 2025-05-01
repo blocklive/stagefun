@@ -29,6 +29,11 @@ contract StageDotFunPool is Ownable {
     uint256 public targetAmount;
     uint256 public capAmount;
     
+    // Fee related state
+    address public feeRecipient;
+    uint16 public feeBps;              // basis points (e.g. 250 = 2.5%)
+    uint256 public platformFeeAccrued; // running tally of fees collected
+    
     // Timestamp tracking for milestones
     uint256 public targetReachedTime;
     uint256 public capReachedTime;
@@ -106,6 +111,7 @@ contract StageDotFunPool is Ownable {
     event FundsWithdrawn(address indexed recipient, uint256 amount);
     event RevenueWithdrawnEmergency(address indexed sender, uint256 amount);
     event Claimed(address indexed user, uint256 amount);
+    event PlatformFeePaid(uint256 amount, string feeType);
     
     // Get user's tier commitments
     function getUserTierCommitments(address user) external view returns (uint256[] memory) {
@@ -135,7 +141,9 @@ contract StageDotFunPool is Ownable {
         uint256 _capAmount,
         address _lpTokenImplementation,
         address _nftImplementation,
-        IStageDotFunPool.TierInitData[] memory _tiers
+        IStageDotFunPool.TierInitData[] memory _tiers,
+        address _feeRecipient,
+        uint16 _feeBps
     ) external initializer {
         name = _name;
         uniqueId = _uniqueId;
@@ -147,6 +155,12 @@ contract StageDotFunPool is Ownable {
         capAmount = _capAmount;
         targetReachedTime = 0;
         capReachedTime = 0;
+        
+        // Initialize fee-related state
+        require(_feeBps <= 1_000, "max 10%"); // Sanity check: max 10% fee
+        feeRecipient = _feeRecipient;
+        feeBps = _feeBps;
+        platformFeeAccrued = 0;
         
         string memory tokenName = string(abi.encodePacked(_name));
         lpToken = StageDotFunLiquidity(Clones.clone(_lpTokenImplementation));
@@ -374,14 +388,28 @@ contract StageDotFunPool is Ownable {
         require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
         require(depositToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         
-        // 1. pull revenue tokens in
-        revenueAccumulated += amount;
-        emit RevenueReceived(amount);
+        // Take platform fee on revenue if applicable
+        uint256 fee = 0;
+        uint256 netAmount = amount;
         
-        // 2. update global index
+        if (feeRecipient != address(0) && feeBps > 0) {
+            fee = (amount * feeBps) / 10_000;
+            if (fee > 0) {
+                require(depositToken.transfer(feeRecipient, fee), "Fee transfer failed");
+                platformFeeAccrued += fee;
+                netAmount = amount - fee;
+                emit PlatformFeePaid(fee, "revenue");
+            }
+        }
+        
+        // Add net amount to revenue accumulated
+        revenueAccumulated += netAmount;
+        emit RevenueReceived(netAmount);
+        
+        // Update global reward index
         uint256 supply = lpToken.totalSupply();
         if (supply > 0) {
-            accRewardPerLp += (amount * PRECISION) / supply;
+            accRewardPerLp += (netAmount * PRECISION) / supply;
         }
     }
 
@@ -589,6 +617,28 @@ contract StageDotFunPool is Ownable {
         );
     }
 
+    // Internal function to collect platform success fee
+    function _collectPlatformSuccessFee() internal returns (bool) {
+        if (feeRecipient == address(0) || feeBps == 0) {
+            return false; // No fee to collect
+        }
+        
+        uint256 fee = (totalDeposits * feeBps) / 10_000;
+        if (fee == 0) {
+            return false; // Fee too small
+        }
+        
+        // Transfer the fee to the fee recipient
+        require(depositToken.transfer(feeRecipient, fee), "Fee transfer failed");
+        
+        // Update state
+        platformFeeAccrued += fee;
+        // Reduce totalDeposits so LP math & refunds stay 1:1
+        totalDeposits -= fee;
+        emit PlatformFeePaid(fee, "success");
+        return true;
+    }
+    
     function _checkPoolStatus() internal {
         // Check if target has been reached
         if (targetReachedTime == 0 && totalDeposits >= targetAmount) {
@@ -610,13 +660,17 @@ contract StageDotFunPool is Ownable {
                 targetReachedTime = block.timestamp;
             }
             capReachedTime = block.timestamp;
+            
+            // Take one-time platform fee on success
+            _collectPlatformSuccessFee();
+            
             // Automatically transition to EXECUTING state when cap is hit
             status = PoolStatus.EXECUTING;
             emit CapReached(totalDeposits);
             emit PoolStatusUpdated(PoolStatus.EXECUTING);
         }
     }
-
+    
     // Add external function to check pool status
     function checkPoolStatus() external {
         _checkPoolStatus();
@@ -637,7 +691,7 @@ contract StageDotFunPool is Ownable {
         
         // Burn LP tokens
         lpToken.burn(msg.sender, lpBalance);
-
+        
         // Clear any residual debt (now balance == 0)
         rewardDebt[msg.sender] = 0;
         
@@ -674,10 +728,14 @@ contract StageDotFunPool is Ownable {
         
         emit FundsWithdrawn(owner(), withdrawAmount);
     }
-    
+
     // Begin execution phase to allow fund withdrawal and stop new commitments
     function beginExecution() external onlyOwner targetMet {
         require(status == PoolStatus.FUNDED, "Pool must be funded");
+        
+        // Take one-time platform fee on success if applicable
+        _collectPlatformSuccessFee();
+        
         status = PoolStatus.EXECUTING;
         emit PoolStatusUpdated(PoolStatus.EXECUTING);
     }
