@@ -13,7 +13,7 @@ contract StageDotFunPool is Ownable {
     uint256 public constant MAX_TIERS = 20;
     uint256 public constant LP_TOKEN_MULTIPLIER = 1000; // 1000x multiplier for LP tokens
     uint256 private constant PRECISION = 1e6; // Match LP token decimals (6 decimals)
-    
+
     // State variables
     IERC20 public depositToken;
     StageDotFunLiquidity public lpToken;
@@ -39,6 +39,7 @@ contract StageDotFunPool is Ownable {
     uint256 public totalDistributed;
     uint256 public lastDistributionTime;
     
+    // Reward state
     uint256 public accRewardPerLp;              // global accumulator
     mapping(address => uint256) public rewardDebt; // per-account paid index
     
@@ -409,7 +410,7 @@ contract StageDotFunPool is Ownable {
         return gross - rewardDebt[user];
     }
     
-    function claim() external {
+    function claimDistribution() external {
         uint256 pending = pendingRewards(msg.sender);
         require(pending > 0, "Nothing to claim");
         rewardDebt[msg.sender] += pending;
@@ -424,6 +425,7 @@ contract StageDotFunPool is Ownable {
     }
 
     // Keeping distributeRevenue for backwards compatibility
+    // DEPRECATED 5/1/25 - replaced with pull model - remove after pools close
     function distributeRevenue() external {
         require(revenueAccumulated > 0, "No revenue to distribute");
         require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
@@ -439,7 +441,7 @@ contract StageDotFunPool is Ownable {
         // The revenue has already been captured in accRewardPerLp during receiveRevenue calls
         // Here we just need to force-claim for all LP token holders
         address[] memory holders = lpToken.getHolders();
-        uint256 totalDistributed = 0;
+        uint256 amountDistributed = 0;
         
         for (uint256 i = 0; i < holders.length; i++) {
             address holder = holders[i];
@@ -449,22 +451,26 @@ contract StageDotFunPool is Ownable {
                 rewardDebt[holder] += pendingAmount;
                 bool success = depositToken.transfer(holder, pendingAmount);
                 if (success) {
-                    totalDistributed += pendingAmount;
+                    amountDistributed += pendingAmount;
                     emit Claimed(holder, pendingAmount);
                 }
             }
         }
         
         // Reduce revenueAccumulated by the actually distributed amount
-        if (totalDistributed > 0) {
+        if (amountDistributed > 0) {
             // Cap at revenueAccumulated to avoid underflow
-            if (totalDistributed > revenueAccumulated) {
+            if (amountDistributed > revenueAccumulated) {
                 revenueAccumulated = 0;
             } else {
-                revenueAccumulated -= totalDistributed;
+                revenueAccumulated -= amountDistributed;
             }
             
-            emit RevenueDistributed(totalDistributed);
+            // Update the state variable tracking total distributions
+            totalDistributed += amountDistributed;
+            lastDistributionTime = block.timestamp;
+            
+            emit RevenueDistributed(amountDistributed);
         }
     }
     
@@ -631,14 +637,17 @@ contract StageDotFunPool is Ownable {
         
         // Burn LP tokens
         lpToken.burn(msg.sender, lpBalance);
+
+        // Clear any residual debt (now balance == 0)
+        rewardDebt[msg.sender] = 0;
         
-        // Calculate the original USDC amount by dividing by the multiplier
-        uint256 usdcAmount = lpBalance / LP_TOKEN_MULTIPLIER;
+        // Calculate the original deposit amount by dividing by the multiplier
+        uint256 depositAmount = lpBalance / LP_TOKEN_MULTIPLIER;
         
         // Return USDC
-        require(depositToken.transfer(msg.sender, usdcAmount), "Refund transfer failed");
+        require(depositToken.transfer(msg.sender, depositAmount), "Refund transfer failed");
         
-        emit FundsReturned(msg.sender, usdcAmount);
+        emit FundsReturned(msg.sender, depositAmount);
     }
 
     // Withdraw funds after target is met - allow only in EXECUTING state
