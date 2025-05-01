@@ -12,6 +12,7 @@ contract StageDotFunPool is Ownable {
     // Constants
     uint256 public constant MAX_TIERS = 20;
     uint256 public constant LP_TOKEN_MULTIPLIER = 1000; // 1000x multiplier for LP tokens
+    uint256 private constant PRECISION = 1e6; // Match LP token decimals (6 decimals)
     
     // State variables
     IERC20 public depositToken;
@@ -38,9 +39,8 @@ contract StageDotFunPool is Ownable {
     uint256 public totalDistributed;
     uint256 public lastDistributionTime;
     
-    // Revenue distribution tracking
-    mapping(address => uint256) public lastRevenueClaim;
-    mapping(address => uint256) public unclaimedRevenue;
+    uint256 public accRewardPerLp;              // global accumulator
+    mapping(address => uint256) public rewardDebt; // per-account paid index
     
     enum PoolStatus {
         INACTIVE,
@@ -104,6 +104,7 @@ contract StageDotFunPool is Ownable {
     event PoolNameUpdated(string oldName, string newName);
     event FundsWithdrawn(address indexed recipient, uint256 amount);
     event RevenueWithdrawnEmergency(address indexed sender, uint256 amount);
+    event Claimed(address indexed user, uint256 amount);
     
     // Get user's tier commitments
     function getUserTierCommitments(address user) external view returns (uint256[] memory) {
@@ -372,8 +373,15 @@ contract StageDotFunPool is Ownable {
         require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
         require(depositToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         
+        // 1. pull revenue tokens in
         revenueAccumulated += amount;
         emit RevenueReceived(amount);
+        
+        // 2. update global index
+        uint256 supply = lpToken.totalSupply();
+        if (supply > 0) {
+            accRewardPerLp += (amount * PRECISION) / supply;
+        }
     }
 
     // Emergency withdrawal - withdraw entire contract balance
@@ -394,6 +402,28 @@ contract StageDotFunPool is Ownable {
         emit RevenueWithdrawnEmergency(msg.sender, fullBalance);
     }
 
+    /* -----  PULL MODEL  ----- */
+    
+    function pendingRewards(address user) public view returns (uint256) {
+        uint256 gross = (lpToken.balanceOf(user) * accRewardPerLp) / PRECISION;
+        return gross - rewardDebt[user];
+    }
+    
+    function claim() external {
+        uint256 pending = pendingRewards(msg.sender);
+        require(pending > 0, "Nothing to claim");
+        rewardDebt[msg.sender] += pending;
+        require(depositToken.transfer(msg.sender, pending), "Transfer failed");
+        emit Claimed(msg.sender, pending);
+    }
+    
+    /* called by LP-token on every transfer / mint / burn */
+    function _syncDebt(address user) external {
+        require(msg.sender == address(lpToken), "Only LP token");
+        rewardDebt[user] = (lpToken.balanceOf(user) * accRewardPerLp) / PRECISION;
+    }
+
+    // Keeping distributeRevenue for backwards compatibility
     function distributeRevenue() external {
         require(revenueAccumulated > 0, "No revenue to distribute");
         require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
@@ -406,29 +436,36 @@ contract StageDotFunPool is Ownable {
         uint256 availableForRevenue = contractBalance - (totalDeposits - initialFundsWithdrawn);
         require(availableForRevenue >= revenueAccumulated, "Insufficient balance for distribution");
         
-        uint256 revenue = revenueAccumulated;
-        revenueAccumulated = 0; // Reset before distribution to prevent reentrancy
-        
-        // Get all LP token holders
+        // The revenue has already been captured in accRewardPerLp during receiveRevenue calls
+        // Here we just need to force-claim for all LP token holders
         address[] memory holders = lpToken.getHolders();
+        uint256 totalDistributed = 0;
         
-        // Distribute revenue to all LP holders proportionally, accounting for the multiplier
         for (uint256 i = 0; i < holders.length; i++) {
             address holder = holders[i];
-            uint256 balance = lpToken.balanceOf(holder);
+            uint256 pendingAmount = pendingRewards(holder);
             
-            if (balance > 0) {
-                // Account for the multiplier when calculating share
-                uint256 share = (revenue * balance) / totalSupply;
-                // Apply reverse adjustment to convert from LP tokens to USDC
-                uint256 adjustedShare = share / LP_TOKEN_MULTIPLIER;
-                if (adjustedShare > 0) {
-                    require(depositToken.transfer(holder, adjustedShare), "Transfer failed");
+            if (pendingAmount > 0) {
+                rewardDebt[holder] += pendingAmount;
+                bool success = depositToken.transfer(holder, pendingAmount);
+                if (success) {
+                    totalDistributed += pendingAmount;
+                    emit Claimed(holder, pendingAmount);
                 }
             }
         }
         
-        emit RevenueDistributed(revenue);
+        // Reduce revenueAccumulated by the actually distributed amount
+        if (totalDistributed > 0) {
+            // Cap at revenueAccumulated to avoid underflow
+            if (totalDistributed > revenueAccumulated) {
+                revenueAccumulated = 0;
+            } else {
+                revenueAccumulated -= totalDistributed;
+            }
+            
+            emit RevenueDistributed(totalDistributed);
+        }
     }
     
     // View functions

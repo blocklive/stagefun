@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./StageDotFunPool.sol";
 
 contract StageDotFunLiquidity is ERC20, Ownable {
     // Add storage for name and symbol since we're initializing after construction
@@ -52,11 +53,13 @@ contract StageDotFunLiquidity is ERC20, Ownable {
     function mint(address to, uint256 amount) external onlyOwner {
         _mint(to, amount);
         _addHolder(to);
+        StageDotFunPool(owner())._syncDebt(to);
     }
 
     function burn(address from, uint256 amount) external onlyOwner {
         _burn(from, amount);
         _removeHolder(from, balanceOf(from));
+        StageDotFunPool(owner())._syncDebt(from);
     }
 
     function _update(address from, address to, uint256 value) internal virtual override {
@@ -64,9 +67,11 @@ contract StageDotFunLiquidity is ERC20, Ownable {
         
         if (from != address(0)) {
             _removeHolder(from, balanceOf(from));
+            StageDotFunPool(owner())._syncDebt(from);
         }
         if (to != address(0)) {
             _addHolder(to);
+            StageDotFunPool(owner())._syncDebt(to);
         }
     }
     
