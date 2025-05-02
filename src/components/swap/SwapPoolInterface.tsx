@@ -569,7 +569,6 @@ export function SwapPoolInterface() {
         });
 
         if (result.success) {
-          showToast.success("Liquidity added successfully!");
           // Reset input fields
           setAmountA("");
           setAmountB("");
@@ -607,7 +606,6 @@ export function SwapPoolInterface() {
         });
 
         if (result.success) {
-          showToast.success("Liquidity added successfully!");
           // Reset input fields
           setAmountA("");
           setAmountB("");
