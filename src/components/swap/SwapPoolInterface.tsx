@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { ArrowDownIcon } from "@heroicons/react/24/solid";
 import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
@@ -44,6 +44,13 @@ const TOKENS: Token[] = [
     logoURI: "/icons/usdc-logo.svg",
   },
   {
+    address: "NATIVE", // Special marker for native MON
+    symbol: "MON",
+    name: "Monad",
+    decimals: 18,
+    logoURI: "/icons/mon-logo.svg",
+  },
+  {
     address: OFFICIAL_WMON_ADDRESS,
     symbol: "WMON",
     name: "Wrapped MON",
@@ -60,12 +67,15 @@ export function SwapPoolInterface() {
   const [amountB, setAmountB] = useState("");
   const [slippageTolerance, setSlippageTolerance] = useState("0.5");
   const [isAddingLiquidity, setIsAddingLiquidity] = useState(false);
-  const [poolExists, setPoolExists] = useState<boolean | undefined>(undefined);
+  const [poolExists, setPoolExists] = useState<boolean>(false); // Explicitly set to false by default
   const [poolRatio, setPoolRatio] = useState<{
     reserveA: bigint;
     reserveB: bigint;
   } | null>(null);
   const [pairAddress, setPairAddress] = useState<string | null>(null);
+  // Add refs at top level
+  const prevTokenARef = useRef(tokenA.address);
+  const prevTokenBRef = useRef(tokenB.address);
 
   const {
     addLiquidity,
@@ -101,6 +111,7 @@ export function SwapPoolInterface() {
 
       // If zero address, no pool exists
       if (pairAddress === "0x0000000000000000000000000000000000000000") {
+        console.log("No pool exists - setting poolExists to false");
         setPoolExists(false);
         setPoolRatio(null);
         return;
@@ -182,33 +193,6 @@ export function SwapPoolInterface() {
               reserveBValue / reserveAValue
             } ${tokenB.symbol}`
           );
-
-          // Calculate exact amounts needed based on the current ratio to help users
-          if (amountA) {
-            const inputAmountA = parseFloat(amountA);
-            const neededAmountB =
-              inputAmountA * (reserveBValue / reserveAValue);
-            console.log(
-              `For ${inputAmountA} ${
-                tokenA.symbol
-              }, you need exactly ${neededAmountB.toFixed(6)} ${
-                tokenB.symbol
-              } to match pool ratio`
-            );
-          }
-
-          if (amountB) {
-            const inputAmountB = parseFloat(amountB);
-            const neededAmountA =
-              inputAmountB * (reserveAValue / reserveBValue);
-            console.log(
-              `For ${inputAmountB} ${
-                tokenB.symbol
-              }, you need exactly ${neededAmountA.toFixed(6)} ${
-                tokenA.symbol
-              } to match pool ratio`
-            );
-          }
         }
       }
     } catch (error) {
@@ -216,14 +200,37 @@ export function SwapPoolInterface() {
       setPoolExists(false);
       setPoolRatio(null);
     }
-  }, [tokenA.address, tokenB.address, amountA, amountB]);
+  }, [
+    tokenA.address,
+    tokenB.address,
+    tokenA.decimals,
+    tokenB.decimals,
+    tokenA.symbol,
+    tokenB.symbol,
+  ]);
 
   // Call this when tokens change
   useEffect(() => {
-    checkPoolExists();
-    // Reset amounts when tokens change
-    setAmountA("");
-    setAmountB("");
+    console.log("Token change effect triggered");
+
+    // Check if tokens have changed
+    if (
+      prevTokenARef.current !== tokenA.address ||
+      prevTokenBRef.current !== tokenB.address
+    ) {
+      checkPoolExists();
+
+      // Only reset amounts when tokens actually change
+      if (amountA || amountB) {
+        console.log("Resetting amounts due to token change");
+        setAmountA("");
+        setAmountB("");
+      }
+
+      // Update refs with new token addresses
+      prevTokenARef.current = tokenA.address;
+      prevTokenBRef.current = tokenB.address;
+    }
   }, [tokenA.address, tokenB.address, checkPoolExists]);
 
   // Function to calculate paired amount based on pool ratio
@@ -255,19 +262,29 @@ export function SwapPoolInterface() {
 
   // Handle amount changes with auto calculation for existing pools
   const handleAmountAChange = (value: string) => {
+    console.log("handleAmountAChange called with value:", value);
+    console.log("Current poolExists state:", poolExists);
+
+    // Ensure we accept the value unconditionally
     setAmountA(value);
 
     // Only auto-calculate if pool definitely exists (not undefined or false)
     if (poolExists === true && poolRatio) {
+      console.log("Auto-calculating token B amount based on pool ratio");
       setAmountB(calculatePairedAmount(value, tokenA, tokenB));
     }
   };
 
   const handleAmountBChange = (value: string) => {
+    console.log("handleAmountBChange called with value:", value);
+    console.log("Current poolExists state:", poolExists);
+
+    // Ensure we accept the value unconditionally
     setAmountB(value);
 
     // Only auto-calculate if pool definitely exists (not undefined or false)
     if (poolExists === true && poolRatio) {
+      console.log("Auto-calculating token A amount based on pool ratio");
       setAmountA(calculatePairedAmount(value, tokenB, tokenA));
     }
   };
@@ -278,6 +295,8 @@ export function SwapPoolInterface() {
       return balances.usdc;
     } else if (token.address === OFFICIAL_WMON_ADDRESS) {
       return balances.wmon;
+    } else if (token.address === "NATIVE") {
+      return balances.mon; // Native MON balance
     }
     return "0";
   };
@@ -336,15 +355,31 @@ export function SwapPoolInterface() {
       // Set deadline to 20 minutes from now
       const deadline = getDeadlineTimestamp(20);
 
-      // Check if we're using WMON (in which case we should use addLiquidityETH)
-      const isUsingNativeMON = tokenB.address === OFFICIAL_WMON_ADDRESS;
+      // Check if we're using native MON (in which case we should use addLiquidityETH)
+      const isUsingNativeMON =
+        tokenA.address === "NATIVE" || tokenB.address === "NATIVE";
+
+      // When using native MON, ensure it's always tokenB for consistency with addLiquidityETH
+      let actualTokenA = tokenA;
+      let actualTokenB = tokenB;
+      let actualAmountA = amountA;
+      let actualAmountB = amountB;
+
+      if (tokenA.address === "NATIVE") {
+        // Swap positions - addLiquidityETH expects the token to be first and ETH to be second
+        actualTokenA = tokenB;
+        actualTokenB = tokenA;
+        actualAmountA = amountB;
+        actualAmountB = amountA;
+      }
 
       // Log the operation being performed
       console.log(`Adding liquidity:`, {
-        tokenA: tokenA.symbol,
-        tokenB: tokenB.symbol,
-        amountA,
-        amountB,
+        tokenA: actualTokenA.symbol,
+        tokenB: actualTokenB.symbol,
+        amountA: actualAmountA,
+        amountB: actualAmountB,
+        isUsingNativeMON,
         fee: FIXED_FEE.displayName,
       });
 
@@ -382,7 +417,7 @@ export function SwapPoolInterface() {
 
           // Determine which reserve is which based on token order
           const isTokenAZero =
-            tokenA.address.toLowerCase() === token0.toLowerCase();
+            actualTokenA.address.toLowerCase() === token0.toLowerCase();
           const reserveA = isTokenAZero
             ? BigInt(reserves[0])
             : BigInt(reserves[1]);
@@ -392,14 +427,14 @@ export function SwapPoolInterface() {
 
           // Format to human-readable numbers
           const reserveAValue = Number(
-            ethers.formatUnits(reserveA, tokenA.decimals)
+            ethers.formatUnits(reserveA, actualTokenA.decimals)
           );
           const reserveBValue = Number(
-            ethers.formatUnits(reserveB, tokenB.decimals)
+            ethers.formatUnits(reserveB, actualTokenB.decimals)
           );
 
           console.log(
-            `Pool reserves: ${reserveAValue} ${tokenA.symbol}, ${reserveBValue} ${tokenB.symbol}`
+            `Pool reserves: ${reserveAValue} ${actualTokenA.symbol}, ${reserveBValue} ${actualTokenB.symbol}`
           );
 
           // Check if the pool has significant reserves
@@ -412,23 +447,23 @@ export function SwapPoolInterface() {
               "Pool has existing reserves. You must follow the exact ratio:"
             );
             console.warn(
-              `Current ratio: 1 ${tokenA.symbol} = ${
+              `Current ratio: 1 ${actualTokenA.symbol} = ${
                 reserveBValue / reserveAValue
-              } ${tokenB.symbol}`
+              } ${actualTokenB.symbol}`
             );
 
             // Calculate exact amounts needed based on the current ratio to help users
-            const inputAmountA = parseFloat(amountA || "0");
-            const inputAmountB = parseFloat(amountB || "0");
+            const inputAmountA = parseFloat(actualAmountA || "0");
+            const inputAmountB = parseFloat(actualAmountB || "0");
 
             if (inputAmountA > 0) {
               const neededAmountB =
                 inputAmountA * (reserveBValue / reserveAValue);
               console.warn(
                 `For ${inputAmountA} ${
-                  tokenA.symbol
+                  actualTokenA.symbol
                 }, you need exactly ${neededAmountB.toFixed(6)} ${
-                  tokenB.symbol
+                  actualTokenB.symbol
                 }`
               );
             }
@@ -438,9 +473,9 @@ export function SwapPoolInterface() {
                 inputAmountB * (reserveAValue / reserveBValue);
               console.warn(
                 `For ${inputAmountB} ${
-                  tokenB.symbol
+                  actualTokenB.symbol
                 }, you need exactly ${neededAmountA.toFixed(6)} ${
-                  tokenA.symbol
+                  actualTokenA.symbol
                 }`
               );
             }
@@ -451,24 +486,84 @@ export function SwapPoolInterface() {
       }
 
       if (isUsingNativeMON) {
+        console.log("==== NATIVE MON LIQUIDITY FLOW ====");
+        console.log("Input values:", {
+          tokenA: tokenA.symbol,
+          tokenB: tokenB.symbol,
+          amountA,
+          amountB,
+          tokenA_address: tokenA.address,
+          tokenB_address: tokenB.address,
+        });
+
+        // For native MON, use the addLiquidityETH function
+        // When using native MON, the token must be the non-MON token
+        const tokenAddress =
+          actualTokenA.address === "NATIVE"
+            ? OFFICIAL_WMON_ADDRESS
+            : actualTokenA.address;
+
+        console.log("Adjusted tokens:", {
+          actualTokenA: actualTokenA.symbol,
+          actualTokenB: actualTokenB.symbol,
+          tokenAddress: tokenAddress,
+          isTokenANative: actualTokenA.address === "NATIVE",
+          isTokenBNative: actualTokenB.address === "NATIVE",
+        });
+
         // Convert amounts to wei
         const amountTokenWei = ethers
-          .parseUnits(amountA, tokenA.decimals)
+          .parseUnits(actualAmountA, actualTokenA.decimals)
           .toString();
         const amountETHWei = ethers
-          .parseUnits(amountB, tokenB.decimals)
+          .parseUnits(actualAmountB, actualTokenB.decimals)
           .toString();
 
-        // Calculate minimum amounts with slippage tolerance
-        const amountTokenMin = calculateMinAmount(amountA, tokenA.decimals);
-        const amountETHMin = calculateMinAmount(amountB, tokenB.decimals);
+        console.log("Amounts in wei:", {
+          amountTokenWei,
+          amountETHWei,
+        });
 
-        // Execute addLiquidityETH
-        const result = await addLiquidityETH({
-          token: tokenA.address,
+        // Calculate minimum amounts with slippage tolerance
+        // Use a slightly higher slippage for native MON to account for potential price movements
+        const effectiveSlippage = parseFloat(slippageTolerance) + 0.1;
+        const slippageFactor = 1 - effectiveSlippage / 100;
+
+        const amountTokenMin =
+          (BigInt(amountTokenWei) *
+            BigInt(Math.floor(slippageFactor * 10000))) /
+          BigInt(10000);
+        const amountETHMin =
+          (BigInt(amountETHWei) * BigInt(Math.floor(slippageFactor * 10000))) /
+          BigInt(10000);
+
+        console.log("Slippage calculation:", {
+          slippageTolerance,
+          effectiveSlippage,
+          slippageFactor,
+          amountTokenMin: amountTokenMin.toString(),
+          amountETHMin: amountETHMin.toString(),
+        });
+
+        // Important: Ensure we're sending the actual MON amount, not the minimum
+        const monadAmountToSend = amountETHWei;
+
+        console.log("Add liquidity params:", {
+          token: tokenAddress,
           amountTokenDesired: amountTokenWei,
-          amountTokenMin,
-          amountETHMin,
+          amountTokenMin: amountTokenMin.toString(),
+          amountETHMin: amountETHMin.toString(),
+          monadAmountToSend,
+          deadline,
+        });
+
+        // Execute addLiquidityETH - use lower amountETHMin for slippage protection,
+        // but ensure the actual ETH value is what we want to add
+        const result = await addLiquidityETH({
+          token: tokenAddress,
+          amountTokenDesired: amountTokenWei,
+          amountTokenMin: amountTokenMin.toString(),
+          amountETHMin: amountETHMin.toString(),
           to: "", // Will be replaced with smart wallet address in the hook
           deadline,
         });
@@ -486,6 +581,7 @@ export function SwapPoolInterface() {
           showToast.error(result.error || "Failed to add liquidity");
         }
       } else {
+        // Regular addLiquidity for token-token pairs (including WMON-token)
         // Convert amounts to wei
         const amountAWei = ethers
           .parseUnits(amountA, tokenA.decimals)

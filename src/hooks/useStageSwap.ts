@@ -563,6 +563,24 @@ export function useStageSwap(): UseStageSwapResult {
           "function addLiquidityETH(address token, uint amountTokenDesired, uint amountTokenMin, uint amountETHMin, address to, uint deadline) external payable returns (uint amountToken, uint amountETH, uint liquidity)",
         ];
 
+        console.log("Calling addLiquidityETH with smart wallet:", {
+          token: params.token,
+          amountTokenDesired: params.amountTokenDesired,
+          amountTokenMin: params.amountTokenMin,
+          amountETHMin: params.amountETHMin,
+          to: smartWalletAddress,
+          deadline: params.deadline,
+        });
+
+        // This is the key: We need to send the native MON as value
+        // Convert ETH min to the actual amount we want to send
+        // Uniswap V2's RouterV2 will use the specified amount, or as much as needed by the ratio
+        const ethValueToSend = params.amountETHMin;
+
+        console.log(
+          `Sending ${ethers.formatEther(ethValueToSend)} MON as value`
+        );
+
         const result = await callContractFunction(
           routerAddress as `0x${string}`,
           routerABI,
@@ -576,7 +594,7 @@ export function useStageSwap(): UseStageSwapResult {
             params.deadline,
           ],
           "Add liquidity with MON",
-          { value: params.amountETHMin } // Send the native MON amount
+          { value: ethValueToSend } // Send the MON amount
         );
 
         if (!result.success) {
