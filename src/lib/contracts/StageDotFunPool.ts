@@ -19,7 +19,7 @@ export const StageDotFunPoolFactoryABI = [
   "function getDeployedPoolsDetails(uint256 startIndex, uint256 endIndex) view returns (string[] names, string[] uniqueIds, address[] creators, uint256[] totalDeposits, uint256[] revenueAccumulated, uint256[] endTimes, uint256[] targetAmounts, uint256[] capAmounts, uint8[] statuses, address[] lpTokenAddresses, address[] nftContractAddresses, uint256[] tierCounts)",
 
   // State-changing functions
-  "function createPool(string name, string uniqueId, string symbol, uint256 endTime, address owner, address creator, uint256 targetAmount, uint256 capAmount, tuple(string name, uint256 price, string nftMetadata, bool isVariablePrice, uint256 minPrice, uint256 maxPrice, uint256 maxPatrons)[] tiers) external returns (address)",
+  "function createPool(string name, string uniqueId, string symbol, uint256 endTime, address owner, address creator, uint256 targetAmount, uint256 capAmount, tuple(string name, uint256 price, string nftMetadata, bool isVariablePrice, uint256 minPrice, uint256 maxPrice, uint256 maxPatrons)[] tiers, address feeRecipient, uint16 fundingFeeBps, uint16 revenueFeeBps) external returns (address)",
   "function checkPoolStatus(address poolAddress) external",
   "function checkAllPoolsStatus() external",
 ];
