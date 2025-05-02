@@ -6,6 +6,7 @@ import { useSmartWallet } from "@/hooks/useSmartWallet";
 import { getDeadlineTimestamp } from "@/lib/contracts/StageSwap";
 import { ethers } from "ethers";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 interface RemoveLiquidityModalProps {
   position: any;
@@ -124,7 +125,17 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-[#1e1e2a] rounded-2xl shadow-lg max-w-md w-full p-6">
-        <h3 className="text-xl font-bold mb-4">Remove Liquidity</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold">Remove Liquidity</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full bg-[#FFFFFF0A] p-1 hover:bg-[#FFFFFF1A] focus:outline-none"
+            aria-label="Close"
+          >
+            <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
 
         {/* Pool info */}
         <div className="flex items-center mb-6">
@@ -239,9 +250,12 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
 
         {/* Action buttons */}
         <div className="flex space-x-3">
-          <PrimaryButton onClick={onClose} className="flex-1 bg-gray-800">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 bg-transparent border border-gray-600 hover:border-gray-500 text-white rounded-lg font-medium"
+          >
             Cancel
-          </PrimaryButton>
+          </button>
           <PrimaryButton
             onClick={executeRemoveLiquidity}
             disabled={isRemoving}

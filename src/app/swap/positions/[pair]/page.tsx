@@ -9,6 +9,7 @@ import { useSyncPool } from "@/hooks/useSyncPool";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { usePrivy } from "@privy-io/react-auth";
 import { GoLinkExternal } from "react-icons/go";
+import { RemoveLiquidityModal } from "@/components/swap/RemoveLiquidityModal";
 
 export default function PositionDetailsPage() {
   const { pair } = useParams();
@@ -18,6 +19,8 @@ export default function PositionDetailsPage() {
   const [position, setPosition] = useState<any>(null);
   const { syncPool, isSyncing } = useSyncPool(pair as string);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [isRemoveLiquidityModalOpen, setIsRemoveLiquidityModalOpen] =
+    useState(false);
 
   useEffect(() => {
     if (!isLoading && positions.length > 0) {
@@ -249,12 +252,7 @@ export default function PositionDetailsPage() {
             <div>
               <p className="text-gray-400 text-sm mb-1">Share of Pool</p>
               <p className="text-white">
-                {(
-                  (parseFloat(position.lpTokenBalance) /
-                    parseFloat(position.totalSupply)) *
-                  100
-                ).toFixed(4)}
-                %
+                {position.shareOfPool ? position.shareOfPool : "0.00"}%
               </p>
             </div>
           </div>
@@ -362,14 +360,28 @@ export default function PositionDetailsPage() {
           Add Liquidity
         </Link>
         {Number(position.lpTokenBalance) > 0 && (
-          <Link
-            href="/swap/positions"
+          <button
+            onClick={() => setIsRemoveLiquidityModalOpen(true)}
             className="px-6 py-3 bg-red-700 hover:bg-red-600 rounded-lg text-white font-medium"
           >
             Remove Liquidity
-          </Link>
+          </button>
         )}
       </div>
+
+      {/* Remove Liquidity Modal */}
+      {isRemoveLiquidityModalOpen && position && (
+        <RemoveLiquidityModal
+          position={position}
+          onClose={() => setIsRemoveLiquidityModalOpen(false)}
+          onSuccess={() => {
+            setIsRemoveLiquidityModalOpen(false);
+            refresh();
+          }}
+          getTokenIconPath={getTokenIconPath}
+          formatNumber={formatNumber}
+        />
+      )}
     </div>
   );
 }

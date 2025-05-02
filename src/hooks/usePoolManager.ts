@@ -15,6 +15,9 @@ interface PoolRatio {
   reserveB: bigint;
 }
 
+// Add these constants at the top level of the hook for consistency
+const WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
+
 export function usePoolManager(tokenA: Token, tokenB: Token) {
   const [poolExists, setPoolExists] = useState<boolean>(false);
   const [poolRatio, setPoolRatio] = useState<PoolRatio | null>(null);
@@ -30,10 +33,23 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
       );
       const factoryContract = await getFactoryContract(provider);
 
+      // Handle native token addresses - replace "NATIVE" with the WMON address
+      const effectiveTokenAAddress =
+        tokenA.address === "NATIVE" ? WMON_ADDRESS : tokenA.address;
+      const effectiveTokenBAddress =
+        tokenB.address === "NATIVE" ? WMON_ADDRESS : tokenB.address;
+
+      console.log("Checking pool for tokens:", {
+        tokenA: tokenA.symbol,
+        tokenAAddress: effectiveTokenAAddress,
+        tokenB: tokenB.symbol,
+        tokenBAddress: effectiveTokenBAddress,
+      });
+
       // Check if pair exists
       const pairAddress = await factoryContract.getPair(
-        tokenA.address,
-        tokenB.address
+        effectiveTokenAAddress,
+        effectiveTokenBAddress
       );
       setPairAddress(pairAddress);
 
@@ -69,7 +85,7 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
 
       // Determine which reserve is which based on token order
       const isTokenAZero =
-        tokenA.address.toLowerCase() === token0.toLowerCase();
+        effectiveTokenAAddress.toLowerCase() === token0.toLowerCase();
       const reserveA = isTokenAZero ? BigInt(reserves[0]) : BigInt(reserves[1]);
       const reserveB = isTokenAZero ? BigInt(reserves[1]) : BigInt(reserves[0]);
 
@@ -146,8 +162,14 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
       try {
         const amount = ethers.parseUnits(inputAmount, inputToken.decimals);
 
+        // Handle native token addresses
+        const effectiveTokenAAddress =
+          tokenA.address === "NATIVE" ? WMON_ADDRESS : tokenA.address;
+        const effectiveInputTokenAddress =
+          inputToken.address === "NATIVE" ? WMON_ADDRESS : inputToken.address;
+
         let result;
-        if (inputToken.address === tokenA.address) {
+        if (effectiveInputTokenAddress === effectiveTokenAAddress) {
           // Calculate tokenB amount based on tokenA input
           result = (amount * poolRatio.reserveB) / poolRatio.reserveA;
         } else {
@@ -161,7 +183,7 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
         return "";
       }
     },
-    [poolRatio, tokenA.address]
+    [poolRatio, tokenA.address, tokenA.decimals, tokenB.decimals]
   );
 
   // Format display ratio between tokens
