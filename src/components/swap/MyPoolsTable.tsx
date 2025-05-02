@@ -53,7 +53,10 @@ export const MyPoolsTable: React.FC<MyPoolsTableProps> = ({
               {userPositions.map((position, index) => (
                 <tr
                   key={position.pairAddress}
-                  className="border-b border-gray-800 hover:bg-gray-800/30"
+                  className="border-b border-gray-800 hover:bg-gray-800/30 cursor-pointer"
+                  onClick={() =>
+                    (window.location.href = `/swap/positions/${position.pairAddress}`)
+                  }
                 >
                   <td className="p-4 text-gray-300">{index + 1}</td>
                   <td className="p-4">
@@ -86,9 +89,13 @@ export const MyPoolsTable: React.FC<MyPoolsTableProps> = ({
                           />
                         </div>
                       </div>
-                      <span className="font-medium">
+                      <Link
+                        href={`/swap/positions/${position.pairAddress}`}
+                        className="font-medium hover:text-purple-400"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {position.token0.symbol}/{position.token1.symbol}
-                      </span>
+                      </Link>
                     </div>
                   </td>
                   <td className="p-4 text-gray-300">
@@ -117,7 +124,10 @@ export const MyPoolsTable: React.FC<MyPoolsTableProps> = ({
                   </td>
                   <td className="p-4">
                     <button
-                      onClick={(e) => toggleMenu(position.pairAddress, e)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMenu(position.pairAddress, e);
+                      }}
                       className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-700"
                       aria-label="Pool options"
                     >

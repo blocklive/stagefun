@@ -31,6 +31,9 @@ const FIXED_FEE = {
   description: "Standard fee for all pools",
 };
 
+// Official WMON token address
+const OFFICIAL_WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
+
 // Token data with real contract addresses
 const TOKENS: Token[] = [
   {
@@ -41,8 +44,8 @@ const TOKENS: Token[] = [
     logoURI: "/icons/usdc-logo.svg",
   },
   {
-    address: CONTRACT_ADDRESSES.monadTestnet.weth,
-    symbol: "MON",
+    address: OFFICIAL_WMON_ADDRESS,
+    symbol: "WMON",
     name: "Wrapped MON",
     decimals: 18,
     logoURI: "/icons/mon-logo.svg",
@@ -52,7 +55,7 @@ const TOKENS: Token[] = [
 export function SwapPoolInterface() {
   const { user } = usePrivy();
   const [tokenA, setTokenA] = useState(TOKENS[0]); // USDC
-  const [tokenB, setTokenB] = useState(TOKENS[1]); // MON
+  const [tokenB, setTokenB] = useState(TOKENS[1]); // WMON
   const [amountA, setAmountA] = useState("");
   const [amountB, setAmountB] = useState("");
   const [slippageTolerance, setSlippageTolerance] = useState("0.5");
@@ -254,8 +257,8 @@ export function SwapPoolInterface() {
   const handleAmountAChange = (value: string) => {
     setAmountA(value);
 
-    // If pool exists, calculate amountB automatically
-    if (poolExists && poolRatio) {
+    // Only auto-calculate if pool definitely exists (not undefined or false)
+    if (poolExists === true && poolRatio) {
       setAmountB(calculatePairedAmount(value, tokenA, tokenB));
     }
   };
@@ -263,8 +266,8 @@ export function SwapPoolInterface() {
   const handleAmountBChange = (value: string) => {
     setAmountB(value);
 
-    // If pool exists, calculate amountA automatically
-    if (poolExists && poolRatio) {
+    // Only auto-calculate if pool definitely exists (not undefined or false)
+    if (poolExists === true && poolRatio) {
       setAmountA(calculatePairedAmount(value, tokenB, tokenA));
     }
   };
@@ -273,8 +276,8 @@ export function SwapPoolInterface() {
   const getTokenBalance = (token: Token): string => {
     if (token.address === CONTRACT_ADDRESSES.monadTestnet.usdc) {
       return balances.usdc;
-    } else if (token.address === CONTRACT_ADDRESSES.monadTestnet.weth) {
-      return balances.mon;
+    } else if (token.address === OFFICIAL_WMON_ADDRESS) {
+      return balances.wmon;
     }
     return "0";
   };
@@ -333,9 +336,8 @@ export function SwapPoolInterface() {
       // Set deadline to 20 minutes from now
       const deadline = getDeadlineTimestamp(20);
 
-      // Check if we're using MON (in which case we should use addLiquidityETH)
-      const isUsingNativeMON =
-        tokenB.address === CONTRACT_ADDRESSES.monadTestnet.weth;
+      // Check if we're using WMON (in which case we should use addLiquidityETH)
+      const isUsingNativeMON = tokenB.address === OFFICIAL_WMON_ADDRESS;
 
       // Log the operation being performed
       console.log(`Adding liquidity:`, {

@@ -12,7 +12,8 @@ export const CONTRACT_ADDRESSES = {
     usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
     stageSwapFactory: "0xeE4aE2939Be69568d755900034A43a7c0C3Bd40D",
     stageSwapRouter: "0x3DC7C1091D28196c345354412516DB741D63Bb51",
-    weth: "0x7e99081B0D97231BC2036F88970b248dDb8D9017",
+    weth: "0x7e99081B0D97231BC2036F88970b248dDb8D9017", // Legacy: keeping for backwards compatibility
+    officialWmon: "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701", // Official WMON token
   },
 } as const;
 

@@ -9,6 +9,9 @@ const fs = require("fs");
 const path = require("path");
 require("dotenv").config({ path: ".env.local" });
 
+// Official WMON token on Monad Testnet
+const OFFICIAL_WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
+
 async function main() {
   console.log("Starting AMM deployment...");
 
@@ -26,33 +29,30 @@ async function main() {
   await factory.waitForDeployment();
   console.log("StageSwapFactory deployed to:", await factory.getAddress());
 
-  // Deploy WETH (we'll use a simple version for testnet)
-  console.log("Deploying WETH...");
-  const WETH = await ethers.getContractFactory("WETH");
-  const weth = await WETH.deploy();
-  await weth.waitForDeployment();
-  console.log("WETH deployed to:", await weth.getAddress());
+  // Use the official WMON instead of deploying our own
+  console.log("Using official WMON at:", OFFICIAL_WMON_ADDRESS);
+  const wmonAddress = OFFICIAL_WMON_ADDRESS;
 
-  // Deploy the router with factory and WETH addresses
+  // Deploy the router with factory and official WMON addresses
   console.log("Deploying StageSwapRouter...");
   const StageSwapRouter = await ethers.getContractFactory("StageSwapRouter");
   const router = await StageSwapRouter.deploy(
     await factory.getAddress(),
-    await weth.getAddress()
+    wmonAddress
   );
   await router.waitForDeployment();
   console.log("StageSwapRouter deployed to:", await router.getAddress());
 
-  // Create the USDC/MON pair (MON is native ETH)
-  console.log("Creating initial USDC/MON pair...");
-  await factory.createPair(usdc, await weth.getAddress());
+  // Create the USDC/WMON pair
+  console.log("Creating initial USDC/WMON pair...");
+  await factory.createPair(usdc, wmonAddress);
   console.log("Pair created");
 
   // Update config with new addresses
   const updatedAddresses = updateContractAddresses({
     stageSwapFactory: await factory.getAddress(),
     stageSwapRouter: await router.getAddress(),
-    weth: await weth.getAddress(),
+    weth: wmonAddress, // Using official WMON but keeping key as "weth" for compatibility
   });
 
   // Log all deployed addresses
@@ -60,7 +60,7 @@ async function main() {
   console.log("-------------------");
   console.log("Factory:", await factory.getAddress());
   console.log("Router:", await router.getAddress());
-  console.log("WETH:", await weth.getAddress());
+  console.log("WMON (Official):", wmonAddress);
 
   // Update addresses.ts for frontend
   const addressesPath = path.join(
@@ -115,7 +115,8 @@ async function main() {
       ...CONTRACT_ADDRESSES.monadTestnet,
       stageSwapFactory: updatedAddresses.stageSwapFactory,
       stageSwapRouter: updatedAddresses.stageSwapRouter,
-      weth: updatedAddresses.weth,
+      weth: updatedAddresses.weth, // Keeping key as "weth" for compatibility
+      officialWmon: OFFICIAL_WMON_ADDRESS, // Add explicit reference to official WMON
     };
 
     // Generate file content
@@ -169,15 +170,11 @@ export function getContractAddresses() {
       console.log("Verifying StageSwapFactory...");
       await runVerification(await factory.getAddress(), []);
 
-      // Verify the WETH contract
-      console.log("Verifying WETH...");
-      await runVerification(await weth.getAddress(), []);
-
       // Verify the router contract
       console.log("Verifying StageSwapRouter...");
       await runVerification(await router.getAddress(), [
         await factory.getAddress(),
-        await weth.getAddress(),
+        wmonAddress,
       ]);
     } catch (error) {
       console.error("Error verifying contracts:", error);

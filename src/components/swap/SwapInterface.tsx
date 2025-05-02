@@ -31,8 +31,8 @@ const TOKENS: Token[] = [
     logoURI: "/icons/usdc-logo.svg",
   },
   {
-    address: CONTRACT_ADDRESSES.monadTestnet.weth,
-    symbol: "MON",
+    address: "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701", // Official WMON address
+    symbol: "WMON",
     name: "Wrapped MON",
     decimals: 18,
     logoURI: "/icons/mon-logo.svg",

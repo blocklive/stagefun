@@ -1,5 +1,6 @@
 import React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { FaSortDown } from "react-icons/fa";
 import { BsThreeDots } from "react-icons/bs";
 
@@ -55,9 +56,12 @@ export const AllPoolsTable: React.FC<AllPoolsTableProps> = ({
             {positions.map((position, index) => (
               <tr
                 key={position.pairAddress}
-                className={`border-b border-gray-800 hover:bg-gray-800/30 ${
+                className={`border-b border-gray-800 hover:bg-gray-800/30 cursor-pointer ${
                   isEmptyPool(position) ? "opacity-70" : ""
                 }`}
+                onClick={() =>
+                  (window.location.href = `/swap/positions/${position.pairAddress}`)
+                }
               >
                 <td className="p-4 text-gray-300">{index + 1}</td>
                 <td className="p-4">
@@ -90,9 +94,13 @@ export const AllPoolsTable: React.FC<AllPoolsTableProps> = ({
                         />
                       </div>
                     </div>
-                    <span className="font-medium">
+                    <Link
+                      href={`/swap/positions/${position.pairAddress}`}
+                      className="font-medium hover:text-purple-400"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {position.token0.symbol}/{position.token1.symbol}
-                    </span>
+                    </Link>
                   </div>
                 </td>
                 <td className="p-4">
@@ -138,7 +146,10 @@ export const AllPoolsTable: React.FC<AllPoolsTableProps> = ({
                 </td>
                 <td className="p-4">
                   <button
-                    onClick={(e) => toggleMenu(position.pairAddress, e)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleMenu(position.pairAddress, e);
+                    }}
                     className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-700"
                     aria-label="Pool options"
                   >
