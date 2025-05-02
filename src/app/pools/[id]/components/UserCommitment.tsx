@@ -6,6 +6,8 @@ import { formatCurrency } from "../../../../lib/utils";
 import showToast from "@/utils/toast";
 import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
 import { useLpBalance } from "../../../../hooks/useLpBalance";
+import { ClaimDistributionButton } from "../../../../components/pools/ClaimDistributionButton";
+import { getPoolEffectiveStatus } from "../../../../lib/contracts/types";
 
 interface UserCommitmentProps {
   pool: Pool | null;
@@ -61,6 +63,11 @@ export default function UserCommitment({
     isLoading: isLpBalanceLoading,
     refreshLpBalance,
   } = useLpBalance(pool ? (pool as any)?.lp_token_address || null : null);
+
+  // Determine if the pool is in executing state
+  const isExecutingPool = pool
+    ? getPoolEffectiveStatus(pool) === "EXECUTING"
+    : false;
 
   // Determine if user can claim refund (must have LP tokens)
   const canClaimRefund = isUnfunded && lpBalance > BigInt(0);
@@ -183,6 +190,25 @@ export default function UserCommitment({
             </div>
           </div>
         </div>
+
+        {/* Claim Distribution Button - for executing pools with revenue */}
+        {isExecutingPool && lpBalance > BigInt(0) && (
+          <div className="mt-4">
+            <ClaimDistributionButton
+              poolAddress={pool.contract_address || ""}
+              isExecuting={isExecutingPool}
+              onSuccess={() => {
+                refreshLpBalance?.();
+                showToast.success("Distribution claimed successfully!");
+              }}
+              className="w-full"
+            />
+            <p className="text-sm text-gray-400 mt-2">
+              As a supporter of this pool, you can claim your share of revenue.
+              Check back regularly as more funds may become available over time.
+            </p>
+          </div>
+        )}
 
         {/* Refund button for unfunded pools */}
         {isUnfunded && (

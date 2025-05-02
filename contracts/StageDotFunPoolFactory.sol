@@ -56,7 +56,10 @@ contract StageDotFunPoolFactory is Ownable {
         address creator,
         uint256 targetAmount,
         uint256 capAmount,
-        IStageDotFunPool.TierInitData[] memory tiers
+        IStageDotFunPool.TierInitData[] memory tiers,
+        address feeRecipient,
+        uint16 fundingFeeBps,
+        uint16 revenueFeeBps
     ) external returns (address) {
         require(bytes(name).length > 0, "Name cannot be empty");
         require(bytes(uniqueId).length > 0, "Unique ID cannot be empty");
@@ -82,7 +85,10 @@ contract StageDotFunPoolFactory is Ownable {
             capAmount,
             lpTokenImplementation,
             nftImplementation,
-            tiers
+            tiers,
+            feeRecipient,
+            fundingFeeBps,
+            revenueFeeBps
         );
         
         deployedPools.push(pool);

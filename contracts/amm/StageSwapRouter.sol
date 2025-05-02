@@ -75,40 +75,13 @@ contract StageSwapRouter is IStageSwapRouter {
         address to,
         uint deadline
     ) external override ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
-        console.log("addLiquidity");
-        console.log("tokenA", tokenA);
-        console.log("tokenB", tokenB);
-        console.log("amountADesired", amountADesired);
-        console.log("amountBDesired", amountBDesired);
-        console.log("amountAMin", amountAMin);
-        console.log("amountBMin", amountBMin);
-        console.log("to", to);
-        console.log("deadline", deadline);
+        (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
         (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
         
-        // Compare addresses to debug
-        address calculatedPair = StageSwapLibrary.pairFor(factory, tokenA, tokenB);
-        address factoryPair = IStageSwapFactory(factory).getPair(tokenA, tokenB);
-        console.log("Calculated pair address:", calculatedPair);
-        console.log("Factory pair address:", factoryPair);
-        console.log("Addresses match:", calculatedPair == factoryPair);
-        
-        // IMPORTANT: Use the calculated address from pairFor, not the factory's getPair
-        address pair = calculatedPair;
-        console.log("pair", pair);
-        console.log("tokenA", tokenA);
-        console.log("tokenB", tokenB);
-        console.log("amountA", amountA);
-        console.log("amountB", amountB);
-        console.log("msg.sender", msg.sender);
+        address pair = StageSwapLibrary.pairFor(factory, tokenA, tokenB);
         TransferHelper.safeTransferFrom(tokenA, msg.sender, pair, amountA);
         TransferHelper.safeTransferFrom(tokenB, msg.sender, pair, amountB);
-        console.log("minting");
-        console.log("to", to);
-        console.log("pair", pair);
         liquidity = IStageSwapPair(pair).mint(to);
-        console.log("minted");
-        console.log("liquidity", liquidity);
     }
 
     function addLiquidityETH(

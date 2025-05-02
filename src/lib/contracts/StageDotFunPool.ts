@@ -19,7 +19,7 @@ export const StageDotFunPoolFactoryABI = [
   "function getDeployedPoolsDetails(uint256 startIndex, uint256 endIndex) view returns (string[] names, string[] uniqueIds, address[] creators, uint256[] totalDeposits, uint256[] revenueAccumulated, uint256[] endTimes, uint256[] targetAmounts, uint256[] capAmounts, uint8[] statuses, address[] lpTokenAddresses, address[] nftContractAddresses, uint256[] tierCounts)",
 
   // State-changing functions
-  "function createPool(string name, string uniqueId, string symbol, uint256 endTime, address owner, address creator, uint256 targetAmount, uint256 capAmount, tuple(string name, uint256 price, string nftMetadata, bool isVariablePrice, uint256 minPrice, uint256 maxPrice, uint256 maxPatrons)[] tiers) external returns (address)",
+  "function createPool(string name, string uniqueId, string symbol, uint256 endTime, address owner, address creator, uint256 targetAmount, uint256 capAmount, tuple(string name, uint256 price, string nftMetadata, bool isVariablePrice, uint256 minPrice, uint256 maxPrice, uint256 maxPatrons)[] tiers, address feeRecipient, uint16 fundingFeeBps, uint16 revenueFeeBps) external returns (address)",
   "function checkPoolStatus(address poolAddress) external",
   "function checkAllPoolsStatus() external",
 ];
@@ -44,6 +44,8 @@ export const StageDotFunPoolABI = [
   "event NFTClaimed(address indexed user, uint256 indexed tierId, uint256 tokenId)",
   "event NFTsMintedForTier(uint256 indexed tierId, uint256 count)",
   "event LPTransfer(address indexed from, address indexed to, uint256 amount)",
+  "event Claimed(address indexed user, uint256 amount)",
+  "event PlatformFeePaid(uint256 amount, string feeType)",
 
   // View functions
   "function getPoolDetails() view returns (string _name, string _uniqueId, address _creator, uint256 _totalDeposits, uint256 _revenueAccumulated, uint256 _endTime, uint256 _targetAmount, uint256 _capAmount, uint8 _status, address _lpTokenAddress, address _nftContractAddress, uint256 _tierCount, uint256 _targetReachedTime, uint256 _capReachedTime)",
@@ -68,6 +70,9 @@ export const StageDotFunPoolABI = [
   "function getLpBalances(uint256 startIndex, uint256 endIndex) view returns (address[] holders, uint256[] balances)",
   "function getTierNFTSupply(uint256 tierId) view returns (uint256)",
   "function getLpHolders() view returns (address[])",
+  "function pendingRewards(address user) view returns (uint256)",
+  "function accRewardPerLp() view returns (uint256)",
+  "function rewardDebt(address) view returns (uint256)",
 
   // State-changing functions
   "function initialize(string _name, string _uniqueId, string symbol, uint256 _endTime, address _depositToken, address _owner, address _creator, uint256 _targetAmount, uint256 _capAmount, address _lpTokenImplementation, address _nftImplementation) external",
@@ -78,6 +83,7 @@ export const StageDotFunPoolABI = [
   "function commitToTier(uint256 tierId, uint256 amount) external",
   "function receiveRevenue(uint256 amount) external",
   "function distributeRevenue() external",
+  "function claimDistribution() external",
   "function updatePoolName(string _newName) external",
   "function claimRefund() external",
   "function checkPoolStatus() external",

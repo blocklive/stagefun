@@ -113,6 +113,9 @@ export async function createPoolOnChain(
  * @param targetAmount The target amount of the pool
  * @param capAmount The maximum amount that can be raised
  * @param tiers The tiers data for the pool
+ * @param fundingFeeBps The fee percentage in basis points charged on successful funding (default: 300 for 3%)
+ * @param revenueFeeBps The fee percentage in basis points charged on revenue (default: 100 for 1%)
+ * @param feeRecipient The address that receives the platform fees
  * @returns The transaction receipt, pool address and LP token address
  */
 export async function createPoolWithSmartWallet(
@@ -172,6 +175,17 @@ export async function createPoolWithSmartWallet(
   const factoryAddress = CONTRACT_ADDRESSES.monadTestnet
     .stageDotFunPoolFactory as `0x${string}`;
 
+  // Platform fee parameters
+  const fundingFeeBps = BigInt(300); // 3% fee on funding
+  const revenueFeeBps = BigInt(100); // 1% fee on revenue
+  const feeRecipient = "0x95dc7a9ed87A1c85c8fC0329eB477081149F3Dac";
+
+  console.log("Using platform fee parameters in contract order:", {
+    "1_feeRecipient": feeRecipient,
+    "2_fundingFeeBps": Number(fundingFeeBps),
+    "3_revenueFeeBps": Number(revenueFeeBps),
+  });
+
   // Set up arguments for the createPool function
   const args = [
     name,
@@ -183,6 +197,9 @@ export async function createPoolWithSmartWallet(
     targetAmount,
     capAmount,
     tiers,
+    feeRecipient,
+    Number(fundingFeeBps),
+    Number(revenueFeeBps),
   ];
 
   // Call createPool on the factory contract using smart wallet

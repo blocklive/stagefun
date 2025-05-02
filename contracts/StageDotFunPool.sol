@@ -12,7 +12,8 @@ contract StageDotFunPool is Ownable {
     // Constants
     uint256 public constant MAX_TIERS = 20;
     uint256 public constant LP_TOKEN_MULTIPLIER = 1000; // 1000x multiplier for LP tokens
-    
+    uint256 private constant PRECISION = 1e18;
+
     // State variables
     IERC20 public depositToken;
     StageDotFunLiquidity public lpToken;
@@ -28,6 +29,12 @@ contract StageDotFunPool is Ownable {
     uint256 public targetAmount;
     uint256 public capAmount;
     
+    // Fee related state
+    address public feeRecipient;
+    uint16 public fundingFeeBps;     // basis points for funding success fee (e.g. 250 = 2.5%)
+    uint16 public revenueFeeBps;     // basis points for revenue fee (e.g. 50 = 0.5%)
+    uint256 public platformFeeAccrued; // running tally of fees collected
+    
     // Timestamp tracking for milestones
     uint256 public targetReachedTime;
     uint256 public capReachedTime;
@@ -38,9 +45,9 @@ contract StageDotFunPool is Ownable {
     uint256 public totalDistributed;
     uint256 public lastDistributionTime;
     
-    // Revenue distribution tracking
-    mapping(address => uint256) public lastRevenueClaim;
-    mapping(address => uint256) public unclaimedRevenue;
+    // Reward state
+    uint256 public accRewardPerLp;              // global accumulator
+    mapping(address => uint256) public rewardDebt; // per-account paid index
     
     enum PoolStatus {
         INACTIVE,
@@ -104,6 +111,11 @@ contract StageDotFunPool is Ownable {
     event PoolNameUpdated(string oldName, string newName);
     event FundsWithdrawn(address indexed recipient, uint256 amount);
     event RevenueWithdrawnEmergency(address indexed sender, uint256 amount);
+    event Claimed(address indexed user, uint256 amount);
+    event PlatformFeePaid(uint256 amount, string feeType);
+    event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
+    event FundingFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
+    event RevenueFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     
     // Get user's tier commitments
     function getUserTierCommitments(address user) external view returns (uint256[] memory) {
@@ -133,7 +145,10 @@ contract StageDotFunPool is Ownable {
         uint256 _capAmount,
         address _lpTokenImplementation,
         address _nftImplementation,
-        IStageDotFunPool.TierInitData[] memory _tiers
+        IStageDotFunPool.TierInitData[] memory _tiers,
+        address _feeRecipient,
+        uint16 _fundingFeeBps,
+        uint16 _revenueFeeBps
     ) external initializer {
         name = _name;
         uniqueId = _uniqueId;
@@ -145,6 +160,12 @@ contract StageDotFunPool is Ownable {
         capAmount = _capAmount;
         targetReachedTime = 0;
         capReachedTime = 0;
+        
+        // Initialize fee-related state
+        feeRecipient = _feeRecipient;
+        fundingFeeBps = _fundingFeeBps;
+        revenueFeeBps = _revenueFeeBps;
+        platformFeeAccrued = 0;
         
         string memory tokenName = string(abi.encodePacked(_name));
         lpToken = StageDotFunLiquidity(Clones.clone(_lpTokenImplementation));
@@ -372,8 +393,29 @@ contract StageDotFunPool is Ownable {
         require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
         require(depositToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         
-        revenueAccumulated += amount;
-        emit RevenueReceived(amount);
+        // Take platform fee on revenue if applicable
+        uint256 fee = 0;
+        uint256 netAmount = amount;
+        
+        if (feeRecipient != address(0) && revenueFeeBps > 0) {
+            fee = (amount * revenueFeeBps) / 10_000;
+            if (fee > 0) {
+                require(depositToken.transfer(feeRecipient, fee), "Fee transfer failed");
+                platformFeeAccrued += fee;
+                netAmount = amount - fee;
+                emit PlatformFeePaid(fee, "revenue");
+            }
+        }
+        
+        // Add net amount to revenue accumulated
+        revenueAccumulated += netAmount;
+        emit RevenueReceived(netAmount);
+        
+        // Update global reward index
+        uint256 supply = lpToken.totalSupply();
+        if (supply > 0) {
+            accRewardPerLp += (netAmount * PRECISION) / supply;
+        }
     }
 
     // Emergency withdrawal - withdraw entire contract balance
@@ -394,6 +436,29 @@ contract StageDotFunPool is Ownable {
         emit RevenueWithdrawnEmergency(msg.sender, fullBalance);
     }
 
+    /* -----  PULL MODEL  ----- */
+    
+    function pendingRewards(address user) public view returns (uint256) {
+        uint256 gross = (lpToken.balanceOf(user) * accRewardPerLp) / PRECISION;
+        return gross - rewardDebt[user];
+    }
+    
+    function claimDistribution() external {
+        uint256 pending = pendingRewards(msg.sender);
+        require(pending > 0, "Nothing to claim");
+        rewardDebt[msg.sender] += pending;
+        require(depositToken.transfer(msg.sender, pending), "Transfer failed");
+        emit Claimed(msg.sender, pending);
+    }
+    
+    /* called by LP-token on every transfer / mint / burn */
+    function _syncDebt(address user) external {
+        require(msg.sender == address(lpToken), "Only LP token");
+        rewardDebt[user] = (lpToken.balanceOf(user) * accRewardPerLp) / PRECISION;
+    }
+
+    // Keeping distributeRevenue for backwards compatibility
+    // DEPRECATED 5/1/25 - replaced with pull model - remove after pools close
     function distributeRevenue() external {
         require(revenueAccumulated > 0, "No revenue to distribute");
         require(status == PoolStatus.EXECUTING, "Pool must be in executing state");
@@ -406,29 +471,40 @@ contract StageDotFunPool is Ownable {
         uint256 availableForRevenue = contractBalance - (totalDeposits - initialFundsWithdrawn);
         require(availableForRevenue >= revenueAccumulated, "Insufficient balance for distribution");
         
-        uint256 revenue = revenueAccumulated;
-        revenueAccumulated = 0; // Reset before distribution to prevent reentrancy
-        
-        // Get all LP token holders
+        // The revenue has already been captured in accRewardPerLp during receiveRevenue calls
+        // Here we just need to force-claim for all LP token holders
         address[] memory holders = lpToken.getHolders();
+        uint256 amountDistributed = 0;
         
-        // Distribute revenue to all LP holders proportionally, accounting for the multiplier
         for (uint256 i = 0; i < holders.length; i++) {
             address holder = holders[i];
-            uint256 balance = lpToken.balanceOf(holder);
+            uint256 pendingAmount = pendingRewards(holder);
             
-            if (balance > 0) {
-                // Account for the multiplier when calculating share
-                uint256 share = (revenue * balance) / totalSupply;
-                // Apply reverse adjustment to convert from LP tokens to USDC
-                uint256 adjustedShare = share / LP_TOKEN_MULTIPLIER;
-                if (adjustedShare > 0) {
-                    require(depositToken.transfer(holder, adjustedShare), "Transfer failed");
+            if (pendingAmount > 0) {
+                rewardDebt[holder] += pendingAmount;
+                bool success = depositToken.transfer(holder, pendingAmount);
+                if (success) {
+                    amountDistributed += pendingAmount;
+                    emit Claimed(holder, pendingAmount);
                 }
             }
         }
         
-        emit RevenueDistributed(revenue);
+        // Reduce revenueAccumulated by the actually distributed amount
+        if (amountDistributed > 0) {
+            // Cap at revenueAccumulated to avoid underflow
+            if (amountDistributed > revenueAccumulated) {
+                revenueAccumulated = 0;
+            } else {
+                revenueAccumulated -= amountDistributed;
+            }
+            
+            // Update the state variable tracking total distributions
+            totalDistributed += amountDistributed;
+            lastDistributionTime = block.timestamp;
+            
+            emit RevenueDistributed(amountDistributed);
+        }
     }
     
     // View functions
@@ -546,6 +622,28 @@ contract StageDotFunPool is Ownable {
         );
     }
 
+    // Internal function to collect platform success fee
+    function _collectPlatformSuccessFee() internal returns (bool) {
+        if (feeRecipient == address(0) || fundingFeeBps == 0) {
+            return false; // No fee to collect
+        }
+        
+        uint256 fee = (totalDeposits * fundingFeeBps) / 10_000;
+        if (fee == 0) {
+            return false; // Fee too small
+        }
+        
+        // Transfer the fee to the fee recipient
+        require(depositToken.transfer(feeRecipient, fee), "Fee transfer failed");
+        
+        // Update state
+        platformFeeAccrued += fee;
+        // Reduce totalDeposits so LP math & refunds stay 1:1
+        totalDeposits -= fee;
+        emit PlatformFeePaid(fee, "success");
+        return true;
+    }
+    
     function _checkPoolStatus() internal {
         // Check if target has been reached
         if (targetReachedTime == 0 && totalDeposits >= targetAmount) {
@@ -567,13 +665,17 @@ contract StageDotFunPool is Ownable {
                 targetReachedTime = block.timestamp;
             }
             capReachedTime = block.timestamp;
+            
+            // Take one-time platform fee on success
+            _collectPlatformSuccessFee();
+            
             // Automatically transition to EXECUTING state when cap is hit
             status = PoolStatus.EXECUTING;
             emit CapReached(totalDeposits);
             emit PoolStatusUpdated(PoolStatus.EXECUTING);
         }
     }
-
+    
     // Add external function to check pool status
     function checkPoolStatus() external {
         _checkPoolStatus();
@@ -595,13 +697,16 @@ contract StageDotFunPool is Ownable {
         // Burn LP tokens
         lpToken.burn(msg.sender, lpBalance);
         
-        // Calculate the original USDC amount by dividing by the multiplier
-        uint256 usdcAmount = lpBalance / LP_TOKEN_MULTIPLIER;
+        // Clear any residual debt (now balance == 0)
+        rewardDebt[msg.sender] = 0;
+        
+        // Calculate the original deposit amount by dividing by the multiplier
+        uint256 depositAmount = lpBalance / LP_TOKEN_MULTIPLIER;
         
         // Return USDC
-        require(depositToken.transfer(msg.sender, usdcAmount), "Refund transfer failed");
+        require(depositToken.transfer(msg.sender, depositAmount), "Refund transfer failed");
         
-        emit FundsReturned(msg.sender, usdcAmount);
+        emit FundsReturned(msg.sender, depositAmount);
     }
 
     // Withdraw funds after target is met - allow only in EXECUTING state
@@ -628,10 +733,14 @@ contract StageDotFunPool is Ownable {
         
         emit FundsWithdrawn(owner(), withdrawAmount);
     }
-    
+
     // Begin execution phase to allow fund withdrawal and stop new commitments
     function beginExecution() external onlyOwner targetMet {
         require(status == PoolStatus.FUNDED, "Pool must be funded");
+        
+        // Take one-time platform fee on success if applicable
+        _collectPlatformSuccessFee();
+        
         status = PoolStatus.EXECUTING;
         emit PoolStatusUpdated(PoolStatus.EXECUTING);
     }
@@ -646,6 +755,24 @@ contract StageDotFunPool is Ownable {
         
         status = PoolStatus.COMPLETED;
         emit PoolStatusUpdated(PoolStatus.COMPLETED);
+    }
+
+    function setFeeRecipient(address _feeRecipient) external onlyOwner {
+        address oldRecipient = feeRecipient;
+        feeRecipient = _feeRecipient;
+        emit FeeRecipientUpdated(oldRecipient, _feeRecipient);
+    }
+    
+    function setFundingFeeBps(uint16 _fundingFeeBps) external onlyOwner {
+        uint16 oldFundingFeeBps = fundingFeeBps;
+        fundingFeeBps = _fundingFeeBps;
+        emit FundingFeeBpsUpdated(oldFundingFeeBps, _fundingFeeBps);
+    }
+    
+    function setRevenueFeeBps(uint16 _revenueFeeBps) external onlyOwner {
+        uint16 oldRevenueFeeBps = revenueFeeBps;
+        revenueFeeBps = _revenueFeeBps;
+        emit RevenueFeeBpsUpdated(oldRevenueFeeBps, _revenueFeeBps);
     }
 
     // Remove the constructor since we're using initialize
