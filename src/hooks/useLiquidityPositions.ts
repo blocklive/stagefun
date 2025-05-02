@@ -41,6 +41,7 @@ export interface LiquidityPosition {
     amount0: string;
     amount1: string;
   };
+  isEmpty: boolean; // Flag to indicate if the pool is empty (both reserves are zero)
 }
 
 export function useLiquidityPositions() {
@@ -173,6 +174,9 @@ export function useLiquidityPositions() {
       const usdcAddress = CONTRACT_ADDRESSES.monadTestnet.usdc;
       const wethAddress = CONTRACT_ADDRESSES.monadTestnet.weth;
 
+      // Simple log to show all pools once
+      console.log("=== ALL POOLS LIQUIDITY DETAILS ===");
+
       // Loop through all pairs to check if the user has LP tokens
       for (let i = 0; i < Number(pairsLength); i++) {
         let pairAddress = "";
@@ -209,29 +213,6 @@ export function useLiquidityPositions() {
             continue; // Skip to next pair
           }
 
-          // Calculate user's share of the pool
-          let totalSupply;
-          let shareOfPool = "0";
-          try {
-            totalSupply = await pairContract.totalSupply();
-            console.log(`Total supply for pair ${i}: ${totalSupply}`);
-
-            // Calculate share only if user has LP tokens
-            if (lpBalance > 0) {
-              shareOfPool = (
-                (Number(ethers.formatUnits(lpBalance, 18)) /
-                  Number(ethers.formatUnits(totalSupply, 18))) *
-                100
-              ).toFixed(6);
-            }
-          } catch (supplyError) {
-            console.error(
-              `Error getting total supply for pair ${i}:`,
-              supplyError
-            );
-            continue;
-          }
-
           // Get token addresses
           let token0Address, token1Address;
           try {
@@ -260,20 +241,106 @@ export function useLiquidityPositions() {
             continue;
           }
 
-          // Get reserves
+          // Get total supply and reserves
+          let totalSupply;
           let reserves;
           try {
-            reserves = await pairContract.getReserves();
-          } catch (reservesError) {
+            [totalSupply, reserves] = await Promise.all([
+              pairContract.totalSupply(),
+              pairContract.getReserves(),
+            ]);
+
+            console.log(`Total supply for pair ${i}: ${totalSupply}`);
+
+            // Format reserves to human-readable values
+            const reserve0 = ethers.formatUnits(
+              reserves[0],
+              token0Info.decimals
+            );
+            const reserve1 = ethers.formatUnits(
+              reserves[1],
+              token1Info.decimals
+            );
+
+            // Log detailed pool information once
+            console.log(`=== POOL ${i} DETAILS ===`);
+            console.log(`Pair: ${token0Info.symbol}/${token1Info.symbol}`);
+            console.log(`Address: ${pairAddress}`);
+            console.log(
+              `Total supply of LP tokens: ${ethers.formatUnits(
+                totalSupply,
+                18
+              )}`
+            );
+            console.log(
+              `Reserves: ${reserve0} ${token0Info.symbol}, ${reserve1} ${token1Info.symbol}`
+            );
+
+            // Log special info for MON/USDC pool
+            if (
+              (token0Address.toLowerCase() === usdcAddress.toLowerCase() ||
+                token1Address.toLowerCase() === usdcAddress.toLowerCase()) &&
+              (token0Address.toLowerCase() === wethAddress.toLowerCase() ||
+                token1Address.toLowerCase() === wethAddress.toLowerCase())
+            ) {
+              console.log(`*** FOUND MON/USDC POOL ***`);
+              console.log(
+                `Total LP tokens: ${ethers.formatUnits(totalSupply, 18)}`
+              );
+
+              const isUSDCToken0 =
+                token0Address.toLowerCase() === usdcAddress.toLowerCase();
+              const isMONToken0 =
+                token0Address.toLowerCase() === wethAddress.toLowerCase();
+
+              console.log(
+                `Reserve USDC: ${isUSDCToken0 ? reserve0 : reserve1}`
+              );
+              console.log(`Reserve MON: ${isMONToken0 ? reserve0 : reserve1}`);
+
+              // If USDC is token0, then MON is token1
+              if (isUSDCToken0) {
+                console.log(
+                  `Exchange rate: 1 USDC = ${
+                    Number(reserve1) / Number(reserve0)
+                  } MON`
+                );
+              } else {
+                console.log(
+                  `Exchange rate: 1 MON = ${
+                    Number(reserve0) / Number(reserve1)
+                  } USDC`
+                );
+              }
+            }
+          } catch (error) {
             console.error(
-              `Error getting reserves for pair ${i}:`,
-              reservesError
+              `Error getting total supply or reserves for pair ${i}:`,
+              error
             );
             continue;
           }
 
+          // Calculate user's share of the pool
+          let shareOfPool = "0";
+          // Calculate share only if user has LP tokens
+          if (lpBalance > 0 && totalSupply > 0) {
+            shareOfPool = (
+              (Number(ethers.formatUnits(lpBalance, 18)) /
+                Number(ethers.formatUnits(totalSupply, 18))) *
+              100
+            ).toFixed(6);
+          }
+
           const reserve0 = ethers.formatUnits(reserves[0], token0Info.decimals);
           const reserve1 = ethers.formatUnits(reserves[1], token1Info.decimals);
+
+          // Check if the pool is empty (both reserves are zero or extremely small)
+          const reserve0Value = parseFloat(reserve0);
+          const reserve1Value = parseFloat(reserve1);
+          const isEmpty =
+            (reserve0Value === 0 || reserve0Value < 0.0001) &&
+            (reserve1Value === 0 || reserve1Value < 0.0001);
 
           // Calculate user's token amounts based on their share of the pool
           let amount0 = "0";
@@ -305,6 +372,7 @@ export function useLiquidityPositions() {
               amount0,
               amount1,
             },
+            isEmpty,
           });
         } catch (error) {
           console.error(`Error processing pair ${i}:`, error);

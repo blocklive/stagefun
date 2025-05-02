@@ -1,12 +1,14 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import Image from "next/image";
 import { usePrivy } from "@privy-io/react-auth";
-import { FaSortDown } from "react-icons/fa";
-import { BsThreeDots } from "react-icons/bs";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import { useStageSwap } from "@/hooks/useStageSwap";
+import { useSmartWallet } from "@/hooks/useSmartWallet";
+import { RemoveLiquidityModal } from "./RemoveLiquidityModal";
+import { MyPoolsTable } from "./MyPoolsTable";
+import { AllPoolsTable } from "./AllPoolsTable";
 
 export function PositionsInterface() {
   const router = useRouter();
@@ -16,11 +18,22 @@ export function PositionsInterface() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [mounted, setMounted] = useState(false);
+  const { smartWalletAddress } = useSmartWallet();
+
+  // State for remove liquidity modal
+  const [showRemoveLiquidityModal, setShowRemoveLiquidityModal] =
+    useState(false);
+  const [selectedPosition, setSelectedPosition] = useState<any>(null);
 
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
   }, []);
+
+  // Get user's positions (positions with LP token balance > 0)
+  const userPositions = positions.filter(
+    (position) => Number(position.lpTokenBalance) > 0
+  );
 
   // Format a number with commas for thousands
   const formatNumber = (value: string, decimals: number = 6): string => {
@@ -113,11 +126,20 @@ export function PositionsInterface() {
 
   const handleRemoveLiquidity = (position: any, event: React.MouseEvent) => {
     event.stopPropagation();
-    // For now, navigate to the same liquidity page
-    router.push(
-      `/swap/liquidity?token0=${position.token0.address}&token1=${position.token1.address}`
-    );
+    // Show remove liquidity modal instead of navigating
+    setSelectedPosition(position);
+    setShowRemoveLiquidityModal(true);
     setActiveMenu(null);
+  };
+
+  const handleCloseModal = () => {
+    setShowRemoveLiquidityModal(false);
+    setSelectedPosition(null);
+  };
+
+  const handleRemoveSuccess = () => {
+    // Refresh the positions list after successful removal
+    setTimeout(() => refresh(), 3000);
   };
 
   return (
@@ -159,115 +181,27 @@ export function PositionsInterface() {
             Retry
           </button>
         </div>
-      ) : positions.length === 0 ? (
-        <div className="text-center py-8 bg-gray-800/30 rounded-lg">
-          <p className="text-gray-400 mb-2">No liquidity pools found</p>
-          <p className="text-sm text-gray-500">Be the first to add liquidity</p>
-        </div>
       ) : (
-        <div className="bg-[#1e1e2a] rounded-xl overflow-x-auto">
-          <table className="w-full text-left text-white min-w-[900px]">
-            <thead className="bg-[#15161a] border-b border-gray-800">
-              <tr>
-                <th className="p-4 font-medium text-gray-400">#</th>
-                <th className="p-4 font-medium text-gray-400">Pool</th>
-                <th className="p-4 font-medium text-gray-400">Fee tier</th>
-                <th className="p-4 font-medium text-gray-400 flex items-center">
-                  TVL <FaSortDown className="ml-1" />
-                </th>
-                <th className="p-4 font-medium text-gray-400">Your balance</th>
-                <th className="p-4 font-medium text-gray-400">Pool ratio</th>
-                <th className="p-4 font-medium text-gray-400">
-                  Your LP tokens
-                </th>
-                <th className="p-4 font-medium text-gray-400">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {positions.map((position, index) => (
-                <tr
-                  key={position.pairAddress}
-                  className="border-b border-gray-800 hover:bg-gray-800/30"
-                >
-                  <td className="p-4 text-gray-300">{index + 1}</td>
-                  <td className="p-4">
-                    <div className="flex items-center">
-                      <div className="flex -space-x-2 mr-3">
-                        <div className="relative z-10 w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white">
-                          <Image
-                            src={getTokenIconPath(position.token0.symbol)}
-                            alt={position.token0.symbol}
-                            width={32}
-                            height={32}
-                            onError={(e) => {
-                              // Fallback if token icon isn't found
-                              (e.target as HTMLImageElement).src =
-                                "/icons/unknown-logo.svg";
-                            }}
-                          />
-                        </div>
-                        <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white">
-                          <Image
-                            src={getTokenIconPath(position.token1.symbol)}
-                            alt={position.token1.symbol}
-                            width={32}
-                            height={32}
-                            onError={(e) => {
-                              // Fallback if token icon isn't found
-                              (e.target as HTMLImageElement).src =
-                                "/icons/unknown-logo.svg";
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <span className="font-medium">
-                        {position.token0.symbol}/{position.token1.symbol}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="p-4 text-gray-300">
-                    {calculateFeeRate(position)}
-                  </td>
-                  <td className="p-4 font-medium">{calculateTVL(position)}</td>
-                  <td className="p-4 text-gray-300">
-                    {Number(position.tokenAmounts.amount0) > 0 ? (
-                      <>
-                        {formatNumber(position.tokenAmounts.amount0, 4)} /{" "}
-                        {formatNumber(position.tokenAmounts.amount1, 4)}
-                      </>
-                    ) : (
-                      <span className="text-gray-500">-</span>
-                    )}
-                  </td>
-                  <td className="p-4 text-gray-300">
-                    1 {position.token0.symbol} ={" "}
-                    {(
-                      parseFloat(position.reserve1) /
-                      parseFloat(position.reserve0)
-                    ).toFixed(6)}{" "}
-                    {position.token1.symbol}
-                  </td>
-                  <td className="p-4 text-gray-300">
-                    {Number(position.lpTokenBalance) > 0 ? (
-                      formatNumber(position.lpTokenBalance, 8)
-                    ) : (
-                      <span className="text-gray-500">-</span>
-                    )}
-                  </td>
-                  <td className="p-4 text-gray-300">
-                    <button
-                      onClick={(e) => toggleMenu(position.pairAddress, e)}
-                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-700"
-                      aria-label="Pool options"
-                    >
-                      <BsThreeDots size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {/* Always show My Positions section, even when empty */}
+          <MyPoolsTable
+            userPositions={userPositions}
+            getTokenIconPath={getTokenIconPath}
+            formatNumber={formatNumber}
+            calculateFeeRate={calculateFeeRate}
+            toggleMenu={toggleMenu}
+          />
+
+          {/* All Positions Section */}
+          <AllPoolsTable
+            positions={positions}
+            getTokenIconPath={getTokenIconPath}
+            formatNumber={formatNumber}
+            calculateFeeRate={calculateFeeRate}
+            calculateTVL={calculateTVL}
+            toggleMenu={toggleMenu}
+          />
+        </>
       )}
 
       {/* Portal for dropdown menu - rendered outside the table to avoid overflow issues */}
@@ -295,35 +229,38 @@ export function PositionsInterface() {
                 >
                   Add Liquidity
                 </button>
-                <button
-                  onClick={(e) =>
-                    handleRemoveLiquidity(
-                      positions.find((p) => p.pairAddress === activeMenu)!,
-                      e
-                    )
-                  }
-                  className={`px-4 py-2 text-sm w-full text-left hover:bg-gray-700 ${
-                    Number(
-                      positions.find((p) => p.pairAddress === activeMenu)!
-                        .lpTokenBalance
-                    ) > 0
-                      ? "text-white"
-                      : "text-gray-500 cursor-not-allowed"
-                  }`}
-                  disabled={
-                    Number(
-                      positions.find((p) => p.pairAddress === activeMenu)!
-                        .lpTokenBalance
-                    ) <= 0
-                  }
-                >
-                  Remove Liquidity
-                </button>
+                {Number(
+                  positions.find((p) => p.pairAddress === activeMenu)
+                    ?.lpTokenBalance
+                ) > 0 && (
+                  <button
+                    onClick={(e) =>
+                      handleRemoveLiquidity(
+                        positions.find((p) => p.pairAddress === activeMenu)!,
+                        e
+                      )
+                    }
+                    className="px-4 py-2 text-sm text-white w-full text-left hover:bg-gray-700"
+                  >
+                    Remove Liquidity
+                  </button>
+                )}
               </>
             )}
           </div>,
           document.body
         )}
+
+      {/* Remove Liquidity Modal */}
+      {mounted && showRemoveLiquidityModal && selectedPosition && (
+        <RemoveLiquidityModal
+          position={selectedPosition}
+          onClose={handleCloseModal}
+          onSuccess={handleRemoveSuccess}
+          getTokenIconPath={getTokenIconPath}
+          formatNumber={formatNumber}
+        />
+      )}
     </div>
   );
 }
