@@ -5,8 +5,12 @@ import { useSmartWallet } from "./useSmartWallet";
 import { getERC20Contract } from "../lib/contracts/StageSwap";
 import { CONTRACT_ADDRESSES } from "../lib/contracts/addresses";
 
+// Official WMON token address
+const OFFICIAL_WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
+
 interface TokenBalances {
-  mon: string;
+  mon: string; // Native MON balance
+  wmon: string; // Wrapped MON balance
   usdc: string;
 }
 
@@ -14,7 +18,7 @@ export function useTokenBalances() {
   const { smartWalletAddress } = useSmartWallet();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch both MON (native token) and USDC balances
+  // Fetch balances: native MON, WMON, and USDC
   const fetchBalances = async (address: string): Promise<TokenBalances> => {
     try {
       const provider = new ethers.JsonRpcProvider(
@@ -28,16 +32,24 @@ export function useTokenBalances() {
       );
       const usdcBalance = await usdcContract.balanceOf(address);
 
-      // Get MON balance (native currency)
+      // Get native MON balance
       const monBalance = await provider.getBalance(address);
+
+      // Get official WMON balance
+      const wmonContract = await getERC20Contract(
+        OFFICIAL_WMON_ADDRESS,
+        provider
+      );
+      const wmonBalance = await wmonContract.balanceOf(address);
 
       return {
         usdc: ethers.formatUnits(usdcBalance, 6), // USDC has 6 decimals
         mon: ethers.formatUnits(monBalance, 18), // MON has 18 decimals
+        wmon: ethers.formatUnits(wmonBalance, 18), // WMON has 18 decimals
       };
     } catch (error) {
       console.error("Error fetching token balances:", error);
-      return { usdc: "0", mon: "0" };
+      return { usdc: "0", mon: "0", wmon: "0" };
     }
   };
 
@@ -45,7 +57,7 @@ export function useTokenBalances() {
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     smartWalletAddress ? `token-balances-${smartWalletAddress}` : null,
     async () => {
-      if (!smartWalletAddress) return { usdc: "0", mon: "0" };
+      if (!smartWalletAddress) return { usdc: "0", mon: "0", wmon: "0" };
       return fetchBalances(smartWalletAddress);
     },
     {
@@ -72,7 +84,7 @@ export function useTokenBalances() {
   }, [smartWalletAddress, mutate, isRefreshing]);
 
   return {
-    balances: data || { usdc: "0", mon: "0" },
+    balances: data || { usdc: "0", mon: "0", wmon: "0" },
     isLoading: isLoading,
     isRefreshing: isValidating || isRefreshing,
     error,

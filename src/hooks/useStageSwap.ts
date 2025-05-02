@@ -51,11 +51,33 @@ export interface AddLiquidityETHParams {
   deadline: number;
 }
 
+export interface SwapETHParams {
+  amountOutMin: string;
+  path: string[];
+  to: string;
+  deadline: number;
+  value?: string; // Optional value to specify MON amount to send
+}
+
+export interface SwapForETHParams {
+  amountIn: string;
+  amountOutMin: string;
+  path: string[];
+  to: string;
+  deadline: number;
+}
+
 export interface UseStageSwapResult {
   isLoading: boolean;
   error: string | null;
   swapExactTokensForTokens: (
     params: SwapParams
+  ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
+  swapExactETHForTokens: (
+    params: SwapETHParams
+  ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
+  swapExactTokensForETH: (
+    params: SwapForETHParams
   ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
   getAmountsOut: (
     params: SwapQuoteParams
@@ -87,7 +109,7 @@ export function useStageSwap(): UseStageSwapResult {
   const { user } = usePrivy();
   const { wallets } = useWallets();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>("");
   const {
     smartWalletAddress,
     callContractFunction,
@@ -563,6 +585,24 @@ export function useStageSwap(): UseStageSwapResult {
           "function addLiquidityETH(address token, uint amountTokenDesired, uint amountTokenMin, uint amountETHMin, address to, uint deadline) external payable returns (uint amountToken, uint amountETH, uint liquidity)",
         ];
 
+        console.log("Calling addLiquidityETH with smart wallet:", {
+          token: params.token,
+          amountTokenDesired: params.amountTokenDesired,
+          amountTokenMin: params.amountTokenMin,
+          amountETHMin: params.amountETHMin,
+          to: smartWalletAddress,
+          deadline: params.deadline,
+        });
+
+        // This is the key: We need to send the native MON as value
+        // Convert ETH min to the actual amount we want to send
+        // Uniswap V2's RouterV2 will use the specified amount, or as much as needed by the ratio
+        const ethValueToSend = params.amountETHMin;
+
+        console.log(
+          `Sending ${ethers.formatEther(ethValueToSend)} MON as value`
+        );
+
         const result = await callContractFunction(
           routerAddress as `0x${string}`,
           routerABI,
@@ -576,7 +616,7 @@ export function useStageSwap(): UseStageSwapResult {
             params.deadline,
           ],
           "Add liquidity with MON",
-          { value: params.amountETHMin } // Send the native MON amount
+          { value: ethValueToSend } // Send the MON amount
         );
 
         if (!result.success) {
@@ -758,10 +798,278 @@ export function useStageSwap(): UseStageSwapResult {
     [user, getProvider, smartWalletAddress, callContractFunction]
   );
 
+  // Add the swapExactETHForTokens function implementation (inside the useStageSwap hook)
+  const swapExactETHForTokens = useCallback(
+    async (
+      params: SwapETHParams
+    ): Promise<{ success: boolean; error?: string; txHash?: string }> => {
+      if (!user) {
+        return {
+          success: false,
+          error: "User is not authenticated. Please log in.",
+        };
+      }
+
+      // Clear any previous errors
+      setError(null);
+      setIsLoading(true);
+
+      // Create a toast for loading status
+      const loadingToast = showToast.loading(
+        "Processing your swap with native MON..."
+      );
+
+      try {
+        // Ensure smart wallet is available
+        const smartWalletResult = await ensureSmartWallet(user, loadingToast);
+
+        if (!smartWalletResult.success) {
+          throw new Error(
+            smartWalletResult.error ||
+              "Smart wallet sync in progress, please retry"
+          );
+        }
+
+        if (!smartWalletAddress || !callContractFunction) {
+          throw new Error(
+            "Smart wallet functions not available. Please try again later."
+          );
+        }
+
+        console.log("Using smart wallet for MON swap:", smartWalletAddress);
+        showToast.loading("Using smart wallet with gas sponsorship...", {
+          id: loadingToast,
+        });
+
+        // Verify path begins with WETH
+        const provider = await getProvider();
+        const routerContract = await getRouterContract(provider);
+        const routerAddress = await routerContract.getAddress();
+        const wethAddress = await routerContract.WETH();
+
+        if (params.path[0].toLowerCase() !== wethAddress.toLowerCase()) {
+          throw new Error("The first token in path must be the WETH token");
+        }
+
+        // Execute the swap with native MON
+        showToast.loading("Executing swap with MON...", { id: loadingToast });
+
+        // Value to send - use the provided value or calculate it properly
+        const ethValue =
+          params.value ||
+          (await (async () => {
+            const amounts = await routerContract.getAmountsIn(
+              params.amountOutMin,
+              params.path
+            );
+            return amounts[0].toString();
+          })());
+
+        const routerABI = [
+          "function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)",
+        ];
+
+        const result = await callContractFunction(
+          routerAddress as `0x${string}`,
+          routerABI,
+          "swapExactETHForTokens",
+          [
+            params.amountOutMin,
+            params.path,
+            smartWalletAddress, // Use smart wallet address as recipient
+            params.deadline,
+          ],
+          "Swap MON for tokens",
+          { value: ethValue } // Send native MON
+        );
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to execute swap");
+        }
+
+        // Wait for transaction confirmation
+        const receipt = await provider.waitForTransaction(
+          result.txHash as string
+        );
+
+        if (!receipt || receipt.status === 0) {
+          throw new Error("Transaction failed on-chain");
+        }
+
+        showToast.success("Swap completed successfully!", { id: loadingToast });
+        return { success: true, txHash: result.txHash };
+      } catch (error) {
+        console.error("Error in swapExactETHForTokens:", error);
+
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
+        const standardizedError = standardizeSmartWalletError(errorMessage);
+
+        setError(standardizedError);
+        showToast.error(standardizedError, { id: loadingToast });
+        return { success: false, error: standardizedError };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user, getProvider, smartWalletAddress, callContractFunction]
+  );
+
+  // Add the swapExactTokensForETH function implementation (inside the useStageSwap hook)
+  const swapExactTokensForETH = useCallback(
+    async (
+      params: SwapForETHParams
+    ): Promise<{ success: boolean; error?: string; txHash?: string }> => {
+      if (!user) {
+        return {
+          success: false,
+          error: "User is not authenticated. Please log in.",
+        };
+      }
+
+      // Clear any previous errors
+      setError(null);
+      setIsLoading(true);
+
+      // Create a toast for loading status
+      const loadingToast = showToast.loading(
+        "Processing your swap to native MON..."
+      );
+
+      try {
+        // Ensure smart wallet is available
+        const smartWalletResult = await ensureSmartWallet(user, loadingToast);
+
+        if (!smartWalletResult.success) {
+          throw new Error(
+            smartWalletResult.error ||
+              "Smart wallet sync in progress, please retry"
+          );
+        }
+
+        if (!smartWalletAddress || !callContractFunction) {
+          throw new Error(
+            "Smart wallet functions not available. Please try again later."
+          );
+        }
+
+        console.log("Using smart wallet for swap to MON:", smartWalletAddress);
+        showToast.loading("Using smart wallet with gas sponsorship...", {
+          id: loadingToast,
+        });
+
+        // Get provider and contracts
+        const provider = await getProvider();
+        const routerContract = await getRouterContract(provider);
+        const routerAddress = await routerContract.getAddress();
+        const wethAddress = await routerContract.WETH();
+
+        // Verify path ends with WETH
+        if (
+          params.path[params.path.length - 1].toLowerCase() !==
+          wethAddress.toLowerCase()
+        ) {
+          throw new Error("The last token in path must be the WETH token");
+        }
+
+        // Check token allowance and approve if needed
+        const tokenAddress = params.path[0];
+        const tokenContract = await getERC20Contract(tokenAddress, provider);
+
+        // Check allowance
+        const allowance = await getTokenAllowance(
+          tokenAddress,
+          smartWalletAddress,
+          routerAddress,
+          provider
+        );
+
+        // Convert amountIn to BigInt for comparison
+        const amountInBigInt = BigInt(params.amountIn);
+
+        // Approve if needed
+        if (allowance < amountInBigInt) {
+          showToast.loading("Approving token...", { id: loadingToast });
+
+          const tokenABI = [
+            "function approve(address spender, uint256 value) returns (bool)",
+          ];
+
+          const approvalResult = await callContractFunction(
+            tokenAddress as `0x${string}`,
+            tokenABI,
+            "approve",
+            [routerAddress, amountInBigInt],
+            "Approve token for swap"
+          );
+
+          if (!approvalResult.success) {
+            throw new Error(approvalResult.error || "Failed to approve token");
+          }
+
+          // Wait for approval transaction to be mined
+          await provider.waitForTransaction(approvalResult.txHash as string);
+        }
+
+        // Execute the swap
+        showToast.loading("Executing swap to MON...", { id: loadingToast });
+
+        const routerABI = [
+          "function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
+        ];
+
+        const result = await callContractFunction(
+          routerAddress as `0x${string}`,
+          routerABI,
+          "swapExactTokensForETH",
+          [
+            params.amountIn,
+            params.amountOutMin,
+            params.path,
+            smartWalletAddress, // Use smart wallet address as recipient
+            params.deadline,
+          ],
+          "Swap tokens for MON"
+        );
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to execute swap");
+        }
+
+        // Wait for transaction confirmation
+        const receipt = await provider.waitForTransaction(
+          result.txHash as string
+        );
+
+        if (!receipt || receipt.status === 0) {
+          throw new Error("Transaction failed on-chain");
+        }
+
+        showToast.success("Swap completed successfully!", { id: loadingToast });
+        return { success: true, txHash: result.txHash };
+      } catch (error) {
+        console.error("Error in swapExactTokensForETH:", error);
+
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
+        const standardizedError = standardizeSmartWalletError(errorMessage);
+
+        setError(standardizedError);
+        showToast.error(standardizedError, { id: loadingToast });
+        return { success: false, error: standardizedError };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user, getProvider, smartWalletAddress, callContractFunction]
+  );
+
   return {
     isLoading: isLoading || smartWalletIsLoading,
     error,
     swapExactTokensForTokens,
+    swapExactETHForTokens,
+    swapExactTokensForETH,
     getAmountsOut,
     addLiquidity,
     addLiquidityETH,
