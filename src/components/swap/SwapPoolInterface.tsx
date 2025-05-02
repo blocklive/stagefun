@@ -13,6 +13,7 @@ import {
 import showToast from "@/utils/toast";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
 
 // Define Token interface
 interface Token {
@@ -754,29 +755,18 @@ export function SwapPoolInterface() {
       </div>
 
       {/* Add liquidity button */}
-      <button
-        type="button"
+      <PrimaryButton
         onClick={handleAddLiquidity}
         disabled={!user || isLoading || !amountA || !amountB}
-        className={`w-full py-3 rounded-lg font-medium ${
-          !user || isLoading || !amountA || !amountB
-            ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-            : "bg-gradient-to-r from-[#9b6dff] to-[#836ef9] text-white hover:from-[#a57cff] hover:to-[#8f7dff] border border-[#b89fff]/30 shadow-lg shadow-purple-900/20"
-        }`}
+        isLoading={isLoading}
+        fullWidth
       >
-        {isLoading ? (
-          <div className="flex items-center justify-center">
-            <LoadingSpinner color="#FFFFFF" size={14} />
-            <span className="ml-2">Processing...</span>
-          </div>
-        ) : !user ? (
-          "Connect Wallet"
-        ) : !amountA || !amountB ? (
-          "Enter amounts"
-        ) : (
-          "Add Liquidity"
-        )}
-      </button>
+        {!user
+          ? "Connect Wallet"
+          : !amountA || !amountB
+          ? "Enter amounts"
+          : "Add Liquidity"}
+      </PrimaryButton>
 
       {/* Error message */}
       {error && (

@@ -10,6 +10,7 @@ import { getDeadlineTimestamp } from "@/lib/contracts/StageSwap";
 import showToast from "@/utils/toast";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
 
 // Define Token interface
 interface Token {
@@ -229,14 +230,13 @@ export function SwapInterface() {
 
       {/* Switch button */}
       <div className="flex justify-center my-4">
-        <button
-          type="button"
+        <PrimaryButton
           onClick={handleSwapTokens}
-          className="p-2 rounded-full bg-gray-800 hover:bg-gray-700"
           disabled={isLoading}
+          className="p-2 rounded-full"
         >
           <ArrowsUpDownIcon className="w-5 h-5 text-gray-300" />
-        </button>
+        </PrimaryButton>
       </div>
 
       {/* Output section */}
@@ -284,29 +284,18 @@ export function SwapInterface() {
       )}
 
       {/* Swap button */}
-      <button
-        type="button"
+      <PrimaryButton
         onClick={handleSwap}
         disabled={!user || isLoading || !inputAmount || !outputAmount}
-        className={`w-full py-3 rounded-lg font-medium ${
-          !user || isLoading || !inputAmount || !outputAmount
-            ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-            : "bg-[#836ef9] text-white hover:bg-[#6f5bd0]"
-        }`}
+        isLoading={isLoading}
+        fullWidth
       >
-        {isLoading ? (
-          <div className="flex items-center justify-center">
-            <LoadingSpinner color="#FFFFFF" size={14} />
-            <span className="ml-2">Processing...</span>
-          </div>
-        ) : !user ? (
-          "Connect Wallet"
-        ) : !inputAmount || !outputAmount ? (
-          "Enter an amount"
-        ) : (
-          "Swap"
-        )}
-      </button>
+        {!user
+          ? "Connect Wallet"
+          : !inputAmount || !outputAmount
+          ? "Enter an amount"
+          : "Swap"}
+      </PrimaryButton>
 
       {/* Error message */}
       {error && (

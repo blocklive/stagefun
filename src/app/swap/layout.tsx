@@ -34,7 +34,7 @@ export default function SwapLayout({
   return (
     <div className="min-h-screen bg-[#15161a] text-white">
       <AppHeader
-        title="StageSwap"
+        title="SWAP"
         showTitle={true}
         showBackButton={false}
         showCreateButton={false}
@@ -56,9 +56,18 @@ export default function SwapLayout({
               href="/swap"
               className={`text-lg font-medium ${
                 pathname === "/swap"
-                  ? "text-[#836ef9] border-b-2 border-[#836ef9] pb-1"
+                  ? "text-[#9b6dff] border-b-2 border-[#9b6dff] pb-1"
                   : "text-gray-400 hover:text-white pb-1"
               }`}
+              style={
+                pathname === "/swap"
+                  ? {
+                      borderImage:
+                        "linear-gradient(to right, #9b6dff, #836ef9) 1",
+                      color: "#9b6dff",
+                    }
+                  : {}
+              }
             >
               Swap
             </Link>
@@ -66,9 +75,18 @@ export default function SwapLayout({
               href="/swap/liquidity"
               className={`text-lg font-medium ${
                 pathname === "/swap/liquidity"
-                  ? "text-[#836ef9] border-b-2 border-[#836ef9] pb-1"
+                  ? "text-[#9b6dff] border-b-2 pb-1"
                   : "text-gray-400 hover:text-white pb-1"
               }`}
+              style={
+                pathname === "/swap/liquidity"
+                  ? {
+                      borderImage:
+                        "linear-gradient(to right, #9b6dff, #836ef9) 1",
+                      color: "#9b6dff",
+                    }
+                  : {}
+              }
             >
               Add Liquidity
             </Link>
@@ -76,9 +94,18 @@ export default function SwapLayout({
               href="/swap/positions"
               className={`text-lg font-medium ${
                 pathname === "/swap/positions"
-                  ? "text-[#836ef9] border-b-2 border-[#836ef9] pb-1"
+                  ? "text-[#9b6dff] border-b-2 pb-1"
                   : "text-gray-400 hover:text-white pb-1"
               }`}
+              style={
+                pathname === "/swap/positions"
+                  ? {
+                      borderImage:
+                        "linear-gradient(to right, #9b6dff, #836ef9) 1",
+                      color: "#9b6dff",
+                    }
+                  : {}
+              }
             >
               Positions
             </Link>

@@ -23,33 +23,14 @@ export const MyPoolsTable: React.FC<MyPoolsTableProps> = ({
       <h3 className="text-xl font-medium text-white mb-4">My Positions</h3>
 
       {userPositions.length === 0 ? (
-        <div className="bg-[#1e1e2a] rounded-xl p-8 text-center">
-          <div className="flex flex-col items-center justify-center">
-            <Image
-              src="/icons/empty-pool.svg"
-              alt="No liquidity positions"
-              width={80}
-              height={80}
-              onError={(e) => {
-                // Fallback if icon isn't found
-                (e.target as HTMLImageElement).src = "/icons/unknown-logo.svg";
-              }}
-              className="mb-4 opacity-70"
-            />
-            <h4 className="text-lg font-medium text-white mb-2">
-              No Liquidity Positions
-            </h4>
-            <p className="text-gray-400 mb-6 max-w-md">
-              You don't have any liquidity positions yet. Add liquidity to start
-              earning fees.
-            </p>
-            <Link
-              href="/swap/liquidity"
-              className="px-6 py-3 bg-gradient-to-r from-[#9b6dff] to-[#836ef9] text-white hover:from-[#a57cff] hover:to-[#8f7dff] border border-[#b89fff]/30 shadow-lg shadow-purple-900/20 rounded-lg font-medium"
-            >
-              Add Liquidity
-            </Link>
-          </div>
+        <div className="bg-[#1e1e2a] rounded-xl p-4 text-center">
+          <p className="text-gray-400 mb-2">No liquidity positions found</p>
+          <Link
+            href="/swap/liquidity"
+            className="text-purple-400 hover:text-purple-300 underline text-sm font-medium"
+          >
+            Add liquidity
+          </Link>
         </div>
       ) : (
         <div className="bg-[#1e1e2a] rounded-xl overflow-x-auto">

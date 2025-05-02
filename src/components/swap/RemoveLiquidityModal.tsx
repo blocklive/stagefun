@@ -5,6 +5,7 @@ import { useStageSwap } from "@/hooks/useStageSwap";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
 import { getDeadlineTimestamp } from "@/lib/contracts/StageSwap";
 import { ethers } from "ethers";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
 
 interface RemoveLiquidityModalProps {
   position: any;
@@ -170,17 +171,15 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
           {/* Preset percentage buttons */}
           <div className="flex space-x-2 mt-2">
             {[25, 50, 75, 100].map((percent) => (
-              <button
+              <PrimaryButton
                 key={percent}
                 onClick={() => setRemovePercent(percent)}
-                className={`px-3 py-1 rounded-md text-sm ${
-                  removePercent === percent
-                    ? "bg-purple-700 text-white"
-                    : "bg-gray-800 text-gray-300"
+                className={`flex-1 ${
+                  removePercent === percent ? "bg-purple-700" : ""
                 }`}
               >
                 {percent}%
-              </button>
+              </PrimaryButton>
             ))}
           </div>
         </div>
@@ -240,26 +239,17 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
 
         {/* Action buttons */}
         <div className="flex space-x-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 px-4 bg-gray-800 hover:bg-gray-700 rounded-lg font-medium"
-          >
+          <PrimaryButton onClick={onClose} className="flex-1 bg-gray-800">
             Cancel
-          </button>
-          <button
+          </PrimaryButton>
+          <PrimaryButton
             onClick={executeRemoveLiquidity}
             disabled={isRemoving}
-            className="flex-1 py-3 px-4 bg-gradient-to-r from-[#9b6dff] to-[#836ef9] hover:from-[#a57cff] hover:to-[#8f7dff] text-white rounded-lg font-medium border border-[#b89fff]/30 shadow-lg shadow-purple-900/20"
+            isLoading={isRemoving}
+            className="flex-1"
           >
-            {isRemoving ? (
-              <div className="flex items-center justify-center">
-                <LoadingSpinner color="#FFFFFF" size={14} />
-                <span className="ml-2">Processing...</span>
-              </div>
-            ) : (
-              "Remove"
-            )}
-          </button>
+            Remove
+          </PrimaryButton>
         </div>
       </div>
     </div>
