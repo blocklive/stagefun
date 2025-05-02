@@ -184,13 +184,6 @@ export function useClaimDistribution() {
 
         // Verify transaction was successful
         if (receipt && receipt.status === 1) {
-          showToast.success(
-            "Your distribution has been claimed successfully!",
-            {
-              id: loadingToast,
-            }
-          );
-
           // Reset pending amount after successful claim
           setPendingAmount(null);
 

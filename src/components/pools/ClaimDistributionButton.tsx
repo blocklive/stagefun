@@ -106,7 +106,7 @@ export function ClaimDistributionButton({
     <button
       onClick={handleClick}
       disabled={isClaiming}
-      className={`${className} bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full flex items-center justify-center space-x-2 ${
+      className={`${className} bg-[#836EF9] hover:bg-[#7058E8] text-white py-3 px-4 rounded-full flex items-center justify-center space-x-2 font-medium transition-colors ${
         isClaiming ? "cursor-not-allowed" : "cursor-pointer"
       }`}
     >
