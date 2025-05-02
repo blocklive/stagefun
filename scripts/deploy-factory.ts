@@ -90,17 +90,69 @@ async function main() {
     "../src/lib/contracts/addresses.ts"
   );
   const networkConfig = getCurrentNetworkConfig();
-  const addressesContent = `/**
+
+  try {
+    // First, we need to get current addresses content
+    // Since we can't directly require a TS file in Node,
+    // we'll load the file content and extract the object values
+
+    // First try to get the file content if it exists
+    let currentAddressesTs = "";
+    try {
+      currentAddressesTs = fs.readFileSync(addressesPath, "utf8");
+    } catch (error) {
+      // File doesn't exist yet, that's fine
+    }
+
+    // Initialize base structure for addresses
+    let CONTRACT_ADDRESSES = {
+      monadTestnet: {},
+    };
+
+    // Try to extract existing monadTestnet object
+    if (currentAddressesTs) {
+      const monadTestnetMatch = currentAddressesTs.match(
+        /monadTestnet:\s*{([^}]*)}/s
+      );
+
+      if (monadTestnetMatch && monadTestnetMatch[1]) {
+        // Parse each key-value pair
+        const pairs = monadTestnetMatch[1].match(/(\w+):\s*["']([^"']+)["']/g);
+
+        if (pairs) {
+          pairs.forEach((pair) => {
+            const [key, value] = pair.split(/:\s*["']/).map((s) => s.trim());
+            // Remove trailing quotes
+            const cleanValue = value.replace(/["',]+$/, "");
+            if (key && cleanValue) {
+              CONTRACT_ADDRESSES.monadTestnet[key] = cleanValue;
+            }
+          });
+        }
+      }
+    }
+
+    // Update with new address values
+    CONTRACT_ADDRESSES.monadTestnet = {
+      ...CONTRACT_ADDRESSES.monadTestnet,
+      stageDotFunPoolFactory: updatedAddresses.stageDotFunPoolFactory,
+      stageDotFunPoolImplementation: updatedAddresses.poolImplementation,
+      stageDotFunLiquidityImplementation:
+        updatedAddresses.lpTokenImplementation,
+      stageDotFunNFTImplementation: updatedAddresses.nftImplementation,
+      usdc: usdc,
+    };
+
+    // Generate file content
+    const addressesContent = `/**
  * Contract addresses for different networks
  * Update these addresses when deploying new contracts
  */
 export const CONTRACT_ADDRESSES = {
   monadTestnet: {
-    stageDotFunPoolFactory: "${updatedAddresses.stageDotFunPoolFactory}",
-    stageDotFunPoolImplementation: "${updatedAddresses.poolImplementation}",
-    stageDotFunLiquidityImplementation: "${updatedAddresses.lpTokenImplementation}",
-    stageDotFunNFTImplementation: "${updatedAddresses.nftImplementation}",
-    usdc: "${usdc}",
+${Object.entries(CONTRACT_ADDRESSES.monadTestnet)
+  .map(([key, value]) => `    ${key}: "${value}"`)
+  .join(",\n")}
   },
 } as const;
 
@@ -119,8 +171,11 @@ export function getContractAddresses() {
 }
 `;
 
-  fs.writeFileSync(addressesPath, addressesContent);
-  console.log("Updated addresses.ts with new contract address");
+    fs.writeFileSync(addressesPath, addressesContent);
+    console.log("Updated addresses.ts with new contract addresses");
+  } catch (error) {
+    console.error("Error updating addresses.ts:", error);
+  }
 
   // Wait for a few block confirmations
   console.log("Waiting for block confirmations...");

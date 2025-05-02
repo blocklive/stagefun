@@ -69,45 +69,88 @@ async function main() {
   );
   const networkConfig = getCurrentNetworkConfig();
 
-  // Read the current file
-  let addressesContent = fs.readFileSync(addressesPath, "utf8");
+  try {
+    // First, we need to get current addresses content
+    // Since we can't directly require a TS file in Node,
+    // we'll load the file content and extract the object values
 
-  // Parse the content to find the CONTRACT_ADDRESSES object
-  const contractAddressesStartIndex = addressesContent.indexOf(
-    "export const CONTRACT_ADDRESSES = {"
-  );
-  const contractAddressesEndIndex =
-    addressesContent.indexOf("} as const;", contractAddressesStartIndex) + 10;
+    // First try to get the file content if it exists
+    let currentAddressesTs = "";
+    try {
+      currentAddressesTs = fs.readFileSync(addressesPath, "utf8");
+    } catch (error) {
+      // File doesn't exist yet, that's fine
+    }
 
-  const beforeContractAddresses = addressesContent.substring(
-    0,
-    contractAddressesStartIndex
-  );
-  const afterContractAddresses = addressesContent.substring(
-    contractAddressesEndIndex
-  );
+    // Initialize base structure for addresses
+    let CONTRACT_ADDRESSES = {
+      monadTestnet: {},
+    };
 
-  // Extract the current addresses object
-  const currentAddressesObject = addressesContent.substring(
-    contractAddressesStartIndex,
-    contractAddressesEndIndex
-  );
+    // Try to extract existing monadTestnet object
+    if (currentAddressesTs) {
+      const monadTestnetMatch = currentAddressesTs.match(
+        /monadTestnet:\s*{([^}]*)}/s
+      );
 
-  // Insert new addresses
-  const newAddressesObject = currentAddressesObject.replace(
-    "monadTestnet: {",
-    `monadTestnet: {
-    stageSwapFactory: "${updatedAddresses.stageSwapFactory}",
-    stageSwapRouter: "${updatedAddresses.stageSwapRouter}",
-    weth: "${updatedAddresses.weth}",`
-  );
+      if (monadTestnetMatch && monadTestnetMatch[1]) {
+        // Parse each key-value pair
+        const pairs = monadTestnetMatch[1].match(/(\w+):\s*["']([^"']+)["']/g);
 
-  // Reconstruct the file
-  const newAddressesContent =
-    beforeContractAddresses + newAddressesObject + afterContractAddresses;
+        if (pairs) {
+          pairs.forEach((pair) => {
+            const [key, value] = pair.split(/:\s*["']/).map((s) => s.trim());
+            // Remove trailing quotes
+            const cleanValue = value.replace(/["',]+$/, "");
+            if (key && cleanValue) {
+              CONTRACT_ADDRESSES.monadTestnet[key] = cleanValue;
+            }
+          });
+        }
+      }
+    }
 
-  fs.writeFileSync(addressesPath, newAddressesContent);
-  console.log("Updated addresses.ts with new AMM contract addresses");
+    // Update with new address values
+    CONTRACT_ADDRESSES.monadTestnet = {
+      ...CONTRACT_ADDRESSES.monadTestnet,
+      stageSwapFactory: updatedAddresses.stageSwapFactory,
+      stageSwapRouter: updatedAddresses.stageSwapRouter,
+      weth: updatedAddresses.weth,
+    };
+
+    // Generate file content
+    const addressesContent = `/**
+ * Contract addresses for different networks
+ * Update these addresses when deploying new contracts
+ */
+export const CONTRACT_ADDRESSES = {
+  monadTestnet: {
+${Object.entries(CONTRACT_ADDRESSES.monadTestnet)
+  .map(([key, value]) => `    ${key}: "${value}"`)
+  .join(",\n")}
+  },
+} as const;
+
+/**
+ * Network configuration
+ */
+export const NETWORK = {
+  chainId: ${networkConfig.chainId},
+  rpcUrl: "${networkConfig.rpcUrl}",
+  explorerUrl: "${networkConfig.explorerUrl}",
+} as const;
+
+// Helper to get addresses for current network
+export function getContractAddresses() {
+  return CONTRACT_ADDRESSES.monadTestnet;
+}
+`;
+
+    fs.writeFileSync(addressesPath, addressesContent);
+    console.log("Updated addresses.ts with new AMM contract addresses");
+  } catch (error) {
+    console.error("Error updating addresses.ts:", error);
+  }
 
   // Wait for a few block confirmations
   console.log("Waiting for block confirmations...");
