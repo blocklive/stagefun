@@ -1,104 +1,107 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
-
-interface Token {
-  address: string;
-  symbol: string;
-  name: string;
-  decimals: number;
-  logoURI: string;
-}
+import { Token } from "@/types/token";
+import { EnhancedTokenSelector } from "./EnhancedTokenSelector";
 
 interface TokenSelectorProps {
   selectedToken: Token | null;
   onTokenSelect: (token: Token) => void;
-  tokens: Token[];
+  tokens?: Token[];
   disabled?: boolean;
+  excludeAddresses?: string[];
+  title?: string;
+  onlyMainTokens?: boolean;
 }
 
 export function TokenSelector({
   selectedToken,
   onTokenSelect,
-  tokens,
+  tokens = [],
   disabled = false,
+  excludeAddresses = [],
+  title,
+  onlyMainTokens = false,
 }: TokenSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleTokenSelect = (token: Token) => {
-    onTokenSelect(token);
-    setIsOpen(false);
-  };
+  // Get the swap container dimensions
+  const [modalPosition, setModalPosition] = useState({
+    left: 0,
+    top: 0,
+    width: 0,
+  });
+
+  // Update modal position based on the container position
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      // Look for the swap container (the main card containing the swap UI)
+      const swapContainer = document.querySelector(
+        ".max-w-md.mx-auto.bg-\\[\\#1e1e2a\\]"
+      );
+
+      if (swapContainer) {
+        const swapRect = swapContainer.getBoundingClientRect();
+
+        // Calculate position to center the modal on the swap container
+        setModalPosition({
+          left: swapRect.left,
+          top: Math.max(20, swapRect.top + window.scrollY - 80), // Position above the swap UI but not too high
+          width: swapRect.width,
+        });
+      } else {
+        // Fallback if we can't find the swap container
+        const rect = containerRef.current.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+
+        setModalPosition({
+          left: Math.max(0, (viewportWidth - 450) / 2), // Center horizontally with 450px max width
+          top: Math.max(20, rect.top + window.scrollY - 300), // Position above the button
+          width: Math.min(450, viewportWidth - 40), // Respect viewport width with padding
+        });
+      }
+    }
+  }, [isOpen]);
 
   return (
-    <div className="relative">
+    <div ref={containerRef}>
       <button
         type="button"
-        className={`flex items-center space-x-2 px-3 py-2 rounded-lg border ${
-          disabled
-            ? "bg-gray-800 border-gray-700 cursor-not-allowed"
-            : "bg-gray-800 border-gray-700 hover:border-[#836ef9]"
+        className={`flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-700 transition-colors ${
+          disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
         }`}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => !disabled && setIsOpen(true)}
         disabled={disabled}
       >
         {selectedToken ? (
           <>
             <div className="w-6 h-6 relative">
               <Image
-                src={selectedToken.logoURI}
+                src={selectedToken.logoURI || "/icons/generic-token.svg"}
                 alt={selectedToken.symbol}
                 fill
                 sizes="24px"
                 className="rounded-full"
               />
             </div>
-            <span className="font-medium text-white">
-              {selectedToken.symbol}
-            </span>
+            <span className="font-medium">{selectedToken.symbol}</span>
           </>
         ) : (
-          <span className="text-gray-400">Select token</span>
+          <span className="font-medium">Select a token</span>
         )}
-        {!disabled && <ChevronDownIcon className="w-5 h-5 text-gray-400" />}
+        <ChevronDownIcon className="h-4 w-4 text-gray-400" />
       </button>
 
-      {isOpen && (
-        <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
-          <div className="p-2">
-            <input
-              type="text"
-              placeholder="Search token name or paste address"
-              className="w-full px-3 py-2 border border-gray-700 bg-gray-900 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-[#836ef9]"
-            />
-          </div>
-          <ul className="py-1">
-            {tokens.map((token) => (
-              <li key={token.address}>
-                <button
-                  type="button"
-                  className="w-full text-left px-4 py-2 hover:bg-gray-700 flex items-center space-x-3"
-                  onClick={() => handleTokenSelect(token)}
-                >
-                  <div className="w-8 h-8 relative">
-                    <Image
-                      src={token.logoURI}
-                      alt={token.symbol}
-                      fill
-                      sizes="32px"
-                      className="rounded-full"
-                    />
-                  </div>
-                  <div>
-                    <div className="font-medium text-white">{token.symbol}</div>
-                    <div className="text-sm text-gray-400">{token.name}</div>
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <EnhancedTokenSelector
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        onSelectToken={onTokenSelect}
+        excludeAddresses={excludeAddresses}
+        title={title}
+        onlyMainTokens={onlyMainTokens}
+        modalPosition={modalPosition}
+      />
     </div>
   );
 }

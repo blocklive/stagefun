@@ -67,6 +67,18 @@ export interface SwapForETHParams {
   deadline: number;
 }
 
+export interface GetPairParams {
+  tokenA: string;
+  tokenB: string;
+}
+
+export interface GetPairResult {
+  success: boolean;
+  pairAddress?: string;
+  reserves?: [bigint, bigint];
+  error?: string;
+}
+
 export interface UseStageSwapResult {
   isLoading: boolean;
   error: string | null;
@@ -103,6 +115,7 @@ export interface UseStageSwapResult {
     to: string,
     deadline: number
   ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
+  getPair: (params: GetPairParams) => Promise<GetPairResult>;
 }
 
 export function useStageSwap(): UseStageSwapResult {
@@ -1064,6 +1077,73 @@ export function useStageSwap(): UseStageSwapResult {
     [user, getProvider, smartWalletAddress, callContractFunction]
   );
 
+  // Add the getPair function implementation (inside the useStageSwap hook)
+  const getPair = useCallback(
+    async ({ tokenA, tokenB }: GetPairParams): Promise<GetPairResult> => {
+      try {
+        const provider = await getProvider();
+        const routerContract = await getRouterContract(provider);
+        const factoryAddress = await routerContract.factory();
+
+        const factoryContract = new ethers.Contract(
+          factoryAddress,
+          [
+            "function getPair(address tokenA, address tokenB) external view returns (address pair)",
+          ],
+          provider
+        );
+
+        const pairAddress = await factoryContract.getPair(tokenA, tokenB);
+
+        // If pair doesn't exist
+        if (pairAddress === "0x0000000000000000000000000000000000000000") {
+          return {
+            success: true,
+            pairAddress,
+          };
+        }
+
+        // Get reserves if pair exists
+        const pairContract = new ethers.Contract(
+          pairAddress,
+          [
+            "function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)",
+            "function token0() external view returns (address)",
+            "function token1() external view returns (address)",
+          ],
+          provider
+        );
+
+        const [reserves, token0] = await Promise.all([
+          pairContract.getReserves(),
+          pairContract.token0(),
+        ]);
+
+        // Determine which reserve is which based on token order
+        const isTokenAZero = tokenA.toLowerCase() === token0.toLowerCase();
+        const reserveA = isTokenAZero
+          ? BigInt(reserves[0])
+          : BigInt(reserves[1]);
+        const reserveB = isTokenAZero
+          ? BigInt(reserves[1])
+          : BigInt(reserves[0]);
+
+        return {
+          success: true,
+          pairAddress,
+          reserves: [reserveA, reserveB],
+        };
+      } catch (error) {
+        console.error("Error getting pair:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Error getting pair",
+        };
+      }
+    },
+    [getProvider]
+  );
+
   return {
     isLoading: isLoading || smartWalletIsLoading,
     error,
@@ -1074,5 +1154,6 @@ export function useStageSwap(): UseStageSwapResult {
     addLiquidity,
     addLiquidityETH,
     removeLiquidity,
+    getPair,
   };
 }
