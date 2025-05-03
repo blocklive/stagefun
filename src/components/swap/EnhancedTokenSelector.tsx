@@ -79,7 +79,7 @@ export function EnhancedTokenSelector({
         onClick={onClose}
       >
         <div
-          className="bg-[#1e1e2a] rounded-xl shadow-lg w-full max-h-[90vh] flex flex-col border border-[#FFFFFF15]"
+          className="bg-[#1e1e2a] rounded-xl shadow-lg w-full max-h-[90vh] flex flex-col border-0"
           style={{
             position: "absolute",
             maxWidth: "360px",
@@ -94,7 +94,7 @@ export function EnhancedTokenSelector({
           onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the modal itself
         >
           {/* Header */}
-          <div className="p-4 border-b border-[#FFFFFF15]">
+          <div className="p-4 border-b-0">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-semibold text-white">{title}</h3>
               <button
@@ -112,18 +112,18 @@ export function EnhancedTokenSelector({
                 placeholder="Search by name or paste address"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 bg-[#1e1e2a] border border-[#FFFFFF15] rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-[#836ef9] placeholder:text-gray-500"
+                className="w-full px-4 py-3 bg-[#1e1e2a] border-0 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-[#836ef9] placeholder:text-gray-500"
               />
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-[#FFFFFF15]">
+          <div className="flex">
             <button
               className={`px-4 py-3 text-sm font-medium flex-1 ${
                 activeTab === "all"
                   ? "text-white border-b-2 border-[#836ef9]"
-                  : "text-gray-400 hover:text-white"
+                  : "text-gray-400 hover:text-white border-b-0"
               }`}
               onClick={() => setActiveTab("all")}
             >
@@ -133,7 +133,7 @@ export function EnhancedTokenSelector({
               className={`px-4 py-3 text-sm font-medium flex-1 ${
                 activeTab === "stages"
                   ? "text-white border-b-2 border-[#836ef9]"
-                  : "text-gray-400 hover:text-white"
+                  : "text-gray-400 hover:text-white border-b-0"
               }`}
               onClick={() => setActiveTab("stages")}
             >
@@ -142,7 +142,7 @@ export function EnhancedTokenSelector({
           </div>
 
           {/* Token list */}
-          <div className="overflow-auto flex-grow divide-y divide-[#FFFFFF08]">
+          <div className="overflow-auto flex-grow">
             {isLoading ? (
               <div className="flex items-center justify-center h-60 text-gray-400">
                 Loading tokens...

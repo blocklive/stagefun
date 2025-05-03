@@ -5,7 +5,8 @@ import { usePrivy } from "@privy-io/react-auth";
 import { TokenSelector } from "./TokenSelector";
 import { AmountInput } from "./AmountInput";
 import { useStageSwap } from "@/hooks/useStageSwap";
-import { useTokenBalances } from "@/hooks/useTokenBalances";
+import { useWalletAssets } from "@/hooks/useWalletAssets";
+import { useSmartWallet } from "@/hooks/useSmartWallet";
 import { getDeadlineTimestamp } from "@/lib/contracts/StageSwap";
 import showToast from "@/utils/toast";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -78,24 +79,45 @@ export function SwapInterface() {
     swapExactETHForTokens,
     swapExactTokensForETH,
   } = useStageSwap();
-  const { balances, refresh: refreshBalances } = useTokenBalances();
+  const { smartWalletAddress } = useSmartWallet();
+  const { assets, refresh: refreshBalances } =
+    useWalletAssets(smartWalletAddress);
 
   // Combined loading state
   const isLoading = isSwapping || isSwapHookLoading || isTokensLoading;
 
-  // Helper function to get the appropriate balance based on token
+  // Helper function to get the appropriate balance based on token using Zerion assets
   const getTokenBalance = (token: Token): string => {
-    if (!balances) return "0";
+    if (!assets) return "0";
 
-    if (token.symbol === "USDC") {
-      return balances.usdc;
-    } else if (token.symbol === "WMON") {
-      return balances.wmon;
-    } else if (token.symbol === "MON") {
-      return balances.mon; // Native MON balance
-    }
+    // Find the asset by symbol or address
+    const asset = assets.find((asset) => {
+      const implementation =
+        asset.attributes.fungible_info?.implementations?.[0];
+      const symbol = asset.attributes.fungible_info?.symbol;
 
-    return "0";
+      // Match native MON
+      if (
+        token.address === "NATIVE" &&
+        (asset.id === "base-monad-test-v2-asset-asset" ||
+          (symbol === "MON" && !implementation?.address))
+      ) {
+        return true;
+      }
+
+      // Match by address for regular tokens
+      if (
+        implementation?.address &&
+        implementation.address.toLowerCase() === token.address.toLowerCase()
+      ) {
+        return true;
+      }
+
+      // Match by symbol as fallback
+      return symbol === token.symbol;
+    });
+
+    return asset ? asset.attributes.quantity.float.toString() : "0";
   };
 
   // Function to swap the input and output tokens

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
-import { useTokenBalances } from "@/hooks/useTokenBalances";
+import { useWalletAssets } from "@/hooks/useWalletAssets";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
 // Import all the new components
@@ -13,8 +13,9 @@ import { SlippageSettings } from "./SlippageSettings";
 import { InfoCard } from "./InfoCard";
 import { LiquidityActions } from "./LiquidityActions";
 
-// Import custom hook for pool management
+// Import custom hooks
 import { usePoolManager } from "@/hooks/usePoolManager";
+import { useSmartWallet } from "@/hooks/useSmartWallet";
 
 // Define Token interface
 interface Token {
@@ -62,6 +63,7 @@ const TOKENS: Token[] = [
 
 export function SwapPoolInterface() {
   const { user } = usePrivy();
+  const { smartWalletAddress } = useSmartWallet();
 
   // Token state
   const [tokenA, setTokenA] = useState(TOKENS[0]); // USDC
@@ -87,12 +89,12 @@ export function SwapPoolInterface() {
     getDisplayRatio,
   } = usePoolManager(tokenA, tokenB);
 
-  // Get token balances
+  // Get token balances and assets using the Zerion-based hook
   const {
-    balances,
+    assets,
     isLoading: isBalanceLoading,
     refresh: refreshBalances,
-  } = useTokenBalances();
+  } = useWalletAssets(smartWalletAddress);
 
   // Combined loading state
   const isLoading = isAddingLiquidity || isBalanceLoading;
@@ -126,16 +128,38 @@ export function SwapPoolInterface() {
     }
   };
 
-  // Get the relevant balance for the selected token
+  // Get the relevant balance for the selected token from Zerion assets
   const getTokenBalance = (token: Token): string => {
-    if (token.address === CONTRACT_ADDRESSES.monadTestnet.usdc) {
-      return balances.usdc;
-    } else if (token.address === OFFICIAL_WMON_ADDRESS) {
-      return balances.wmon;
-    } else if (token.address === "NATIVE") {
-      return balances.mon; // Native MON balance
-    }
-    return "0";
+    if (!assets) return "0";
+
+    // Find the asset that matches the token
+    const asset = assets.find((asset) => {
+      const implementation =
+        asset.attributes.fungible_info?.implementations?.[0];
+
+      // Handle native MON
+      if (
+        token.address === "NATIVE" &&
+        (asset.id === "base-monad-test-v2-asset-asset" ||
+          (asset.attributes.fungible_info?.symbol === "MON" &&
+            !implementation?.address))
+      ) {
+        return true;
+      }
+
+      // Handle regular tokens by checking address
+      if (
+        implementation?.address &&
+        implementation.address.toLowerCase() === token.address.toLowerCase()
+      ) {
+        return true;
+      }
+
+      // Match by symbol as fallback
+      return asset.attributes.fungible_info?.symbol === token.symbol;
+    });
+
+    return asset ? asset.attributes.quantity.float.toString() : "0";
   };
 
   // Calculate minimum amounts based on slippage tolerance
@@ -181,10 +205,13 @@ export function SwapPoolInterface() {
         onChange={handleAmountAChange}
         token={tokenA}
         onTokenSelect={(token) => {
-          setTokenA(token);
+          // If the user selects the same token that's already in the second position,
+          // swap the tokens to prevent having the same token in both positions
           if (token.address === tokenB.address) {
-            // Swap tokens if the same one is selected
-            setTokenB(tokenA);
+            setTokenA(tokenB);
+            setTokenB(token);
+          } else {
+            setTokenA(token);
           }
         }}
         tokens={TOKENS}
@@ -220,16 +247,19 @@ export function SwapPoolInterface() {
           onChange={handleAmountBChange}
           token={tokenB}
           onTokenSelect={(token) => {
-            setTokenB(token);
+            // If the user selects the same token that's already in the first position,
+            // swap the tokens to prevent having the same token in both positions
             if (token.address === tokenA.address) {
-              // Swap tokens if the same one is selected
-              setTokenA(tokenB);
+              setTokenB(tokenA);
+              setTokenA(token);
+            } else {
+              setTokenB(token);
             }
           }}
-          tokens={TOKENS.filter((t) => t.address !== tokenA.address)}
+          tokens={TOKENS}
           balance={getTokenBalance(tokenB)}
           disabled={isLoading}
-          secondaryDisabled={poolExists && poolRatio !== null}
+          secondaryDisabled={false}
         />
       </div>
 

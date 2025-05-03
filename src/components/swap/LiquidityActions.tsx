@@ -2,7 +2,8 @@ import React from "react";
 import { ethers } from "ethers";
 import { getDeadlineTimestamp } from "@/lib/contracts/StageSwap";
 import { useStageSwap } from "@/hooks/useStageSwap";
-import { useTokenBalances } from "@/hooks/useTokenBalances";
+import { useWalletAssets } from "@/hooks/useWalletAssets";
+import { useSmartWallet } from "@/hooks/useSmartWallet";
 import showToast from "@/utils/toast";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
@@ -59,7 +60,8 @@ export function LiquidityActions({
     isLoading: isSwapHookLoading,
     error,
   } = useStageSwap();
-  const { refresh: refreshBalances } = useTokenBalances();
+  const { smartWalletAddress } = useSmartWallet();
+  const { refresh: refreshBalances } = useWalletAssets(smartWalletAddress);
 
   // Combined loading state
   const isActionLoading = isLoading || isSwapHookLoading;
