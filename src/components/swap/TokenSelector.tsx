@@ -43,22 +43,27 @@ export function TokenSelector({
 
       if (swapContainer) {
         const swapRect = swapContainer.getBoundingClientRect();
+        const modalWidth = 360; // The width of our modal
 
         // Calculate position to center the modal on the swap container
+        // The offset needs to center the 360px modal over the swap UI
+        const leftOffset = swapRect.left + (swapRect.width - modalWidth) / 2;
+
         setModalPosition({
-          left: swapRect.left,
+          left: leftOffset,
           top: Math.max(20, swapRect.top + window.scrollY - 80), // Position above the swap UI but not too high
-          width: swapRect.width,
+          width: modalWidth,
         });
       } else {
         // Fallback if we can't find the swap container
         const rect = containerRef.current.getBoundingClientRect();
         const viewportWidth = window.innerWidth;
+        const modalWidth = 360;
 
         setModalPosition({
-          left: Math.max(0, (viewportWidth - 450) / 2), // Center horizontally with 450px max width
-          top: Math.max(20, rect.top + window.scrollY - 300), // Position above the button
-          width: Math.min(450, viewportWidth - 40), // Respect viewport width with padding
+          left: Math.max(0, (viewportWidth - modalWidth) / 2),
+          top: Math.max(20, rect.top + window.scrollY - 300),
+          width: modalWidth,
         });
       }
     }

@@ -13,21 +13,24 @@ interface TokenItemProps {
 const TokenItem = ({ token, onClick, style }: TokenItemProps) => (
   <div
     style={style}
-    className="px-4 py-2 hover:bg-gray-700 cursor-pointer transition-colors"
+    className="p-4 bg-[#FFFFFF0A] hover:bg-[#2A2640] transition-colors cursor-pointer"
     onClick={onClick}
   >
-    <div className="flex items-center space-x-3">
-      <div className="w-8 h-8 relative flex-shrink-0">
+    <div className="flex items-center">
+      <div
+        className="w-8 h-8 relative flex-shrink-0 rounded-full overflow-hidden flex items-center justify-center"
+        style={{ backgroundColor: "#2A2640" }}
+      >
         <Image
           src={token.logoURI || "/icons/generic-token.svg"}
           alt={token.symbol}
           fill
           sizes="32px"
-          className="rounded-full"
+          className="object-contain"
         />
       </div>
-      <div className="min-w-0">
-        <div className="font-medium text-white truncate">{token.symbol}</div>
+      <div className="ml-3 flex-1 min-w-0">
+        <div className="font-bold text-white truncate">{token.symbol}</div>
         <div className="text-sm text-gray-400 truncate">{token.name}</div>
       </div>
       {token.source === "custom" && (

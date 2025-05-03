@@ -10,8 +10,8 @@ import { FeeDisplay } from "./FeeDisplay";
 import { PoolRatioDisplay } from "./PoolRatioDisplay";
 import { TokenInputSection } from "./TokenInputSection";
 import { SlippageSettings } from "./SlippageSettings";
-import { LiquidityActions } from "./LiquidityActions";
 import { InfoCard } from "./InfoCard";
+import { LiquidityActions } from "./LiquidityActions";
 
 // Import custom hook for pool management
 import { usePoolManager } from "@/hooks/usePoolManager";
