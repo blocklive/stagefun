@@ -81,16 +81,24 @@ export function TokenSelector({
       >
         {selectedToken ? (
           <>
-            <div className="w-6 h-6 relative">
-              <Image
-                src={selectedToken.logoURI || "/icons/generic-token.svg"}
-                alt={selectedToken.symbol}
-                fill
-                sizes="24px"
-                className="rounded-full"
-              />
+            <div className="w-6 h-6 relative flex-shrink-0 bg-gray-800 rounded-full overflow-hidden">
+              {selectedToken.logoURI ? (
+                <Image
+                  src={selectedToken.logoURI}
+                  alt={selectedToken.symbol}
+                  fill
+                  sizes="24px"
+                  className="rounded-full"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-xs font-medium text-gray-300">
+                  {selectedToken.symbol.substring(0, 2)}
+                </div>
+              )}
             </div>
-            <span className="font-medium">{selectedToken.symbol}</span>
+            <span className="font-medium truncate max-w-[100px]">
+              {selectedToken.symbol}
+            </span>
           </>
         ) : (
           <span className="font-medium">Select a token</span>
