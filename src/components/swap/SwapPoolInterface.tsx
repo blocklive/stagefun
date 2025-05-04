@@ -1,8 +1,9 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWalletAssets } from "@/hooks/useWalletAssets";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+import { useTokenList } from "@/hooks/useTokenList";
 
 // Import all the new components
 import { PoolStatusCard } from "./PoolStatusCard";
@@ -37,7 +38,7 @@ const FIXED_FEE = {
 const OFFICIAL_WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
 
 // Token data with real contract addresses
-const TOKENS: Token[] = [
+const CORE_TOKENS: Token[] = [
   {
     address: CONTRACT_ADDRESSES.monadTestnet.usdc,
     symbol: "USDC",
@@ -65,9 +66,18 @@ export function SwapPoolInterface() {
   const { user } = usePrivy();
   const { smartWalletAddress } = useSmartWallet();
 
+  // Get all tokens including custom ones
+  const { customTokens } = useTokenList();
+  const [allTokens, setAllTokens] = useState<Token[]>(CORE_TOKENS);
+
+  // Combine core tokens with custom tokens
+  useEffect(() => {
+    setAllTokens([...CORE_TOKENS, ...(customTokens as Token[])]);
+  }, [customTokens]);
+
   // Token state
-  const [tokenA, setTokenA] = useState(TOKENS[0]); // USDC
-  const [tokenB, setTokenB] = useState(TOKENS[1]); // MON
+  const [tokenA, setTokenA] = useState(CORE_TOKENS[0]); // USDC
+  const [tokenB, setTokenB] = useState(CORE_TOKENS[1]); // MON
 
   // Amounts state
   const [amountA, setAmountA] = useState("");
@@ -166,12 +176,21 @@ export function SwapPoolInterface() {
   const calculateMinAmount = (amount: string, decimals: number): string => {
     if (!amount || parseFloat(amount) === 0) return "0";
 
+    console.log(
+      `Calculating min amount for ${amount} with ${decimals} decimals`
+    );
     const parsedAmount = ethers.parseUnits(amount, decimals);
     const slippageFactor = 1 - parseFloat(slippageTolerance) / 100;
     const minAmount =
       (parsedAmount * BigInt(Math.floor(slippageFactor * 10000))) /
       BigInt(10000);
 
+    console.log(
+      `Min amount result: ${minAmount.toString()} (${ethers.formatUnits(
+        minAmount,
+        decimals
+      )})`
+    );
     return minAmount.toString();
   };
 
@@ -214,7 +233,7 @@ export function SwapPoolInterface() {
             setTokenA(token);
           }
         }}
-        tokens={TOKENS}
+        tokens={allTokens}
         balance={getTokenBalance(tokenA)}
         disabled={isLoading}
       />
@@ -256,7 +275,7 @@ export function SwapPoolInterface() {
               setTokenB(token);
             }
           }}
-          tokens={TOKENS}
+          tokens={allTokens}
           balance={getTokenBalance(tokenB)}
           disabled={isLoading}
           secondaryDisabled={false}

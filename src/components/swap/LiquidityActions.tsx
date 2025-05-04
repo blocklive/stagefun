@@ -67,10 +67,23 @@ export function LiquidityActions({
   const isActionLoading = isLoading || isSwapHookLoading;
 
   const handleAddLiquidity = async () => {
+    console.log("HANDLE ADD LIQUIDITY");
+
     if (!user) {
       showToast.error("Please log in first");
       return;
     }
+
+    console.log("Adding liquidity:", {
+      tokenA: tokenA.symbol,
+      tokenB: tokenB.symbol,
+      amountA,
+      amountB,
+      isUsingNativeMON:
+        tokenA.address === "NATIVE" || tokenB.address === "NATIVE",
+      tokenA_decimals: tokenA.decimals,
+      tokenB_decimals: tokenB.decimals,
+    });
 
     if (
       !amountA ||
@@ -327,38 +340,112 @@ export function LiquidityActions({
         }
       } else {
         // Regular addLiquidity for token-token pairs (including WMON-token)
-        // Convert amounts to wei
-        const amountAWei = ethers
-          .parseUnits(amountA, tokenA.decimals)
-          .toString();
-        const amountBWei = ethers
-          .parseUnits(amountB, tokenB.decimals)
-          .toString();
-
-        // Calculate minimum amounts with slippage tolerance
-        const amountAMin = calculateMinAmount(amountA, tokenA.decimals);
-        const amountBMin = calculateMinAmount(amountB, tokenB.decimals);
-
-        // Execute regular addLiquidity
-        const result = await addLiquidity({
-          tokenA: tokenA.address,
-          tokenB: tokenB.address,
-          amountADesired: amountAWei,
-          amountBDesired: amountBWei,
-          amountAMin,
-          amountBMin,
-          to: "", // Will be replaced with smart wallet address in the hook
-          deadline,
+        // Convert amounts to wei - but first ensure we're using the correct decimals from the blockchain
+        console.log("About to convert token amounts with decimals:", {
+          tokenA: {
+            symbol: tokenA.symbol,
+            address: tokenA.address,
+            decimals: tokenA.decimals, // Frontend state decimals
+            amount: amountA,
+          },
+          tokenB: {
+            symbol: tokenB.symbol,
+            address: tokenB.address,
+            decimals: tokenB.decimals, // Frontend state decimals
+            amount: amountB,
+          },
         });
 
-        if (result.success) {
-          // Reset input fields
-          setAmountA("");
-          setAmountB("");
-          // Refresh balances
-          refreshBalances();
-          // Refresh pool info after adding liquidity
-          setTimeout(checkPoolExists, 5000);
+        try {
+          // Get provider
+          const provider = new ethers.JsonRpcProvider(
+            process.env.NEXT_PUBLIC_RPC_URL
+          );
+
+          // Function to get token decimals directly from blockchain
+          const getTokenDecimals = async (address: string) => {
+            if (address === "NATIVE") return 18; // Native MON has 18 decimals
+
+            try {
+              const contract = new ethers.Contract(
+                address,
+                ["function decimals() view returns (uint8)"],
+                provider
+              );
+              return Number(await contract.decimals());
+            } catch (error) {
+              console.error(`Error getting decimals for ${address}:`, error);
+              return tokenA.decimals; // Fall back to frontend state decimals
+            }
+          };
+
+          // Get actual decimals from blockchain
+          const [actualTokenADecimals, actualTokenBDecimals] =
+            await Promise.all([
+              getTokenDecimals(tokenA.address),
+              getTokenDecimals(tokenB.address),
+            ]);
+
+          console.log("Actual decimals from blockchain:", {
+            tokenA: { symbol: tokenA.symbol, decimals: actualTokenADecimals },
+            tokenB: { symbol: tokenB.symbol, decimals: actualTokenBDecimals },
+          });
+
+          // Use the correct decimals from blockchain for conversion
+          const amountAWei = ethers
+            .parseUnits(amountA, actualTokenADecimals)
+            .toString();
+          const amountBWei = ethers
+            .parseUnits(amountB, actualTokenBDecimals)
+            .toString();
+
+          console.log("Converted amounts with correct decimals:", {
+            tokenA: {
+              symbol: tokenA.symbol,
+              decimals: actualTokenADecimals,
+              amountInput: amountA,
+              amountWei: amountAWei,
+              formatted: ethers.formatUnits(amountAWei, actualTokenADecimals),
+            },
+            tokenB: {
+              symbol: tokenB.symbol,
+              decimals: actualTokenBDecimals,
+              amountInput: amountB,
+              amountWei: amountBWei,
+              formatted: ethers.formatUnits(amountBWei, actualTokenBDecimals),
+            },
+          });
+
+          // Calculate minimum amounts with slippage tolerance
+          const amountAMin = calculateMinAmount(amountA, actualTokenADecimals);
+          const amountBMin = calculateMinAmount(amountB, actualTokenBDecimals);
+
+          // Execute regular addLiquidity
+          const result = await addLiquidity({
+            tokenA: tokenA.address,
+            tokenB: tokenB.address,
+            amountADesired: amountAWei,
+            amountBDesired: amountBWei,
+            amountAMin,
+            amountBMin,
+            to: "", // Will be replaced with smart wallet address in the hook
+            deadline,
+          });
+
+          if (result.success) {
+            // Reset input fields
+            setAmountA("");
+            setAmountB("");
+            // Refresh balances
+            refreshBalances();
+            // Refresh pool info after adding liquidity
+            setTimeout(checkPoolExists, 5000);
+          }
+        } catch (error) {
+          console.error("Error converting token amounts:", error);
+          showToast.error(
+            error instanceof Error ? error.message : "Failed to add liquidity"
+          );
         }
       }
     } catch (error) {
