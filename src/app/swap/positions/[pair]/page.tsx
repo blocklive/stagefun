@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
+import { usePositionDetails } from "@/hooks/usePositionDetails";
 import { useSyncPool } from "@/hooks/useSyncPool";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { usePrivy } from "@privy-io/react-auth";
@@ -15,29 +16,28 @@ export default function PositionDetailsPage() {
   const { pair } = useParams();
   const router = useRouter();
   const { user } = usePrivy();
-  const { positions, isLoading, refresh } = useLiquidityPositions();
-  const [position, setPosition] = useState<any>(null);
+  const { positions } = useLiquidityPositions();
+  const {
+    positionDetails,
+    isLoading: isLoadingDetails,
+    refresh: refreshDetails,
+    error: detailsError,
+  } = usePositionDetails(pair as string);
   const { syncPool, isSyncing } = useSyncPool(pair as string);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [isRemoveLiquidityModalOpen, setIsRemoveLiquidityModalOpen] =
     useState(false);
 
-  useEffect(() => {
-    if (!isLoading && positions.length > 0) {
-      const foundPosition = positions.find((pos) => pos.pairAddress === pair);
-      if (foundPosition) {
-        setPosition(foundPosition);
-      }
-    }
-  }, [pair, positions, isLoading]);
-
   // Format a number with commas for thousands
   const formatNumber = (value: string, decimals: number = 6): string => {
+    if (!value) return "0.00";
     const num = parseFloat(value);
-    return num.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: decimals,
-    });
+    return isNaN(num)
+      ? "0.00"
+      : num.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: decimals,
+        });
   };
 
   const getTokenIconPath = (symbol: string): string => {
@@ -54,7 +54,7 @@ export default function PositionDetailsPage() {
   const handleRefresh = async () => {
     setIsManualRefreshing(true);
     try {
-      await refresh();
+      await refreshDetails();
     } catch (e) {
       console.error("Error refreshing position:", e);
     } finally {
@@ -65,7 +65,7 @@ export default function PositionDetailsPage() {
   const handleSync = async () => {
     await syncPool();
     // Refresh data after sync
-    setTimeout(() => refresh(), 3000);
+    setTimeout(() => refreshDetails(), 3000);
   };
 
   if (!user) {
@@ -80,7 +80,7 @@ export default function PositionDetailsPage() {
     );
   }
 
-  if (isLoading) {
+  if (isLoadingDetails || isManualRefreshing) {
     return (
       <div className="p-8 max-w-6xl mx-auto">
         <div className="flex justify-center items-center py-12">
@@ -91,11 +91,20 @@ export default function PositionDetailsPage() {
     );
   }
 
-  if (!position) {
+  if (!positionDetails) {
     return (
       <div className="p-8 max-w-6xl mx-auto">
         <div className="text-center py-8 bg-red-900/30 rounded-lg border border-red-800">
-          <p className="text-red-400 mb-2">Pool not found</p>
+          <p className="text-red-400 mb-2">
+            Pool not found or error loading details
+          </p>
+          {detailsError && (
+            <p className="text-red-300 mb-4">
+              {typeof detailsError === "string"
+                ? detailsError
+                : "An unexpected error occurred"}
+            </p>
+          )}
           <button
             onClick={() => router.push("/swap/positions")}
             className="mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-white"
@@ -121,8 +130,8 @@ export default function PositionDetailsPage() {
             <div className="flex -space-x-2 mr-3">
               <div className="relative z-10 w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white">
                 <Image
-                  src={getTokenIconPath(position.token0.symbol)}
-                  alt={position.token0.symbol}
+                  src={getTokenIconPath(positionDetails.token0.symbol)}
+                  alt={positionDetails.token0.symbol}
                   width={32}
                   height={32}
                   onError={(e) => {
@@ -133,8 +142,8 @@ export default function PositionDetailsPage() {
               </div>
               <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white">
                 <Image
-                  src={getTokenIconPath(position.token1.symbol)}
-                  alt={position.token1.symbol}
+                  src={getTokenIconPath(positionDetails.token1.symbol)}
+                  alt={positionDetails.token1.symbol}
                   width={32}
                   height={32}
                   onError={(e) => {
@@ -145,16 +154,17 @@ export default function PositionDetailsPage() {
               </div>
             </div>
             <h1 className="text-2xl font-bold text-white">
-              {position.token0.symbol}/{position.token1.symbol} Pool
+              {positionDetails.token0.symbol}/{positionDetails.token1.symbol}{" "}
+              Pool
             </h1>
           </div>
           <div className="flex space-x-2">
             <button
               onClick={handleRefresh}
               className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-white"
-              disabled={isLoading || isManualRefreshing}
+              disabled={isLoadingDetails || isManualRefreshing}
             >
-              {isLoading || isManualRefreshing ? (
+              {isLoadingDetails || isManualRefreshing ? (
                 <LoadingSpinner color="#FFFFFF" size={14} />
               ) : (
                 "Refresh"
@@ -185,13 +195,13 @@ export default function PositionDetailsPage() {
               <p className="text-gray-400 text-sm mb-1">Pool Address</p>
               <div className="flex items-center">
                 <p className="text-white font-mono">
-                  {position.pairAddress.substring(0, 10)}...
-                  {position.pairAddress.substring(
-                    position.pairAddress.length - 8
+                  {positionDetails.pairAddress.substring(0, 10)}...
+                  {positionDetails.pairAddress.substring(
+                    positionDetails.pairAddress.length - 8
                   )}
                 </p>
                 <Link
-                  href={`https://testnet.monadexplorer.com/address/${position.pairAddress}`}
+                  href={`https://testnet.monadexplorer.com/address/${positionDetails.pairAddress}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="ml-2 text-purple-400 hover:text-purple-300"
@@ -207,25 +217,33 @@ export default function PositionDetailsPage() {
             <div>
               <p className="text-gray-400 text-sm mb-1">Total Value Locked</p>
               <p className="text-white">
-                {formatNumber(position.reserve0, 4)} {position.token0.symbol} /{" "}
-                {formatNumber(position.reserve1, 4)} {position.token1.symbol}
+                {formatNumber(positionDetails.reserve0, 4)}{" "}
+                {positionDetails.token0.symbol} /{" "}
+                {formatNumber(positionDetails.reserve1, 4)}{" "}
+                {positionDetails.token1.symbol}
               </p>
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">Exchange Rate</p>
               <p className="text-white">
-                1 {position.token0.symbol} ={" "}
-                {(
-                  parseFloat(position.reserve1) / parseFloat(position.reserve0)
-                ).toFixed(6)}{" "}
-                {position.token1.symbol}
+                1 {positionDetails.token0.symbol} ={" "}
+                {parseFloat(positionDetails.reserve0) > 0
+                  ? (
+                      parseFloat(positionDetails.reserve1) /
+                      parseFloat(positionDetails.reserve0)
+                    ).toFixed(6)
+                  : "0.00"}{" "}
+                {positionDetails.token1.symbol}
               </p>
               <p className="text-white">
-                1 {position.token1.symbol} ={" "}
-                {(
-                  parseFloat(position.reserve0) / parseFloat(position.reserve1)
-                ).toFixed(6)}{" "}
-                {position.token0.symbol}
+                1 {positionDetails.token1.symbol} ={" "}
+                {parseFloat(positionDetails.reserve1) > 0
+                  ? (
+                      parseFloat(positionDetails.reserve0) /
+                      parseFloat(positionDetails.reserve1)
+                    ).toFixed(6)
+                  : "0.00"}{" "}
+                {positionDetails.token0.symbol}
               </p>
             </div>
           </div>
@@ -237,22 +255,25 @@ export default function PositionDetailsPage() {
             <div>
               <p className="text-gray-400 text-sm mb-1">Your LP Tokens</p>
               <p className="text-white">
-                {formatNumber(position.lpTokenBalance, 8)}
+                {formatNumber(positionDetails.lpTokenBalance, 8)}
               </p>
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">Your Liquidity</p>
               <p className="text-white">
-                {formatNumber(position.tokenAmounts.amount0, 4)}{" "}
-                {position.token0.symbol} /{" "}
-                {formatNumber(position.tokenAmounts.amount1, 4)}{" "}
-                {position.token1.symbol}
+                {formatNumber(positionDetails.tokenAmounts.amount0, 4)}{" "}
+                {positionDetails.token0.symbol} /{" "}
+                {formatNumber(positionDetails.tokenAmounts.amount1, 4)}{" "}
+                {positionDetails.token1.symbol}
               </p>
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">Share of Pool</p>
               <p className="text-white">
-                {position.shareOfPool ? position.shareOfPool : "0.00"}%
+                {positionDetails.shareOfPool
+                  ? positionDetails.shareOfPool
+                  : "0.00"}
+                %
               </p>
             </div>
           </div>
@@ -268,8 +289,8 @@ export default function PositionDetailsPage() {
             <div className="flex items-center">
               <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white mr-2">
                 <Image
-                  src={getTokenIconPath(position.token0.symbol)}
-                  alt={position.token0.symbol}
+                  src={getTokenIconPath(positionDetails.token0.symbol)}
+                  alt={positionDetails.token0.symbol}
                   width={32}
                   height={32}
                   onError={(e) => {
@@ -279,20 +300,20 @@ export default function PositionDetailsPage() {
                 />
               </div>
               <h3 className="text-lg font-medium text-white">
-                {position.token0.symbol}
+                {positionDetails.token0.symbol}
               </h3>
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">Token Address</p>
               <div className="flex items-center">
                 <p className="text-white font-mono">
-                  {position.token0.address.substring(0, 10)}...
-                  {position.token0.address.substring(
-                    position.token0.address.length - 8
+                  {positionDetails.token0.address.substring(0, 10)}...
+                  {positionDetails.token0.address.substring(
+                    positionDetails.token0.address.length - 8
                   )}
                 </p>
                 <Link
-                  href={`https://testnet.monadexplorer.com/token/${position.token0.address}`}
+                  href={`https://testnet.monadexplorer.com/token/${positionDetails.token0.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="ml-2 text-purple-400 hover:text-purple-300"
@@ -303,7 +324,9 @@ export default function PositionDetailsPage() {
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">Reserve</p>
-              <p className="text-white">{formatNumber(position.reserve0, 6)}</p>
+              <p className="text-white">
+                {formatNumber(positionDetails.reserve0, 6)}
+              </p>
             </div>
           </div>
 
@@ -311,8 +334,8 @@ export default function PositionDetailsPage() {
             <div className="flex items-center">
               <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white mr-2">
                 <Image
-                  src={getTokenIconPath(position.token1.symbol)}
-                  alt={position.token1.symbol}
+                  src={getTokenIconPath(positionDetails.token1.symbol)}
+                  alt={positionDetails.token1.symbol}
                   width={32}
                   height={32}
                   onError={(e) => {
@@ -322,20 +345,20 @@ export default function PositionDetailsPage() {
                 />
               </div>
               <h3 className="text-lg font-medium text-white">
-                {position.token1.symbol}
+                {positionDetails.token1.symbol}
               </h3>
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">Token Address</p>
               <div className="flex items-center">
                 <p className="text-white font-mono">
-                  {position.token1.address.substring(0, 10)}...
-                  {position.token1.address.substring(
-                    position.token1.address.length - 8
+                  {positionDetails.token1.address.substring(0, 10)}...
+                  {positionDetails.token1.address.substring(
+                    positionDetails.token1.address.length - 8
                   )}
                 </p>
                 <Link
-                  href={`https://testnet.monadexplorer.com/token/${position.token1.address}`}
+                  href={`https://testnet.monadexplorer.com/token/${positionDetails.token1.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="ml-2 text-purple-400 hover:text-purple-300"
@@ -346,7 +369,9 @@ export default function PositionDetailsPage() {
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">Reserve</p>
-              <p className="text-white">{formatNumber(position.reserve1, 6)}</p>
+              <p className="text-white">
+                {formatNumber(positionDetails.reserve1, 6)}
+              </p>
             </div>
           </div>
         </div>
@@ -354,12 +379,12 @@ export default function PositionDetailsPage() {
 
       <div className="flex justify-center space-x-4 mt-8">
         <Link
-          href={`/swap/liquidity?token0=${position.token0.address}&token1=${position.token1.address}`}
+          href={`/swap/liquidity?token0=${positionDetails.token0.address}&token1=${positionDetails.token1.address}`}
           className="px-6 py-3 bg-purple-700 hover:bg-purple-600 rounded-lg text-white font-medium"
         >
           Add Liquidity
         </Link>
-        {Number(position.lpTokenBalance) > 0 && (
+        {parseFloat(positionDetails.lpTokenBalance) > 0 && (
           <button
             onClick={() => setIsRemoveLiquidityModalOpen(true)}
             className="px-6 py-3 bg-red-700 hover:bg-red-600 rounded-lg text-white font-medium"
@@ -370,13 +395,13 @@ export default function PositionDetailsPage() {
       </div>
 
       {/* Remove Liquidity Modal */}
-      {isRemoveLiquidityModalOpen && position && (
+      {isRemoveLiquidityModalOpen && positionDetails && (
         <RemoveLiquidityModal
-          position={position}
+          position={positionDetails}
           onClose={() => setIsRemoveLiquidityModalOpen(false)}
           onSuccess={() => {
             setIsRemoveLiquidityModalOpen(false);
-            refresh();
+            refreshDetails();
           }}
           getTokenIconPath={getTokenIconPath}
           formatNumber={formatNumber}
