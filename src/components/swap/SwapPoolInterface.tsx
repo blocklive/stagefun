@@ -235,26 +235,6 @@ export function SwapPoolInterface() {
         disabled={isLoading}
       />
 
-      {/* Plus sign */}
-      <div className="flex justify-center my-4">
-        <div className="p-2 bg-gray-800 rounded-full">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-        </div>
-      </div>
-
       {/* Second token input */}
       <div className="mb-6">
         <TokenInputSection
