@@ -204,18 +204,15 @@ export function SwapPoolInterface() {
       </div>
 
       {/* Pool exists indicator */}
-      <PoolStatusCard poolExists={poolExists} />
-
-      {/* Fee - Just show the fixed fee */}
-      <FeeDisplay fee={FIXED_FEE} />
-
-      {/* If it's an existing pool, show the ratio */}
-      <PoolRatioDisplay
+      <PoolStatusCard
         poolExists={poolExists}
         tokenASymbol={tokenA.symbol}
         tokenBSymbol={tokenB.symbol}
         displayRatio={getDisplayRatio()}
       />
+
+      {/* Fee - Just show the fixed fee */}
+      <FeeDisplay fee={FIXED_FEE} />
 
       {/* First token input */}
       <TokenInputSection

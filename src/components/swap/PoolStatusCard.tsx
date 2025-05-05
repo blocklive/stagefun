@@ -2,9 +2,17 @@ import React from "react";
 
 interface PoolStatusCardProps {
   poolExists: boolean | undefined;
+  tokenASymbol?: string;
+  tokenBSymbol?: string;
+  displayRatio?: string | null;
 }
 
-export function PoolStatusCard({ poolExists }: PoolStatusCardProps) {
+export function PoolStatusCard({
+  poolExists,
+  tokenASymbol,
+  tokenBSymbol,
+  displayRatio,
+}: PoolStatusCardProps) {
   if (poolExists === undefined) return null;
 
   return (
@@ -16,9 +24,9 @@ export function PoolStatusCard({ poolExists }: PoolStatusCardProps) {
       }`}
     >
       {poolExists ? (
-        <div className="flex items-center">
+        <div className="flex items-start">
           <svg
-            className="w-5 h-5 mr-2"
+            className="w-5 h-5 mr-2 mt-0.5"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -35,6 +43,11 @@ export function PoolStatusCard({ poolExists }: PoolStatusCardProps) {
             <p className="text-xs mt-1">
               Tokens will be added according to the current pool ratio.
             </p>
+            {displayRatio && tokenASymbol && tokenBSymbol && (
+              <p className="text-xs mt-2 font-medium">
+                Pool Ratio: 1 {tokenASymbol} = {displayRatio} {tokenBSymbol}
+              </p>
+            )}
           </div>
         </div>
       ) : (
