@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useWalletAssets } from "../../hooks/useWalletAssets";
 import { Asset } from "../../lib/zerion/ZerionSDK";
 import type { RefObject } from "react";
+import { TokenIcon } from "@/components/token/TokenIcon";
 
 interface WalletAssetsProps {
   walletAddress: string | null;
@@ -128,41 +129,7 @@ const AssetCard: React.FC<{
   return (
     <div className="bg-[#FFFFFF0A] rounded-xl overflow-hidden cursor-pointer hover:bg-[#2A2640] transition-colors p-4">
       <div className="flex items-center">
-        <div
-          className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-          style={{ backgroundColor: "#2A2640" }}
-        >
-          {/* Use the MON icon for native currency, otherwise use existing logic */}
-          {isNativeMON ? (
-            <Image
-              src={TOKEN_ICONS["MON"]}
-              alt="MON"
-              width={48}
-              height={48}
-              className="object-contain"
-            />
-          ) : TOKEN_ICONS[tokenSymbol] ? (
-            <Image
-              src={TOKEN_ICONS[tokenSymbol]}
-              alt={tokenSymbol}
-              width={48}
-              height={48}
-              className="object-contain"
-            />
-          ) : token.icon?.url ? (
-            <Image
-              src={token.icon.url}
-              alt={tokenSymbol}
-              width={48}
-              height={48}
-              className="object-contain"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 text-lg font-semibold">
-              {tokenSymbol.charAt(0)}
-            </div>
-          )}
-        </div>
+        <TokenIcon symbol={tokenSymbol} logoURI={token.icon?.url} size="lg" />
         <div className="ml-4 flex-1">
           <h3 className="font-bold flex items-center">
             {displayName}

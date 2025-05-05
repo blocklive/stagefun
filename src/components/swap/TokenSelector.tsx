@@ -3,6 +3,7 @@ import Image from "next/image";
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
 import { Token } from "@/types/token";
 import { EnhancedTokenSelector } from "./EnhancedTokenSelector";
+import { TokenIcon } from "../token/TokenIcon";
 
 interface TokenSelectorProps {
   selectedToken: Token | null;
@@ -81,21 +82,11 @@ export function TokenSelector({
       >
         {selectedToken ? (
           <>
-            <div className="w-6 h-6 relative flex-shrink-0 bg-gray-800 rounded-full overflow-hidden">
-              {selectedToken.logoURI ? (
-                <Image
-                  src={selectedToken.logoURI}
-                  alt={selectedToken.symbol}
-                  fill
-                  sizes="24px"
-                  className="rounded-full"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-sm font-medium text-gray-300">
-                  {selectedToken.symbol.charAt(0)}
-                </div>
-              )}
-            </div>
+            <TokenIcon
+              symbol={selectedToken.symbol}
+              logoURI={selectedToken.logoURI}
+              size="sm"
+            />
             <span className="font-medium truncate max-w-[100px]">
               {selectedToken.symbol}
             </span>

@@ -9,10 +9,10 @@ import { Token } from "@/types/token";
 import { useTokenList } from "@/hooks/useTokenList";
 import { useTokenFetcher } from "@/hooks/useTokenFetcher";
 import { useTokenStorage } from "@/hooks/useTokenStorage";
+import { VirtualizedTokenList } from "./VirtualizedTokenList";
 import { AddCustomToken } from "./AddCustomToken";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import showToast from "@/utils/toast";
-import { TokenIconCard } from "./TokenIconCard";
 
 interface EnhancedTokenSelectorProps {
   isOpen: boolean;
@@ -280,15 +280,18 @@ export function EnhancedTokenSelector({
                 Checking address...
               </div>
             ) : currentTokens.length > 0 ? (
-              <div className="px-0 py-0 space-y-1 overflow-y-auto max-h-[350px]">
-                {currentTokens.map((token) => (
-                  <TokenIconCard
-                    key={token.address}
-                    token={token}
-                    onClick={() => handleSelectToken(token)}
-                  />
-                ))}
-              </div>
+              <VirtualizedTokenList
+                tokens={currentTokens}
+                onSelectToken={handleSelectToken}
+                height={350}
+                emptyMessage={
+                  searchTerm
+                    ? "No tokens found. Try a different search term."
+                    : `No ${
+                        activeTab === "stages" ? "stage" : "matching"
+                      } tokens found.`
+                }
+              />
             ) : potentialTokenAddress ? (
               <div className="flex items-center justify-center h-[350px] text-gray-400">
                 No tokens found. Checking if address is valid...

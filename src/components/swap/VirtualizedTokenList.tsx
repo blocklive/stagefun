@@ -1,21 +1,12 @@
 import React, { useCallback } from "react";
 import { FixedSizeList } from "react-window";
-import Image from "next/image";
 import { Token } from "@/types/token";
-
-// Known token icons map
-const TOKEN_ICONS: Record<string, string> = {
-  USDC: "/icons/usdc-logo.svg",
-  MON: "/icons/mon-logo.svg",
-  // Add more tokens as needed
-};
-
-// Token display name mapping
-const TOKEN_DISPLAY_NAMES: Record<string, string> = {
-  USDC: "USD Coin",
-  MON: "Monad",
-  // Add more token display name mappings as needed
-};
+import {
+  TokenIcon,
+  TOKEN_ICONS,
+  TOKEN_DISPLAY_NAMES,
+  isKnownToken,
+} from "../token/TokenIcon";
 
 interface TokenItemProps {
   token: Token;
@@ -26,7 +17,6 @@ interface TokenItemProps {
 // Individual token item
 const TokenItem = ({ token, onClick, style }: TokenItemProps) => {
   const tokenSymbol = token.symbol;
-  const isKnownToken = TOKEN_ICONS[tokenSymbol] !== undefined;
 
   // Get a better display name for the token if available
   const displayName = TOKEN_DISPLAY_NAMES[tokenSymbol] || token.name;
@@ -38,36 +28,11 @@ const TokenItem = ({ token, onClick, style }: TokenItemProps) => {
       onClick={onClick}
     >
       <div className="flex items-center">
-        <div
-          className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-          style={{ backgroundColor: "#2A2640" }}
-        >
-          {TOKEN_ICONS[tokenSymbol] ? (
-            <Image
-              src={TOKEN_ICONS[tokenSymbol]}
-              alt={tokenSymbol}
-              width={48}
-              height={48}
-              className="object-contain"
-            />
-          ) : token.logoURI ? (
-            <Image
-              src={token.logoURI}
-              alt={tokenSymbol}
-              width={48}
-              height={48}
-              className="object-contain"
-            />
-          ) : (
-            <span className="text-2xl font-semibold text-gray-400">
-              {tokenSymbol.charAt(0)}
-            </span>
-          )}
-        </div>
+        <TokenIcon symbol={tokenSymbol} logoURI={token.logoURI} size="lg" />
         <div className="ml-4 flex-1 min-w-0">
           <div className="font-bold text-white truncate">
             {displayName}
-            {isKnownToken && (
+            {isKnownToken(tokenSymbol) && (
               <span
                 className="inline-block h-2 w-2 ml-1.5 bg-[#836EF9] opacity-60 rounded-full"
                 aria-label="Popular token"
