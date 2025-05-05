@@ -46,6 +46,9 @@ const knownTokens: Record<string, TokenInfo> = {
   },
 };
 
+// Global token info cache to avoid repeated calls
+const tokenInfoCache = new Map<string, TokenInfo>();
+
 // LP token pair interface
 const PairABI = [
   "function balanceOf(address owner) view returns (uint)",
@@ -69,8 +72,18 @@ export function usePositionDetails(pairAddress: string | null) {
     provider: ethers.Provider
   ): Promise<TokenInfo> => {
     const normalizedAddress = tokenAddress.toLowerCase();
+
+    // Check global cache first to ensure consistency across multiple calls
+    if (tokenInfoCache.has(normalizedAddress)) {
+      return tokenInfoCache.get(normalizedAddress)!;
+    }
+
+    // Check known tokens list
     if (knownTokens[normalizedAddress]) {
-      return knownTokens[normalizedAddress];
+      const tokenInfo = knownTokens[normalizedAddress];
+      // Store in global cache to ensure consistency
+      tokenInfoCache.set(normalizedAddress, tokenInfo);
+      return tokenInfo;
     }
 
     try {
@@ -79,7 +92,7 @@ export function usePositionDetails(pairAddress: string | null) {
       // Make individual calls and handle errors for each
       let symbol = `Token-${tokenAddress.slice(0, 6)}`;
       let name = `Unknown Token ${tokenAddress.slice(0, 6)}`;
-      let decimals = 18;
+      let decimals = 18; // Default to 18 if we can't get decimals
 
       try {
         symbol = await tokenContract.symbol();
@@ -94,7 +107,15 @@ export function usePositionDetails(pairAddress: string | null) {
       }
 
       try {
-        decimals = await tokenContract.decimals();
+        const rawDecimals = await tokenContract.decimals();
+        decimals = Number(rawDecimals);
+        // Validate decimals - must be between 0 and 18
+        if (isNaN(decimals) || decimals < 0 || decimals > 18) {
+          console.warn(
+            `Invalid decimals value for ${tokenAddress}: ${decimals}, using default 18`
+          );
+          decimals = 18;
+        }
       } catch (error) {
         console.warn(
           `Error getting decimals for token ${tokenAddress}:`,
@@ -106,22 +127,30 @@ export function usePositionDetails(pairAddress: string | null) {
         `Token info for ${tokenAddress}: symbol=${symbol}, name=${name}, decimals=${decimals}`
       );
 
-      return {
+      const tokenInfo = {
         address: tokenAddress,
         symbol,
         name,
         decimals,
       };
+
+      // Store in global cache to ensure consistency
+      tokenInfoCache.set(normalizedAddress, tokenInfo);
+      return tokenInfo;
     } catch (error) {
       console.error(`Error fetching token info for ${tokenAddress}:`, error);
 
       // Always return something to prevent UI errors
-      return {
+      const fallbackInfo = {
         address: tokenAddress,
         symbol: `Token-${tokenAddress.slice(0, 6)}`,
         name: `Unknown Token ${tokenAddress.slice(0, 6)}`,
-        decimals: 18,
+        decimals: 18, // Default to 18
       };
+
+      // Still cache the fallback info to avoid repeated failed calls
+      tokenInfoCache.set(normalizedAddress, fallbackInfo);
+      return fallbackInfo;
     }
   };
 
@@ -143,11 +172,22 @@ export function usePositionDetails(pairAddress: string | null) {
       const pairContract = new ethers.Contract(pairAddress, PairABI, provider);
 
       try {
-        // Get token addresses
-        const [token0Address, token1Address] = await Promise.all([
-          pairContract.token0(),
-          pairContract.token1(),
-        ]);
+        // Get token addresses - wrap in individual try/catch to prevent one failure from stopping everything
+        let token0Address, token1Address;
+        try {
+          token0Address = await pairContract.token0();
+        } catch (error) {
+          console.error(`Error getting token0 address:`, error);
+          return null;
+        }
+
+        try {
+          token1Address = await pairContract.token1();
+        } catch (error) {
+          console.error(`Error getting token1 address:`, error);
+          return null;
+        }
+
         console.log(`Pair tokens: ${token0Address}, ${token1Address}`);
 
         // Fetch token info
@@ -156,17 +196,40 @@ export function usePositionDetails(pairAddress: string | null) {
           getTokenInfo(token1Address, provider),
         ]);
 
-        // Get user's LP token balance, total supply, and reserves
-        const [lpBalance, totalSupply, reserves] = await Promise.all([
-          pairContract.balanceOf(walletAddress),
-          pairContract.totalSupply(),
-          pairContract.getReserves(),
-        ]);
+        // Get user's LP token balance, total supply, and reserves - with individual error handling
+        let lpBalance = ethers.toBigInt(0);
+        let totalSupply = ethers.toBigInt(0);
+        let reserves = [
+          ethers.toBigInt(0),
+          ethers.toBigInt(0),
+          ethers.toBigInt(0),
+        ];
+
+        try {
+          lpBalance = await pairContract.balanceOf(walletAddress);
+        } catch (error) {
+          console.error(`Error getting LP balance:`, error);
+          // Continue with zero balance
+        }
+
+        try {
+          totalSupply = await pairContract.totalSupply();
+        } catch (error) {
+          console.error(`Error getting totalSupply:`, error);
+          // Continue with zero totalSupply
+        }
+
+        try {
+          reserves = await pairContract.getReserves();
+        } catch (error) {
+          console.error(`Error getting reserves:`, error);
+          // Continue with zero reserves
+        }
 
         console.log(`LP balance: ${lpBalance.toString()}`);
         console.log(`Total supply: ${totalSupply.toString()}`);
 
-        // Safe format to string
+        // Safe format to string - wrapped in try/catch for safety
         const safeFormatUnits = (value: bigint, decimals: number): string => {
           try {
             return ethers.formatUnits(value, decimals);
@@ -176,7 +239,7 @@ export function usePositionDetails(pairAddress: string | null) {
           }
         };
 
-        // Format token amounts
+        // Format token amounts using ethers.js utilities
         const reserve0 = safeFormatUnits(reserves[0], token0Info.decimals);
         const reserve1 = safeFormatUnits(reserves[1], token1Info.decimals);
         const lpTokenBalance = safeFormatUnits(lpBalance, 18);
@@ -186,7 +249,7 @@ export function usePositionDetails(pairAddress: string | null) {
           `Reserves: ${reserve0} ${token0Info.symbol}, ${reserve1} ${token1Info.symbol}`
         );
 
-        // Check if pool is empty
+        // Check if pool is empty by comparing numeric values of strings
         const reserve0Value = parseFloat(reserve0);
         const reserve1Value = parseFloat(reserve1);
         const isEmpty =
@@ -298,13 +361,20 @@ export function usePositionDetails(pairAddress: string | null) {
       : null,
     async () => {
       if (!pairAddress || !smartWalletAddress) return null;
-      return fetchPositionDetails(pairAddress, smartWalletAddress);
+      try {
+        return await fetchPositionDetails(pairAddress, smartWalletAddress);
+      } catch (error) {
+        console.error("Error in SWR fetcher:", error);
+        return null; // Return null instead of throwing to prevent continuous retries
+      }
     },
     {
       revalidateOnFocus: false,
-      refreshInterval: 30000, // Refresh every 30 seconds
-      dedupingInterval: 5000, // Dedupe calls within 5 seconds
-      errorRetryCount: 2,
+      refreshInterval: 0, // Disable auto-refresh to prevent intermittent failures
+      dedupingInterval: 10000, // Increase to 10 seconds to prevent rapid refetching
+      errorRetryCount: 1, // Only retry once on error
+      errorRetryInterval: 5000, // Wait 5 seconds before retry
+      shouldRetryOnError: false, // Don't retry on error
     }
   );
 
