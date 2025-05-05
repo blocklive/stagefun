@@ -158,10 +158,8 @@ const AssetCard: React.FC<{
               className="object-contain"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
-              {tokenSymbol.length > 3
-                ? `${tokenSymbol.slice(0, 3)}`
-                : tokenSymbol}
+            <div className="w-full h-full flex items-center justify-center text-gray-400 text-lg font-semibold">
+              {tokenSymbol.charAt(0)}
             </div>
           )}
         </div>

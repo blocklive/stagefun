@@ -91,8 +91,8 @@ export function TokenSelector({
                   className="rounded-full"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs font-medium text-gray-300">
-                  {selectedToken.symbol.substring(0, 2)}
+                <div className="w-full h-full flex items-center justify-center text-sm font-medium text-gray-300">
+                  {selectedToken.symbol.charAt(0)}
                 </div>
               )}
             </div>
