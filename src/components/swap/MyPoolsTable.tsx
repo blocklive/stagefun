@@ -2,27 +2,29 @@ import React from "react";
 import Image from "next/image";
 import { BsThreeDots } from "react-icons/bs";
 import Link from "next/link";
+import { LiquidityPosition } from "@/hooks/useLiquidityPositions";
 
 interface MyPoolsTableProps {
-  userPositions: any[];
+  userPositions: LiquidityPosition[];
   getTokenIconPath: (symbol: string) => string;
-  formatNumber: (value: string, decimals?: number) => string;
-  calculateFeeRate: (position: any) => string;
   toggleMenu: (pairAddress: string, event: React.MouseEvent) => void;
 }
 
 export const MyPoolsTable: React.FC<MyPoolsTableProps> = ({
   userPositions,
   getTokenIconPath,
-  formatNumber,
-  calculateFeeRate,
   toggleMenu,
 }) => {
+  // Filter for positions where the user has liquidity
+  const positionsWithLiquidity = userPositions.filter(
+    (position) => position.hasUserLiquidity
+  );
+
   return (
     <div className="mb-8">
       <h3 className="text-xl font-medium text-white mb-4">My Positions</h3>
 
-      {userPositions.length === 0 ? (
+      {positionsWithLiquidity.length === 0 ? (
         <div className="bg-[#1e1e2a] rounded-xl p-4 text-center">
           <p className="text-gray-400 mb-2">No liquidity positions found</p>
           <Link
@@ -34,23 +36,17 @@ export const MyPoolsTable: React.FC<MyPoolsTableProps> = ({
         </div>
       ) : (
         <div className="bg-[#1e1e2a] rounded-xl overflow-x-auto">
-          <table className="w-full text-left text-white min-w-[900px]">
+          <table className="w-full text-left text-white min-w-[600px]">
             <thead className="bg-[#15161a] border-b border-gray-800">
               <tr>
                 <th className="p-4 font-medium text-gray-400">#</th>
                 <th className="p-4 font-medium text-gray-400">Pool</th>
                 <th className="p-4 font-medium text-gray-400">Fee tier</th>
-                <th className="p-4 font-medium text-gray-400">Balance</th>
-                <th className="p-4 font-medium text-gray-400">Your balance</th>
-                <th className="p-4 font-medium text-gray-400">Pool ratio</th>
-                <th className="p-4 font-medium text-gray-400">
-                  Your LP tokens
-                </th>
                 <th className="p-4 font-medium text-gray-400">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {userPositions.map((position, index) => (
+              {positionsWithLiquidity.map((position, index) => (
                 <tr
                   key={position.pairAddress}
                   className="border-b border-gray-800 hover:bg-gray-800/30 cursor-pointer"
@@ -98,30 +94,7 @@ export const MyPoolsTable: React.FC<MyPoolsTableProps> = ({
                       </Link>
                     </div>
                   </td>
-                  <td className="p-4 text-gray-300">
-                    {calculateFeeRate(position)}
-                  </td>
-                  <td className="p-4 text-gray-300">
-                    {formatNumber(position.reserve0, 4)}{" "}
-                    {position.token0.symbol} /{" "}
-                    {formatNumber(position.reserve1, 4)}{" "}
-                    {position.token1.symbol}
-                  </td>
-                  <td className="p-4 text-gray-300">
-                    {formatNumber(position.tokenAmounts.amount0, 4)} /{" "}
-                    {formatNumber(position.tokenAmounts.amount1, 4)}
-                  </td>
-                  <td className="p-4 text-gray-300">
-                    1 {position.token0.symbol} ={" "}
-                    {(
-                      parseFloat(position.reserve1) /
-                      parseFloat(position.reserve0)
-                    ).toFixed(6)}{" "}
-                    {position.token1.symbol}
-                  </td>
-                  <td className="p-4 text-gray-300">
-                    {formatNumber(position.lpTokenBalance, 8)}
-                  </td>
+                  <td className="p-4 text-gray-300">0.3%</td>
                   <td className="p-4">
                     <button
                       onClick={(e) => {

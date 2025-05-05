@@ -5,24 +5,19 @@ import { usePrivy } from "@privy-io/react-auth";
 import { TokenSelector } from "./TokenSelector";
 import { AmountInput } from "./AmountInput";
 import { useStageSwap } from "@/hooks/useStageSwap";
-import { useTokenBalances } from "@/hooks/useTokenBalances";
+import { useWalletAssets } from "@/hooks/useWalletAssets";
+import { useSmartWallet } from "@/hooks/useSmartWallet";
 import { getDeadlineTimestamp } from "@/lib/contracts/StageSwap";
 import showToast from "@/utils/toast";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
-
-// Define Token interface
-interface Token {
-  address: string;
-  symbol: string;
-  name: string;
-  decimals: number;
-  logoURI: string;
-}
+import { useTokenList } from "@/hooks/useTokenList";
+import { Token } from "@/types/token";
 
 // Token data with real contract addresses
-const TOKENS: Token[] = [
+// Note: We're keeping this for backward compatibility but using useTokenList instead
+const TOKENS = [
   {
     address: CONTRACT_ADDRESSES.monadTestnet.usdc,
     symbol: "USDC",
@@ -48,13 +43,33 @@ const TOKENS: Token[] = [
 
 export function SwapInterface() {
   const { user } = usePrivy();
-  const [inputToken, setInputToken] = useState(TOKENS[0]);
-  const [outputToken, setOutputToken] = useState(TOKENS[1]);
+  // Use token list hook with onlyWithLiquidity = true for swap
+  // And onlyMainTokens = true to only show MON, WMON, and USDC
+  const { allTokens, isLoading: isTokensLoading } = useTokenList({
+    onlyWithLiquidity: true,
+    onlyMainTokens: true,
+  });
+
+  // Set default tokens from the loaded list when available
+  const [inputToken, setInputToken] = useState<Token | null>(null);
+  const [outputToken, setOutputToken] = useState<Token | null>(null);
   const [inputAmount, setInputAmount] = useState("");
   const [outputAmount, setOutputAmount] = useState("");
   const [isExactIn, setIsExactIn] = useState(true);
   const [priceImpact, setPriceImpact] = useState<string | null>(null);
   const [isSwapping, setIsSwapping] = useState(false);
+
+  // Initialize tokens when allTokens are loaded
+  useEffect(() => {
+    if (allTokens.length > 0 && !inputToken && !outputToken) {
+      // Find USDC and MON from loaded tokens
+      const usdc = allTokens.find((t) => t.symbol === "USDC");
+      const mon = allTokens.find((t) => t.symbol === "MON");
+
+      if (usdc) setInputToken(usdc);
+      if (mon) setOutputToken(mon);
+    }
+  }, [allTokens, inputToken, outputToken]);
 
   const {
     swapExactTokensForTokens,
@@ -64,28 +79,51 @@ export function SwapInterface() {
     swapExactETHForTokens,
     swapExactTokensForETH,
   } = useStageSwap();
-  const { balances, refresh: refreshBalances } = useTokenBalances();
+  const { smartWalletAddress } = useSmartWallet();
+  const { assets, refresh: refreshBalances } =
+    useWalletAssets(smartWalletAddress);
 
   // Combined loading state
-  const isLoading = isSwapping || isSwapHookLoading;
+  const isLoading = isSwapping || isSwapHookLoading || isTokensLoading;
 
-  // Helper function to get the appropriate balance based on token
+  // Helper function to get the appropriate balance based on token using Zerion assets
   const getTokenBalance = (token: Token): string => {
-    if (!balances) return "0";
+    if (!assets) return "0";
 
-    if (token.symbol === "USDC") {
-      return balances.usdc;
-    } else if (token.symbol === "WMON") {
-      return balances.wmon;
-    } else if (token.symbol === "MON") {
-      return balances.mon; // Native MON balance
-    }
+    // Find the asset by symbol or address
+    const asset = assets.find((asset) => {
+      const implementation =
+        asset.attributes.fungible_info?.implementations?.[0];
+      const symbol = asset.attributes.fungible_info?.symbol;
 
-    return "0";
+      // Match native MON
+      if (
+        token.address === "NATIVE" &&
+        (asset.id === "base-monad-test-v2-asset-asset" ||
+          (symbol === "MON" && !implementation?.address))
+      ) {
+        return true;
+      }
+
+      // Match by address for regular tokens
+      if (
+        implementation?.address &&
+        implementation.address.toLowerCase() === token.address.toLowerCase()
+      ) {
+        return true;
+      }
+
+      // Match by symbol as fallback
+      return symbol === token.symbol;
+    });
+
+    return asset ? asset.attributes.quantity.float.toString() : "0";
   };
 
   // Function to swap the input and output tokens
   const handleSwapTokens = () => {
+    if (!inputToken || !outputToken) return;
+
     setInputToken(outputToken);
     setOutputToken(inputToken);
     setInputAmount(outputAmount);
@@ -294,16 +332,26 @@ export function SwapInterface() {
       <h2 className="text-2xl font-bold mb-6">Swap</h2>
 
       {/* Input section */}
-      <div className="mb-2">
+      <div className="mb-4">
+        <div className="flex justify-between items-center mb-2">
+          <div className="text-gray-400">From</div>
+          {inputToken && (
+            <div className="text-sm text-gray-400">
+              Balance: {parseFloat(getTokenBalance(inputToken)).toFixed(6)}
+            </div>
+          )}
+        </div>
         <AmountInput
           value={inputAmount}
           onChange={setInputAmount}
-          label="From"
-          max={getTokenBalance(inputToken)}
+          placeholder="0.0"
+          max={inputToken ? getTokenBalance(inputToken) : "0"}
           showMaxButton
           onMaxClick={() => {
-            const balance = getTokenBalance(inputToken);
-            if (balance) setInputAmount(balance);
+            if (inputToken) {
+              const balance = getTokenBalance(inputToken);
+              if (balance) setInputAmount(balance);
+            }
           }}
           disabled={isLoading}
         />
@@ -311,18 +359,19 @@ export function SwapInterface() {
           <TokenSelector
             selectedToken={inputToken}
             onTokenSelect={setInputToken}
-            tokens={TOKENS}
-            disabled={isLoading}
+            excludeAddresses={outputToken ? [outputToken.address] : []}
+            title="Select Input Token"
+            onlyMainTokens={true}
           />
         </div>
       </div>
 
       {/* Switch button */}
-      <div className="flex justify-center my-4">
+      <div className="flex justify-center my-6">
         <PrimaryButton
           onClick={handleSwapTokens}
-          disabled={isLoading}
           className="p-2 rounded-full"
+          disabled={isLoading || !inputToken || !outputToken}
         >
           <ArrowsUpDownIcon className="w-5 h-5 text-gray-300" />
         </PrimaryButton>
@@ -330,26 +379,34 @@ export function SwapInterface() {
 
       {/* Output section */}
       <div className="mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <div className="text-gray-400">To (estimated)</div>
+          {outputToken && (
+            <div className="text-sm text-gray-400">
+              Balance: {parseFloat(getTokenBalance(outputToken)).toFixed(6)}
+            </div>
+          )}
+        </div>
         <AmountInput
           value={outputAmount}
           onChange={setOutputAmount}
-          label="To (estimated)"
-          max={getTokenBalance(outputToken)}
+          placeholder="0.0"
           disabled={true}
         />
         <div className="mt-2">
           <TokenSelector
             selectedToken={outputToken}
             onTokenSelect={setOutputToken}
-            tokens={TOKENS.filter((t) => t.address !== inputToken.address)}
-            disabled={isLoading}
+            excludeAddresses={inputToken ? [inputToken.address] : []}
+            title="Select Output Token"
+            onlyMainTokens={true}
           />
         </div>
       </div>
 
       {/* Price info */}
-      {inputAmount && outputAmount && (
-        <div className="mb-4 p-3 bg-gray-800 rounded-lg">
+      {inputToken && outputToken && inputAmount && outputAmount && (
+        <div className="mb-6 p-3 bg-gray-800 rounded-lg">
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Price</span>
             <span>
@@ -374,23 +431,41 @@ export function SwapInterface() {
       )}
 
       {/* Swap button */}
-      <PrimaryButton
-        onClick={handleSwap}
-        disabled={!user || isLoading || !inputAmount || !outputAmount}
-        isLoading={isLoading}
-        fullWidth
-      >
-        {!user
-          ? "Connect Wallet"
-          : !inputAmount || !outputAmount
-          ? "Enter an amount"
-          : "Swap"}
-      </PrimaryButton>
+      <div className="mt-6">
+        <PrimaryButton
+          onClick={handleSwap}
+          disabled={
+            !user ||
+            isLoading ||
+            !inputAmount ||
+            !outputAmount ||
+            !inputToken ||
+            !outputToken
+          }
+          isLoading={isLoading}
+          fullWidth
+        >
+          {!user
+            ? "Connect Wallet"
+            : !inputToken || !outputToken
+            ? "Select Tokens"
+            : !inputAmount || !outputAmount
+            ? "Enter an amount"
+            : "Swap"}
+        </PrimaryButton>
+      </div>
 
       {/* Error message */}
       {error && (
         <div className="mt-4 p-3 bg-red-900/30 text-red-400 rounded-lg text-sm">
           {error}
+        </div>
+      )}
+
+      {/* Loading message for tokens */}
+      {isTokensLoading && (
+        <div className="mt-4 text-center text-sm text-gray-400">
+          Loading available tokens...
         </div>
       )}
     </div>

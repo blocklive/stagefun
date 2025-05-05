@@ -4,9 +4,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { useStageSwap } from "@/hooks/useStageSwap";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
-import { RemoveLiquidityModal } from "./RemoveLiquidityModal";
 import { MyPoolsTable } from "./MyPoolsTable";
 import { AllPoolsTable } from "./AllPoolsTable";
 
@@ -18,31 +16,11 @@ export function PositionsInterface() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [mounted, setMounted] = useState(false);
-  const { smartWalletAddress } = useSmartWallet();
-
-  // State for remove liquidity modal
-  const [showRemoveLiquidityModal, setShowRemoveLiquidityModal] =
-    useState(false);
-  const [selectedPosition, setSelectedPosition] = useState<any>(null);
 
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
   }, []);
-
-  // Get user's positions (positions with LP token balance > 0)
-  const userPositions = positions.filter(
-    (position) => Number(position.lpTokenBalance) > 0
-  );
-
-  // Format a number with commas for thousands
-  const formatNumber = (value: string, decimals: number = 6): string => {
-    const num = parseFloat(value);
-    return num.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: decimals,
-    });
-  };
 
   const handleRefresh = async () => {
     setIsManualRefreshing(true);
@@ -56,8 +34,6 @@ export function PositionsInterface() {
   };
 
   const getTokenIconPath = (symbol: string): string => {
-    // Implement your logic to determine the correct icon path based on the token symbol
-    // For example, you can use a switch statement or a mapping function
     switch (symbol) {
       case "MON":
         return "/icons/mon-logo.svg";
@@ -66,22 +42,6 @@ export function PositionsInterface() {
       default:
         return "/icons/unknown-logo.svg";
     }
-  };
-
-  const calculateTVL = (position: any) => {
-    // Simple TVL calculation based on token amounts
-    const token0Value = parseFloat(position.reserve0) * 1; // Replace with actual price
-    const token1Value = parseFloat(position.reserve1) * 1; // Replace with actual price
-    return (token0Value + token1Value).toLocaleString("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 2,
-    });
-  };
-
-  const calculateFeeRate = (position: any) => {
-    // Placeholder - In a real implementation, you would get fee tier from contract
-    return "0.3%";
   };
 
   const toggleMenu = (pairAddress: string, event: React.MouseEvent) => {
@@ -122,24 +82,6 @@ export function PositionsInterface() {
       `/swap/liquidity?token0=${position.token0.address}&token1=${position.token1.address}`
     );
     setActiveMenu(null);
-  };
-
-  const handleRemoveLiquidity = (position: any, event: React.MouseEvent) => {
-    event.stopPropagation();
-    // Show remove liquidity modal instead of navigating
-    setSelectedPosition(position);
-    setShowRemoveLiquidityModal(true);
-    setActiveMenu(null);
-  };
-
-  const handleCloseModal = () => {
-    setShowRemoveLiquidityModal(false);
-    setSelectedPosition(null);
-  };
-
-  const handleRemoveSuccess = () => {
-    // Refresh the positions list after successful removal
-    setTimeout(() => refresh(), 3000);
   };
 
   return (
@@ -183,12 +125,10 @@ export function PositionsInterface() {
         </div>
       ) : (
         <>
-          {/* Always show My Positions section, even when empty */}
+          {/* My Positions section */}
           <MyPoolsTable
-            userPositions={userPositions}
+            userPositions={positions}
             getTokenIconPath={getTokenIconPath}
-            formatNumber={formatNumber}
-            calculateFeeRate={calculateFeeRate}
             toggleMenu={toggleMenu}
           />
 
@@ -196,9 +136,6 @@ export function PositionsInterface() {
           <AllPoolsTable
             positions={positions}
             getTokenIconPath={getTokenIconPath}
-            formatNumber={formatNumber}
-            calculateFeeRate={calculateFeeRate}
-            calculateTVL={calculateTVL}
             toggleMenu={toggleMenu}
           />
         </>
@@ -229,20 +166,16 @@ export function PositionsInterface() {
                 >
                   Add Liquidity
                 </button>
-                {Number(
-                  positions.find((p) => p.pairAddress === activeMenu)
-                    ?.lpTokenBalance
-                ) > 0 && (
+                {positions.find((p) => p.pairAddress === activeMenu)
+                  ?.hasUserLiquidity && (
                   <button
-                    onClick={(e) =>
-                      handleRemoveLiquidity(
-                        positions.find((p) => p.pairAddress === activeMenu)!,
-                        e
-                      )
-                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/swap/positions/${activeMenu}`);
+                    }}
                     className="px-4 py-2 text-sm text-white w-full text-left hover:bg-gray-700"
                   >
-                    Remove Liquidity
+                    Manage Position
                   </button>
                 )}
               </>
@@ -250,17 +183,6 @@ export function PositionsInterface() {
           </div>,
           document.body
         )}
-
-      {/* Remove Liquidity Modal */}
-      {mounted && showRemoveLiquidityModal && selectedPosition && (
-        <RemoveLiquidityModal
-          position={selectedPosition}
-          onClose={handleCloseModal}
-          onSuccess={handleRemoveSuccess}
-          getTokenIconPath={getTokenIconPath}
-          formatNumber={formatNumber}
-        />
-      )}
     </div>
   );
 }

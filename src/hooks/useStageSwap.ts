@@ -67,6 +67,18 @@ export interface SwapForETHParams {
   deadline: number;
 }
 
+export interface GetPairParams {
+  tokenA: string;
+  tokenB: string;
+}
+
+export interface GetPairResult {
+  success: boolean;
+  pairAddress?: string;
+  reserves?: [bigint, bigint];
+  error?: string;
+}
+
 export interface UseStageSwapResult {
   isLoading: boolean;
   error: string | null;
@@ -103,6 +115,7 @@ export interface UseStageSwapResult {
     to: string,
     deadline: number
   ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
+  getPair: (params: GetPairParams) => Promise<GetPairResult>;
 }
 
 export function useStageSwap(): UseStageSwapResult {
@@ -364,6 +377,116 @@ export function useStageSwap(): UseStageSwapResult {
         const routerContract = await getRouterContract(provider);
         const routerAddress = await routerContract.getAddress();
 
+        // Get actual token decimals from contract first thing
+        const tokenADecimals = await getTokenDecimals(params.tokenA, provider);
+        const tokenBDecimals = await getTokenDecimals(params.tokenB, provider);
+
+        // Log the actual token decimals for debugging
+        console.log("Actual token decimals from contract:", {
+          tokenA: {
+            address: params.tokenA,
+            decimals: tokenADecimals,
+          },
+          tokenB: {
+            address: params.tokenB,
+            decimals: tokenBDecimals,
+          },
+        });
+
+        // Initial debug logging
+        console.log("Starting addLiquidity with tokens:", {
+          tokenA: params.tokenA,
+          tokenB: params.tokenB,
+          amountADesired: params.amountADesired,
+          amountBDesired: params.amountBDesired,
+          amountAFormatted: ethers.formatUnits(
+            params.amountADesired,
+            tokenADecimals
+          ),
+          amountBFormatted: ethers.formatUnits(
+            params.amountBDesired,
+            tokenBDecimals
+          ),
+        });
+
+        // Check actual token balances before proceeding
+        try {
+          const tokenAContract = new ethers.Contract(
+            params.tokenA,
+            ["function balanceOf(address) view returns (uint256)"],
+            provider
+          );
+          const tokenBContract = new ethers.Contract(
+            params.tokenB,
+            ["function balanceOf(address) view returns (uint256)"],
+            provider
+          );
+
+          const [balanceA, balanceB] = await Promise.all([
+            tokenAContract.balanceOf(smartWalletAddress),
+            tokenBContract.balanceOf(smartWalletAddress),
+          ]);
+
+          console.log("Actual token balances:", {
+            tokenA: {
+              raw: balanceA.toString(),
+              formatted: ethers.formatUnits(balanceA, tokenADecimals),
+              needed: ethers.formatUnits(params.amountADesired, tokenADecimals),
+            },
+            tokenB: {
+              raw: balanceB.toString(),
+              formatted: ethers.formatUnits(balanceB, tokenBDecimals),
+              needed: ethers.formatUnits(params.amountBDesired, tokenBDecimals),
+            },
+          });
+
+          // Check if balances are sufficient
+          if (balanceA < BigInt(params.amountADesired)) {
+            throw new Error(
+              `Insufficient balance of token A. Have ${ethers.formatUnits(
+                balanceA,
+                tokenADecimals
+              )}, need ${ethers.formatUnits(
+                params.amountADesired,
+                tokenADecimals
+              )}`
+            );
+          }
+
+          if (balanceB < BigInt(params.amountBDesired)) {
+            throw new Error(
+              `Insufficient balance of token B. Have ${ethers.formatUnits(
+                balanceB,
+                tokenBDecimals
+              )}, need ${ethers.formatUnits(
+                params.amountBDesired,
+                tokenBDecimals
+              )}`
+            );
+          }
+        } catch (error) {
+          console.error("Error checking token balances:", error);
+          // Continue anyway as this is just for debugging
+        }
+
+        // Helper function to get token decimals
+        async function getTokenDecimals(
+          tokenAddress: string,
+          provider: ethers.Provider
+        ): Promise<number> {
+          try {
+            const contract = new ethers.Contract(
+              tokenAddress,
+              ["function decimals() view returns (uint8)"],
+              provider
+            );
+            return await contract.decimals();
+          } catch (error) {
+            console.error("Error getting token decimals:", error);
+            return 18; // Default to 18 decimals
+          }
+        }
+
         // Check and approve tokenA if needed
         const tokenAAllowance = await getTokenAllowance(
           params.tokenA,
@@ -372,29 +495,46 @@ export function useStageSwap(): UseStageSwapResult {
           provider
         );
 
-        if (tokenAAllowance < BigInt(params.amountADesired)) {
-          showToast.loading("Approving token A...", { id: loadingToast });
+        console.log("Initial Token A allowance:", tokenAAllowance.toString());
 
-          const tokenABI = [
-            "function approve(address spender, uint256 value) returns (bool)",
-          ];
+        // Use maximum uint256 value for unlimited approval
+        const MAX_UINT256 = ethers.MaxUint256; // 2^256-1
+        console.log("Using MAX_UINT256 for approvals:", MAX_UINT256.toString());
 
-          const approvalResultA = await callContractFunction(
-            params.tokenA as `0x${string}`,
-            tokenABI,
-            "approve",
-            [routerAddress, params.amountADesired],
-            "Approve token A for liquidity"
-          );
+        // Always approve token A with maximum allowance for ERC20-ERC20 pairs
+        showToast.loading("Approving token A with maximum allowance...", {
+          id: loadingToast,
+        });
 
-          if (!approvalResultA.success) {
-            throw new Error(
-              approvalResultA.error || "Failed to approve token A"
-            );
-          }
+        const tokenABI = [
+          "function approve(address spender, uint256 value) returns (bool)",
+        ];
 
-          await provider.waitForTransaction(approvalResultA.txHash as string);
+        const approvalResultA = await callContractFunction(
+          params.tokenA as `0x${string}`,
+          tokenABI,
+          "approve",
+          [routerAddress, MAX_UINT256],
+          "Approve token A for liquidity"
+        );
+
+        if (!approvalResultA.success) {
+          throw new Error(approvalResultA.error || "Failed to approve token A");
         }
+
+        await provider.waitForTransaction(approvalResultA.txHash as string);
+
+        // Debug: Log the new allowance after approval
+        const newTokenAAllowance = await getTokenAllowance(
+          params.tokenA,
+          smartWalletAddress,
+          routerAddress,
+          provider
+        );
+        console.log(
+          "Token A approved. New allowance:",
+          newTokenAAllowance.toString()
+        );
 
         // Check and approve tokenB if needed
         const tokenBAllowance = await getTokenAllowance(
@@ -404,29 +544,42 @@ export function useStageSwap(): UseStageSwapResult {
           provider
         );
 
-        if (tokenBAllowance < BigInt(params.amountBDesired)) {
-          showToast.loading("Approving token B...", { id: loadingToast });
+        console.log("Initial Token B allowance:", tokenBAllowance.toString());
 
-          const tokenBBI = [
-            "function approve(address spender, uint256 value) returns (bool)",
-          ];
+        // Always approve token B with maximum allowance for ERC20-ERC20 pairs
+        showToast.loading("Approving token B with maximum allowance...", {
+          id: loadingToast,
+        });
 
-          const approvalResultB = await callContractFunction(
-            params.tokenB as `0x${string}`,
-            tokenBBI,
-            "approve",
-            [routerAddress, params.amountBDesired],
-            "Approve token B for liquidity"
-          );
+        const tokenBABI = [
+          "function approve(address spender, uint256 value) returns (bool)",
+        ];
 
-          if (!approvalResultB.success) {
-            throw new Error(
-              approvalResultB.error || "Failed to approve token B"
-            );
-          }
+        const approvalResultB = await callContractFunction(
+          params.tokenB as `0x${string}`,
+          tokenBABI,
+          "approve",
+          [routerAddress, MAX_UINT256],
+          "Approve token B for liquidity"
+        );
 
-          await provider.waitForTransaction(approvalResultB.txHash as string);
+        if (!approvalResultB.success) {
+          throw new Error(approvalResultB.error || "Failed to approve token B");
         }
+
+        await provider.waitForTransaction(approvalResultB.txHash as string);
+
+        // Debug: Log the new allowance after approval
+        const newTokenBAllowance = await getTokenAllowance(
+          params.tokenB,
+          smartWalletAddress,
+          routerAddress,
+          provider
+        );
+        console.log(
+          "Token B approved. New allowance:",
+          newTokenBAllowance.toString()
+        );
 
         // Add liquidity
         showToast.loading("Adding liquidity...", { id: loadingToast });
@@ -1064,6 +1217,73 @@ export function useStageSwap(): UseStageSwapResult {
     [user, getProvider, smartWalletAddress, callContractFunction]
   );
 
+  // Add the getPair function implementation (inside the useStageSwap hook)
+  const getPair = useCallback(
+    async ({ tokenA, tokenB }: GetPairParams): Promise<GetPairResult> => {
+      try {
+        const provider = await getProvider();
+        const routerContract = await getRouterContract(provider);
+        const factoryAddress = await routerContract.factory();
+
+        const factoryContract = new ethers.Contract(
+          factoryAddress,
+          [
+            "function getPair(address tokenA, address tokenB) external view returns (address pair)",
+          ],
+          provider
+        );
+
+        const pairAddress = await factoryContract.getPair(tokenA, tokenB);
+
+        // If pair doesn't exist
+        if (pairAddress === "0x0000000000000000000000000000000000000000") {
+          return {
+            success: true,
+            pairAddress,
+          };
+        }
+
+        // Get reserves if pair exists
+        const pairContract = new ethers.Contract(
+          pairAddress,
+          [
+            "function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)",
+            "function token0() external view returns (address)",
+            "function token1() external view returns (address)",
+          ],
+          provider
+        );
+
+        const [reserves, token0] = await Promise.all([
+          pairContract.getReserves(),
+          pairContract.token0(),
+        ]);
+
+        // Determine which reserve is which based on token order
+        const isTokenAZero = tokenA.toLowerCase() === token0.toLowerCase();
+        const reserveA = isTokenAZero
+          ? BigInt(reserves[0])
+          : BigInt(reserves[1]);
+        const reserveB = isTokenAZero
+          ? BigInt(reserves[1])
+          : BigInt(reserves[0]);
+
+        return {
+          success: true,
+          pairAddress,
+          reserves: [reserveA, reserveB],
+        };
+      } catch (error) {
+        console.error("Error getting pair:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Error getting pair",
+        };
+      }
+    },
+    [getProvider]
+  );
+
   return {
     isLoading: isLoading || smartWalletIsLoading,
     error,
@@ -1074,5 +1294,6 @@ export function useStageSwap(): UseStageSwapResult {
     addLiquidity,
     addLiquidityETH,
     removeLiquidity,
+    getPair,
   };
 }
