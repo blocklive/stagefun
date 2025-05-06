@@ -14,6 +14,7 @@ import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useTokenList } from "@/hooks/useTokenList";
 import { Token } from "@/types/token";
+import { useSwapPriceImpact } from "@/hooks/useSwapPriceImpact";
 
 // Token data with real contract addresses
 // Note: We're keeping this for backward compatibility but using useTokenList instead
@@ -41,6 +42,9 @@ const TOKENS = [
   },
 ];
 
+// Define a constant for the high price impact threshold
+const HIGH_PRICE_IMPACT_THRESHOLD = 15; // 15%
+
 export function SwapInterface() {
   const { user } = usePrivy();
   // Use token list hook with onlyWithLiquidity = true for swap
@@ -56,8 +60,21 @@ export function SwapInterface() {
   const [inputAmount, setInputAmount] = useState("");
   const [outputAmount, setOutputAmount] = useState("");
   const [isExactIn, setIsExactIn] = useState(true);
-  const [priceImpact, setPriceImpact] = useState<string | null>(null);
   const [isSwapping, setIsSwapping] = useState(false);
+
+  // Use the price impact hook for price impact calculations
+  const {
+    priceImpact,
+    isPriceImpactTooHigh,
+    minimumReceived,
+    lowLiquidityMessage,
+    isSwapLikelyInvalid,
+  } = useSwapPriceImpact({
+    inputAmount,
+    outputAmount,
+    inputToken,
+    outputToken,
+  });
 
   // Initialize tokens when allTokens are loaded
   useEffect(() => {
@@ -134,28 +151,25 @@ export function SwapInterface() {
   // Get quote when input amount or tokens change
   useEffect(() => {
     const getQuote = async () => {
+      // Validate inputAmount before proceeding
+      const parsedInputAmount = parseFloat(inputAmount);
       if (
         !inputAmount ||
-        parseFloat(inputAmount) === 0 ||
+        isNaN(parsedInputAmount) ||
+        parsedInputAmount <= 0 ||
         !inputToken ||
         !outputToken
       ) {
         setOutputAmount("");
-        setPriceImpact(null);
         return;
       }
+      // At this point, inputAmount is a string representing a positive number,
+      // and parsedInputAmount is its float value.
 
       try {
-        // Convert input amount to wei
-        const amountInWei = ethers
-          .parseUnits(inputAmount, inputToken.decimals)
-          .toString();
-
-        // Check if we're using native MON - for price quotes, treat it as WMON
+        // Common path and address setup
         const isInputNative = inputToken.address === "NATIVE";
         const isOutputNative = outputToken.address === "NATIVE";
-
-        // Use WMON address for native MON in the quote
         const WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
         const adjustedInputAddress = isInputNative
           ? WMON_ADDRESS
@@ -163,37 +177,49 @@ export function SwapInterface() {
         const adjustedOutputAddress = isOutputNative
           ? WMON_ADDRESS
           : outputToken.address;
+        const path = [adjustedInputAddress, adjustedOutputAddress];
 
-        // Call the hook to get the output amount
-        const result = await getAmountsOut({
+        // Get Actual Output for User's Input Amount
+        const amountInWei = ethers
+          .parseUnits(inputAmount, inputToken.decimals)
+          .toString();
+
+        const actualQuoteResult = await getAmountsOut({
           amountIn: amountInWei,
-          path: [adjustedInputAddress, adjustedOutputAddress],
+          path: path,
         });
 
-        if (result.success && result.amounts && result.amounts.length >= 2) {
-          // Convert output amount from wei to display amount
-          const out = ethers.formatUnits(
-            result.amounts[1],
+        if (
+          actualQuoteResult.success &&
+          actualQuoteResult.amounts &&
+          actualQuoteResult.amounts.length >= 2
+        ) {
+          const actualOutputAmountInWei = actualQuoteResult.amounts[1];
+          const formattedActualOutput = ethers.formatUnits(
+            actualOutputAmountInWei,
             outputToken.decimals
           );
-          setOutputAmount(out);
 
-          // Calculate price impact (simplified)
-          // In a real app, you'd need more complex price impact calculation
-          const inputValue = parseFloat(inputAmount);
-          const outputValue = parseFloat(out);
-          if (inputValue > 0 && outputValue > 0) {
-            const impact = Math.abs((1 - outputValue / inputValue) * 100);
-            setPriceImpact(impact.toFixed(2));
-          }
+          // Set the output amount - price impact calculation happens in the hook
+          setOutputAmount(formattedActualOutput);
         } else {
+          // actualQuoteResult failed
           setOutputAmount("");
-          setPriceImpact(null);
+          if (actualQuoteResult.error) {
+            showToast.error(
+              actualQuoteResult.error ||
+                "Failed to get quote for the specified amount."
+            );
+          } else {
+            showToast.error("Failed to get quote for the specified amount.");
+          }
         }
       } catch (error) {
         console.error("Error getting quote:", error);
         setOutputAmount("");
-        setPriceImpact(null);
+        showToast.error(
+          error instanceof Error ? error.message : "Error calculating quote."
+        );
       }
     };
 
@@ -219,6 +245,14 @@ export function SwapInterface() {
 
     if (inputToken.address === outputToken.address) {
       showToast.error("Cannot swap the same token");
+      return;
+    }
+
+    // Check for high price impact before proceeding
+    if (isPriceImpactTooHigh) {
+      showToast.error(
+        `Swap aborted: Price impact is too high. Maximum allowed is ${HIGH_PRICE_IMPACT_THRESHOLD}%.`
+      );
       return;
     }
 
@@ -406,8 +440,8 @@ export function SwapInterface() {
 
       {/* Price info */}
       {inputToken && outputToken && inputAmount && outputAmount && (
-        <div className="mb-6 p-3 bg-gray-800 rounded-lg">
-          <div className="flex justify-between text-sm">
+        <div className="mb-6 p-3 bg-gray-800 rounded-lg text-sm">
+          <div className="flex justify-between">
             <span className="text-gray-400">Price</span>
             <span>
               1 {inputToken.symbol} ={" "}
@@ -415,16 +449,42 @@ export function SwapInterface() {
               {outputToken.symbol}
             </span>
           </div>
-          {priceImpact && (
-            <div className="flex justify-between text-sm mt-1">
+          {/* Display Price Impact or N/A message */}
+          {priceImpact !== null && (
+            <div className="flex justify-between mt-1">
               <span className="text-gray-400">Price Impact</span>
               <span
                 className={`${
-                  parseFloat(priceImpact) > 5 ? "text-red-500" : "text-gray-300"
+                  parseFloat(priceImpact) > 5 // Still color if it's a high number, even if not blocking
+                    ? "text-red-500"
+                    : "text-gray-300"
                 }`}
               >
                 {priceImpact}%
               </span>
+            </div>
+          )}
+          {priceImpact === null &&
+            outputAmount &&
+            parseFloat(outputAmount) > 0 && (
+              <div className="flex justify-between mt-1">
+                <span className="text-gray-400">Price Impact</span>
+                <span className="text-gray-300">N/A</span>
+              </div>
+            )}
+          {/* Display Minimum Received */}
+          {minimumReceived && outputToken && (
+            <div className="flex justify-between mt-1">
+              <span className="text-gray-400">Minimum Received</span>
+              <span className="text-gray-300">
+                {minimumReceived} {outputToken.symbol}
+              </span>
+            </div>
+          )}
+          {/* Display Low Liquidity Message */}
+          {lowLiquidityMessage && (
+            <div className="mt-2 text-xs text-yellow-400/80 text-center">
+              {lowLiquidityMessage}
             </div>
           )}
         </div>
@@ -435,22 +495,22 @@ export function SwapInterface() {
         <PrimaryButton
           onClick={handleSwap}
           disabled={
-            !user ||
             isLoading ||
-            !inputAmount ||
-            !outputAmount ||
             !inputToken ||
-            !outputToken
+            !outputToken ||
+            !inputAmount ||
+            parseFloat(inputAmount) === 0 ||
+            isPriceImpactTooHigh ||
+            isSwapLikelyInvalid
           }
-          isLoading={isLoading}
-          fullWidth
+          className="w-full py-3 text-lg font-semibold"
         >
-          {!user
-            ? "Connect Wallet"
-            : !inputToken || !outputToken
-            ? "Select Tokens"
-            : !inputAmount || !outputAmount
-            ? "Enter an amount"
+          {isSwapLikelyInvalid
+            ? "Amount Error / No Output"
+            : isPriceImpactTooHigh
+            ? "Price Impact Too High"
+            : isSwapping
+            ? "Swapping..."
             : "Swap"}
         </PrimaryButton>
       </div>
