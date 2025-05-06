@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
+import LeaderboardSkeleton from "./components/LeaderboardSkeleton";
 
 // Dynamically import the LeaderboardContent component to prevent hydration issues
 const LeaderboardContent = dynamic(
@@ -16,7 +17,7 @@ export default function LeaderboardPage() {
         Top users by points earned and funding activity
       </p>
 
-      <Suspense fallback={<div>Loading leaderboard...</div>}>
+      <Suspense fallback={<LeaderboardSkeleton />}>
         <LeaderboardContent />
       </Suspense>
     </div>

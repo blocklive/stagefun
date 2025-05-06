@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import UserAvatar from "@/app/components/UserAvatar";
 import {
   Table,
@@ -50,6 +51,7 @@ export default function LeaderboardTable({
   users,
   showHeader = true,
 }: LeaderboardTableProps) {
+  const router = useRouter();
   const [sortField, setSortField] = useState<SortField>("points");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
@@ -61,6 +63,17 @@ export default function LeaderboardTable({
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
+  };
+
+  // Function to safely navigate to user profile
+  const navigateToUserProfile = (name: string) => {
+    try {
+      const formattedName = name.replace(/\s+/g, "").toLowerCase();
+      router.push(`/user/${formattedName}`);
+    } catch (error) {
+      console.error("Navigation error:", error);
+      // Silent fail, don't show error to user
+    }
   };
 
   // Function to handle column sorting
@@ -248,11 +261,9 @@ export default function LeaderboardTable({
                 <TableCell>
                   <div className="flex items-center space-x-3">
                     {user.name ? (
-                      <a
-                        href={`/user/${user.name
-                          .replace(/\s+/g, "")
-                          .toLowerCase()}`}
-                        className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
+                      <div
+                        onClick={() => navigateToUserProfile(user.name || "")}
+                        className="flex items-center space-x-3 hover:opacity-80 transition-opacity cursor-pointer"
                       >
                         <UserAvatar
                           name={user.name || "Anonymous"}
@@ -262,7 +273,7 @@ export default function LeaderboardTable({
                         <span className="font-medium truncate max-w-[150px]">
                           {user.name}
                         </span>
-                      </a>
+                      </div>
                     ) : (
                       <>
                         <UserAvatar

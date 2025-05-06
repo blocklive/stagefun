@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import useSWR from "swr";
 import LeaderboardTable from "./LeaderboardTable";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
+import LeaderboardSkeleton from "./LeaderboardSkeleton";
 import { useSupabase } from "@/contexts/SupabaseContext";
 import { useAuthJwt } from "@/hooks/useAuthJwt";
 import { usePrivy } from "@privy-io/react-auth";
@@ -129,24 +129,14 @@ export default function LeaderboardContent() {
     setLoading(false);
   }, [users, privyUser, dbUser]);
 
-  if (error) {
-    return (
-      <div className="flex justify-center items-center h-60">
-        <p className="text-red-500">Failed to load leaderboard data</p>
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="mb-6">
         <h2 className="text-xl font-semibold">Season 1</h2>
       </div>
 
-      {swrLoading || loading ? (
-        <div className="flex justify-center items-center h-60">
-          <LoadingSpinner color="#836EF9" size={40} />
-        </div>
+      {swrLoading || loading || error ? (
+        <LeaderboardSkeleton />
       ) : (
         <LeaderboardTable users={displayUsers} />
       )}
