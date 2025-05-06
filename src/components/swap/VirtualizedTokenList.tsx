@@ -1,7 +1,12 @@
 import React, { useCallback } from "react";
 import { FixedSizeList } from "react-window";
-import Image from "next/image";
 import { Token } from "@/types/token";
+import {
+  TokenIcon,
+  TOKEN_ICONS,
+  TOKEN_DISPLAY_NAMES,
+  isKnownToken,
+} from "../token/TokenIcon";
 
 interface TokenItemProps {
   token: Token;
@@ -10,37 +15,41 @@ interface TokenItemProps {
 }
 
 // Individual token item
-const TokenItem = ({ token, onClick, style }: TokenItemProps) => (
-  <div
-    style={style}
-    className="p-4 bg-[#FFFFFF0A] hover:bg-[#2A2640] transition-colors cursor-pointer"
-    onClick={onClick}
-  >
-    <div className="flex items-center">
-      <div
-        className="w-8 h-8 relative flex-shrink-0 rounded-full overflow-hidden flex items-center justify-center"
-        style={{ backgroundColor: "#2A2640" }}
-      >
-        <Image
-          src={token.logoURI || "/icons/generic-token.svg"}
-          alt={token.symbol}
-          fill
-          sizes="32px"
-          className="object-contain"
-        />
-      </div>
-      <div className="ml-3 flex-1 min-w-0">
-        <div className="font-bold text-white truncate">{token.symbol}</div>
-        <div className="text-sm text-gray-400 truncate">{token.name}</div>
-      </div>
-      {token.source === "custom" && (
-        <div className="text-xs px-2 py-1 bg-gray-800 text-gray-400 rounded-full ml-auto">
-          Custom
+const TokenItem = ({ token, onClick, style }: TokenItemProps) => {
+  const tokenSymbol = token.symbol;
+
+  // Get a better display name for the token if available
+  const displayName = TOKEN_DISPLAY_NAMES[tokenSymbol] || token.name;
+
+  return (
+    <div
+      style={style}
+      className="p-4 bg-[#FFFFFF0A] hover:bg-[#2A2640] transition-colors cursor-pointer"
+      onClick={onClick}
+    >
+      <div className="flex items-center">
+        <TokenIcon symbol={tokenSymbol} logoURI={token.logoURI} size="lg" />
+        <div className="ml-4 flex-1 min-w-0">
+          <div className="font-bold text-white truncate">
+            {displayName}
+            {isKnownToken(tokenSymbol) && (
+              <span
+                className="inline-block h-2 w-2 ml-1.5 bg-[#836EF9] opacity-60 rounded-full"
+                aria-label="Popular token"
+              ></span>
+            )}
+          </div>
+          <div className="text-sm text-gray-400 truncate">{tokenSymbol}</div>
         </div>
-      )}
+        {token.source === "custom" && (
+          <div className="text-xs px-2 py-1 bg-gray-800 text-gray-400 rounded-full ml-auto">
+            Custom
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 interface VirtualizedTokenListProps {
   tokens: Token[];
@@ -56,7 +65,7 @@ export function VirtualizedTokenList({
   onSelectToken,
   height = 300,
   width = "100%",
-  itemHeight = 60,
+  itemHeight = 72, // Increased to accommodate larger icons
   emptyMessage = "No tokens found",
 }: VirtualizedTokenListProps) {
   // Render item callback for react-window
