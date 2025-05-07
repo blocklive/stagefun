@@ -6,7 +6,8 @@ import { formatCurrency } from "../../../../lib/utils";
 import showToast from "@/utils/toast";
 import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
 import { useLpBalance } from "../../../../hooks/useLpBalance";
-import { ClaimDistributionButton } from "../../../../components/pools/ClaimDistributionButton";
+import { ClaimDistributionButton } from "@/components/pools/ClaimDistributionButton";
+import { ProvidePoolLiquidityButton } from "@/components/pools/ProvidePoolLiquidityButton";
 import { getPoolEffectiveStatus } from "../../../../lib/contracts/types";
 
 interface UserCommitmentProps {
@@ -189,6 +190,16 @@ export default function UserCommitment({
               )}
             </div>
           </div>
+
+          {/* Add the Provide Liquidity button when user has LP tokens and pool is funded */}
+          {!isLpBalanceLoading && lpBalance > BigInt(0) && !isUnfunded && (
+            <ProvidePoolLiquidityButton
+              lpTokenSymbol={lpSymbol || ""}
+              lpTokenAddress={pool.lp_token_address || ""}
+              amount={displayLpBalance || "0"}
+              poolUniqueId={pool.id || ""}
+            />
+          )}
         </div>
 
         {/* Claim Distribution Button - for executing pools with revenue */}

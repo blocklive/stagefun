@@ -30,7 +30,7 @@ interface LiquidityActionsProps {
   poolRatio: { reserveA: bigint; reserveB: bigint } | null;
   pairAddress: string | null;
   isLoading: boolean;
-  checkPoolExists: () => Promise<void>;
+  checkPoolExists: () => Promise<boolean> | Promise<void>;
   setAmountA: (value: string) => void;
   setAmountB: (value: string) => void;
   getTokenBalance: (token: Token) => string;
