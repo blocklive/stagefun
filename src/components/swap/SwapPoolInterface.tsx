@@ -1,9 +1,14 @@
-import React, { useState, useCallback, useEffect } from "react";
+"use client";
+
+import React, { useState, useCallback, useEffect, Suspense } from "react";
 import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWalletAssets } from "@/hooks/useWalletAssets";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 import { useTokenList } from "@/hooks/useTokenList";
+import { useTokenResolver } from "@/hooks/useTokenResolver";
+import { TokenInfo } from "@/types/tokens";
+import { useSearchParams } from "next/navigation";
 
 // Import all the new components
 import { PoolStatusCard } from "./PoolStatusCard";
@@ -25,6 +30,7 @@ interface Token {
   name: string;
   decimals: number;
   logoURI: string;
+  isCustom?: boolean;
 }
 
 // Fixed fee - 0.3% for all pools based on Uniswap V2
@@ -83,6 +89,35 @@ export function SwapPoolInterface() {
   const [amountA, setAmountA] = useState("");
   const [amountB, setAmountB] = useState("");
 
+  // Create stable callback functions for token changes
+  const handleTokenAChange = useCallback((token: TokenInfo) => {
+    setTokenA(token as Token);
+  }, []);
+
+  const handleTokenBChange = useCallback((token: TokenInfo) => {
+    setTokenB(token as Token);
+  }, []);
+
+  // Create stable amount change handlers
+  const handleAmountAFromParams = useCallback((value: string) => {
+    console.log(`Setting amountA from params: ${value}`);
+    setAmountA(value);
+  }, []);
+
+  const handleAmountBFromParams = useCallback((value: string) => {
+    console.log(`Setting amountB from params: ${value}`);
+    setAmountB(value);
+  }, []);
+
+  // Use our new token resolver hook - it will handle query parameters
+  const { source, isLoadingTokens } = useTokenResolver({
+    initialTokens: allTokens,
+    onTokenAChange: handleTokenAChange,
+    onTokenBChange: handleTokenBChange,
+    onAmountAChange: handleAmountAFromParams,
+    onAmountBChange: handleAmountBFromParams,
+  });
+
   // Slippage tolerance
   const [slippageTolerance, setSlippageTolerance] = useState("0.5");
 
@@ -107,7 +142,7 @@ export function SwapPoolInterface() {
   } = useWalletAssets(smartWalletAddress);
 
   // Combined loading state
-  const isLoading = isAddingLiquidity || isBalanceLoading;
+  const isLoading = isAddingLiquidity || isBalanceLoading || isLoadingTokens;
 
   // Handle amount changes with auto calculation for existing pools
   const handleAmountAChange = (value: string) => {
