@@ -1122,8 +1122,21 @@ export function useStageSwap(): UseStageSwapResult {
           params.path[params.path.length - 1].toLowerCase() !==
           wethAddress.toLowerCase()
         ) {
+          console.error("Path error. Path:", params.path);
+          console.error("WETH address:", wethAddress);
           throw new Error("The last token in path must be the WETH token");
         }
+
+        // Log token addresses and path for debugging
+        console.log("Swap details:", {
+          input: params.path[0],
+          output: "Native MON",
+          amountIn: params.amountIn,
+          amountOutMin: params.amountOutMin,
+          path: params.path,
+          deadline: params.deadline,
+          WETH: wethAddress,
+        });
 
         // Check token allowance and approve if needed
         const tokenAddress = params.path[0];
@@ -1171,6 +1184,13 @@ export function useStageSwap(): UseStageSwapResult {
           "function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
         ];
 
+        // Get smart wallet MON balance before swap
+        const balanceBefore = await provider.getBalance(smartWalletAddress);
+        console.log(
+          "MON balance before swap:",
+          ethers.formatEther(balanceBefore)
+        );
+
         const result = await callContractFunction(
           routerAddress as `0x${string}`,
           routerABI,
@@ -1198,6 +1218,20 @@ export function useStageSwap(): UseStageSwapResult {
           throw new Error("Transaction failed on-chain");
         }
 
+        // Get smart wallet MON balance after swap
+        const balanceAfter = await provider.getBalance(smartWalletAddress);
+        console.log(
+          "MON balance after swap:",
+          ethers.formatEther(balanceAfter)
+        );
+        console.log(
+          "MON received:",
+          ethers.formatEther(balanceAfter - balanceBefore)
+        );
+
+        // Force refresh smart wallet balance to reflect the new MON
+        refreshSmartWalletBalance();
+
         showToast.success("Swap completed successfully!", { id: loadingToast });
         return { success: true, txHash: result.txHash };
       } catch (error) {
@@ -1214,7 +1248,13 @@ export function useStageSwap(): UseStageSwapResult {
         setIsLoading(false);
       }
     },
-    [user, getProvider, smartWalletAddress, callContractFunction]
+    [
+      user,
+      getProvider,
+      smartWalletAddress,
+      callContractFunction,
+      refreshSmartWalletBalance,
+    ]
   );
 
   // Add the getPair function implementation (inside the useStageSwap hook)

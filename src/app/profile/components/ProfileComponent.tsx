@@ -43,6 +43,8 @@ import { mutate } from "swr";
 import BalanceSection from "./BalanceSection";
 import { useWalletNFTs } from "../../../hooks/useWalletNFTs";
 import NFTList from "./NFTList";
+import ProfileSkeleton from "./ProfileSkeleton";
+import NFTSkeleton from "./NFTSkeleton";
 
 interface ProfileComponentProps {
   isUsernameRoute?: boolean;
@@ -254,11 +256,7 @@ export default function ProfileComponent({
   }, [router, ready, authenticated, dbUser]);
 
   if (!ready || isLoadingUser) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-[#121212]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   if (!authenticated || !dbUser) {
@@ -275,11 +273,7 @@ export default function ProfileComponent({
     isLoadingProfileUser ||
     (profileUser === null && (profileUserId || profileUsername))
   ) {
-    return (
-      <div className="flex items-center justify-center h-[80vh] bg-[#121212]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   // Make sure we have profile data
@@ -758,11 +752,16 @@ function PassesContent({
     ? "You don't have any NFT passes yet."
     : `${displayName} doesn't have any NFT passes yet.`;
 
+  // Show skeleton loader when loading
+  if (isLoading) {
+    return <NFTSkeleton />;
+  }
+
   return (
     <div className="mt-6">
       <NFTList
         nfts={nfts}
-        isLoading={isLoading}
+        isLoading={false} // We're handling loading state with the skeleton above
         error={error}
         emptyMessage={emptyMessage}
         isOwnProfile={isOwnProfile}

@@ -167,12 +167,7 @@ export default function NFTList({
 
   return (
     <div className="mt-6">
-      {/* Loading State */}
-      {isLoading ? (
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#836EF9]"></div>
-        </div>
-      ) : sortedNFTs.length > 0 ? (
+      {sortedNFTs.length > 0 ? (
         <div className="space-y-2">
           {sortedNFTs.map((nft, index) => (
             <NFTCard

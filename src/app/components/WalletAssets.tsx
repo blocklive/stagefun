@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { useWalletAssets } from "../../hooks/useWalletAssets";
+import { useWalletAssetsAdapter } from "../../hooks/useWalletAssetsAdapter";
 import { Asset } from "../../lib/zerion/ZerionSDK";
 import type { RefObject } from "react";
 import { TokenIcon } from "@/components/token/TokenIcon";
@@ -173,11 +173,14 @@ export default function WalletAssets({
   hideTitle = false,
   isOwnProfile = true,
 }: WalletAssetsProps) {
-  const { assets, totalValue, isLoading, error, refresh } = useWalletAssets(
-    walletAddress,
-    chainId
-  );
+  // Use the adapter hook with Alchemy only, not using Zerion by default
+  const { assets, totalValue, isLoading, error, refresh, source } =
+    useWalletAssetsAdapter(walletAddress, chainId, {
+      useZerion: false, // Only use Alchemy by default
+      combineData: false, // Don't combine with Zerion data
+    });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   // Expose the refresh function to the parent via the ref
   useEffect(() => {
@@ -185,6 +188,27 @@ export default function WalletAssets({
       refreshAssetsRef.current = refresh;
     }
   }, [refreshAssetsRef, refresh]);
+
+  // Track retries when error occurs
+  useEffect(() => {
+    if (error) {
+      // Check if error is likely a network error or rate limit
+      const errorStr = String(error).toLowerCase();
+      const isRetryableError =
+        errorStr.includes("rate limit") ||
+        errorStr.includes("429") ||
+        errorStr.includes("too many requests") ||
+        errorStr.includes("network") ||
+        errorStr.includes("connection") ||
+        errorStr.includes("timeout");
+
+      if (isRetryableError) {
+        setRetrying(true);
+      }
+    } else {
+      setRetrying(false);
+    }
+  }, [error]);
 
   const handleSendClick = (asset: Asset) => {
     onSendClick(asset);
@@ -201,7 +225,22 @@ export default function WalletAssets({
     return 100; // Any other token
   };
 
-  if (error) {
+  // Show loading state for initial load or retrying
+  if ((isLoading && assets.length === 0) || retrying) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#836EF9] mb-4"></div>
+        {retrying ? (
+          <p className="text-sm text-gray-400">Retrying asset fetch...</p>
+        ) : (
+          <p className="text-sm text-gray-400">Loading assets...</p>
+        )}
+      </div>
+    );
+  }
+
+  // Only show error state for persistent non-retryable errors
+  if (error && !retrying) {
     return (
       <div className={`text-center py-4 ${className}`}>
         <div className="text-red-400 mb-2">Failed to load wallet assets</div>
@@ -219,15 +258,15 @@ export default function WalletAssets({
     <div className={className}>
       {/* Main Title - only show if hideTitle is false */}
       {!hideTitle && (
-        <h2 className="text-xl font-semibold mb-4">Your Assets</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Your Assets</h2>
+          {/* Display data source for debugging */}
+          <div className="text-xs text-gray-500">Source: {source}</div>
+        </div>
       )}
 
       {/* Assets List Loading/Content */}
-      {isLoading && assets.length === 0 ? (
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#836EF9]"></div>
-        </div>
-      ) : assets.length > 0 ? (
+      {assets.length > 0 ? (
         <div className="space-y-4">
           {assets
             // Sort with priority tokens first, then by quantity
