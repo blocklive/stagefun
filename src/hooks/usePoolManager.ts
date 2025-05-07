@@ -234,7 +234,7 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
         return "";
       }
     },
-    [poolRatio, tokenA.address, tokenA.decimals, tokenB.decimals]
+    [poolRatio, tokenA.address]
   );
 
   // Format display ratio between tokens
@@ -298,8 +298,7 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
         clearTimeout(timeoutRef.current);
       }
     };
-    // IMPORTANT: Only depend on token addresses, not on any functions
-  }, [tokenA.address, tokenB.address]);
+  }, [tokenA.address, tokenB.address, checkPoolExists]);
 
   return {
     poolExists,

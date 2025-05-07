@@ -1,4 +1,7 @@
+"use client";
+
 import { useSearchParams } from "next/navigation";
+import { useMemo } from "react";
 
 interface QueryParamDefaultsResult {
   tokenA: string | null;
@@ -18,24 +21,41 @@ interface QueryParamDefaultsResult {
  * to avoid circular dependencies and render loops
  */
 export function useQueryParamDefaults(): QueryParamDefaultsResult {
+  // Always call useSearchParams unconditionally (hooks rule)
   const searchParams = useSearchParams();
 
-  // Extract query parameters
-  const tokenA = searchParams.get("tokenA");
-  const tokenASymbol = searchParams.get("tokenASymbol");
-  const tokenB = searchParams.get("tokenB");
-  const tokenBSymbol = searchParams.get("tokenBSymbol");
-  const amountA = searchParams.get("amountA");
-  const amountB = searchParams.get("amountB");
-  const source = searchParams.get("source");
+  // Use useMemo to compute the result based on searchParams
+  return useMemo(() => {
+    if (!searchParams) {
+      // Return empty values if searchParams is not available
+      return {
+        tokenA: null,
+        tokenASymbol: null,
+        tokenB: null,
+        tokenBSymbol: null,
+        amountA: null,
+        amountB: null,
+        source: null,
+      };
+    }
 
-  return {
-    tokenA,
-    tokenASymbol,
-    tokenB,
-    tokenBSymbol,
-    amountA,
-    amountB,
-    source,
-  };
+    // Extract query parameters
+    const tokenA = searchParams.get("tokenA");
+    const tokenASymbol = searchParams.get("tokenASymbol");
+    const tokenB = searchParams.get("tokenB");
+    const tokenBSymbol = searchParams.get("tokenBSymbol");
+    const amountA = searchParams.get("amountA");
+    const amountB = searchParams.get("amountB");
+    const source = searchParams.get("source");
+
+    return {
+      tokenA,
+      tokenASymbol,
+      tokenB,
+      tokenBSymbol,
+      amountA,
+      amountB,
+      source,
+    };
+  }, [searchParams]);
 }

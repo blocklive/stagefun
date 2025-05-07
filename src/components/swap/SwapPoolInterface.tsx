@@ -1,4 +1,6 @@
-import React, { useState, useCallback, useEffect } from "react";
+"use client";
+
+import React, { useState, useCallback, useEffect, Suspense } from "react";
 import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWalletAssets } from "@/hooks/useWalletAssets";
