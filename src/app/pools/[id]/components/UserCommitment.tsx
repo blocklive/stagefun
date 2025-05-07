@@ -5,11 +5,11 @@ import { Pool, User } from "../../../../lib/supabase";
 import { formatCurrency } from "../../../../lib/utils";
 import showToast from "@/utils/toast";
 import { useContractInteraction } from "../../../../contexts/ContractInteractionContext";
-import { useLpBalance } from "../../../../hooks/useLpBalance";
 import { ClaimDistributionButton } from "@/components/pools/ClaimDistributionButton";
 import { ProvidePoolLiquidityButton } from "@/components/pools/ProvidePoolLiquidityButton";
 import { getPoolEffectiveStatus } from "../../../../lib/contracts/types";
 import { useAlphaMode } from "@/hooks/useAlphaMode";
+import { useZerionLpBalance } from "@/hooks/useZerionLpBalance";
 
 interface UserCommitmentProps {
   pool: Pool | null;
@@ -56,7 +56,26 @@ export default function UserCommitment({
   // State to track if we should show the error (only after a delay)
   const [showError, setShowError] = useState(false);
 
-  // Get LP token balance using the LP token address stored in the pool
+  // Helper function to format numbers with commas
+  const formatNumber = (value: string): string => {
+    // Ensure we're working with a valid number
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      return "0";
+    }
+
+    // Format the number with commas as thousands separators
+    // For whole numbers, show no decimal places
+    // For numbers with decimal component, show up to 2 decimal places
+    const hasDecimal = num % 1 !== 0;
+    return num.toLocaleString(undefined, {
+      maximumFractionDigits: hasDecimal ? 2 : 0,
+      minimumFractionDigits: 0,
+    });
+  };
+
+  // Get LP token balance using the Zerion-based hook for reliability
+  // This avoids the "No embedded wallet found" error from direct contract calls
   const {
     lpBalance,
     formattedLpBalance,
@@ -64,7 +83,10 @@ export default function UserCommitment({
     lpSymbol,
     isLoading: isLpBalanceLoading,
     refreshLpBalance,
-  } = useLpBalance(pool ? (pool as any)?.lp_token_address || null : null);
+  } = useZerionLpBalance(
+    pool ? (pool as any)?.lp_token_address || null : null,
+    pool?.ticker
+  );
 
   // Determine if the pool is in executing state
   const isExecutingPool = pool
@@ -180,7 +202,7 @@ export default function UserCommitment({
                 {isLpBalanceLoading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-purple-500"></div>
                 ) : (
-                  displayLpBalance
+                  formatNumber(displayLpBalance)
                 )}
               </span>
               {!isLpBalanceLoading && (
