@@ -1,5 +1,6 @@
 import useSWR from "swr";
 import { ZerionSDK, Asset } from "../lib/zerion/ZerionSDK";
+import { useMemo } from "react";
 
 // Initialize the Zerion SDK for browser use
 // No API key needed in the browser - we'll use our proxy endpoints
@@ -31,32 +32,40 @@ export function useWalletAssets(
   );
 
   // Filter out blank assets or those without proper information
-  const filteredAssets = (data?.data || []).filter((asset: Asset) => {
-    // Check if the asset has fungible_info and quantity, but don't filter by quantity size
-    return (
-      asset.attributes &&
-      asset.attributes.quantity &&
-      asset.attributes.quantity.int !== "0" && // Use int instead of float to catch very small numbers
-      asset.attributes.fungible_info &&
-      asset.attributes.fungible_info.name &&
-      asset.attributes.fungible_info.symbol
-    );
-  });
+  const filteredAssets = useMemo(() => {
+    return (data?.data || []).filter((asset: Asset) => {
+      // Check if the asset has fungible_info and quantity, but don't filter by quantity size
+      return (
+        asset.attributes &&
+        asset.attributes.quantity &&
+        asset.attributes.quantity.int !== "0" && // Use int instead of float to catch very small numbers
+        asset.attributes.fungible_info &&
+        asset.attributes.fungible_info.name &&
+        asset.attributes.fungible_info.symbol
+      );
+    });
+  }, [data]);
 
   // Calculate total value correctly - use actual values or quantity as dollar value if value is null
-  const totalValue = filteredAssets.reduce((sum: number, asset: Asset) => {
-    const assetValue =
-      asset.attributes.value !== null
-        ? asset.attributes.value
-        : asset.attributes.quantity.float;
-    return sum + (assetValue || 0);
-  }, 0);
+  const totalValue = useMemo(() => {
+    return filteredAssets.reduce((sum: number, asset: Asset) => {
+      const assetValue =
+        asset.attributes.value !== null
+          ? asset.attributes.value
+          : asset.attributes.quantity.float;
+      return sum + (assetValue || 0);
+    }, 0);
+  }, [filteredAssets]);
 
-  return {
-    assets: filteredAssets,
-    totalValue,
-    isLoading,
-    error,
-    refresh: mutate,
-  };
+  // Use useMemo for the return value to ensure consistent object reference
+  return useMemo(
+    () => ({
+      assets: filteredAssets,
+      totalValue,
+      isLoading,
+      error,
+      refresh: mutate,
+    }),
+    [filteredAssets, totalValue, isLoading, error, mutate]
+  );
 }

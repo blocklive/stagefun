@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { useWalletAssets } from "../../hooks/useWalletAssets";
+import { useWalletAssetsAdapter } from "../../hooks/useWalletAssetsAdapter";
 import { Asset } from "../../lib/zerion/ZerionSDK";
 import type { RefObject } from "react";
 import { TokenIcon } from "@/components/token/TokenIcon";
@@ -173,10 +173,12 @@ export default function WalletAssets({
   hideTitle = false,
   isOwnProfile = true,
 }: WalletAssetsProps) {
-  const { assets, totalValue, isLoading, error, refresh } = useWalletAssets(
-    walletAddress,
-    chainId
-  );
+  // Use the adapter hook with Alchemy only, not using Zerion by default
+  const { assets, totalValue, isLoading, error, refresh, source } =
+    useWalletAssetsAdapter(walletAddress, chainId, {
+      useZerion: false, // Only use Alchemy by default
+      combineData: false, // Don't combine with Zerion data
+    });
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Expose the refresh function to the parent via the ref
@@ -219,7 +221,11 @@ export default function WalletAssets({
     <div className={className}>
       {/* Main Title - only show if hideTitle is false */}
       {!hideTitle && (
-        <h2 className="text-xl font-semibold mb-4">Your Assets</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Your Assets</h2>
+          {/* Display data source for debugging */}
+          <div className="text-xs text-gray-500">Source: {source}</div>
+        </div>
       )}
 
       {/* Assets List Loading/Content */}

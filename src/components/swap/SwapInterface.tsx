@@ -5,7 +5,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { TokenSelector } from "./TokenSelector";
 import { AmountInput } from "./AmountInput";
 import { useStageSwap } from "@/hooks/useStageSwap";
-import { useWalletAssets } from "@/hooks/useWalletAssets";
+import { useWalletAssetsAdapter } from "@/hooks/useWalletAssetsAdapter";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
 import { getDeadlineTimestamp } from "@/lib/contracts/StageSwap";
 import showToast from "@/utils/toast";
@@ -97,8 +97,16 @@ export function SwapInterface() {
     swapExactTokensForETH,
   } = useStageSwap();
   const { smartWalletAddress } = useSmartWallet();
-  const { assets, refresh: refreshBalances } =
-    useWalletAssets(smartWalletAddress);
+
+  // Replace useWalletAssets with useWalletAssetsAdapter
+  const { assets, refresh: refreshBalances } = useWalletAssetsAdapter(
+    smartWalletAddress,
+    "monad-test-v2",
+    {
+      useZerion: false, // Only use Alchemy
+      combineData: false, // Don't use combined data
+    }
+  );
 
   // Combined loading state
   const isLoading = isSwapping || isSwapHookLoading || isTokensLoading;
@@ -262,6 +270,8 @@ export function SwapInterface() {
       console.log("Swapping tokens:", {
         inputToken: inputToken.symbol,
         outputToken: outputToken.symbol,
+        inputAddress: inputToken.address,
+        outputAddress: outputToken.address,
         inputAmount,
         outputAmount,
       });
@@ -296,6 +306,7 @@ export function SwapInterface() {
         outputToken: outputToken.symbol,
         inputAddress: inputToken.address,
         outputAddress: outputToken.address,
+        WMON_ADDRESS,
       });
 
       let swapResult;
@@ -307,6 +318,7 @@ export function SwapInterface() {
 
         // We'll use swapExactETHForTokens - create the path with WMON at the start
         const path = [WMON_ADDRESS, outputToken.address];
+        console.log("Swap path:", path);
 
         // Since we're sending MON natively, we need to use swapExactETHForTokens
         swapResult = await swapExactETHForTokens({
@@ -316,12 +328,15 @@ export function SwapInterface() {
           deadline: deadline,
           value: amountInWei, // Send the MON amount as value
         });
+
+        console.log("Native MON to token swap result:", swapResult);
       } else if (isOutputNative) {
         // Case 2: Swapping token to native MON (e.g., USDC -> MON)
         console.log("Swapping token to native MON...");
 
         // We'll use swapExactTokensForETH - create the path with WMON at the end
         const path = [inputToken.address, WMON_ADDRESS];
+        console.log("Swap path:", path);
 
         swapResult = await swapExactTokensForETH({
           amountIn: amountInWei,
@@ -330,6 +345,8 @@ export function SwapInterface() {
           to: "", // Will be filled in by the hook
           deadline: deadline,
         });
+
+        console.log("Token to native MON swap result:", swapResult);
       } else {
         // Case 3: Regular token to token swap (e.g., USDC -> WMON)
         console.log("Regular token to token swap");
@@ -342,6 +359,8 @@ export function SwapInterface() {
           to: "", // Will be replaced with smart wallet address in the hook
           deadline,
         });
+
+        console.log("Token to token swap result:", swapResult);
       }
 
       if (swapResult.success) {
@@ -350,6 +369,9 @@ export function SwapInterface() {
         setOutputAmount("");
         // Refresh user's balance
         refreshBalances();
+        showToast.success(
+          `Successfully swapped ${inputToken.symbol} for ${outputToken.symbol}`
+        );
       } else {
         showToast.error(swapResult.error || "Swap failed");
       }
