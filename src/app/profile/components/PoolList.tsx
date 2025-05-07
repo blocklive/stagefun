@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -5,6 +7,7 @@ import { TransformedPool } from "../../../hooks/useUserFundedPools";
 import { useClaimRefund } from "../../../hooks/useClaimRefund";
 import { Asset } from "../../../lib/zerion/ZerionSDK";
 import showToast from "../../../utils/toast";
+import PoolListSkeleton from "./PoolListSkeleton";
 
 interface PoolListProps {
   pools: TransformedPool[];
@@ -92,30 +95,35 @@ export default function PoolList({
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-8">
-        <div
-          className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2"
-          style={{ borderColor: "#836EF9" }}
-        ></div>
-      </div>
-    );
+  // Handle loading state with skeleton
+  if (isLoading && pools.length === 0) {
+    return <PoolListSkeleton />;
   }
 
+  // Handle error state
   if (error) {
     return (
-      <div className="text-center py-8 text-red-400">
-        <p>Error loading pools. Please try again.</p>
-        {isUsingCache && (
-          <p className="text-sm mt-1">Using cached data if available.</p>
+      <div className="text-center py-8 text-gray-400">
+        <div className="text-red-400 mb-2">Failed to load pools.</div>
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            className="px-4 py-2 bg-[#836EF9] hover:bg-[#7058E8] text-white rounded-full text-sm"
+          >
+            Try Again
+          </button>
         )}
       </div>
     );
   }
 
+  // Handle empty state
   if (pools.length === 0) {
-    return <div className="text-center py-8 text-gray-400">{emptyMessage}</div>;
+    return (
+      <div className="text-center py-8 text-gray-400">
+        <p>{emptyMessage}</p>
+      </div>
+    );
   }
 
   // Group pools by status
@@ -165,6 +173,26 @@ export default function PoolList({
 
   // Check if there are refundable tokens for the notification dot
   const hasRefundablePools = isOwnProfile && poolsWithUserTokens.size > 0;
+
+  // Format currency for display
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(date);
+  };
 
   // Render the pools with tabs
   return (

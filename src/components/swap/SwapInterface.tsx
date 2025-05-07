@@ -369,9 +369,6 @@ export function SwapInterface() {
         setOutputAmount("");
         // Refresh user's balance
         refreshBalances();
-        showToast.success(
-          `Successfully swapped ${inputToken.symbol} for ${outputToken.symbol}`
-        );
       } else {
         showToast.error(swapResult.error || "Swap failed");
       }
