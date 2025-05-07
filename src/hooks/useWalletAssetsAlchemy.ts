@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import useSWR from "swr";
 import {
   AlchemySDK,
   WalletTokensResponse,
@@ -10,6 +11,9 @@ import {
 const alchemySDK = new AlchemySDK(
   process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || "demo"
 );
+
+// Constants for retry mechanism
+const MAX_RETRIES = 5;
 
 interface UseWalletAssetsAlchemyResult {
   tokens: TokenWithBalance[];
@@ -29,68 +33,80 @@ export function useWalletAssetsAlchemy(
   address: string | null,
   chainId: string = "monad-test-v2"
 ): UseWalletAssetsAlchemyResult {
-  const [tokensData, setTokensData] = useState<TokenWithBalance[]>([]);
-  const [totalValue, setTotalValue] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshCounter, setRefreshCounter] = useState<number>(0);
+  // Fetcher function for SWR
+  const fetcher = useCallback(async () => {
+    if (!address) return { tokens: [], totalValue: 0 };
 
-  // Memoize tokens to ensure we don't create a new array reference on every render
-  const tokens = useMemo(() => tokensData, [tokensData]);
+    try {
+      const result: WalletTokensResponse = await alchemySDK.getWalletTokens(
+        address,
+        chainId
+      );
+      return {
+        tokens: result.tokens || [],
+        totalValue: result.totalValue || 0,
+      };
+    } catch (error) {
+      // Log rate limit errors for debugging
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (
+        errorMessage.includes("rate limit") ||
+        errorMessage.includes("429") ||
+        errorMessage.includes("too many requests")
+      ) {
+        console.warn(
+          `Alchemy API rate limited: ${errorMessage}. Will retry automatically.`
+        );
+      }
+
+      // Rethrow to let SWR handle retries with its built-in exponential backoff
+      throw error;
+    }
+  }, [address, chainId]);
+
+  // Use SWR to fetch and cache data with default retry behavior
+  const { data, error, isLoading, mutate } = useSWR(
+    address ? `alchemy-tokens-${address}-${chainId}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      refreshInterval: 60000, // Refresh every minute
+      dedupingInterval: 10000, // Dedupe calls within 10 seconds
+      errorRetryCount: MAX_RETRIES, // Max number of retries
+      // Let SWR handle the exponential backoff retry timing
+      onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
+        // Only retry for network errors and rate limits, not for other errors
+        const errorMessage = error?.message || String(error);
+        const shouldRetry =
+          errorMessage.includes("rate limit") ||
+          errorMessage.includes("429") ||
+          errorMessage.includes("too many requests") ||
+          errorMessage.includes("network") ||
+          errorMessage.includes("connection") ||
+          errorMessage.includes("timeout");
+
+        // Log the retry attempt
+        if (shouldRetry) {
+          console.log(
+            `Retrying Alchemy API call (${retryCount}/${MAX_RETRIES})...`
+          );
+        } else {
+          console.error("Non-retryable Alchemy API error:", error);
+          return false; // Don't retry
+        }
+      },
+    }
+  );
+
+  // Extract tokens and totalValue from the data
+  const tokens = useMemo(() => data?.tokens || [], [data?.tokens]);
+  const totalValue = useMemo(() => data?.totalValue || 0, [data?.totalValue]);
 
   // Function to refresh the data
   const refresh = useCallback(() => {
-    setRefreshCounter((prev) => prev + 1);
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchAssets = async () => {
-      if (!address) {
-        setTokensData([]);
-        setTotalValue(0);
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const result: WalletTokensResponse = await alchemySDK.getWalletTokens(
-          address,
-          chainId
-        );
-
-        if (isMounted) {
-          setTokensData(result.tokens || []);
-          setTotalValue(result.totalValue || 0);
-          setError(null);
-        }
-      } catch (error) {
-        console.error("Error fetching wallet tokens:", error);
-        if (isMounted) {
-          setError(
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch wallet tokens"
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchAssets();
-
-    // Cleanup function
-    return () => {
-      isMounted = false;
-    };
-  }, [address, chainId, refreshCounter]);
+    mutate();
+  }, [mutate]);
 
   // Use useMemo for the return value to ensure consistent object reference
   return useMemo(
@@ -98,7 +114,11 @@ export function useWalletAssetsAlchemy(
       tokens,
       totalValue,
       isLoading,
-      error,
+      error: error
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : null,
       refresh,
     }),
     [tokens, totalValue, isLoading, error, refresh]

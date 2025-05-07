@@ -180,6 +180,7 @@ export default function WalletAssets({
       combineData: false, // Don't combine with Zerion data
     });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   // Expose the refresh function to the parent via the ref
   useEffect(() => {
@@ -187,6 +188,27 @@ export default function WalletAssets({
       refreshAssetsRef.current = refresh;
     }
   }, [refreshAssetsRef, refresh]);
+
+  // Track retries when error occurs
+  useEffect(() => {
+    if (error) {
+      // Check if error is likely a network error or rate limit
+      const errorStr = String(error).toLowerCase();
+      const isRetryableError =
+        errorStr.includes("rate limit") ||
+        errorStr.includes("429") ||
+        errorStr.includes("too many requests") ||
+        errorStr.includes("network") ||
+        errorStr.includes("connection") ||
+        errorStr.includes("timeout");
+
+      if (isRetryableError) {
+        setRetrying(true);
+      }
+    } else {
+      setRetrying(false);
+    }
+  }, [error]);
 
   const handleSendClick = (asset: Asset) => {
     onSendClick(asset);
@@ -203,7 +225,22 @@ export default function WalletAssets({
     return 100; // Any other token
   };
 
-  if (error) {
+  // Show loading state for initial load or retrying
+  if ((isLoading && assets.length === 0) || retrying) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#836EF9] mb-4"></div>
+        {retrying ? (
+          <p className="text-sm text-gray-400">Retrying asset fetch...</p>
+        ) : (
+          <p className="text-sm text-gray-400">Loading assets...</p>
+        )}
+      </div>
+    );
+  }
+
+  // Only show error state for persistent non-retryable errors
+  if (error && !retrying) {
     return (
       <div className={`text-center py-4 ${className}`}>
         <div className="text-red-400 mb-2">Failed to load wallet assets</div>
@@ -229,11 +266,7 @@ export default function WalletAssets({
       )}
 
       {/* Assets List Loading/Content */}
-      {isLoading && assets.length === 0 ? (
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#836EF9]"></div>
-        </div>
-      ) : assets.length > 0 ? (
+      {assets.length > 0 ? (
         <div className="space-y-4">
           {assets
             // Sort with priority tokens first, then by quantity
