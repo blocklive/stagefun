@@ -9,6 +9,7 @@ import { useLpBalance } from "../../../../hooks/useLpBalance";
 import { ClaimDistributionButton } from "@/components/pools/ClaimDistributionButton";
 import { ProvidePoolLiquidityButton } from "@/components/pools/ProvidePoolLiquidityButton";
 import { getPoolEffectiveStatus } from "../../../../lib/contracts/types";
+import { useAlphaMode } from "@/hooks/useAlphaMode";
 
 interface UserCommitmentProps {
   pool: Pool | null;
@@ -72,6 +73,8 @@ export default function UserCommitment({
 
   // Determine if user can claim refund (must have LP tokens)
   const canClaimRefund = isUnfunded && lpBalance > BigInt(0);
+
+  const isAlpha = useAlphaMode();
 
   // Reset error state when loading state changes
   useEffect(() => {
@@ -191,15 +194,18 @@ export default function UserCommitment({
             </div>
           </div>
 
-          {/* Add the Provide Liquidity button when user has LP tokens and pool is funded */}
-          {!isLpBalanceLoading && lpBalance > BigInt(0) && !isUnfunded && (
-            <ProvidePoolLiquidityButton
-              lpTokenSymbol={lpSymbol || ""}
-              lpTokenAddress={pool.lp_token_address || ""}
-              amount={displayLpBalance || "0"}
-              poolUniqueId={pool.id || ""}
-            />
-          )}
+          {/* Add the Provide Liquidity button when user has LP tokens and pool is funded, only in alpha mode */}
+          {!isLpBalanceLoading &&
+            lpBalance > BigInt(0) &&
+            !isUnfunded &&
+            isAlpha && (
+              <ProvidePoolLiquidityButton
+                lpTokenSymbol={lpSymbol || ""}
+                lpTokenAddress={pool.lp_token_address || ""}
+                amount={displayLpBalance || "0"}
+                poolUniqueId={pool.id || ""}
+              />
+            )}
         </div>
 
         {/* Claim Distribution Button - for executing pools with revenue */}
