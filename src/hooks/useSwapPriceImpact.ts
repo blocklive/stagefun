@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { Token } from "@/types/token";
+import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
 // Constants
 const HIGH_PRICE_IMPACT_THRESHOLD = 15; // 15%
 const DEFAULT_SLIPPAGE_TOLERANCE = 0.005; // 0.5%
+const WMON_ADDRESS = CONTRACT_ADDRESSES.monadTestnet.weth;
 
 interface UseSwapPriceImpactProps {
   inputAmount: string;
@@ -47,6 +49,22 @@ export function useSwapPriceImpact({
       setPriceImpact(null);
       setIsPriceImpactTooHigh(false);
       setMinimumReceived(null);
+      setLowLiquidityMessage(null);
+      setIsSwapLikelyInvalid(false);
+      return;
+    }
+
+    // Check if this is a MON <-> WMON direct conversion
+    const isInputNative = inputToken.address === "NATIVE";
+    const isOutputNative = outputToken.address === "NATIVE";
+    const isWmonToMon = isOutputNative && inputToken.address === WMON_ADDRESS;
+    const isMonToWmon = isInputNative && outputToken.address === WMON_ADDRESS;
+
+    // For MON <-> WMON pairs, there is zero price impact - it's a 1:1 wrap/unwrap
+    if (isWmonToMon || isMonToWmon) {
+      setPriceImpact("0.00");
+      setIsPriceImpactTooHigh(false);
+      setMinimumReceived(outputAmount); // 1:1 exchange, so minimum is same as output
       setLowLiquidityMessage(null);
       setIsSwapLikelyInvalid(false);
       return;

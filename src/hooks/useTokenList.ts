@@ -26,7 +26,7 @@ const CORE_TOKENS: Token[] = [
     hasLiquidity: true, // Core tokens always have liquidity
   },
   {
-    address: "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701", // Official WMON address
+    address: CONTRACT_ADDRESSES.monadTestnet.officialWmon, // Official WMON address
     symbol: "WMON",
     name: "Wrapped MON",
     decimals: 18,

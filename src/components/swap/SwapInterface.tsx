@@ -17,6 +17,39 @@ import { useTokenList } from "@/hooks/useTokenList";
 import { Token } from "@/types/token";
 import { useSwapPriceImpact } from "@/hooks/useSwapPriceImpact";
 
+// Get the WMON address from the contracts file
+const WMON_ADDRESS = CONTRACT_ADDRESSES.monadTestnet.officialWmon;
+console.log("Using official WMON address:", WMON_ADDRESS);
+
+// Create a detailed WMON contract interface exactly matching the contract
+const WMON_ABI = [
+  // Basic ERC20 functions
+  "function balanceOf(address) view returns (uint256)",
+  "function allowance(address, address) view returns (uint256)",
+  "function approve(address, uint256) returns (bool)",
+  "function transfer(address, uint256) returns (bool)",
+  "function transferFrom(address, address, uint256) returns (bool)",
+  // WMON specific functions
+  "function deposit() payable",
+  "function withdraw(uint256)",
+];
+
+// Adding formatTokenAmount function based on WalletAssets.tsx
+const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
+  // For very small numbers, use scientific notation below a certain threshold
+  if (quantity > 0 && quantity < 0.000001) {
+    return quantity.toExponential(6);
+  }
+
+  // Otherwise use regular formatting with appropriate decimals
+  const maxDecimals = Math.min(decimals, 6);
+
+  return quantity.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDecimals,
+  });
+};
+
 // Token data with real contract addresses
 // Note: We're keeping this for backward compatibility but using useTokenList instead
 const TOKENS = [
@@ -35,7 +68,7 @@ const TOKENS = [
     logoURI: "/icons/mon-logo.svg",
   },
   {
-    address: "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701", // Official WMON address
+    address: WMON_ADDRESS, // Use WMON address from constants
     symbol: "WMON",
     name: "Wrapped MON",
     decimals: 18,
@@ -46,22 +79,6 @@ const TOKENS = [
 // Define a constant for the high price impact threshold
 const HIGH_PRICE_IMPACT_THRESHOLD = 15; // 15%
 
-// Adding formatTokenAmount function based on WalletAssets.tsx
-const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
-  // For very small numbers, use scientific notation below a certain threshold
-  if (quantity > 0 && quantity < 0.000001) {
-    return quantity.toExponential(6);
-  }
-
-  // Otherwise use regular formatting with appropriate decimals
-  const maxDecimals = Math.min(decimals, 6);
-
-  return quantity.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: maxDecimals,
-  });
-};
-
 export function SwapInterface() {
   const { user } = usePrivy();
   // Use token list hook with onlyWithLiquidity = true for swap
@@ -70,6 +87,9 @@ export function SwapInterface() {
     onlyWithLiquidity: true,
     onlyMainTokens: true,
   });
+
+  // Get callContractFunction and smartWalletAddress from useSmartWallet for direct WMON operations
+  const { smartWalletAddress, callContractFunction } = useSmartWallet();
 
   // Set default tokens from the loaded list when available
   const [inputToken, setInputToken] = useState<Token | null>(null);
@@ -113,7 +133,6 @@ export function SwapInterface() {
     swapExactETHForTokens,
     swapExactTokensForETH,
   } = useStageSwap();
-  const { smartWalletAddress } = useSmartWallet();
 
   // Set a loading state for initial render
   const [initialLoading, setInitialLoading] = useState(true);
@@ -156,11 +175,24 @@ export function SwapInterface() {
   const getTokenBalance = (token: Token): string => {
     if (!assets) return "0";
 
-    // Find the asset by symbol or address
+    // Find the asset by address first (most accurate), then by symbol
     const asset = assets.find((asset) => {
       const implementation =
         asset.attributes.fungible_info?.implementations?.[0];
       const symbol = asset.attributes.fungible_info?.symbol;
+      const contractAddr = implementation?.address?.toLowerCase();
+      const tokenAddr =
+        token.address !== "NATIVE" ? token.address.toLowerCase() : null;
+
+      // For WMON, we need to be careful about the address check
+      if (symbol === "WMON" && token.symbol === "WMON") {
+        // If token is official WMON, only match with official WMON
+        if (token.address === WMON_ADDRESS) {
+          return contractAddr === WMON_ADDRESS.toLowerCase();
+        }
+        // If looking for unofficial WMON, match with same unofficial address
+        return contractAddr === tokenAddr;
+      }
 
       // Match native MON
       if (
@@ -174,6 +206,7 @@ export function SwapInterface() {
       // Match by address for regular tokens
       if (
         implementation?.address &&
+        token.address !== "NATIVE" &&
         implementation.address.toLowerCase() === token.address.toLowerCase()
       ) {
         return true;
@@ -225,11 +258,21 @@ export function SwapInterface() {
       // At this point, inputAmount is a string representing a positive number,
       // and parsedInputAmount is its float value.
 
+      // Check if this is a MON <-> WMON direct conversion
+      const isInputNative = inputToken.address === "NATIVE";
+      const isOutputNative = outputToken.address === "NATIVE";
+      const isWmonToMon = isOutputNative && inputToken.address === WMON_ADDRESS;
+      const isMonToWmon = isInputNative && outputToken.address === WMON_ADDRESS;
+
+      // For MON <-> WMON pairs, use 1:1 ratio and skip router call
+      if (isWmonToMon || isMonToWmon) {
+        console.log("MON <-> WMON direct conversion detected, using 1:1 ratio");
+        setOutputAmount(inputAmount);
+        return;
+      }
+
       try {
         // Common path and address setup
-        const isInputNative = inputToken.address === "NATIVE";
-        const isOutputNative = outputToken.address === "NATIVE";
-        const WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
         const adjustedInputAddress = isInputNative
           ? WMON_ADDRESS
           : inputToken.address;
@@ -307,6 +350,26 @@ export function SwapInterface() {
       return;
     }
 
+    // Debug log all tokens to identify any mismatches
+    console.log("DEBUG - Selected tokens detail:", {
+      inputToken: {
+        symbol: inputToken.symbol,
+        address: inputToken.address,
+        isOfficial:
+          inputToken.symbol === "WMON"
+            ? inputToken.address === WMON_ADDRESS
+            : "N/A",
+      },
+      outputToken: {
+        symbol: outputToken.symbol,
+        address: outputToken.address,
+        isOfficial:
+          outputToken.symbol === "WMON"
+            ? outputToken.address === WMON_ADDRESS
+            : "N/A",
+      },
+    });
+
     // Check for high price impact before proceeding
     if (isPriceImpactTooHigh) {
       showToast.error(
@@ -347,9 +410,6 @@ export function SwapInterface() {
       const isInputNative = inputToken.address === "NATIVE";
       const isOutputNative = outputToken.address === "NATIVE";
 
-      // Define the WMON address (needed for swap paths)
-      const WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
-
       console.log("Swap details:", {
         isInputNative,
         isOutputNative,
@@ -360,10 +420,114 @@ export function SwapInterface() {
         WMON_ADDRESS,
       });
 
-      let swapResult;
+      // Define swapResult with explicit type
+      let swapResult: { success: boolean; error?: string; txHash?: string } = {
+        success: false,
+        error: "Swap not executed",
+      };
 
-      // Handle different swap scenarios based on token types
-      if (isInputNative) {
+      // Special case for MON <-> WMON direct wrapping/unwrapping
+      if (
+        (isInputNative && outputToken.address === WMON_ADDRESS) ||
+        (isOutputNative && inputToken.address === WMON_ADDRESS)
+      ) {
+        // Make sure we have the smart wallet functions
+        if (!callContractFunction) {
+          showToast.error("Smart wallet functions not available");
+          setIsSwapping(false);
+          return;
+        }
+
+        // Handle direct MON to WMON wrapping
+        if (isInputNative && outputToken.address === WMON_ADDRESS) {
+          console.log("Direct wrapping MON to WMON...");
+
+          try {
+            const amountBigInt = BigInt(amountInWei);
+            console.log(
+              `Wrapping ${amountBigInt.toString()} MON to WMON with detailed contract interface`
+            );
+            console.log(`WMON address: ${WMON_ADDRESS}`);
+
+            // Call deposit with MON value
+            swapResult = await callContractFunction(
+              WMON_ADDRESS as `0x${string}`,
+              WMON_ABI,
+              "deposit",
+              [], // no arguments needed
+              "Wrap MON to WMON",
+              { value: amountBigInt } // Send the MON as value
+            );
+
+            console.log("MON to WMON wrap result:", swapResult);
+          } catch (wrapError) {
+            console.error("Error in MON wrapping:", wrapError);
+            swapResult = {
+              success: false,
+              error:
+                wrapError instanceof Error
+                  ? wrapError.message
+                  : "Unknown error during wrapping",
+            };
+          }
+        }
+        // Handle direct WMON to MON unwrapping
+        else if (isOutputNative && inputToken.address === WMON_ADDRESS) {
+          console.log("Direct unwrapping WMON to MON...");
+
+          // Get the WMON balance of the user first
+          const wmonBalanceInWei = getTokenBalance(inputToken);
+          console.log(`User WMON balance: ${wmonBalanceInWei}`);
+
+          // Convert the balance to a number for comparison
+          const wmonBalance = parseFloat(wmonBalanceInWei);
+          const requestedAmount = parseFloat(inputAmount);
+
+          // Check if the user has enough WMON
+          if (wmonBalance < requestedAmount) {
+            swapResult = {
+              success: false,
+              error: `Insufficient WMON balance. You have ${wmonBalanceInWei} WMON but are trying to unwrap ${inputAmount} WMON.`,
+            };
+            console.log(
+              "WMON unwrap failed due to insufficient balance:",
+              swapResult
+            );
+          } else {
+            try {
+              // Using ethers.js to format the number correctly
+              const amountBigInt = BigInt(amountInWei);
+
+              console.log(
+                `Unwrapping ${amountBigInt.toString()} WMON to MON with detailed contract interface`
+              );
+              console.log(`WMON address: ${WMON_ADDRESS}`);
+
+              // Call withdraw with the exact parameter type from the contract
+              swapResult = await callContractFunction(
+                WMON_ADDRESS as `0x${string}`,
+                WMON_ABI,
+                "withdraw",
+                [amountBigInt],
+                "Unwrap WMON to MON"
+              );
+
+              console.log("WMON to MON unwrap result:", swapResult);
+            } catch (unwrapError) {
+              console.error("Error in WMON unwrapping:", unwrapError);
+              swapResult = {
+                success: false,
+                error:
+                  unwrapError instanceof Error
+                    ? unwrapError.message
+                    : "Unknown error during unwrapping",
+              };
+            }
+          }
+        }
+      }
+      // Standard swap path for other token pairs
+      else if (isInputNative) {
         // Case 1: Swapping native MON to token (e.g., MON -> USDC)
         console.log("Swapping native MON to token...");
 
@@ -473,7 +637,6 @@ export function SwapInterface() {
           tokens={allTokens}
           balance={getTokenBalance(outputToken)}
           disabled={isLoading}
-          secondaryDisabled={isExactIn} // Disable changing output token amount in exactIn mode
           balanceLoading={balanceLoading}
           tokenLoading={isTokensLoading}
         />
@@ -504,7 +667,13 @@ export function SwapInterface() {
                     : "text-gray-300"
                 }`}
               >
-                {priceImpact}%
+                {/* Always show 0% for MON/WMON pairs */}
+                {(inputToken.address === "NATIVE" &&
+                  outputToken.address === WMON_ADDRESS) ||
+                (outputToken.address === "NATIVE" &&
+                  inputToken.address === WMON_ADDRESS)
+                  ? "0.00%" // Hardcoded 0% for MON/WMON pairs
+                  : priceImpact + "%"}
               </span>
             </div>
           )}
@@ -521,16 +690,31 @@ export function SwapInterface() {
             <div className="flex justify-between mt-1">
               <span className="text-gray-400">Minimum Received</span>
               <span className="text-gray-300">
-                {minimumReceived} {outputToken.symbol}
+                {/* For MON/WMON pairs, minimum received is exactly 1:1 */}
+                {(inputToken.address === "NATIVE" &&
+                  outputToken.address === WMON_ADDRESS) ||
+                (outputToken.address === "NATIVE" &&
+                  inputToken.address === WMON_ADDRESS)
+                  ? inputAmount // Exact 1:1 conversion
+                  : minimumReceived}{" "}
+                {outputToken.symbol}
               </span>
             </div>
           )}
           {/* Display Low Liquidity Message */}
-          {lowLiquidityMessage && (
-            <div className="mt-2 text-xs text-yellow-400/80 text-center">
-              {lowLiquidityMessage}
-            </div>
-          )}
+          {lowLiquidityMessage &&
+            !(
+              inputToken.address === "NATIVE" &&
+              outputToken.address === WMON_ADDRESS
+            ) &&
+            !(
+              outputToken.address === "NATIVE" &&
+              inputToken.address === WMON_ADDRESS
+            ) && (
+              <div className="mt-2 text-xs text-yellow-400/80 text-center">
+                {lowLiquidityMessage}
+              </div>
+            )}
         </div>
       )}
 
