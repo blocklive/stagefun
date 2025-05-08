@@ -116,10 +116,15 @@ export function SwapInterface() {
   // Initialize tokens when allTokens are loaded
   useEffect(() => {
     if (allTokens.length > 0 && !inputToken && !outputToken) {
-      // Find USDC and MON from loaded tokens
-      const usdc = allTokens.find((t) => t.symbol === "USDC");
+      // Find USDC by address and MON from loaded tokens
+      const usdc = allTokens.find(
+        (t) =>
+          t.address.toLowerCase() ===
+          CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase()
+      );
       const mon = allTokens.find((t) => t.symbol === "MON");
 
+      // Set default input token to USDC and output token to MON
       if (usdc) setInputToken(usdc);
       if (mon) setOutputToken(mon);
     }
@@ -184,14 +189,14 @@ export function SwapInterface() {
       const tokenAddr =
         token.address !== "NATIVE" ? token.address.toLowerCase() : null;
 
-      // For WMON, we need to be careful about the address check
-      if (symbol === "WMON" && token.symbol === "WMON") {
-        // If token is official WMON, only match with official WMON
-        if (token.address === WMON_ADDRESS) {
-          return contractAddr === WMON_ADDRESS.toLowerCase();
-        }
-        // If looking for unofficial WMON, match with same unofficial address
-        return contractAddr === tokenAddr;
+      // For USDC, strictly match by official contract address
+      if (token.symbol === "USDC") {
+        return contractAddr === token.address.toLowerCase();
+      }
+
+      // For WMON, strictly match by official contract address
+      if (token.symbol === "WMON") {
+        return contractAddr === token.address.toLowerCase();
       }
 
       // Match native MON
@@ -212,8 +217,12 @@ export function SwapInterface() {
         return true;
       }
 
-      // Match by symbol as fallback
-      return symbol === token.symbol;
+      // Match by symbol as fallback (but NOT for USDC or WMON)
+      return (
+        symbol === token.symbol &&
+        token.symbol !== "USDC" &&
+        token.symbol !== "WMON"
+      );
     });
 
     // Format the balance using formatTokenAmount instead of formatAmount

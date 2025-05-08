@@ -99,24 +99,11 @@ export function alchemyTokensToZerionAssets(
 ): Asset[] {
   console.log(`Total tokens from API: ${tokens.length}`);
 
-  // Log the first few tokens' structure
-  if (tokens.length > 0) {
-    console.log("First token format:", JSON.stringify(tokens[0], null, 2));
-  }
-
   // First, filter out tokens with near-zero balances (dust)
   const filteredTokens = tokens.filter((token) => {
     const balance = parseFloat(token.formattedBalance || "0");
     // Keep tokens with balances above threshold or if they're native tokens
     const keep = token.isNative || balance >= MIN_TOKEN_BALANCE;
-
-    if (!keep) {
-      console.log(
-        `Filtering out token: ${
-          token.metadata?.symbol || "Unknown"
-        }, balance: ${token.formattedBalance}`
-      );
-    }
 
     return keep;
   });

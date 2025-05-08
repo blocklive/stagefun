@@ -15,6 +15,7 @@ const CORE_TOKENS: Token[] = [
     logoURI: "/icons/usdc-logo.svg",
     source: "core",
     hasLiquidity: true, // Core tokens always have liquidity
+    isVerified: true, // Mark as officially verified token
   },
   {
     address: "NATIVE", // Special marker for native MON
@@ -24,6 +25,7 @@ const CORE_TOKENS: Token[] = [
     logoURI: "/icons/mon-logo.svg",
     source: "core",
     hasLiquidity: true, // Core tokens always have liquidity
+    isVerified: true, // Native token is always verified
   },
   {
     address: CONTRACT_ADDRESSES.monadTestnet.officialWmon, // Official WMON address
