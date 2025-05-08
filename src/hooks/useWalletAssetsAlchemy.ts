@@ -24,7 +24,7 @@ interface UseWalletAssetsAlchemyResult {
 }
 
 /**
- * Hook to fetch wallet assets using Alchemy API
+ * Hook to fetch wallet assets using Alchemy Portfolio API
  * @param address Wallet address
  * @param chainId Chain ID (default: "monad-test-v2")
  * @returns Wallet assets data and loading state
@@ -38,11 +38,12 @@ export function useWalletAssetsAlchemy(
     if (!address) return { tokens: [], totalValue: 0 };
 
     try {
+      // Get tokens using the Portfolio API (single call)
       const result: WalletTokensResponse = await alchemySDK.getWalletTokens(
         address,
         chainId
       );
-      console.log("Alchemy API result:", result);
+      console.log("Alchemy Portfolio API result:", result);
       return {
         tokens: result.tokens || [],
         totalValue: result.totalValue || 0,
@@ -101,7 +102,13 @@ export function useWalletAssetsAlchemy(
   );
 
   // Extract tokens and totalValue from the data
-  const tokens = useMemo(() => data?.tokens || [], [data?.tokens]);
+  const tokens = useMemo(() => {
+    const tokensList = data?.tokens || [];
+    console.log(
+      `useWalletAssetsAlchemy hook received ${tokensList.length} tokens from API`
+    );
+    return tokensList;
+  }, [data?.tokens]);
   const totalValue = useMemo(() => data?.totalValue || 0, [data?.totalValue]);
 
   // Function to refresh the data

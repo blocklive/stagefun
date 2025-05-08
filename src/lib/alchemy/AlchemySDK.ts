@@ -1,12 +1,6 @@
 import { ethers } from "ethers";
 
 // Define token types based on Alchemy API responses
-export interface TokenBalance {
-  contractAddress: string;
-  tokenBalance: string;
-  error?: string | null;
-}
-
 export interface TokenMetadata {
   name: string;
   symbol: string;
@@ -15,21 +9,28 @@ export interface TokenMetadata {
 }
 
 export interface TokenWithBalance {
-  contractAddress: string;
+  contractAddress: string | null;
   tokenBalance: string;
   metadata?: TokenMetadata;
   value?: number;
   formattedBalance?: string;
   isNative?: boolean;
+  isOfficialWmon?: boolean;
 }
 
 export interface WalletTokensResponse {
   tokens: TokenWithBalance[];
   totalValue: number;
+  metadata?: {
+    totalTokens: number;
+    pagesRetrieved: number;
+    hasMorePages: boolean;
+  };
 }
 
 /**
  * AlchemySDK - A client-side SDK for interacting with the Alchemy API
+ * This version uses the Portfolio API for efficient token data retrieval
  */
 export class AlchemySDK {
   private apiKey: string;
@@ -55,31 +56,9 @@ export class AlchemySDK {
   }
 
   /**
-   * Get the Alchemy base URL for a given chain ID
-   */
-  private getAlchemyBaseUrl(chainId: string): string {
-    switch (chainId) {
-      case "eth-mainnet":
-        return "https://eth-mainnet.g.alchemy.com/v2";
-      case "eth-sepolia":
-        return "https://eth-sepolia.g.alchemy.com/v2";
-      case "polygon-mainnet":
-        return "https://polygon-mainnet.g.alchemy.com/v2";
-      case "polygon-mumbai":
-        return "https://polygon-mumbai.g.alchemy.com/v2";
-      case "opt-mainnet":
-        return "https://opt-mainnet.g.alchemy.com/v2";
-      case "arb-mainnet":
-        return "https://arb-mainnet.g.alchemy.com/v2";
-      case "monad-test-v2":
-        return "https://monad-testnet.g.alchemy.com/v2";
-      default:
-        return "https://eth-mainnet.g.alchemy.com/v2";
-    }
-  }
-
-  /**
-   * Get token balances for a wallet address
+   * Get token balances for a wallet address using the Alchemy Portfolio API
+   * This is more efficient than multiple RPC calls to separate endpoints
+   *
    * @param address The wallet address
    * @param chainId Chain ID (default: "monad-test-v2")
    * @returns Promise resolving to wallet tokens
@@ -104,11 +83,11 @@ export class AlchemySDK {
         queryParams.append("_cb", Math.random().toString());
 
         const url = `/api/alchemy/tokens?${queryParams.toString()}`;
+        console.log(`Fetching tokens from ${url}`);
         response = await fetch(url);
       } else {
-        // This would be for direct API calls in server environments
-        // Implement if needed
-        throw new Error("Direct API calls not implemented");
+        // Direct API calls not supported for security reasons
+        throw new Error("Direct API calls not implemented in client SDK");
       }
 
       if (!response.ok) {
@@ -126,53 +105,36 @@ export class AlchemySDK {
 
   /**
    * Get native token balance for a wallet address
+   * This is now just a convenience method that extracts native balance from getWalletTokens
+   *
    * @param address The wallet address
    * @param chainId Chain ID (default: "monad-test-v2")
-   * @returns Promise resolving to the native token balance in ETH units (as a string)
+   * @returns Promise resolving to the native token balance
    */
   async getNativeBalance(
     address: string,
     chainId: string = "monad-test-v2"
   ): Promise<string> {
-    if (this.useProxy) {
-      // Use our proxy endpoint for balance
-      const queryParams = new URLSearchParams();
-      queryParams.append("address", address);
-      queryParams.append("chainId", chainId);
-      queryParams.append("native", "true");
-      // Add a cache-busting parameter
-      queryParams.append("_cb", Math.random().toString());
+    // Get all tokens and extract the native token
+    const response = await this.getWalletTokens(address, chainId);
+    const nativeToken = response.tokens?.find((token) => token.isNative);
 
-      const url = `/api/alchemy/balance?${queryParams.toString()}`;
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Alchemy API error (${response.status}): ${errorText}`);
-      }
-
-      const data = await response.json();
-      return data.balance || "0";
-    } else {
-      // Use the full tokens API and extract the native balance
-      const response = await this.getWalletTokens(address, chainId);
-      const nativeToken = response.tokens?.find((token) => token.isNative);
-
-      if (nativeToken?.formattedBalance) {
-        return nativeToken.formattedBalance;
-      }
-
-      // If we have the native balance in wei, convert it to ETH
-      if (nativeToken?.tokenBalance) {
-        return ethers.formatEther(nativeToken.tokenBalance);
-      }
-
-      return "0";
+    if (nativeToken?.formattedBalance) {
+      return nativeToken.formattedBalance;
     }
+
+    // If we have the native balance in wei, convert it to ETH
+    if (nativeToken?.tokenBalance) {
+      return ethers.formatEther(nativeToken.tokenBalance);
+    }
+
+    return "0";
   }
 
   /**
    * Calculate the total value of all tokens in a wallet
+   * Now using the totalValue from the API response which includes price data
+   *
    * @param address The wallet address
    * @param chainId Chain ID (default: "monad-test-v2")
    * @returns Promise resolving to the total value in USD

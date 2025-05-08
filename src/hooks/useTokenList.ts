@@ -33,6 +33,7 @@ const CORE_TOKENS: Token[] = [
     logoURI: "/icons/mon-logo.svg",
     source: "core",
     hasLiquidity: true, // Core tokens always have liquidity
+    isVerified: true, // This is the official WMON token
   },
 ];
 

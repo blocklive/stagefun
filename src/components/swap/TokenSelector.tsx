@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { ChevronDownIcon } from "@heroicons/react/24/solid";
+import { ChevronDownIcon, CheckCircleIcon } from "@heroicons/react/24/solid";
 import { Token } from "@/types/token";
 import { EnhancedTokenSelector } from "./EnhancedTokenSelector";
 import { TokenIcon } from "../token/TokenIcon";
@@ -97,9 +97,17 @@ export function TokenSelector({
               logoURI={selectedToken.logoURI}
               size="sm"
             />
-            <span className="font-medium truncate max-w-[100px]">
-              {selectedToken.symbol}
-            </span>
+            <div className="flex items-center">
+              <span className="font-medium truncate max-w-[100px]">
+                {selectedToken.symbol}
+              </span>
+              {selectedToken.isVerified && (
+                <CheckCircleIcon
+                  className="h-3 w-3 ml-1 text-blue-400"
+                  aria-label="Verified token"
+                />
+              )}
+            </div>
           </>
         ) : (
           <span className="font-medium">Select a token</span>

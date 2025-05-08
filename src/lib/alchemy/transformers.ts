@@ -24,19 +24,23 @@ export function alchemyTokenToZerionAsset(token: TokenWithBalance): Asset {
   const tokenDecimals = token.metadata?.decimals || 18;
   const tokenLogo = token.metadata?.logo || "";
 
-  // Special handling for WMON - rename non-official WMON tokens to avoid confusion
-  const isWmonSymbol = tokenSymbol === "WMON";
-  const isOfficialWmon =
-    contractAddress.toLowerCase() === OFFICIAL_WMON_ADDRESS;
-
-  // For non-official WMON tokens, add "Unofficial" to the name
-  const displaySymbol =
-    isWmonSymbol && !isOfficialWmon ? "WMON (Unofficial)" : tokenSymbol;
-  const displayName =
-    isWmonSymbol && !isOfficialWmon ? "Unofficial Wrapped MON" : tokenName;
+  // For verification purposes: either use isOfficialWmon from the token or check address
+  const isVerified =
+    token.isOfficialWmon ||
+    (tokenSymbol === "WMON" &&
+      token.contractAddress?.toLowerCase() === OFFICIAL_WMON_ADDRESS);
 
   // Use formattedBalance instead of parsing the hex tokenBalance
   const balanceFloat = parseFloat(token.formattedBalance || "0");
+
+  // Log details about the balance conversion
+  if (tokenSymbol === "???" || !token.metadata?.symbol) {
+    console.log(`Converting balance for unknown token (${contractAddress}): 
+      formattedBalance: ${token.formattedBalance}, 
+      tokenBalance: ${token.tokenBalance}, 
+      parsed float: ${balanceFloat}, 
+      original float check: ${parseFloat(token.formattedBalance || "0")}`);
+  }
 
   // Create quantity object in Zerion format
   const quantity: AssetQuantity = {
@@ -48,14 +52,14 @@ export function alchemyTokenToZerionAsset(token: TokenWithBalance): Asset {
 
   // Create attributes object in Zerion format
   const attributes: AssetAttributes = {
-    name: displayName,
+    name: tokenName,
     position_type: "simple",
     quantity,
     value: token.value || null,
     price: 0, // Alchemy doesn't provide price data in this format
     fungible_info: {
-      name: displayName,
-      symbol: displaySymbol,
+      name: tokenName,
+      symbol: tokenSymbol,
       decimals: tokenDecimals,
       implementations: [
         {
@@ -67,6 +71,7 @@ export function alchemyTokenToZerionAsset(token: TokenWithBalance): Asset {
         url: tokenLogo,
       },
     },
+    isVerified: isVerified,
   };
 
   // Create the complete asset object
@@ -80,108 +85,42 @@ export function alchemyTokenToZerionAsset(token: TokenWithBalance): Asset {
 
 /**
  * Convert an array of Alchemy tokens to Zerion assets
- * Also handles filtering out dust balances and deduplicating tokens
+ * Also handles filtering out dust balances
  */
 export function alchemyTokensToZerionAssets(
   tokens: TokenWithBalance[]
 ): Asset[] {
+  console.log(`Total tokens from API: ${tokens.length}`);
+
+  // Log the first few tokens' structure
+  if (tokens.length > 0) {
+    console.log("First token format:", JSON.stringify(tokens[0], null, 2));
+  }
+
   // First, filter out tokens with near-zero balances (dust)
   const filteredTokens = tokens.filter((token) => {
     const balance = parseFloat(token.formattedBalance || "0");
     // Keep tokens with balances above threshold or if they're native tokens
-    return token.isNative || balance >= MIN_TOKEN_BALANCE;
+    const keep = token.isNative || balance >= MIN_TOKEN_BALANCE;
+
+    if (!keep) {
+      console.log(
+        `Filtering out token: ${
+          token.metadata?.symbol || "Unknown"
+        }, balance: ${token.formattedBalance}`
+      );
+    }
+
+    return keep;
   });
 
-  // Track symbols we've already processed to prevent duplicates
-  const processedSymbols = new Set<string>();
+  console.log(`Tokens after filtering: ${filteredTokens.length}`);
 
-  // Track unique tokens, preferring the one with the highest balance for each symbol
-  const uniqueTokensBySymbol = new Map<string, TokenWithBalance>();
+  // Convert filtered tokens to Zerion assets
+  const assets = filteredTokens.map(alchemyTokenToZerionAsset);
+  console.log(`Final assets count: ${assets.length}`);
 
-  // Special case for WMON - always prefer the official address
-  let officialWmonFound = false;
-  let officialWmonToken: TokenWithBalance | null = null;
-  let unofficialWmonWithHighestBalance: TokenWithBalance | null = null;
-  let maxUnofficialWmonBalance = 0;
-
-  // First pass - identify all WMON tokens and find the official one
-  filteredTokens.forEach((token) => {
-    const symbol = token.metadata?.symbol || "";
-    const contractAddress = token.contractAddress?.toLowerCase() || "";
-
-    if (symbol === "WMON") {
-      const balance = parseFloat(token.formattedBalance || "0");
-
-      if (contractAddress === OFFICIAL_WMON_ADDRESS) {
-        officialWmonFound = true;
-        officialWmonToken = token;
-      } else if (balance > maxUnofficialWmonBalance) {
-        maxUnofficialWmonBalance = balance;
-        unofficialWmonWithHighestBalance = token;
-      }
-    }
-  });
-
-  // If we have unofficial WMON but no official WMON with balance,
-  // rename the unofficial one to avoid confusion
-  if (!officialWmonFound && unofficialWmonWithHighestBalance) {
-    console.log(
-      "Using unofficial WMON with balance:",
-      maxUnofficialWmonBalance
-    );
-  }
-
-  // Second pass - process all tokens
-  filteredTokens.forEach((token) => {
-    const symbol = token.metadata?.symbol || "";
-    if (!symbol) return;
-
-    // Special handling for native token
-    if (token.isNative) {
-      uniqueTokensBySymbol.set("NATIVE-MON", token);
-      return;
-    }
-
-    // Special handling for WMON tokens
-    if (symbol === "WMON") {
-      const contractAddress = token.contractAddress?.toLowerCase() || "";
-
-      // Skip unofficial WMON if we found official WMON
-      if (contractAddress !== OFFICIAL_WMON_ADDRESS && officialWmonFound) {
-        console.log(`Ignoring unofficial WMON at ${contractAddress}`);
-        return;
-      }
-
-      // Otherwise, use the highest balance version
-      const existingToken = uniqueTokensBySymbol.get("WMON");
-      const currentBalance = parseFloat(token.formattedBalance || "0");
-      const existingBalance = existingToken
-        ? parseFloat(existingToken.formattedBalance || "0")
-        : 0;
-
-      if (!existingToken || currentBalance > existingBalance) {
-        uniqueTokensBySymbol.set("WMON", token);
-      }
-      return;
-    }
-
-    // For all other tokens
-    const existingToken = uniqueTokensBySymbol.get(symbol);
-    const currentBalance = parseFloat(token.formattedBalance || "0");
-    const existingBalance = existingToken
-      ? parseFloat(existingToken.formattedBalance || "0")
-      : 0;
-
-    // Replace if this token has a higher balance
-    if (!existingToken || currentBalance > existingBalance) {
-      uniqueTokensBySymbol.set(symbol, token);
-    }
-  });
-
-  // Convert unique tokens to Zerion assets
-  return Array.from(uniqueTokensBySymbol.values()).map(
-    alchemyTokenToZerionAsset
-  );
+  return assets;
 }
 
 /**

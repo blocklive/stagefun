@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ethers } from "ethers";
+import { Alchemy, Network } from "alchemy-sdk";
 
 // Alchemy API configuration
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
-
-interface TokenBalance {
-  contractAddress: string;
-  tokenBalance: string;
-  error?: string | null;
-}
 
 interface TokenMetadata {
   name: string;
@@ -18,7 +13,7 @@ interface TokenMetadata {
 }
 
 /**
- * Fetch token balances for a wallet address using Alchemy API
+ * Fetch token balances for a wallet address using Alchemy Portfolio API
  */
 export async function GET(req: NextRequest) {
   try {
@@ -40,179 +35,185 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Construct the correct Alchemy API URL based on chain ID
-    const baseUrl = getAlchemyBaseUrl(chainId);
+    // Map our chain ID format to Alchemy's network format
+    const alchemyNetwork = mapChainIdToAlchemyNetwork(chainId);
+    if (!alchemyNetwork) {
+      return NextResponse.json(
+        { error: `Unsupported chain ID: ${chainId}` },
+        { status: 400 }
+      );
+    }
 
-    // 1. First get token balances
-    const balancesUrl = `${baseUrl}/${ALCHEMY_API_KEY}`;
-    const balancesPayload = {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "alchemy_getTokenBalances",
-      params: [address, "erc20"],
+    console.log(`Fetching tokens for ${address} on ${alchemyNetwork}`);
+
+    // Use the Portfolio API with the correct request format
+    const url = `https://api.g.alchemy.com/data/v1/${ALCHEMY_API_KEY}/assets/tokens/by-address`;
+
+    // Structure the request with address objects and networks array
+    const payload = {
+      addresses: [
+        {
+          address: address,
+          networks: [alchemyNetwork],
+        },
+      ],
+      withMetadata: true,
+      withPrices: true,
+      includeNativeTokens: true,
     };
 
-    const balancesResponse = await fetch(balancesUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(balancesPayload),
-    });
-
-    if (!balancesResponse.ok) {
-      const errorText = await balancesResponse.text();
-      console.error(
-        `Alchemy API error: ${balancesResponse.status} - ${errorText}`
-      );
-      return NextResponse.json(
-        {
-          error: `Failed to fetch token balances: ${balancesResponse.statusText}`,
-        },
-        { status: balancesResponse.status }
-      );
-    }
-
-    const balancesData = await balancesResponse.json();
-    const tokenBalances: TokenBalance[] = balancesData.result.tokenBalances;
-
-    // 2. Get native balance
-    const nativeBalanceResponse = await fetch(balancesUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "eth_getBalance",
-        params: [address, "latest"],
-      }),
-    });
-
-    let nativeBalance = "0";
-    if (nativeBalanceResponse.ok) {
-      const nativeBalanceData = await nativeBalanceResponse.json();
-      nativeBalance = nativeBalanceData.result || "0";
-    }
-
-    // 3. Get metadata for all tokens
-    const tokensWithMetadata = await Promise.all(
-      tokenBalances
-        .filter((token) => token.tokenBalance !== "0x0")
-        .map(async (token) => {
-          // Skip tokens with zero balance
-          if (token.tokenBalance === "0x0" || token.tokenBalance === "0") {
-            return null;
-          }
-
-          try {
-            const metadataResponse = await fetch(balancesUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                jsonrpc: "2.0",
-                id: 1,
-                method: "alchemy_getTokenMetadata",
-                params: [token.contractAddress],
-              }),
-            });
-
-            if (!metadataResponse.ok) return null;
-
-            const metadataData = await metadataResponse.json();
-            const metadata: TokenMetadata = metadataData.result;
-
-            // Format the balance using the correct decimals
-            const decimals = metadata.decimals || 18;
-            const formattedBalance = ethers.formatUnits(
-              token.tokenBalance,
-              decimals
-            );
-
-            return {
-              contractAddress: token.contractAddress,
-              tokenBalance: token.tokenBalance,
-              metadata: {
-                name: metadata.name || "Unknown Token",
-                symbol: metadata.symbol || "???",
-                decimals: metadata.decimals || 18,
-                logo: metadata.logo,
-              },
-              formattedBalance,
-              isNative: false,
-            };
-          } catch (error) {
-            console.error(
-              `Error fetching metadata for ${token.contractAddress}:`,
-              error
-            );
-            return null;
-          }
-        })
+    console.log(
+      "Fetching tokens using Portfolio API with request:",
+      JSON.stringify(payload)
     );
 
-    // Add native token to the list
-    const nativeSymbol = getNativeSymbol(chainId);
-    const nativeTokenData = {
-      contractAddress: null,
-      tokenBalance: nativeBalance,
-      metadata: {
-        name: getNativeName(chainId),
-        symbol: nativeSymbol,
-        decimals: 18,
-        logo: `/icons/${nativeSymbol.toLowerCase()}-logo.svg`,
-      },
-      formattedBalance: ethers.formatEther(nativeBalance),
-      isNative: true,
-    };
+    const portfolioResponse = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-    // Filter out null entries and add native token
-    const finalTokens = [
-      nativeTokenData,
-      ...tokensWithMetadata.filter(Boolean),
-    ];
+    if (!portfolioResponse.ok) {
+      const errorText = await portfolioResponse.text();
+      console.error(
+        `Portfolio API error: ${portfolioResponse.status} - ${errorText}`
+      );
+      console.error(`Full request details:
+        URL: ${url}
+        Request Body: ${JSON.stringify(payload)}
+      `);
 
-    // Calculate total value (just a placeholder - would need price data for real values)
-    const totalValue = 0; // In a real implementation, we would calculate this with price data
+      return NextResponse.json(
+        {
+          error: `Failed to fetch tokens: ${portfolioResponse.statusText}`,
+          details: errorText,
+        },
+        { status: portfolioResponse.status }
+      );
+    }
+
+    const portfolioData = await portfolioResponse.json();
+    console.log(
+      "Portfolio API response:",
+      JSON.stringify(portfolioData).substring(0, 500) + "..."
+    );
+
+    const tokenData = portfolioData?.data?.tokens || [];
+    console.log(`Retrieved ${tokenData.length} tokens from Portfolio API`);
+
+    // Process the tokens and filter out zero balances in one pass
+    const processedTokens = tokenData
+      .filter((token: any) => {
+        // For native token or tokens without balance, use 0
+        const balance = token.tokenBalance || "0x0";
+        // Check if it's not zero (can be hex or decimal string)
+        const isNonZero =
+          balance !== "0x0" &&
+          balance !== "0" &&
+          balance !== "0x00" &&
+          balance !==
+            "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+        if (!isNonZero) {
+          console.log(
+            `Filtering out zero-balance token: ${
+              token.tokenAddress || "native"
+            }`
+          );
+        }
+
+        return isNonZero;
+      })
+      .map((token: any) => {
+        const contractAddress = token.tokenAddress;
+        const metadata = token.tokenMetadata || {};
+        const balance = token.tokenBalance || "0";
+        const isNative = !contractAddress;
+
+        let decimals = metadata.decimals;
+        if (decimals === undefined || decimals === null) {
+          decimals = isNative ? 18 : 0;
+        }
+
+        // Format the balance
+        let formattedBalance;
+        try {
+          formattedBalance = ethers.formatUnits(balance, decimals);
+        } catch (error) {
+          console.error(
+            `Error formatting balance for ${contractAddress}:`,
+            error
+          );
+          formattedBalance = "0";
+        }
+
+        // Check if this is the official WMON token
+        const isOfficialWmon =
+          contractAddress?.toLowerCase() ===
+          "0x760afe86e5de5fa0ee542fc7b7b713e1c5425701";
+
+        return {
+          contractAddress,
+          tokenBalance: balance,
+          metadata: {
+            name:
+              metadata.name ||
+              (isNative ? getNativeName(chainId) : "Unknown Token"),
+            symbol:
+              metadata.symbol || (isNative ? getNativeSymbol(chainId) : "???"),
+            decimals: decimals,
+            logo:
+              metadata.logo ||
+              (isNative
+                ? `/icons/${getNativeSymbol(chainId).toLowerCase()}-logo.svg`
+                : undefined),
+          },
+          formattedBalance,
+          isNative,
+          isOfficialWmon,
+        };
+      });
+
+    console.log(
+      `After filtering and processing: ${processedTokens.length} tokens`
+    );
 
     return NextResponse.json({
-      tokens: finalTokens,
-      totalValue,
+      tokens: processedTokens,
+      totalValue: 0, // We can calculate this if needed from token.tokenPrices
+      metadata: {
+        totalTokens: processedTokens.length,
+        pagesRetrieved: 1,
+        hasMorePages: false,
+      },
     });
   } catch (error) {
     console.error("Error fetching tokens:", error);
     return NextResponse.json(
-      { error: "Failed to fetch tokens from Alchemy" },
+      {
+        error: "Failed to fetch tokens from Alchemy",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
 }
 
 /**
- * Get the Alchemy base URL for a given chain ID
+ * Map our chain ID format to Alchemy's network format
  */
-function getAlchemyBaseUrl(chainId: string): string {
-  switch (chainId) {
-    case "eth-mainnet":
-      return "https://eth-mainnet.g.alchemy.com/v2";
-    case "eth-sepolia":
-      return "https://eth-sepolia.g.alchemy.com/v2";
-    case "polygon-mainnet":
-      return "https://polygon-mainnet.g.alchemy.com/v2";
-    case "polygon-mumbai":
-      return "https://polygon-mumbai.g.alchemy.com/v2";
-    case "opt-mainnet":
-      return "https://opt-mainnet.g.alchemy.com/v2";
-    case "arb-mainnet":
-      return "https://arb-mainnet.g.alchemy.com/v2";
-    case "monad-test-v2":
-      return "https://monad-testnet.g.alchemy.com/v2";
-    default:
-      return "https://eth-mainnet.g.alchemy.com/v2";
-  }
+function mapChainIdToAlchemyNetwork(chainId: string): string | null {
+  const chainMapping: Record<string, string> = {
+    "eth-mainnet": "ETH_MAINNET",
+    "eth-sepolia": "ETH_SEPOLIA",
+    "polygon-mainnet": "POLYGON_MAINNET",
+    "polygon-mumbai": "POLYGON_MUMBAI",
+    "opt-mainnet": "OPT_MAINNET",
+    "arb-mainnet": "ARB_MAINNET",
+    "monad-test-v2": "MONAD_TESTNET",
+  };
+
+  return chainMapping[chainId] || null;
 }
 
 /**

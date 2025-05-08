@@ -7,6 +7,7 @@ import {
   TOKEN_DISPLAY_NAMES,
   isKnownToken,
 } from "../token/TokenIcon";
+import { CheckCircleIcon } from "@heroicons/react/24/solid";
 
 interface TokenItemProps {
   token: Token;
@@ -30,8 +31,14 @@ const TokenItem = ({ token, onClick, style }: TokenItemProps) => {
       <div className="flex items-center">
         <TokenIcon symbol={tokenSymbol} logoURI={token.logoURI} size="lg" />
         <div className="ml-4 flex-1 min-w-0">
-          <div className="font-bold text-white truncate">
+          <div className="font-bold text-white truncate flex items-center">
             {displayName}
+            {token.isVerified && (
+              <CheckCircleIcon
+                className="h-4 w-4 ml-1 text-blue-400"
+                aria-label="Verified token"
+              />
+            )}
             {isKnownToken(tokenSymbol) && (
               <span
                 className="inline-block h-2 w-2 ml-1.5 bg-[#836EF9] opacity-60 rounded-full"

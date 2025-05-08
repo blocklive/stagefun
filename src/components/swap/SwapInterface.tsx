@@ -350,26 +350,6 @@ export function SwapInterface() {
       return;
     }
 
-    // Debug log all tokens to identify any mismatches
-    console.log("DEBUG - Selected tokens detail:", {
-      inputToken: {
-        symbol: inputToken.symbol,
-        address: inputToken.address,
-        isOfficial:
-          inputToken.symbol === "WMON"
-            ? inputToken.address === WMON_ADDRESS
-            : "N/A",
-      },
-      outputToken: {
-        symbol: outputToken.symbol,
-        address: outputToken.address,
-        isOfficial:
-          outputToken.symbol === "WMON"
-            ? outputToken.address === WMON_ADDRESS
-            : "N/A",
-      },
-    });
-
     // Check for high price impact before proceeding
     if (isPriceImpactTooHigh) {
       showToast.error(

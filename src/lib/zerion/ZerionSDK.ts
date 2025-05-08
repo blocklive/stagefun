@@ -12,6 +12,7 @@ export interface AssetAttributes {
   quantity: AssetQuantity;
   value: number | null;
   price: number;
+  isVerified?: boolean;
   [key: string]: any; // Allow other properties
 }
 
