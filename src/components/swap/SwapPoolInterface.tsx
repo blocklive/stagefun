@@ -3,11 +3,12 @@
 import React, { useState, useCallback, useEffect, Suspense } from "react";
 import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
-import { useWalletAssets } from "@/hooks/useWalletAssets";
+import { useWalletAssetsAdapter } from "@/hooks/useWalletAssetsAdapter";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 import { useTokenList } from "@/hooks/useTokenList";
 import { useTokenResolver } from "@/hooks/useTokenResolver";
 import { TokenInfo } from "@/types/tokens";
+import { Token } from "@/types/token";
 import { useSearchParams } from "next/navigation";
 
 // Import all the new components
@@ -24,7 +25,7 @@ import { usePoolManager } from "@/hooks/usePoolManager";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
 
 // Define Token interface
-interface Token {
+interface SwapToken {
   address: string;
   symbol: string;
   name: string;
@@ -44,7 +45,7 @@ const FIXED_FEE = {
 const OFFICIAL_WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
 
 // Token data with real contract addresses
-const CORE_TOKENS: Token[] = [
+const CORE_TOKENS: SwapToken[] = [
   {
     address: CONTRACT_ADDRESSES.monadTestnet.usdc,
     symbol: "USDC",
@@ -68,22 +69,41 @@ const CORE_TOKENS: Token[] = [
   },
 ];
 
+// Adding formatTokenAmount function based on WalletAssets.tsx
+const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
+  // For very small numbers, use scientific notation below a certain threshold
+  if (quantity > 0 && quantity < 0.000001) {
+    return quantity.toExponential(6);
+  }
+
+  // Otherwise use regular formatting with appropriate decimals
+  const maxDecimals = Math.min(decimals, 6);
+
+  return quantity.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDecimals,
+  });
+};
+
 export function SwapPoolInterface() {
   const { user } = usePrivy();
   const { smartWalletAddress } = useSmartWallet();
 
+  // Set a loading state for initial render
+  const [initialLoading, setInitialLoading] = useState(true);
+
   // Get all tokens including custom ones
   const { customTokens } = useTokenList();
-  const [allTokens, setAllTokens] = useState<Token[]>(CORE_TOKENS);
+  const [allTokens, setAllTokens] = useState<SwapToken[]>(CORE_TOKENS);
 
   // Combine core tokens with custom tokens
   useEffect(() => {
-    setAllTokens([...CORE_TOKENS, ...(customTokens as Token[])]);
+    setAllTokens([...CORE_TOKENS, ...(customTokens as any)]);
   }, [customTokens]);
 
   // Token state
-  const [tokenA, setTokenA] = useState(CORE_TOKENS[0]); // USDC
-  const [tokenB, setTokenB] = useState(CORE_TOKENS[1]); // MON
+  const [tokenA, setTokenA] = useState<SwapToken>(CORE_TOKENS[0]); // USDC
+  const [tokenB, setTokenB] = useState<SwapToken>(CORE_TOKENS[1]); // MON
 
   // Amounts state
   const [amountA, setAmountA] = useState("");
@@ -91,11 +111,11 @@ export function SwapPoolInterface() {
 
   // Create stable callback functions for token changes
   const handleTokenAChange = useCallback((token: TokenInfo) => {
-    setTokenA(token as Token);
+    setTokenA(token as any);
   }, []);
 
   const handleTokenBChange = useCallback((token: TokenInfo) => {
-    setTokenB(token as Token);
+    setTokenB(token as any);
   }, []);
 
   // Create stable amount change handlers
@@ -111,7 +131,7 @@ export function SwapPoolInterface() {
 
   // Use our new token resolver hook - it will handle query parameters
   const { source, isLoadingTokens } = useTokenResolver({
-    initialTokens: allTokens,
+    initialTokens: allTokens as any,
     onTokenAChange: handleTokenAChange,
     onTokenBChange: handleTokenBChange,
     onAmountAChange: handleAmountAFromParams,
@@ -132,17 +152,30 @@ export function SwapPoolInterface() {
     checkPoolExists,
     calculatePairedAmount,
     getDisplayRatio,
-  } = usePoolManager(tokenA, tokenB);
+  } = usePoolManager(tokenA as any, tokenB as any);
 
-  // Get token balances and assets using the Zerion-based hook
+  // Get token balances using the WalletAssetsAdapter hook for consistency with swap page
   const {
     assets,
-    isLoading: isBalanceLoading,
+    isLoading: assetsLoading,
     refresh: refreshBalances,
-  } = useWalletAssets(smartWalletAddress);
+  } = useWalletAssetsAdapter(smartWalletAddress, "monad-test-v2", {
+    useZerion: false, // Only use Alchemy
+    combineData: false, // Don't use combined data
+  });
+
+  // When assets are loaded for the first time, set initialLoading to false
+  useEffect(() => {
+    if (assets && assets.length > 0 && initialLoading) {
+      setInitialLoading(false);
+    }
+  }, [assets, initialLoading]);
+
+  // Balance loading state - show loading when assets are loading OR during initial load
+  const balanceLoading = assetsLoading || initialLoading;
 
   // Combined loading state
-  const isLoading = isAddingLiquidity || isBalanceLoading || isLoadingTokens;
+  const isLoading = isAddingLiquidity || isLoadingTokens;
 
   // Handle amount changes with auto calculation for existing pools
   const handleAmountAChange = (value: string) => {
@@ -155,7 +188,7 @@ export function SwapPoolInterface() {
     // Only auto-calculate if pool definitely exists (not undefined or false)
     if (poolExists === true && poolRatio) {
       console.log("Auto-calculating token B amount based on pool ratio");
-      setAmountB(calculatePairedAmount(value, tokenA, tokenB));
+      setAmountB(calculatePairedAmount(value, tokenA as any, tokenB as any));
     }
   };
 
@@ -169,12 +202,12 @@ export function SwapPoolInterface() {
     // Only auto-calculate if pool definitely exists (not undefined or false)
     if (poolExists === true && poolRatio) {
       console.log("Auto-calculating token A amount based on pool ratio");
-      setAmountA(calculatePairedAmount(value, tokenB, tokenA));
+      setAmountA(calculatePairedAmount(value, tokenB as any, tokenA as any));
     }
   };
 
   // Get the relevant balance for the selected token from Zerion assets
-  const getTokenBalance = (token: Token): string => {
+  const getTokenBalance = (token: SwapToken): string => {
     if (!assets) return "0";
 
     // Find the asset that matches the token
@@ -204,7 +237,17 @@ export function SwapPoolInterface() {
       return asset.attributes.fungible_info?.symbol === token.symbol;
     });
 
-    return asset ? asset.attributes.quantity.float.toString() : "0";
+    // Format the balance using formatTokenAmount instead of formatAmount
+    if (asset) {
+      const quantity = asset.attributes.quantity.float;
+      const tokenDecimals =
+        asset.attributes.quantity.decimals ||
+        asset.attributes.fungible_info?.implementations?.[0]?.decimals ||
+        (token.symbol === "USDC" ? 6 : 18);
+      return formatTokenAmount(quantity, tokenDecimals);
+    }
+
+    return "0";
   };
 
   // Calculate minimum amounts based on slippage tolerance
@@ -254,20 +297,21 @@ export function SwapPoolInterface() {
         label="Input"
         value={amountA}
         onChange={handleAmountAChange}
-        token={tokenA}
+        token={tokenA as any}
         onTokenSelect={(token) => {
           // If the user selects the same token that's already in the second position,
           // swap the tokens to prevent having the same token in both positions
           if (token.address === tokenB.address) {
             setTokenA(tokenB);
-            setTokenB(token);
+            setTokenB(token as any);
           } else {
-            setTokenA(token);
+            setTokenA(token as any);
           }
         }}
-        tokens={allTokens}
+        tokens={allTokens as any}
         balance={getTokenBalance(tokenA)}
         disabled={isLoading}
+        balanceLoading={balanceLoading}
       />
 
       {/* Second token input */}
@@ -276,21 +320,22 @@ export function SwapPoolInterface() {
           label="Input"
           value={amountB}
           onChange={handleAmountBChange}
-          token={tokenB}
+          token={tokenB as any}
           onTokenSelect={(token) => {
             // If the user selects the same token that's already in the first position,
             // swap the tokens to prevent having the same token in both positions
             if (token.address === tokenA.address) {
               setTokenB(tokenA);
-              setTokenA(token);
+              setTokenA(token as any);
             } else {
-              setTokenB(token);
+              setTokenB(token as any);
             }
           }}
-          tokens={allTokens}
+          tokens={allTokens as any}
           balance={getTokenBalance(tokenB)}
           disabled={isLoading}
           secondaryDisabled={false}
+          balanceLoading={balanceLoading}
         />
       </div>
 
@@ -303,8 +348,8 @@ export function SwapPoolInterface() {
       {/* Add liquidity button and error display */}
       <LiquidityActions
         user={user}
-        tokenA={tokenA}
-        tokenB={tokenB}
+        tokenA={tokenA as any}
+        tokenB={tokenB as any}
         amountA={amountA}
         amountB={amountB}
         slippageTolerance={slippageTolerance}

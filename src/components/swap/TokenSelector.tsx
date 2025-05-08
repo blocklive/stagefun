@@ -4,6 +4,7 @@ import { ChevronDownIcon } from "@heroicons/react/24/solid";
 import { Token } from "@/types/token";
 import { EnhancedTokenSelector } from "./EnhancedTokenSelector";
 import { TokenIcon } from "../token/TokenIcon";
+import { TokenSkeleton } from "./TokenSkeleton";
 
 interface TokenSelectorProps {
   selectedToken: Token | null;
@@ -13,6 +14,7 @@ interface TokenSelectorProps {
   excludeAddresses?: string[];
   title?: string;
   onlyMainTokens?: boolean;
+  loading?: boolean;
 }
 
 export function TokenSelector({
@@ -23,6 +25,7 @@ export function TokenSelector({
   excludeAddresses = [],
   title,
   onlyMainTokens = false,
+  loading = false,
 }: TokenSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -70,6 +73,11 @@ export function TokenSelector({
     }
   }, [isOpen]);
 
+  const handleSelect = (token: Token) => {
+    onTokenSelect(token);
+    setIsOpen(false);
+  };
+
   return (
     <div ref={containerRef}>
       <button
@@ -80,7 +88,9 @@ export function TokenSelector({
         onClick={() => !disabled && setIsOpen(true)}
         disabled={disabled}
       >
-        {selectedToken ? (
+        {loading ? (
+          <TokenSkeleton />
+        ) : selectedToken ? (
           <>
             <TokenIcon
               symbol={selectedToken.symbol}
@@ -100,7 +110,7 @@ export function TokenSelector({
       <EnhancedTokenSelector
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        onSelectToken={onTokenSelect}
+        onSelectToken={handleSelect}
         excludeAddresses={excludeAddresses}
         title={title}
         onlyMainTokens={onlyMainTokens}

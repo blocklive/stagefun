@@ -1,5 +1,21 @@
 import React from "react";
 
+// Adding formatTokenAmount function based on WalletAssets.tsx
+const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
+  // For very small numbers, use scientific notation below a certain threshold
+  if (quantity > 0 && quantity < 0.000001) {
+    return quantity.toExponential(6);
+  }
+
+  // Otherwise use regular formatting with appropriate decimals
+  const maxDecimals = Math.min(decimals, 6);
+
+  return quantity.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDecimals,
+  });
+};
+
 interface PoolStatusCardProps {
   poolExists: boolean | undefined;
   tokenASymbol?: string;
@@ -14,6 +30,11 @@ export function PoolStatusCard({
   displayRatio,
 }: PoolStatusCardProps) {
   if (poolExists === undefined) return null;
+
+  // Format the display ratio using our formatter for better readability
+  const formattedRatio = displayRatio
+    ? formatTokenAmount(parseFloat(displayRatio), 6)
+    : null;
 
   return (
     <div
@@ -45,7 +66,7 @@ export function PoolStatusCard({
             </p>
             {displayRatio && tokenASymbol && tokenBSymbol && (
               <p className="text-xs mt-2 font-medium">
-                Pool Ratio: 1 {tokenASymbol} = {displayRatio} {tokenBSymbol}
+                Pool Ratio: 1 {tokenASymbol} = {formattedRatio} {tokenBSymbol}
               </p>
             )}
           </div>
