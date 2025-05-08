@@ -3,11 +3,12 @@
 import React, { useState, useCallback, useEffect, Suspense } from "react";
 import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
-import { useWalletAssets } from "@/hooks/useWalletAssets";
+import { useWalletAssetsAdapter } from "@/hooks/useWalletAssetsAdapter";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 import { useTokenList } from "@/hooks/useTokenList";
 import { useTokenResolver } from "@/hooks/useTokenResolver";
 import { TokenInfo } from "@/types/tokens";
+import { Token } from "@/types/token";
 import { useSearchParams } from "next/navigation";
 
 // Import all the new components
@@ -23,15 +24,10 @@ import { LiquidityActions } from "./LiquidityActions";
 import { usePoolManager } from "@/hooks/usePoolManager";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
 
-// Define Token interface
-interface Token {
-  address: string;
-  symbol: string;
-  name: string;
-  decimals: number;
-  logoURI: string;
+// Define a custom token array type that matches both requirements
+type SwapToken = Token & {
   isCustom?: boolean;
-}
+};
 
 // Fixed fee - 0.3% for all pools based on Uniswap V2
 const FIXED_FEE = {
@@ -44,7 +40,7 @@ const FIXED_FEE = {
 const OFFICIAL_WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
 
 // Token data with real contract addresses
-const CORE_TOKENS: Token[] = [
+const CORE_TOKENS: SwapToken[] = [
   {
     address: CONTRACT_ADDRESSES.monadTestnet.usdc,
     symbol: "USDC",
@@ -72,18 +68,21 @@ export function SwapPoolInterface() {
   const { user } = usePrivy();
   const { smartWalletAddress } = useSmartWallet();
 
+  // Set a loading state for initial render
+  const [initialLoading, setInitialLoading] = useState(true);
+
   // Get all tokens including custom ones
   const { customTokens } = useTokenList();
-  const [allTokens, setAllTokens] = useState<Token[]>(CORE_TOKENS);
+  const [allTokens, setAllTokens] = useState<SwapToken[]>(CORE_TOKENS);
 
   // Combine core tokens with custom tokens
   useEffect(() => {
-    setAllTokens([...CORE_TOKENS, ...(customTokens as Token[])]);
+    setAllTokens([...CORE_TOKENS, ...(customTokens as SwapToken[])]);
   }, [customTokens]);
 
   // Token state
-  const [tokenA, setTokenA] = useState(CORE_TOKENS[0]); // USDC
-  const [tokenB, setTokenB] = useState(CORE_TOKENS[1]); // MON
+  const [tokenA, setTokenA] = useState<SwapToken>(CORE_TOKENS[0]); // USDC
+  const [tokenB, setTokenB] = useState<SwapToken>(CORE_TOKENS[1]); // MON
 
   // Amounts state
   const [amountA, setAmountA] = useState("");
@@ -91,11 +90,11 @@ export function SwapPoolInterface() {
 
   // Create stable callback functions for token changes
   const handleTokenAChange = useCallback((token: TokenInfo) => {
-    setTokenA(token as Token);
+    setTokenA(token as SwapToken);
   }, []);
 
   const handleTokenBChange = useCallback((token: TokenInfo) => {
-    setTokenB(token as Token);
+    setTokenB(token as SwapToken);
   }, []);
 
   // Create stable amount change handlers
@@ -134,15 +133,28 @@ export function SwapPoolInterface() {
     getDisplayRatio,
   } = usePoolManager(tokenA, tokenB);
 
-  // Get token balances and assets using the Zerion-based hook
+  // Get token balances using the WalletAssetsAdapter hook - consistent with swap page
   const {
     assets,
-    isLoading: isBalanceLoading,
+    isLoading: assetsLoading,
     refresh: refreshBalances,
-  } = useWalletAssets(smartWalletAddress);
+  } = useWalletAssetsAdapter(smartWalletAddress, "monad-test-v2", {
+    useZerion: false, // Only use Alchemy
+    combineData: false, // Don't use combined data
+  });
+
+  // When assets are loaded for the first time, set initialLoading to false
+  useEffect(() => {
+    if (assets && assets.length > 0 && initialLoading) {
+      setInitialLoading(false);
+    }
+  }, [assets, initialLoading]);
+
+  // Balance loading state - show loading when assets are loading OR during initial load
+  const balanceLoading = assetsLoading || initialLoading;
 
   // Combined loading state
-  const isLoading = isAddingLiquidity || isBalanceLoading || isLoadingTokens;
+  const isLoading = isAddingLiquidity || isLoadingTokens;
 
   // Handle amount changes with auto calculation for existing pools
   const handleAmountAChange = (value: string) => {
@@ -174,7 +186,7 @@ export function SwapPoolInterface() {
   };
 
   // Get the relevant balance for the selected token from Zerion assets
-  const getTokenBalance = (token: Token): string => {
+  const getTokenBalance = (token: SwapToken): string => {
     if (!assets) return "0";
 
     // Find the asset that matches the token
@@ -268,6 +280,7 @@ export function SwapPoolInterface() {
         tokens={allTokens}
         balance={getTokenBalance(tokenA)}
         disabled={isLoading}
+        balanceLoading={balanceLoading}
       />
 
       {/* Second token input */}
@@ -291,6 +304,7 @@ export function SwapPoolInterface() {
           balance={getTokenBalance(tokenB)}
           disabled={isLoading}
           secondaryDisabled={false}
+          balanceLoading={balanceLoading}
         />
       </div>
 

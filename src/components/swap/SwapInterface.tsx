@@ -4,6 +4,7 @@ import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
 import { TokenSelector } from "./TokenSelector";
 import { AmountInput } from "./AmountInput";
+import { TokenInputSection } from "./TokenInputSection";
 import { useStageSwap } from "@/hooks/useStageSwap";
 import { useWalletAssetsAdapter } from "@/hooks/useWalletAssetsAdapter";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
@@ -98,18 +99,42 @@ export function SwapInterface() {
   } = useStageSwap();
   const { smartWalletAddress } = useSmartWallet();
 
+  // Set a loading state for initial render
+  const [initialLoading, setInitialLoading] = useState(true);
+
   // Replace useWalletAssets with useWalletAssetsAdapter
-  const { assets, refresh: refreshBalances } = useWalletAssetsAdapter(
-    smartWalletAddress,
-    "monad-test-v2",
-    {
-      useZerion: false, // Only use Alchemy
-      combineData: false, // Don't use combined data
+  const {
+    assets,
+    refresh: refreshBalances,
+    isLoading: assetsLoading,
+  } = useWalletAssetsAdapter(smartWalletAddress, "monad-test-v2", {
+    useZerion: false, // Only use Alchemy
+    combineData: false, // Don't use combined data
+  });
+
+  // When assets are loaded for the first time, set initialLoading to false
+  useEffect(() => {
+    if (assets && assets.length > 0 && initialLoading) {
+      setInitialLoading(false);
     }
-  );
+  }, [assets, initialLoading]);
 
   // Combined loading state
   const isLoading = isSwapping || isSwapHookLoading || isTokensLoading;
+
+  // Balance loading state - show loading when assets are loading OR during initial load
+  const balanceLoading = assetsLoading || initialLoading;
+
+  // Check if we have any real balance values (not just zeros)
+  const hasRealBalances = React.useMemo(() => {
+    if (!assets || assets.length === 0) return false;
+
+    // Check if we have any non-zero balances
+    return assets.some(
+      (asset) =>
+        parseFloat(asset.attributes.quantity?.float?.toString() || "0") > 0
+    );
+  }, [assets]);
 
   // Helper function to get the appropriate balance based on token using Zerion assets
   const getTokenBalance = (token: Token): string => {
@@ -381,81 +406,52 @@ export function SwapInterface() {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-[#1e1e2a] rounded-2xl shadow-md p-6 text-white">
+    <div className="p-4 bg-[#1B1B1F] rounded-lg shadow-lg max-w-md mx-auto text-white">
       <h2 className="text-2xl font-bold mb-6">Swap</h2>
 
-      {/* Input section */}
-      <div className="mb-4">
-        <div className="flex justify-between items-center mb-2">
-          <div className="text-gray-400">From</div>
-          {inputToken && (
-            <div className="text-sm text-gray-400">
-              Balance: {parseFloat(getTokenBalance(inputToken)).toFixed(6)}
-            </div>
-          )}
-        </div>
-        <AmountInput
+      {/* Only render TokenInputSection if tokens are selected */}
+      {inputToken && (
+        <TokenInputSection
+          label="From"
           value={inputAmount}
           onChange={setInputAmount}
-          placeholder="0.0"
-          max={inputToken ? getTokenBalance(inputToken) : "0"}
-          showMaxButton
-          onMaxClick={() => {
-            if (inputToken) {
-              const balance = getTokenBalance(inputToken);
-              if (balance) setInputAmount(balance);
-            }
-          }}
+          token={inputToken}
+          onTokenSelect={setInputToken}
+          tokens={allTokens}
+          balance={getTokenBalance(inputToken)}
           disabled={isLoading}
+          balanceLoading={balanceLoading}
+          tokenLoading={isTokensLoading}
         />
-        <div className="mt-2">
-          <TokenSelector
-            selectedToken={inputToken}
-            onTokenSelect={setInputToken}
-            excludeAddresses={outputToken ? [outputToken.address] : []}
-            title="Select Input Token"
-            onlyMainTokens={true}
-          />
-        </div>
-      </div>
+      )}
 
-      {/* Switch button */}
-      <div className="flex justify-center my-6">
-        <PrimaryButton
+      {/* Swap button */}
+      <div className="flex justify-center my-1">
+        <button
           onClick={handleSwapTokens}
-          className="p-2 rounded-full"
-          disabled={isLoading || !inputToken || !outputToken}
+          className="bg-gray-700 hover:bg-gray-600 rounded-full p-2"
+          disabled={isLoading}
         >
-          <ArrowsUpDownIcon className="w-5 h-5 text-gray-300" />
-        </PrimaryButton>
+          <ArrowsUpDownIcon className="h-5 w-5 text-gray-300" />
+        </button>
       </div>
 
-      {/* Output section */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-2">
-          <div className="text-gray-400">To (estimated)</div>
-          {outputToken && (
-            <div className="text-sm text-gray-400">
-              Balance: {parseFloat(getTokenBalance(outputToken)).toFixed(6)}
-            </div>
-          )}
-        </div>
-        <AmountInput
+      {/* Only render output TokenInputSection if tokens are selected */}
+      {outputToken && (
+        <TokenInputSection
+          label="To"
           value={outputAmount}
-          onChange={setOutputAmount}
-          placeholder="0.0"
-          disabled={true}
+          onChange={() => {}} // Read-only for output in exactIn mode
+          token={outputToken}
+          onTokenSelect={setOutputToken}
+          tokens={allTokens}
+          balance={getTokenBalance(outputToken)}
+          disabled={isLoading}
+          secondaryDisabled={isExactIn} // Disable changing output token amount in exactIn mode
+          balanceLoading={balanceLoading}
+          tokenLoading={isTokensLoading}
         />
-        <div className="mt-2">
-          <TokenSelector
-            selectedToken={outputToken}
-            onTokenSelect={setOutputToken}
-            excludeAddresses={inputToken ? [inputToken.address] : []}
-            title="Select Output Token"
-            onlyMainTokens={true}
-          />
-        </div>
-      </div>
+      )}
 
       {/* Price info */}
       {inputToken && outputToken && inputAmount && outputAmount && (
