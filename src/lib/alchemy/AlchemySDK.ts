@@ -16,6 +16,7 @@ export interface TokenWithBalance {
   formattedBalance?: string;
   isNative?: boolean;
   isOfficialWmon?: boolean;
+  isOfficialUsdc?: boolean;
 }
 
 export interface WalletTokensResponse {

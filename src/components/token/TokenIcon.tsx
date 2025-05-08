@@ -1,7 +1,14 @@
 import React from "react";
 import Image from "next/image";
+import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
-// Known token icons map
+// Official token addresses for verification
+const OFFICIAL_USDC_ADDRESS =
+  CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase();
+const OFFICIAL_WMON_ADDRESS =
+  CONTRACT_ADDRESSES.monadTestnet.officialWmon.toLowerCase();
+
+// Known token icons map by symbol
 export const TOKEN_ICONS: Record<string, string> = {
   USDC: "/icons/usdc-logo.svg",
   MON: "/icons/mon-logo.svg",
@@ -25,6 +32,7 @@ export const isKnownToken = (symbol: string): boolean => {
 interface TokenIconProps {
   symbol: string;
   logoURI?: string;
+  address?: string | null; // Add contract address to verify tokens
   size?: "sm" | "md" | "lg";
   className?: string;
 }
@@ -32,6 +40,7 @@ interface TokenIconProps {
 export function TokenIcon({
   symbol,
   logoURI,
+  address,
   size = "md",
   className = "",
 }: TokenIconProps) {
@@ -49,14 +58,31 @@ export function TokenIcon({
     lg: "text-lg",
   }[size];
 
+  // Check if we should use a known logo based on address
+  const addressLower = address?.toLowerCase();
+  let iconPath = logoURI;
+
+  // Override with our verified token icons if the address matches
+  if (addressLower === OFFICIAL_USDC_ADDRESS) {
+    iconPath = "/icons/usdc-logo.svg";
+  } else if (addressLower === OFFICIAL_WMON_ADDRESS) {
+    iconPath = "/icons/mon-logo.svg";
+  } else if (symbol === "MON" && !address) {
+    // Native MON token
+    iconPath = "/icons/mon-logo.svg";
+  } else if (TOKEN_ICONS[symbol] && !logoURI) {
+    // Fallback to symbol-based lookup only if no logoURI provided
+    iconPath = TOKEN_ICONS[symbol];
+  }
+
   return (
     <div
       className={`${dimensions.container} rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center ${className}`}
       style={{ backgroundColor: "#2A2640" }}
     >
-      {TOKEN_ICONS[symbol] ? (
+      {iconPath ? (
         <Image
-          src={TOKEN_ICONS[symbol]}
+          src={iconPath}
           alt={symbol}
           width={dimensions.image}
           height={dimensions.image}

@@ -5,9 +5,11 @@ import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 // Minimum balance threshold (in token units) to display a token
 const MIN_TOKEN_BALANCE = 0.00001;
 
-// Official WMON address for validation
+// Official token addresses for validation
 const OFFICIAL_WMON_ADDRESS =
   CONTRACT_ADDRESSES.monadTestnet.officialWmon.toLowerCase();
+const OFFICIAL_USDC_ADDRESS =
+  CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase();
 
 /**
  * Convert Alchemy token format to Zerion asset format
@@ -24,11 +26,16 @@ export function alchemyTokenToZerionAsset(token: TokenWithBalance): Asset {
   const tokenDecimals = token.metadata?.decimals || 18;
   const tokenLogo = token.metadata?.logo || "";
 
-  // For verification purposes: either use isOfficialWmon from the token or check address
+  // Contract address in lowercase for comparisons
+  const contractAddressLower = contractAddress.toLowerCase();
+
+  // For verification purposes: check for official tokens
   const isVerified =
     token.isOfficialWmon ||
+    token.isOfficialUsdc ||
     (tokenSymbol === "WMON" &&
-      token.contractAddress?.toLowerCase() === OFFICIAL_WMON_ADDRESS);
+      contractAddressLower === OFFICIAL_WMON_ADDRESS) ||
+    (tokenSymbol === "USDC" && contractAddressLower === OFFICIAL_USDC_ADDRESS);
 
   // Use formattedBalance instead of parsing the hex tokenBalance
   const balanceFloat = parseFloat(token.formattedBalance || "0");

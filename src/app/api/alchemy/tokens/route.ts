@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ethers } from "ethers";
 import { Alchemy, Network } from "alchemy-sdk";
+import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
 // Alchemy API configuration
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
+
+// Official token addresses
+const OFFICIAL_WMON_ADDRESS =
+  CONTRACT_ADDRESSES.monadTestnet.officialWmon.toLowerCase();
+const OFFICIAL_USDC_ADDRESS =
+  CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase();
 
 interface TokenMetadata {
   name: string;
@@ -147,10 +154,24 @@ export async function GET(req: NextRequest) {
           formattedBalance = "0";
         }
 
-        // Check if this is the official WMON token
-        const isOfficialWmon =
-          contractAddress?.toLowerCase() ===
-          "0x760afe86e5de5fa0ee542fc7b7b713e1c5425701";
+        // Check if this is an official token
+        const contractAddressLower = contractAddress?.toLowerCase();
+
+        // Check for official WMON
+        const isOfficialWmon = contractAddressLower === OFFICIAL_WMON_ADDRESS;
+
+        // Check for official USDC
+        const isOfficialUsdc = contractAddressLower === OFFICIAL_USDC_ADDRESS;
+
+        // Set proper logo for official tokens
+        let logoUrl = metadata.logo;
+        if (isNative) {
+          logoUrl = `/icons/mon-logo.svg`;
+        } else if (isOfficialWmon) {
+          logoUrl = `/icons/mon-logo.svg`;
+        } else if (isOfficialUsdc) {
+          logoUrl = `/icons/usdc-logo.svg`;
+        }
 
         return {
           contractAddress,
@@ -162,15 +183,12 @@ export async function GET(req: NextRequest) {
             symbol:
               metadata.symbol || (isNative ? getNativeSymbol(chainId) : "???"),
             decimals: decimals,
-            logo:
-              metadata.logo ||
-              (isNative
-                ? `/icons/${getNativeSymbol(chainId).toLowerCase()}-logo.svg`
-                : undefined),
+            logo: logoUrl,
           },
           formattedBalance,
           isNative,
           isOfficialWmon,
+          isOfficialUsdc,
         };
       });
 

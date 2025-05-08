@@ -5,6 +5,13 @@ import { Asset } from "@/lib/zerion/ZerionSDK";
 import { useWalletAssetsAdapter } from "@/hooks/useWalletAssetsAdapter";
 import { TokenIcon } from "@/components/token/TokenIcon";
 import AssetsSkeleton from "./AssetsSkeleton";
+import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+
+// Official token addresses for verification
+const OFFICIAL_USDC_ADDRESS =
+  CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase();
+const OFFICIAL_WMON_ADDRESS =
+  CONTRACT_ADDRESSES.monadTestnet.officialWmon.toLowerCase();
 
 interface BalanceSectionProps {
   walletAddress: string | null;
@@ -36,6 +43,34 @@ export default function BalanceSection({
     }).format(value);
   };
 
+  // Function to detect if an asset is the native currency
+  const isNativeCurrency = (asset: Asset): boolean => {
+    // Check if it's the base asset for the Monad chain
+    return (
+      asset.id === "base-monad-test-v2-asset-asset" ||
+      (asset.attributes.fungible_info?.symbol === "MON" &&
+        asset.attributes.fungible_info?.implementations?.[0]?.address === null)
+    );
+  };
+
+  // Custom priority ordering for specific tokens (similar to WalletAssets.tsx)
+  const getPriorityOrder = (asset: Asset): number => {
+    const symbol = asset.attributes.fungible_info?.symbol;
+    const tokenAddress =
+      asset.attributes.fungible_info?.implementations?.[0]?.address?.toLowerCase();
+    const isNative = isNativeCurrency(asset);
+
+    // Priority order:
+    // 0: MON first
+    // 1: USDC second (with correct address)
+    // 2: WMON third (with correct address)
+    // 100: Regular tokens
+    if (isNative || symbol === "MON") return 0;
+    if (symbol === "USDC" && tokenAddress === OFFICIAL_USDC_ADDRESS) return 1;
+    if (symbol === "WMON" && tokenAddress === OFFICIAL_WMON_ADDRESS) return 2;
+    return 100; // Any other token
+  };
+
   // Show loading skeleton instead of spinner
   if (isLoading && assets.length === 0) {
     return <AssetsSkeleton />;
@@ -62,29 +97,15 @@ export default function BalanceSection({
         {assets.length > 0 ? (
           assets
             .sort((a, b) => {
-              // Sort with priority: MON first, then by value
-              const symbolA = a.attributes.fungible_info?.symbol || "";
-              const symbolB = b.attributes.fungible_info?.symbol || "";
+              const priorityA = getPriorityOrder(a);
+              const priorityB = getPriorityOrder(b);
 
-              // Native MON first
-              if (
-                symbolA === "MON" &&
-                a.attributes.fungible_info?.implementations?.[0]?.address ===
-                  null
-              )
-                return -1;
-              if (
-                symbolB === "MON" &&
-                b.attributes.fungible_info?.implementations?.[0]?.address ===
-                  null
-              )
-                return 1;
+              // If tokens have different priorities, sort by priority
+              if (priorityA !== priorityB) {
+                return priorityA - priorityB;
+              }
 
-              // Then USDC
-              if (symbolA === "USDC") return symbolB === "MON" ? 1 : -1;
-              if (symbolB === "USDC") return symbolA === "MON" ? -1 : 1;
-
-              // Then by value
+              // If same priority, sort by quantity (highest first)
               return (
                 (b.attributes.quantity?.float || 0) -
                 (a.attributes.quantity?.float || 0)
@@ -101,8 +122,16 @@ export default function BalanceSection({
               });
               const tokenLogo = asset.attributes.fungible_info?.icon?.url || "";
               const address =
-                asset.attributes.fungible_info?.implementations?.[0]?.address ||
+                asset.attributes.fungible_info?.implementations?.[0]?.address?.toLowerCase() ||
                 null;
+
+              // Check if this is a verified or pinned token
+              const isNative = isNativeCurrency(asset);
+              const isVerified = asset.attributes.isVerified;
+              const isPinned =
+                isNative ||
+                address === OFFICIAL_USDC_ADDRESS ||
+                address === OFFICIAL_WMON_ADDRESS;
 
               return (
                 <div
@@ -113,10 +142,19 @@ export default function BalanceSection({
                     <TokenIcon
                       symbol={tokenSymbol}
                       logoURI={tokenLogo}
+                      address={address}
                       size="lg"
                     />
                     <div className="ml-4 flex-1">
-                      <h3 className="font-bold">{tokenName}</h3>
+                      <h3 className="font-bold flex items-center">
+                        {tokenName}
+                        {(isVerified || isPinned) && (
+                          <span
+                            className="inline-block h-2 w-2 ml-1.5 bg-[#836EF9] opacity-70 rounded-full"
+                            aria-label="Verified token"
+                          ></span>
+                        )}
+                      </h3>
                       <div className="flex items-center text-sm">
                         <span className="text-gray-400">
                           {formattedBalance} {tokenSymbol}
