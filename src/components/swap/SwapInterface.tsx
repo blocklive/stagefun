@@ -46,6 +46,22 @@ const TOKENS = [
 // Define a constant for the high price impact threshold
 const HIGH_PRICE_IMPACT_THRESHOLD = 15; // 15%
 
+// Adding formatTokenAmount function based on WalletAssets.tsx
+const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
+  // For very small numbers, use scientific notation below a certain threshold
+  if (quantity > 0 && quantity < 0.000001) {
+    return quantity.toExponential(6);
+  }
+
+  // Otherwise use regular formatting with appropriate decimals
+  const maxDecimals = Math.min(decimals, 6);
+
+  return quantity.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDecimals,
+  });
+};
+
 export function SwapInterface() {
   const { user } = usePrivy();
   // Use token list hook with onlyWithLiquidity = true for swap
@@ -167,7 +183,17 @@ export function SwapInterface() {
       return symbol === token.symbol;
     });
 
-    return asset ? asset.attributes.quantity.float.toString() : "0";
+    // Format the balance using formatTokenAmount instead of formatAmount
+    if (asset) {
+      const quantity = asset.attributes.quantity.float;
+      const tokenDecimals =
+        asset.attributes.quantity.decimals ||
+        asset.attributes.fungible_info?.implementations?.[0]?.decimals ||
+        (token.symbol === "USDC" ? 6 : 18);
+      return formatTokenAmount(quantity, tokenDecimals);
+    }
+
+    return "0";
   };
 
   // Function to swap the input and output tokens
@@ -460,7 +486,10 @@ export function SwapInterface() {
             <span className="text-gray-400">Price</span>
             <span>
               1 {inputToken.symbol} ={" "}
-              {(parseFloat(outputAmount) / parseFloat(inputAmount)).toFixed(6)}{" "}
+              {formatTokenAmount(
+                parseFloat(outputAmount) / parseFloat(inputAmount),
+                6
+              )}{" "}
               {outputToken.symbol}
             </span>
           </div>

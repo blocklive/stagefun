@@ -24,10 +24,15 @@ import { LiquidityActions } from "./LiquidityActions";
 import { usePoolManager } from "@/hooks/usePoolManager";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
 
-// Define a custom token array type that matches both requirements
-type SwapToken = Token & {
+// Define Token interface
+interface SwapToken {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  logoURI: string;
   isCustom?: boolean;
-};
+}
 
 // Fixed fee - 0.3% for all pools based on Uniswap V2
 const FIXED_FEE = {
@@ -64,6 +69,22 @@ const CORE_TOKENS: SwapToken[] = [
   },
 ];
 
+// Adding formatTokenAmount function based on WalletAssets.tsx
+const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
+  // For very small numbers, use scientific notation below a certain threshold
+  if (quantity > 0 && quantity < 0.000001) {
+    return quantity.toExponential(6);
+  }
+
+  // Otherwise use regular formatting with appropriate decimals
+  const maxDecimals = Math.min(decimals, 6);
+
+  return quantity.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDecimals,
+  });
+};
+
 export function SwapPoolInterface() {
   const { user } = usePrivy();
   const { smartWalletAddress } = useSmartWallet();
@@ -77,7 +98,7 @@ export function SwapPoolInterface() {
 
   // Combine core tokens with custom tokens
   useEffect(() => {
-    setAllTokens([...CORE_TOKENS, ...(customTokens as SwapToken[])]);
+    setAllTokens([...CORE_TOKENS, ...(customTokens as any)]);
   }, [customTokens]);
 
   // Token state
@@ -90,11 +111,11 @@ export function SwapPoolInterface() {
 
   // Create stable callback functions for token changes
   const handleTokenAChange = useCallback((token: TokenInfo) => {
-    setTokenA(token as SwapToken);
+    setTokenA(token as any);
   }, []);
 
   const handleTokenBChange = useCallback((token: TokenInfo) => {
-    setTokenB(token as SwapToken);
+    setTokenB(token as any);
   }, []);
 
   // Create stable amount change handlers
@@ -110,7 +131,7 @@ export function SwapPoolInterface() {
 
   // Use our new token resolver hook - it will handle query parameters
   const { source, isLoadingTokens } = useTokenResolver({
-    initialTokens: allTokens,
+    initialTokens: allTokens as any,
     onTokenAChange: handleTokenAChange,
     onTokenBChange: handleTokenBChange,
     onAmountAChange: handleAmountAFromParams,
@@ -131,9 +152,9 @@ export function SwapPoolInterface() {
     checkPoolExists,
     calculatePairedAmount,
     getDisplayRatio,
-  } = usePoolManager(tokenA, tokenB);
+  } = usePoolManager(tokenA as any, tokenB as any);
 
-  // Get token balances using the WalletAssetsAdapter hook - consistent with swap page
+  // Get token balances using the WalletAssetsAdapter hook for consistency with swap page
   const {
     assets,
     isLoading: assetsLoading,
@@ -167,7 +188,7 @@ export function SwapPoolInterface() {
     // Only auto-calculate if pool definitely exists (not undefined or false)
     if (poolExists === true && poolRatio) {
       console.log("Auto-calculating token B amount based on pool ratio");
-      setAmountB(calculatePairedAmount(value, tokenA, tokenB));
+      setAmountB(calculatePairedAmount(value, tokenA as any, tokenB as any));
     }
   };
 
@@ -181,7 +202,7 @@ export function SwapPoolInterface() {
     // Only auto-calculate if pool definitely exists (not undefined or false)
     if (poolExists === true && poolRatio) {
       console.log("Auto-calculating token A amount based on pool ratio");
-      setAmountA(calculatePairedAmount(value, tokenB, tokenA));
+      setAmountA(calculatePairedAmount(value, tokenB as any, tokenA as any));
     }
   };
 
@@ -216,7 +237,17 @@ export function SwapPoolInterface() {
       return asset.attributes.fungible_info?.symbol === token.symbol;
     });
 
-    return asset ? asset.attributes.quantity.float.toString() : "0";
+    // Format the balance using formatTokenAmount instead of formatAmount
+    if (asset) {
+      const quantity = asset.attributes.quantity.float;
+      const tokenDecimals =
+        asset.attributes.quantity.decimals ||
+        asset.attributes.fungible_info?.implementations?.[0]?.decimals ||
+        (token.symbol === "USDC" ? 6 : 18);
+      return formatTokenAmount(quantity, tokenDecimals);
+    }
+
+    return "0";
   };
 
   // Calculate minimum amounts based on slippage tolerance
@@ -266,18 +297,18 @@ export function SwapPoolInterface() {
         label="Input"
         value={amountA}
         onChange={handleAmountAChange}
-        token={tokenA}
+        token={tokenA as any}
         onTokenSelect={(token) => {
           // If the user selects the same token that's already in the second position,
           // swap the tokens to prevent having the same token in both positions
           if (token.address === tokenB.address) {
             setTokenA(tokenB);
-            setTokenB(token);
+            setTokenB(token as any);
           } else {
-            setTokenA(token);
+            setTokenA(token as any);
           }
         }}
-        tokens={allTokens}
+        tokens={allTokens as any}
         balance={getTokenBalance(tokenA)}
         disabled={isLoading}
         balanceLoading={balanceLoading}
@@ -289,18 +320,18 @@ export function SwapPoolInterface() {
           label="Input"
           value={amountB}
           onChange={handleAmountBChange}
-          token={tokenB}
+          token={tokenB as any}
           onTokenSelect={(token) => {
             // If the user selects the same token that's already in the first position,
             // swap the tokens to prevent having the same token in both positions
             if (token.address === tokenA.address) {
               setTokenB(tokenA);
-              setTokenA(token);
+              setTokenA(token as any);
             } else {
-              setTokenB(token);
+              setTokenB(token as any);
             }
           }}
-          tokens={allTokens}
+          tokens={allTokens as any}
           balance={getTokenBalance(tokenB)}
           disabled={isLoading}
           secondaryDisabled={false}
@@ -317,8 +348,8 @@ export function SwapPoolInterface() {
       {/* Add liquidity button and error display */}
       <LiquidityActions
         user={user}
-        tokenA={tokenA}
-        tokenB={tokenB}
+        tokenA={tokenA as any}
+        tokenB={tokenB as any}
         amountA={amountA}
         amountB={amountB}
         slippageTolerance={slippageTolerance}
