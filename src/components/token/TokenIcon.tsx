@@ -75,24 +75,28 @@ export function TokenIcon({
     iconPath = TOKEN_ICONS[symbol];
   }
 
+  // State to track if the image failed to load
+  const [imageError, setImageError] = React.useState(false);
+
   return (
     <div
       className={`${dimensions.container} rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center ${className}`}
       style={{ backgroundColor: "#2A2640" }}
     >
-      {iconPath ? (
+      {iconPath && !imageError ? (
         <Image
           src={iconPath}
           alt={symbol}
           width={dimensions.image}
           height={dimensions.image}
           className="object-contain"
+          onError={() => setImageError(true)}
         />
       ) : (
         <div
           className={`w-full h-full flex items-center justify-center text-gray-400 font-semibold ${fontSize}`}
         >
-          {symbol.charAt(0)}
+          {symbol?.charAt(0) || "?"}
         </div>
       )}
     </div>
