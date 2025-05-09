@@ -121,14 +121,6 @@ export async function GET(req: NextRequest) {
           balance !==
             "0x0000000000000000000000000000000000000000000000000000000000000000";
 
-        if (!isNonZero) {
-          console.log(
-            `Filtering out zero-balance token: ${
-              token.tokenAddress || "native"
-            }`
-          );
-        }
-
         return isNonZero;
       })
       .map((token: any) => {

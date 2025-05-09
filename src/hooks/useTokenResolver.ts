@@ -63,6 +63,14 @@ export function useTokenResolver({
       // Try to resolve from known tokens first
       let token = tokenResolver.fromAddress(address, initialTokens);
 
+      // Log the result of token resolution
+      console.log(`Token A resolution for address ${address}:`, {
+        found: !!token,
+        symbol: token?.symbol || "N/A",
+        decimals: token?.decimals || "N/A",
+        source: "initialTokens",
+      });
+
       // If token is not found or it's marked as unknown, try to fetch metadata
       if (!token || token.symbol === "Unknown") {
         const fetchedToken = await fetchTokenMetadata(
@@ -72,6 +80,11 @@ export function useTokenResolver({
         );
         if (fetchedToken) {
           token = fetchedToken;
+          console.log(`Token A fetched metadata:`, {
+            symbol: token.symbol,
+            decimals: token.decimals,
+            source: "fetchedMetadata",
+          });
         }
       }
 

@@ -385,11 +385,19 @@ export default function ProfileComponent({
 
   const handleSendClick = (asset: any, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent click event from bubbling up
+
+    // Convert the balance to a string to ensure it's properly passed to the SendAssetModal
+    const balance = asset.attributes?.quantity?.float || 0;
+    const balanceString = balance.toString();
+
     setSelectedAsset({
-      name: asset.name,
-      symbol: asset.symbol,
-      balance: asset.balance,
-      address: asset.address,
+      name: asset.attributes?.fungible_info?.name || asset.name || "Unknown",
+      symbol:
+        asset.attributes?.fungible_info?.symbol || asset.symbol || "UNKNOWN",
+      balance: balanceString,
+      address:
+        asset.attributes?.fungible_info?.implementations?.[0]?.address ||
+        asset.address,
     });
     setShowSendModal(true);
   };
@@ -724,7 +732,11 @@ export default function ProfileComponent({
         asset={selectedAsset}
         onSuccess={() => {
           if (user.smart_wallet_address) {
+            // Refresh the wallet assets list
             mutate(`wallet-assets-${user.smart_wallet_address}-monad-test-v2`);
+
+            // Also refresh wallet balance in the BalanceSection
+            mutate(`alchemy-tokens-${user.smart_wallet_address}-monad-test-v2`);
           }
         }}
       />
