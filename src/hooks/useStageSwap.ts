@@ -227,30 +227,9 @@ export function useStageSwap(): UseStageSwapResult {
 
         // Get the input token (first in path)
         const tokenAddress = params.path[0];
-        const tokenContract = await getERC20Contract(tokenAddress, provider);
-
-        // Get actual token decimals from contract
-        const tokenDecimals = await getTokenDecimals(tokenAddress, provider);
-        console.log(`Token ${tokenAddress} has ${tokenDecimals} decimals`);
-
-        // Log the actual input amount in both raw and formatted form
-        console.log("Input amount:", {
-          raw: params.amountIn,
-          formatted: ethers.formatUnits(params.amountIn, tokenDecimals),
-        });
-
-        // Check allowance
-        const allowance = await getTokenAllowance(
-          tokenAddress,
-          smartWalletAddress,
-          routerAddress,
-          provider
-        );
-
-        // Convert amountIn to BigInt for comparison
-        const amountInBigInt = BigInt(params.amountIn);
 
         // Use maximum uint256 value for unlimited approval
+        // TODO: just approve the exact amount needed
         const MAX_UINT256 = ethers.MaxUint256; // 2^256-1
         console.log(
           "Using MAX_UINT256 for token approval:",
@@ -520,16 +499,6 @@ export function useStageSwap(): UseStageSwapResult {
           console.error("Error checking token balances:", error);
           // Continue anyway as this is just for debugging
         }
-
-        // Check and approve tokenA if needed
-        const tokenAAllowance = await getTokenAllowance(
-          params.tokenA,
-          smartWalletAddress,
-          routerAddress,
-          provider
-        );
-
-        console.log("Initial Token A allowance:", tokenAAllowance.toString());
 
         // Use maximum uint256 value for unlimited approval
         const MAX_UINT256 = ethers.MaxUint256; // 2^256-1
@@ -1201,31 +1170,7 @@ export function useStageSwap(): UseStageSwapResult {
 
         // Check token allowance and approve if needed
         const tokenAddress = params.path[0];
-        const tokenContract = await getERC20Contract(tokenAddress, provider);
 
-        // Get actual token decimals from contract
-        const tokenDecimals = await getTokenDecimals(tokenAddress, provider);
-        console.log(`Token ${tokenAddress} has ${tokenDecimals} decimals`);
-
-        // Log the actual input amount in both raw and formatted form
-        console.log("Input amount:", {
-          raw: params.amountIn,
-          formatted: ethers.formatUnits(params.amountIn, tokenDecimals),
-        });
-
-        // Check allowance
-        const allowance = await getTokenAllowance(
-          tokenAddress,
-          smartWalletAddress,
-          routerAddress,
-          provider
-        );
-
-        // Convert amountIn to BigInt for comparison
-        const amountInBigInt = BigInt(params.amountIn);
-
-        // Approve if needed
-        // if (allowance < amountInBigInt) {
         showToast.loading("Approving token...", { id: loadingToast });
 
         const tokenABI = [
@@ -1264,7 +1209,6 @@ export function useStageSwap(): UseStageSwapResult {
           provider
         );
         console.log("Token approved. New allowance:", newAllowance.toString());
-        // }
 
         // Execute the swap
         showToast.loading("Executing swap to MON...", { id: loadingToast });
