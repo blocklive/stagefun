@@ -402,9 +402,9 @@ export function SwapPoolInterface() {
     }
   };
 
-  // Get the relevant balance for the selected token from Zerion assets
-  const getTokenBalance = (token: SwapToken): string => {
-    if (!assets) return "0";
+  // New function: Get raw token balance without formatting (for numerical comparisons)
+  const getTokenBalanceRaw = (token: SwapToken): number => {
+    if (!assets) return 0;
 
     // Find the asset by address first (most accurate), then by symbol
     const asset = assets.find((asset) => {
@@ -442,26 +442,29 @@ export function SwapPoolInterface() {
       ) {
         return true;
       }
-
-      // Match by symbol as fallback (but NOT for USDC or WMON)
-      return (
-        symbol === token.symbol &&
-        token.symbol !== "USDC" &&
-        token.symbol !== "WMON"
-      );
     });
 
-    // Format the balance using formatTokenAmount instead of formatAmount
+    // Return the raw numeric value without formatting
     if (asset) {
-      const quantity = asset.attributes.quantity.float;
-      const tokenDecimals =
-        asset.attributes.quantity.decimals ||
-        asset.attributes.fungible_info?.implementations?.[0]?.decimals ||
-        (token.symbol === "USDC" ? 6 : 18);
-      return formatTokenAmount(quantity, tokenDecimals);
+      return asset.attributes.quantity.float || 0;
     }
 
-    return "0";
+    return 0;
+  };
+
+  // Get the relevant balance for the selected token (formatted for display)
+  const getTokenBalance = (token: SwapToken): string => {
+    // Get the raw balance first
+    const rawBalance = getTokenBalanceRaw(token);
+
+    // Return 0 if there's no balance
+    if (rawBalance === 0) return "0";
+
+    // Get the token decimals for proper formatting
+    const tokenDecimals = token.decimals || (token.symbol === "USDC" ? 6 : 18);
+
+    // Format the balance
+    return formatTokenAmount(rawBalance, tokenDecimals);
   };
 
   // Calculate minimum amounts based on slippage tolerance
@@ -559,6 +562,7 @@ export function SwapPoolInterface() {
         setAmountA={setAmountA}
         setAmountB={setAmountB}
         getTokenBalance={getTokenBalance}
+        getTokenBalanceRaw={getTokenBalanceRaw}
         calculateMinAmount={calculateMinAmount}
       />
 

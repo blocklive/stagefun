@@ -34,6 +34,7 @@ interface LiquidityActionsProps {
   setAmountA: (value: string) => void;
   setAmountB: (value: string) => void;
   getTokenBalance: (token: Token) => string;
+  getTokenBalanceRaw: (token: Token) => number;
   calculateMinAmount: (amount: string, decimals: number) => string;
 }
 
@@ -52,6 +53,7 @@ export function LiquidityActions({
   setAmountA,
   setAmountB,
   getTokenBalance,
+  getTokenBalanceRaw,
   calculateMinAmount,
 }: LiquidityActionsProps) {
   const {
@@ -96,13 +98,13 @@ export function LiquidityActions({
       return;
     }
 
-    // Check if amounts exceed balances
-    if (parseFloat(amountA) > parseFloat(getTokenBalance(tokenA))) {
+    // Check if amounts exceed balances - use the raw balance values instead of parsing formatted strings
+    if (parseFloat(amountA) > getTokenBalanceRaw(tokenA)) {
       showToast.error(`Insufficient ${tokenA.symbol} balance`);
       return;
     }
 
-    if (parseFloat(amountB) > parseFloat(getTokenBalance(tokenB))) {
+    if (parseFloat(amountB) > getTokenBalanceRaw(tokenB)) {
       showToast.error(`Insufficient ${tokenB.symbol} balance`);
       return;
     }
