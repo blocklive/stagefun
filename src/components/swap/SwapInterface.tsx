@@ -393,7 +393,9 @@ export function SwapInterface() {
     try {
       console.log("Swapping tokens:", {
         inputToken: inputToken.symbol,
+        inputDecimals: inputToken.decimals,
         outputToken: outputToken.symbol,
+        outputDecimals: outputToken.decimals,
         inputAddress: inputToken.address,
         outputAddress: outputToken.address,
         inputAmount,

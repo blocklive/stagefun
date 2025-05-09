@@ -283,11 +283,6 @@ export function LiquidityActions({
           .parseUnits(nativeAmount, nativeToken.decimals)
           .toString();
 
-        console.log("Amounts in wei:", {
-          amountTokenWei,
-          amountETHWei,
-        });
-
         // Calculate minimum amounts with slippage tolerance
         // Use a slightly higher slippage for native MON to account for potential price movements
         const effectiveSlippage = parseFloat(slippageTolerance) + 0.1;

@@ -132,6 +132,27 @@ export function useStageSwap(): UseStageSwapResult {
   const { balance: smartWalletBalance, refresh: refreshSmartWalletBalance } =
     useSmartWalletBalance();
 
+  // Helper function to get token decimals - moved to top level so it's available to all callbacks
+  const getTokenDecimals = useCallback(
+    async (
+      tokenAddress: string,
+      provider: ethers.Provider
+    ): Promise<number> => {
+      try {
+        const contract = new ethers.Contract(
+          tokenAddress,
+          ["function decimals() view returns (uint8)"],
+          provider
+        );
+        return await contract.decimals();
+      } catch (error) {
+        console.error("Error getting token decimals:", error);
+        return 18; // Default to 18 decimals
+      }
+    },
+    []
+  );
+
   // Get provider from user's wallet
   const getProvider = useCallback(async () => {
     if (!user) {
@@ -208,6 +229,16 @@ export function useStageSwap(): UseStageSwapResult {
         const tokenAddress = params.path[0];
         const tokenContract = await getERC20Contract(tokenAddress, provider);
 
+        // Get actual token decimals from contract
+        const tokenDecimals = await getTokenDecimals(tokenAddress, provider);
+        console.log(`Token ${tokenAddress} has ${tokenDecimals} decimals`);
+
+        // Log the actual input amount in both raw and formatted form
+        console.log("Input amount:", {
+          raw: params.amountIn,
+          formatted: ethers.formatUnits(params.amountIn, tokenDecimals),
+        });
+
         // Check allowance
         const allowance = await getTokenAllowance(
           tokenAddress,
@@ -219,29 +250,43 @@ export function useStageSwap(): UseStageSwapResult {
         // Convert amountIn to BigInt for comparison
         const amountInBigInt = BigInt(params.amountIn);
 
-        // Approve if needed
-        if (allowance < amountInBigInt) {
-          showToast.loading("Approving token...", { id: loadingToast });
+        // Use maximum uint256 value for unlimited approval
+        const MAX_UINT256 = ethers.MaxUint256; // 2^256-1
+        console.log(
+          "Using MAX_UINT256 for token approval:",
+          MAX_UINT256.toString()
+        );
 
-          const tokenABI = [
-            "function approve(address spender, uint256 value) returns (bool)",
-          ];
+        // Approve if needed - always use MAX_UINT256 to avoid multiple approvals
+        showToast.loading("Approving token...", { id: loadingToast });
 
-          const approvalResult = await callContractFunction(
-            tokenAddress as `0x${string}`,
-            tokenABI,
-            "approve",
-            [routerAddress, amountInBigInt],
-            "Approve token for swap"
-          );
+        const tokenABI = [
+          "function approve(address spender, uint256 value) returns (bool)",
+        ];
 
-          if (!approvalResult.success) {
-            throw new Error(approvalResult.error || "Failed to approve token");
-          }
+        const approvalResult = await callContractFunction(
+          tokenAddress as `0x${string}`,
+          tokenABI,
+          "approve",
+          [routerAddress, MAX_UINT256], // Use MAX_UINT256 instead of exact amount
+          "Approve token for swap"
+        );
 
-          // Wait for approval transaction to be mined
-          await provider.waitForTransaction(approvalResult.txHash as string);
+        if (!approvalResult.success) {
+          throw new Error(approvalResult.error || "Failed to approve token");
         }
+
+        // Wait for approval transaction to be mined
+        await provider.waitForTransaction(approvalResult.txHash as string);
+
+        // Debug: Log the new allowance after approval
+        const newAllowance = await getTokenAllowance(
+          tokenAddress,
+          smartWalletAddress,
+          routerAddress,
+          provider
+        );
+        console.log("Token approved. New allowance:", newAllowance.toString());
 
         // Execute the swap
         showToast.loading("Executing swap...", { id: loadingToast });
@@ -293,7 +338,13 @@ export function useStageSwap(): UseStageSwapResult {
         setIsLoading(false);
       }
     },
-    [user, getProvider, smartWalletAddress, callContractFunction]
+    [
+      user,
+      getProvider,
+      smartWalletAddress,
+      callContractFunction,
+      getTokenDecimals,
+    ]
   );
 
   // Get estimated output amounts for a swap
@@ -470,24 +521,6 @@ export function useStageSwap(): UseStageSwapResult {
           // Continue anyway as this is just for debugging
         }
 
-        // Helper function to get token decimals
-        async function getTokenDecimals(
-          tokenAddress: string,
-          provider: ethers.Provider
-        ): Promise<number> {
-          try {
-            const contract = new ethers.Contract(
-              tokenAddress,
-              ["function decimals() view returns (uint8)"],
-              provider
-            );
-            return await contract.decimals();
-          } catch (error) {
-            console.error("Error getting token decimals:", error);
-            return 18; // Default to 18 decimals
-          }
-        }
-
         // Check and approve tokenA if needed
         const tokenAAllowance = await getTokenAllowance(
           params.tokenA,
@@ -645,7 +678,13 @@ export function useStageSwap(): UseStageSwapResult {
         setIsLoading(false);
       }
     },
-    [user, getProvider, smartWalletAddress, callContractFunction]
+    [
+      user,
+      getProvider,
+      smartWalletAddress,
+      callContractFunction,
+      getTokenDecimals,
+    ]
   );
 
   // Add liquidity with ETH
@@ -811,7 +850,13 @@ export function useStageSwap(): UseStageSwapResult {
         setIsLoading(false);
       }
     },
-    [user, getProvider, smartWalletAddress, callContractFunction]
+    [
+      user,
+      getProvider,
+      smartWalletAddress,
+      callContractFunction,
+      getTokenDecimals,
+    ]
   );
 
   // Remove liquidity
@@ -952,7 +997,13 @@ export function useStageSwap(): UseStageSwapResult {
         setIsLoading(false);
       }
     },
-    [user, getProvider, smartWalletAddress, callContractFunction]
+    [
+      user,
+      getProvider,
+      smartWalletAddress,
+      callContractFunction,
+      getTokenDecimals,
+    ]
   );
 
   // Add the swapExactETHForTokens function implementation (inside the useStageSwap hook)
@@ -1069,7 +1120,13 @@ export function useStageSwap(): UseStageSwapResult {
         setIsLoading(false);
       }
     },
-    [user, getProvider, smartWalletAddress, callContractFunction]
+    [
+      user,
+      getProvider,
+      smartWalletAddress,
+      callContractFunction,
+      getTokenDecimals,
+    ]
   );
 
   // Add the swapExactTokensForETH function implementation (inside the useStageSwap hook)
@@ -1146,6 +1203,16 @@ export function useStageSwap(): UseStageSwapResult {
         const tokenAddress = params.path[0];
         const tokenContract = await getERC20Contract(tokenAddress, provider);
 
+        // Get actual token decimals from contract
+        const tokenDecimals = await getTokenDecimals(tokenAddress, provider);
+        console.log(`Token ${tokenAddress} has ${tokenDecimals} decimals`);
+
+        // Log the actual input amount in both raw and formatted form
+        console.log("Input amount:", {
+          raw: params.amountIn,
+          formatted: ethers.formatUnits(params.amountIn, tokenDecimals),
+        });
+
         // Check allowance
         const allowance = await getTokenAllowance(
           tokenAddress,
@@ -1158,28 +1225,46 @@ export function useStageSwap(): UseStageSwapResult {
         const amountInBigInt = BigInt(params.amountIn);
 
         // Approve if needed
-        if (allowance < amountInBigInt) {
-          showToast.loading("Approving token...", { id: loadingToast });
+        // if (allowance < amountInBigInt) {
+        showToast.loading("Approving token...", { id: loadingToast });
 
-          const tokenABI = [
-            "function approve(address spender, uint256 value) returns (bool)",
-          ];
+        const tokenABI = [
+          "function approve(address spender, uint256 value) returns (bool)",
+        ];
 
-          const approvalResult = await callContractFunction(
-            tokenAddress as `0x${string}`,
-            tokenABI,
-            "approve",
-            [routerAddress, amountInBigInt],
-            "Approve token for swap"
-          );
+        // Use maximum uint256 value for unlimited approval
+        const MAX_UINT256 = ethers.MaxUint256; // 2^256-1
+        console.log(
+          "Using MAX_UINT256 for token approval:",
+          MAX_UINT256.toString()
+        );
 
-          if (!approvalResult.success) {
-            throw new Error(approvalResult.error || "Failed to approve token");
-          }
+        const approvalResult = await callContractFunction(
+          tokenAddress as `0x${string}`,
+          tokenABI,
+          "approve",
+          [routerAddress, MAX_UINT256], // Use MAX_UINT256 instead of exact amount
+          "Approve token for swap"
+        );
 
-          // Wait for approval transaction to be mined
-          await provider.waitForTransaction(approvalResult.txHash as string);
+        // approve success
+        console.log("Approval result:", approvalResult);
+        if (!approvalResult.success) {
+          throw new Error(approvalResult.error || "Failed to approve token");
         }
+
+        // Wait for approval transaction to be mined
+        await provider.waitForTransaction(approvalResult.txHash as string);
+
+        // Debug: Log the new allowance after approval
+        const newAllowance = await getTokenAllowance(
+          tokenAddress,
+          smartWalletAddress,
+          routerAddress,
+          provider
+        );
+        console.log("Token approved. New allowance:", newAllowance.toString());
+        // }
 
         // Execute the swap
         showToast.loading("Executing swap to MON...", { id: loadingToast });
@@ -1258,6 +1343,7 @@ export function useStageSwap(): UseStageSwapResult {
       smartWalletAddress,
       callContractFunction,
       refreshSmartWalletBalance,
+      getTokenDecimals,
     ]
   );
 

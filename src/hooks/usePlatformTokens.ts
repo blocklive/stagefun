@@ -57,7 +57,7 @@ export function usePlatformTokens({
         symbol: pool.ticker!,
         name: `${pool.name} LP Token`,
         // Default ERC20 decimals
-        decimals: 18,
+        decimals: 6,
         // Use a standard LP token logo or generate based on the token symbol
         logoURI: `/icons/lp-token.svg`,
         source: "platform",
