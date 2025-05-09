@@ -109,15 +109,38 @@ export function SwapPoolInterface() {
   const [amountA, setAmountA] = useState("");
   const [amountB, setAmountB] = useState("");
 
-  // Create stable callback functions for token changes
+  // Create stable callback functions for token changes with auto-switching logic
   const handleTokenAChange = useCallback(
     (token: TokenInfo) => {
-      // If the user selects the same token that's already in the second position,
-      // swap the tokens to prevent having the same token in both positions
-      if (token.address === tokenB.address) {
-        setTokenA(tokenB);
-        setTokenB(token as any);
+      // If user selects the same token that's already in the second position (tokenB)
+      if (
+        tokenB &&
+        token.address &&
+        tokenB.address &&
+        token.address.toLowerCase() === tokenB.address.toLowerCase()
+      ) {
+        // Swap the tokens to maintain uniqueness
+        console.log(
+          "Auto-switching tokens: Same token selected for both inputs"
+        );
+        const currentTokenB = { ...tokenB }; // Create a copy to avoid reference issues
+
+        // First update tokenA to the current tokenB
+        setTokenA(currentTokenB as any);
+
+        // Then set tokenB to the new token
+        setTimeout(() => {
+          setTokenB(token as any);
+        }, 0);
+
+        console.log(
+          "After switch: TokenA:",
+          currentTokenB.symbol,
+          "TokenB:",
+          token.symbol
+        );
       } else {
+        // Otherwise just set the new token
         setTokenA(token as any);
       }
     },
@@ -126,12 +149,35 @@ export function SwapPoolInterface() {
 
   const handleTokenBChange = useCallback(
     (token: TokenInfo) => {
-      // If the user selects the same token that's already in the first position,
-      // swap the tokens to prevent having the same token in both positions
-      if (token.address === tokenA.address) {
-        setTokenB(tokenA);
-        setTokenA(token as any);
+      // If user selects the same token that's already in the first position (tokenA)
+      if (
+        tokenA &&
+        token.address &&
+        tokenA.address &&
+        token.address.toLowerCase() === tokenA.address.toLowerCase()
+      ) {
+        // Swap the tokens to maintain uniqueness
+        console.log(
+          "Auto-switching tokens: Same token selected for both inputs"
+        );
+        const currentTokenA = { ...tokenA }; // Create a copy to avoid reference issues
+
+        // First update tokenB to the current tokenA
+        setTokenB(currentTokenA as any);
+
+        // Then set tokenA to the new token
+        setTimeout(() => {
+          setTokenA(token as any);
+        }, 0);
+
+        console.log(
+          "After switch: TokenA:",
+          token.symbol,
+          "TokenB:",
+          currentTokenA.symbol
+        );
       } else {
+        // Otherwise just set the new token
         setTokenB(token as any);
       }
     },
@@ -230,31 +276,49 @@ export function SwapPoolInterface() {
   const getTokenBalance = (token: SwapToken): string => {
     if (!assets) return "0";
 
-    // Find the asset that matches the token
+    // Find the asset by address first (most accurate), then by symbol
     const asset = assets.find((asset) => {
       const implementation =
         asset.attributes.fungible_info?.implementations?.[0];
+      const symbol = asset.attributes.fungible_info?.symbol;
+      const contractAddr = implementation?.address?.toLowerCase();
+      const tokenAddr =
+        token.address !== "NATIVE" ? token.address.toLowerCase() : null;
 
-      // Handle native MON
+      // For USDC, strictly match by official contract address
+      if (token.symbol === "USDC") {
+        return contractAddr === token.address.toLowerCase();
+      }
+
+      // For WMON, strictly match by official contract address
+      if (token.symbol === "WMON") {
+        return contractAddr === token.address.toLowerCase();
+      }
+
+      // Match native MON
       if (
         token.address === "NATIVE" &&
         (asset.id === "base-monad-test-v2-asset-asset" ||
-          (asset.attributes.fungible_info?.symbol === "MON" &&
-            !implementation?.address))
+          (symbol === "MON" && !implementation?.address))
       ) {
         return true;
       }
 
-      // Handle regular tokens by checking address
+      // Match by address for regular tokens
       if (
         implementation?.address &&
+        token.address !== "NATIVE" &&
         implementation.address.toLowerCase() === token.address.toLowerCase()
       ) {
         return true;
       }
 
-      // Match by symbol as fallback
-      return asset.attributes.fungible_info?.symbol === token.symbol;
+      // Match by symbol as fallback (but NOT for USDC or WMON)
+      return (
+        symbol === token.symbol &&
+        token.symbol !== "USDC" &&
+        token.symbol !== "WMON"
+      );
     });
 
     // Format the balance using formatTokenAmount instead of formatAmount
@@ -292,6 +356,30 @@ export function SwapPoolInterface() {
     return minAmount.toString();
   };
 
+  // Add a useEffect to check for and correct duplicate tokens
+  useEffect(() => {
+    // Ensure tokens are different by comparing addresses
+    if (
+      tokenA &&
+      tokenB &&
+      tokenA.address &&
+      tokenB.address &&
+      tokenA.address.toLowerCase() === tokenB.address.toLowerCase()
+    ) {
+      console.log("Detected duplicate tokens in effect, correcting...");
+
+      // Find an alternative token that's different
+      const alternativeToken = allTokens.find(
+        (t) => t.address.toLowerCase() !== tokenA.address.toLowerCase()
+      );
+
+      if (alternativeToken) {
+        console.log("Setting alternative token:", alternativeToken.symbol);
+        setTokenB(alternativeToken as any);
+      }
+    }
+  }, [tokenA, tokenB, allTokens]);
+
   return (
     <div className="w-full max-w-md mx-auto bg-[#1e1e2a] rounded-2xl shadow-md p-6 text-white">
       <div className="mb-4">
@@ -323,6 +411,7 @@ export function SwapPoolInterface() {
         balance={getTokenBalance(tokenA)}
         disabled={isLoading}
         balanceLoading={balanceLoading}
+        tokenLoading={isLoadingTokens}
       />
 
       {/* Second token input */}
@@ -338,6 +427,7 @@ export function SwapPoolInterface() {
           disabled={isLoading}
           secondaryDisabled={false}
           balanceLoading={balanceLoading}
+          tokenLoading={isLoadingTokens}
         />
       </div>
 
