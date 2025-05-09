@@ -1,8 +1,15 @@
 import { TokenWithBalance } from "./AlchemySDK";
 import { Asset, AssetAttributes, AssetQuantity } from "@/lib/zerion/ZerionSDK";
+import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
 // Minimum balance threshold (in token units) to display a token
 const MIN_TOKEN_BALANCE = 0.00001;
+
+// Official token addresses for validation
+const OFFICIAL_WMON_ADDRESS =
+  CONTRACT_ADDRESSES.monadTestnet.officialWmon.toLowerCase();
+const OFFICIAL_USDC_ADDRESS =
+  CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase();
 
 /**
  * Convert Alchemy token format to Zerion asset format
@@ -18,6 +25,17 @@ export function alchemyTokenToZerionAsset(token: TokenWithBalance): Asset {
   const tokenName = token.metadata?.name || "Unknown Token";
   const tokenDecimals = token.metadata?.decimals || 18;
   const tokenLogo = token.metadata?.logo || "";
+
+  // Contract address in lowercase for comparisons
+  const contractAddressLower = contractAddress.toLowerCase();
+
+  // For verification purposes: check for official tokens
+  const isVerified =
+    token.isOfficialWmon ||
+    token.isOfficialUsdc ||
+    (tokenSymbol === "WMON" &&
+      contractAddressLower === OFFICIAL_WMON_ADDRESS) ||
+    (tokenSymbol === "USDC" && contractAddressLower === OFFICIAL_USDC_ADDRESS);
 
   // Use formattedBalance instead of parsing the hex tokenBalance
   const balanceFloat = parseFloat(token.formattedBalance || "0");
@@ -51,6 +69,7 @@ export function alchemyTokenToZerionAsset(token: TokenWithBalance): Asset {
         url: tokenLogo,
       },
     },
+    isVerified: isVerified,
   };
 
   // Create the complete asset object
@@ -64,7 +83,7 @@ export function alchemyTokenToZerionAsset(token: TokenWithBalance): Asset {
 
 /**
  * Convert an array of Alchemy tokens to Zerion assets
- * Also handles filtering out dust balances and deduplicating tokens
+ * Also handles filtering out dust balances
  */
 export function alchemyTokensToZerionAssets(
   tokens: TokenWithBalance[]
@@ -73,43 +92,15 @@ export function alchemyTokensToZerionAssets(
   const filteredTokens = tokens.filter((token) => {
     const balance = parseFloat(token.formattedBalance || "0");
     // Keep tokens with balances above threshold or if they're native tokens
-    return token.isNative || balance >= MIN_TOKEN_BALANCE;
+    const keep = token.isNative || balance >= MIN_TOKEN_BALANCE;
+
+    return keep;
   });
 
-  // Track symbols we've already processed to prevent duplicates
-  const processedSymbols = new Set<string>();
+  // Convert filtered tokens to Zerion assets
+  const assets = filteredTokens.map(alchemyTokenToZerionAsset);
 
-  // Track unique tokens, preferring the one with the highest balance for each symbol
-  const uniqueTokensBySymbol = new Map<string, TokenWithBalance>();
-
-  // First pass - identify highest balance token for each symbol
-  filteredTokens.forEach((token) => {
-    const symbol = token.metadata?.symbol || "";
-    if (!symbol) return;
-
-    // Special handling for native token
-    if (token.isNative) {
-      uniqueTokensBySymbol.set("NATIVE-MON", token);
-      return;
-    }
-
-    // For all other tokens
-    const existingToken = uniqueTokensBySymbol.get(symbol);
-    const currentBalance = parseFloat(token.formattedBalance || "0");
-    const existingBalance = existingToken
-      ? parseFloat(existingToken.formattedBalance || "0")
-      : 0;
-
-    // Replace if this token has a higher balance
-    if (!existingToken || currentBalance > existingBalance) {
-      uniqueTokensBySymbol.set(symbol, token);
-    }
-  });
-
-  // Convert unique tokens to Zerion assets
-  return Array.from(uniqueTokensBySymbol.values()).map(
-    alchemyTokenToZerionAsset
-  );
+  return assets;
 }
 
 /**

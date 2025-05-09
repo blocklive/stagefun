@@ -6,6 +6,7 @@ import { useWalletAssetsAdapter } from "../../hooks/useWalletAssetsAdapter";
 import { Asset } from "../../lib/zerion/ZerionSDK";
 import type { RefObject } from "react";
 import { TokenIcon } from "@/components/token/TokenIcon";
+import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
 interface WalletAssetsProps {
   walletAddress: string | null;
@@ -56,15 +57,11 @@ const TOKEN_DISPLAY_NAMES: Record<string, string> = {
   // Add more token display name mappings as needed
 };
 
-// LP token detection
-const LP_TOKEN_SYMBOLS = ["ATXDAOD", "FC"];
-const isLPToken = (symbol: string): boolean => {
-  return (
-    LP_TOKEN_SYMBOLS.includes(symbol) ||
-    symbol.endsWith("LP") ||
-    symbol.includes("LP Token")
-  );
-};
+// Official token addresses for verification
+const OFFICIAL_USDC_ADDRESS =
+  CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase();
+const OFFICIAL_WMON_ADDRESS =
+  CONTRACT_ADDRESSES.monadTestnet.officialWmon.toLowerCase();
 
 // Function to detect if an asset is the native currency
 const isNativeCurrency = (asset: Asset): boolean => {
@@ -89,22 +86,24 @@ const AssetCard: React.FC<{
   // Use MON symbol for native currency if detected
   const tokenSymbol = isNativeMON ? "MON" : token.symbol;
 
-  // Check if this is a pinned asset (MON or USDC)
-  const isPinned = isNativeMON || tokenSymbol === "USDC";
+  // Check if this token should be verified by address (proper token verification)
+  const isVerified = asset.attributes.isVerified;
+
+  // Get the token address (if not native)
+  const tokenAddress = token.implementations?.[0]?.address?.toLowerCase();
+
+  // Check if this is a pinned asset by ADDRESS (MON, USDC, WMON)
+  const isPinned =
+    isNativeMON ||
+    tokenAddress === OFFICIAL_USDC_ADDRESS ||
+    tokenAddress === OFFICIAL_WMON_ADDRESS;
 
   // Get the token decimals for formatting
   const tokenDecimals =
     quantity.decimals || token.implementations?.[0]?.decimals || 6;
 
-  // Check if this is an LP token that should have the multiplier applied for display
-  const isLp = isLPToken(tokenSymbol);
-
-  // Apply the LP token display enhancement for LP tokens (show 1000x more tokens)
-  // This is purely visual and doesn't affect actual balances
-  const displayQuantity = isLp ? quantity.float * 1000 : quantity.float;
-
   // Use the actual quantity from the API with correct decimals
-  const displayAmount = formatTokenAmount(displayQuantity, tokenDecimals);
+  const displayAmount = formatTokenAmount(quantity.float, tokenDecimals);
 
   // If the asset's raw numeric string is available, use it for very small amounts
   const displayNumeric =
@@ -129,14 +128,19 @@ const AssetCard: React.FC<{
   return (
     <div className="bg-[#FFFFFF0A] rounded-xl overflow-hidden cursor-pointer hover:bg-[#2A2640] transition-colors p-4">
       <div className="flex items-center">
-        <TokenIcon symbol={tokenSymbol} logoURI={token.icon?.url} size="lg" />
+        <TokenIcon
+          symbol={tokenSymbol}
+          logoURI={token.icon?.url}
+          address={tokenAddress}
+          size="lg"
+        />
         <div className="ml-4 flex-1">
           <h3 className="font-bold flex items-center">
             {displayName}
-            {isPinned && (
+            {(isVerified || isPinned) && (
               <span
-                className="inline-block h-2 w-2 ml-1.5 bg-[#836EF9] opacity-60 rounded-full"
-                aria-label="Pinned asset"
+                className="inline-block h-3 w-3 ml-1.5 bg-[#836EF9] opacity-90 rounded-full"
+                aria-label="Verified token"
               ></span>
             )}
           </h3>
@@ -173,7 +177,7 @@ export default function WalletAssets({
   hideTitle = false,
   isOwnProfile = true,
 }: WalletAssetsProps) {
-  // Use the adapter hook with Alchemy only, not using Zerion by default
+  // Use the adapter hook with Alchemy only
   const { assets, totalValue, isLoading, error, refresh, source } =
     useWalletAssetsAdapter(walletAddress, chainId, {
       useZerion: false, // Only use Alchemy by default
@@ -182,6 +186,7 @@ export default function WalletAssets({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
+  console.log("assets", assets);
   // Expose the refresh function to the parent via the ref
   useEffect(() => {
     if (refreshAssetsRef) {
@@ -217,11 +222,18 @@ export default function WalletAssets({
   // Custom priority ordering for specific tokens
   const getPriorityOrder = (asset: Asset): number => {
     const symbol = asset.attributes.fungible_info?.symbol;
+    const tokenAddress =
+      asset.attributes.fungible_info?.implementations?.[0]?.address?.toLowerCase();
     const isNative = isNativeCurrency(asset);
 
-    // Priority order: MON first, USDC second, then others
+    // Priority order:
+    // 0: MON first
+    // 1: USDC second (with correct address)
+    // 2: WMON third (with correct address)
+    // 100: Regular tokens
     if (isNative || symbol === "MON") return 0;
-    if (symbol === "USDC") return 1;
+    if (tokenAddress === OFFICIAL_USDC_ADDRESS) return 1;
+    if (tokenAddress === OFFICIAL_WMON_ADDRESS) return 2;
     return 100; // Any other token
   };
 

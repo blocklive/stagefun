@@ -1,4 +1,5 @@
 import { TokenInfo } from "@/types/tokens";
+import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
 /**
  * Utility for resolving token information from addresses or symbols
@@ -18,8 +19,15 @@ export const tokenResolver = {
   ): TokenInfo | undefined => {
     if (!address) return defaultToken;
 
-    // Special case for USDC which might be passed as a symbol
-    if (address === "USDC") {
+    // Special case for USDC - check both by symbol and by contract address
+    if (
+      address === "USDC" ||
+      address.toLowerCase() ===
+        CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase()
+    ) {
+      console.log(
+        "USDC token requested - ensuring we return the correct USDC token"
+      );
       return tokenList.find((t) => t.symbol === "USDC") || defaultToken;
     }
 

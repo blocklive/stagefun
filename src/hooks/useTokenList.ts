@@ -15,6 +15,7 @@ const CORE_TOKENS: Token[] = [
     logoURI: "/icons/usdc-logo.svg",
     source: "core",
     hasLiquidity: true, // Core tokens always have liquidity
+    isVerified: true, // Mark as officially verified token
   },
   {
     address: "NATIVE", // Special marker for native MON
@@ -24,15 +25,17 @@ const CORE_TOKENS: Token[] = [
     logoURI: "/icons/mon-logo.svg",
     source: "core",
     hasLiquidity: true, // Core tokens always have liquidity
+    isVerified: true, // Native token is always verified
   },
   {
-    address: "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701", // Official WMON address
+    address: CONTRACT_ADDRESSES.monadTestnet.officialWmon, // Official WMON address
     symbol: "WMON",
     name: "Wrapped MON",
     decimals: 18,
     logoURI: "/icons/mon-logo.svg",
     source: "core",
     hasLiquidity: true, // Core tokens always have liquidity
+    isVerified: true, // This is the official WMON token
   },
 ];
 

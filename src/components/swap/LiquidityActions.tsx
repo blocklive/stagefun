@@ -2,7 +2,7 @@ import React from "react";
 import { ethers } from "ethers";
 import { getDeadlineTimestamp } from "@/lib/contracts/StageSwap";
 import { useStageSwap } from "@/hooks/useStageSwap";
-import { useWalletAssets } from "@/hooks/useWalletAssets";
+import { useWalletAssetsAdapter } from "@/hooks/useWalletAssetsAdapter";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
 import showToast from "@/utils/toast";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -60,8 +60,9 @@ export function LiquidityActions({
     isLoading: isSwapHookLoading,
     error,
   } = useStageSwap();
-  const { smartWalletAddress } = useSmartWallet();
-  const { refresh: refreshBalances } = useWalletAssets(smartWalletAddress);
+  const { smartWalletAddress, callContractFunction } = useSmartWallet();
+  const { refresh: refreshBalances } =
+    useWalletAssetsAdapter(smartWalletAddress);
 
   // Combined loading state
   const isActionLoading = isLoading || isSwapHookLoading;
@@ -258,26 +259,28 @@ export function LiquidityActions({
         });
 
         // For native MON, use the addLiquidityETH function
-        // When using native MON, the token must be the non-MON token
-        const tokenAddress =
-          actualTokenA.address === "NATIVE"
-            ? OFFICIAL_WMON_ADDRESS
-            : actualTokenA.address;
+        // The addLiquidityETH function expects the non-MON token as the first parameter
+        // and the native MON amount as the second parameter
+        const nonNativeToken = tokenA.address === "NATIVE" ? tokenB : tokenA;
+        const nativeToken = tokenA.address === "NATIVE" ? tokenA : tokenB;
+        const nonNativeAmount = tokenA.address === "NATIVE" ? amountB : amountA;
+        const nativeAmount = tokenA.address === "NATIVE" ? amountA : amountB;
 
         console.log("Adjusted tokens:", {
-          actualTokenA: actualTokenA.symbol,
-          actualTokenB: actualTokenB.symbol,
-          tokenAddress: tokenAddress,
-          isTokenANative: actualTokenA.address === "NATIVE",
-          isTokenBNative: actualTokenB.address === "NATIVE",
+          nonNativeToken: nonNativeToken.symbol,
+          nativeToken: nativeToken.symbol,
+          nonNativeAmount,
+          nativeAmount,
+          nonNativeAddress: nonNativeToken.address,
+          isTokenANative: tokenA.address === "NATIVE",
         });
 
         // Convert amounts to wei
         const amountTokenWei = ethers
-          .parseUnits(actualAmountA, actualTokenA.decimals)
+          .parseUnits(nonNativeAmount, nonNativeToken.decimals)
           .toString();
         const amountETHWei = ethers
-          .parseUnits(actualAmountB, actualTokenB.decimals)
+          .parseUnits(nativeAmount, nativeToken.decimals)
           .toString();
 
         console.log("Amounts in wei:", {
@@ -310,7 +313,7 @@ export function LiquidityActions({
         const monadAmountToSend = amountETHWei;
 
         console.log("Add liquidity params:", {
-          token: tokenAddress,
+          token: nonNativeToken.address,
           amountTokenDesired: amountTokenWei,
           amountTokenMin: amountTokenMin.toString(),
           amountETHMin: amountETHMin.toString(),
@@ -321,12 +324,13 @@ export function LiquidityActions({
         // Execute addLiquidityETH - use lower amountETHMin for slippage protection,
         // but ensure the actual ETH value is what we want to add
         const result = await addLiquidityETH({
-          token: tokenAddress,
+          token: nonNativeToken.address,
           amountTokenDesired: amountTokenWei,
           amountTokenMin: amountTokenMin.toString(),
           amountETHMin: amountETHMin.toString(),
           to: "", // Will be replaced with smart wallet address in the hook
           deadline,
+          value: monadAmountToSend, // Pass the full MON amount
         });
 
         if (result.success) {

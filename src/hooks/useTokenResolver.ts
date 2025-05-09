@@ -3,6 +3,7 @@ import { TokenInfo } from "@/types/tokens";
 import { tokenResolver } from "@/utils/tokenResolver";
 import { useTokenMetadata } from "./useTokenMetadata";
 import { useQueryParamDefaults } from "./useQueryParamDefaults";
+import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
 interface UseTokenResolverProps {
   initialTokens: TokenInfo[];
@@ -97,6 +98,14 @@ export function useTokenResolver({
         return;
       }
 
+      // Special handling for USDC - log and verify
+      if (
+        address.toLowerCase() ===
+        CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase()
+      ) {
+        console.log("USDC address detected in tokenB query param");
+      }
+
       // Mark as processed to avoid loops
       processedTokensRef.current[addressKey] = true;
 
@@ -116,8 +125,11 @@ export function useTokenResolver({
       }
 
       if (token) {
+        console.log(`Token B resolved from address ${address}:`, token.symbol);
         setResolvedTokenB(token);
         onTokenBChange?.(token);
+      } else {
+        console.warn(`Failed to resolve tokenB with address: ${address}`);
       }
     },
     [

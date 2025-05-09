@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, Suspense } from "react";
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  Suspense,
+  useRef,
+} from "react";
 import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWalletAssetsAdapter } from "@/hooks/useWalletAssetsAdapter";
@@ -14,7 +20,6 @@ import { useSearchParams } from "next/navigation";
 // Import all the new components
 import { PoolStatusCard } from "./PoolStatusCard";
 import { FeeDisplay } from "./FeeDisplay";
-import { PoolRatioDisplay } from "./PoolRatioDisplay";
 import { TokenInputSection } from "./TokenInputSection";
 import { SlippageSettings } from "./SlippageSettings";
 import { InfoCard } from "./InfoCard";
@@ -32,6 +37,7 @@ interface SwapToken {
   decimals: number;
   logoURI: string;
   isCustom?: boolean;
+  isVerified?: boolean;
 }
 
 // Fixed fee - 0.3% for all pools based on Uniswap V2
@@ -52,6 +58,7 @@ const CORE_TOKENS: SwapToken[] = [
     name: "USD Coin",
     decimals: 6,
     logoURI: "/icons/usdc-logo.svg",
+    isVerified: true,
   },
   {
     address: "NATIVE", // Special marker for native MON
@@ -59,6 +66,7 @@ const CORE_TOKENS: SwapToken[] = [
     name: "Monad",
     decimals: 18,
     logoURI: "/icons/mon-logo.svg",
+    isVerified: true,
   },
   {
     address: OFFICIAL_WMON_ADDRESS,
@@ -66,6 +74,7 @@ const CORE_TOKENS: SwapToken[] = [
     name: "Wrapped MON",
     decimals: 18,
     logoURI: "/icons/mon-logo.svg",
+    isVerified: true,
   },
 ];
 
@@ -104,19 +113,142 @@ export function SwapPoolInterface() {
   // Token state
   const [tokenA, setTokenA] = useState<SwapToken>(CORE_TOKENS[0]); // USDC
   const [tokenB, setTokenB] = useState<SwapToken>(CORE_TOKENS[1]); // MON
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   // Amounts state
   const [amountA, setAmountA] = useState("");
   const [amountB, setAmountB] = useState("");
 
-  // Create stable callback functions for token changes
-  const handleTokenAChange = useCallback((token: TokenInfo) => {
-    setTokenA(token as any);
-  }, []);
+  // Create a ref to track which tokens have been loaded from URL
+  const tokenLoadTracker = useRef<{ tokenA: boolean; tokenB: boolean }>({
+    tokenA: false,
+    tokenB: false,
+  });
 
-  const handleTokenBChange = useCallback((token: TokenInfo) => {
-    setTokenB(token as any);
-  }, []);
+  // Create stable callback functions for token changes with auto-switching logic
+  const handleTokenAChange = useCallback(
+    (token: TokenInfo) => {
+      console.log("handleTokenAChange called with:", token.symbol);
+
+      // During initial load from URL, just set the token without auto-switching
+      if (!initialLoadComplete) {
+        console.log(
+          "Initial load from URL - setting token A directly:",
+          token.symbol
+        );
+        setTokenA(token as any);
+
+        // Mark tokenA as loaded
+        tokenLoadTracker.current.tokenA = true;
+
+        // If both tokens are loaded from URL, mark initialization as complete
+        if (
+          tokenLoadTracker.current.tokenA &&
+          tokenLoadTracker.current.tokenB
+        ) {
+          console.log("Both tokens loaded from URL, completing initialization");
+          setInitialLoadComplete(true);
+        }
+
+        return;
+      }
+
+      // If user selects the same token that's already in the second position (tokenB)
+      if (
+        tokenB &&
+        token.address &&
+        tokenB.address &&
+        token.address.toLowerCase() === tokenB.address.toLowerCase()
+      ) {
+        // Swap the tokens to maintain uniqueness
+        console.log(
+          "Auto-switching tokens: Same token selected for both inputs"
+        );
+        const currentTokenB = { ...tokenB }; // Create a copy to avoid reference issues
+
+        // First update tokenA to the current tokenB
+        setTokenA(currentTokenB as any);
+
+        // // Then set tokenB to the new token
+        setTimeout(() => {
+          setTokenB(token as any);
+        }, 0);
+
+        console.log(
+          "After switch: TokenA:",
+          currentTokenB.symbol,
+          "TokenB:",
+          token.symbol
+        );
+      } else {
+        // Otherwise just set the new token
+        setTokenA(token as any);
+      }
+    },
+    [tokenB, initialLoadComplete]
+  );
+
+  const handleTokenBChange = useCallback(
+    (token: TokenInfo) => {
+      console.log("handleTokenBChange called with:", token.symbol);
+
+      // During initial load from URL, just set the token without auto-switching
+      if (!initialLoadComplete) {
+        console.log(
+          "Initial load from URL - setting token B directly:",
+          token.symbol
+        );
+        setTokenB(token as any);
+
+        // Mark tokenB as loaded
+        tokenLoadTracker.current.tokenB = true;
+
+        // If both tokens are loaded from URL, mark initialization as complete
+        if (
+          tokenLoadTracker.current.tokenA &&
+          tokenLoadTracker.current.tokenB
+        ) {
+          console.log("Both tokens loaded from URL, completing initialization");
+          setInitialLoadComplete(true);
+        }
+
+        return;
+      }
+
+      // If user selects the same token that's already in the first position (tokenA)
+      if (
+        tokenA &&
+        token.address &&
+        tokenA.address &&
+        token.address.toLowerCase() === tokenA.address.toLowerCase()
+      ) {
+        // Swap the tokens to maintain uniqueness
+        console.log(
+          "Auto-switching tokens: Same token selected for both inputs"
+        );
+        const currentTokenA = { ...tokenA }; // Create a copy to avoid reference issues
+
+        // First update tokenB to the current tokenA
+        setTokenB(currentTokenA as any);
+
+        // Then set tokenA to the new token
+        setTimeout(() => {
+          setTokenA(token as any);
+        }, 0);
+
+        console.log(
+          "After switch: TokenA:",
+          token.symbol,
+          "TokenB:",
+          currentTokenA.symbol
+        );
+      } else {
+        // Otherwise just set the new token
+        setTokenB(token as any);
+      }
+    },
+    [tokenA, initialLoadComplete]
+  );
 
   // Create stable amount change handlers
   const handleAmountAFromParams = useCallback((value: string) => {
@@ -138,6 +270,53 @@ export function SwapPoolInterface() {
     onAmountBChange: handleAmountBFromParams,
   });
 
+  // Check for URL parameters
+  const checkForURLParams = useCallback(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.has("tokenA") || searchParams.has("tokenB");
+  }, []);
+
+  // For non-URL tokens, handle the initialization
+  useEffect(() => {
+    const hasURLParams = checkForURLParams();
+
+    // If no URL params and not initialized yet, mark as initialized
+    // This should happen after a brief delay to let any token resolver logic finish
+    if (!hasURLParams && !initialLoadComplete && !isLoadingTokens) {
+      console.log("No URL params, marking initialization complete");
+      setInitialLoadComplete(true);
+    }
+  }, [initialLoadComplete, isLoadingTokens, checkForURLParams]);
+
+  // Add a useEffect to check for and correct duplicate tokens - only after initialization
+  useEffect(() => {
+    // Skip if we're still in the process of loading from URL params
+    if (!initialLoadComplete) {
+      return;
+    }
+
+    // Ensure tokens are different by comparing addresses
+    if (
+      tokenA &&
+      tokenB &&
+      tokenA.address &&
+      tokenB.address &&
+      tokenA.address.toLowerCase() === tokenB.address.toLowerCase()
+    ) {
+      console.log("Detected duplicate tokens in effect, correcting...");
+
+      // Find an alternative token that's different
+      const alternativeToken = allTokens.find(
+        (t) => t.address.toLowerCase() !== tokenA.address.toLowerCase()
+      );
+
+      if (alternativeToken) {
+        console.log("Setting alternative token:", alternativeToken.symbol);
+        setTokenB(alternativeToken as any);
+      }
+    }
+  }, [tokenA, tokenB, allTokens, initialLoadComplete]);
+
   // Slippage tolerance
   const [slippageTolerance, setSlippageTolerance] = useState("0.5");
 
@@ -152,7 +331,7 @@ export function SwapPoolInterface() {
     checkPoolExists,
     calculatePairedAmount,
     getDisplayRatio,
-  } = usePoolManager(tokenA as any, tokenB as any);
+  } = usePoolManager(tokenA, tokenB);
 
   // Get token balances using the WalletAssetsAdapter hook for consistency with swap page
   const {
@@ -186,9 +365,10 @@ export function SwapPoolInterface() {
     setAmountA(value);
 
     // Only auto-calculate if pool definitely exists (not undefined or false)
-    if (poolExists === true && poolRatio) {
+    // And we have a valid numeric value to calculate with
+    if (poolExists === true && poolRatio && isValidNumericInput(value)) {
       console.log("Auto-calculating token B amount based on pool ratio");
-      setAmountB(calculatePairedAmount(value, tokenA as any, tokenB as any));
+      setAmountB(calculatePairedAmount(value, tokenA, tokenB));
     }
   };
 
@@ -200,9 +380,25 @@ export function SwapPoolInterface() {
     setAmountB(value);
 
     // Only auto-calculate if pool definitely exists (not undefined or false)
-    if (poolExists === true && poolRatio) {
+    // And we have a valid numeric value to calculate with
+    if (poolExists === true && poolRatio && isValidNumericInput(value)) {
       console.log("Auto-calculating token A amount based on pool ratio");
-      setAmountA(calculatePairedAmount(value, tokenB as any, tokenA as any));
+      setAmountA(calculatePairedAmount(value, tokenB, tokenA));
+    }
+  };
+
+  // Helper function to check if input is a valid number for calculations
+  const isValidNumericInput = (value: string): boolean => {
+    // Handle edge cases like "." or empty string
+    if (value === "." || value === "") return false;
+
+    // If it starts with a decimal, ethers.js will fail
+    // Try parsing it as a float first to check validity
+    try {
+      const floatValue = parseFloat(value);
+      return !isNaN(floatValue) && floatValue > 0;
+    } catch (e) {
+      return false;
     }
   };
 
@@ -210,31 +406,49 @@ export function SwapPoolInterface() {
   const getTokenBalance = (token: SwapToken): string => {
     if (!assets) return "0";
 
-    // Find the asset that matches the token
+    // Find the asset by address first (most accurate), then by symbol
     const asset = assets.find((asset) => {
       const implementation =
         asset.attributes.fungible_info?.implementations?.[0];
+      const symbol = asset.attributes.fungible_info?.symbol;
+      const contractAddr = implementation?.address?.toLowerCase();
+      const tokenAddr =
+        token.address !== "NATIVE" ? token.address.toLowerCase() : null;
 
-      // Handle native MON
+      // For USDC, strictly match by official contract address
+      if (token.symbol === "USDC") {
+        return contractAddr === token.address.toLowerCase();
+      }
+
+      // For WMON, strictly match by official contract address
+      if (token.symbol === "WMON") {
+        return contractAddr === token.address.toLowerCase();
+      }
+
+      // Match native MON
       if (
         token.address === "NATIVE" &&
         (asset.id === "base-monad-test-v2-asset-asset" ||
-          (asset.attributes.fungible_info?.symbol === "MON" &&
-            !implementation?.address))
+          (symbol === "MON" && !implementation?.address))
       ) {
         return true;
       }
 
-      // Handle regular tokens by checking address
+      // Match by address for regular tokens
       if (
         implementation?.address &&
+        token.address !== "NATIVE" &&
         implementation.address.toLowerCase() === token.address.toLowerCase()
       ) {
         return true;
       }
 
-      // Match by symbol as fallback
-      return asset.attributes.fungible_info?.symbol === token.symbol;
+      // Match by symbol as fallback (but NOT for USDC or WMON)
+      return (
+        symbol === token.symbol &&
+        token.symbol !== "USDC" &&
+        token.symbol !== "WMON"
+      );
     });
 
     // Format the balance using formatTokenAmount instead of formatAmount
@@ -297,21 +511,13 @@ export function SwapPoolInterface() {
         label="Input"
         value={amountA}
         onChange={handleAmountAChange}
-        token={tokenA as any}
-        onTokenSelect={(token) => {
-          // If the user selects the same token that's already in the second position,
-          // swap the tokens to prevent having the same token in both positions
-          if (token.address === tokenB.address) {
-            setTokenA(tokenB);
-            setTokenB(token as any);
-          } else {
-            setTokenA(token as any);
-          }
-        }}
+        token={tokenA}
+        onTokenSelect={(token) => handleTokenAChange(token as any)}
         tokens={allTokens as any}
         balance={getTokenBalance(tokenA)}
         disabled={isLoading}
         balanceLoading={balanceLoading}
+        tokenLoading={isLoadingTokens}
       />
 
       {/* Second token input */}
@@ -320,22 +526,14 @@ export function SwapPoolInterface() {
           label="Input"
           value={amountB}
           onChange={handleAmountBChange}
-          token={tokenB as any}
-          onTokenSelect={(token) => {
-            // If the user selects the same token that's already in the first position,
-            // swap the tokens to prevent having the same token in both positions
-            if (token.address === tokenA.address) {
-              setTokenB(tokenA);
-              setTokenA(token as any);
-            } else {
-              setTokenB(token as any);
-            }
-          }}
+          token={tokenB}
+          onTokenSelect={(token) => handleTokenBChange(token as any)}
           tokens={allTokens as any}
           balance={getTokenBalance(tokenB)}
           disabled={isLoading}
           secondaryDisabled={false}
           balanceLoading={balanceLoading}
+          tokenLoading={isLoadingTokens}
         />
       </div>
 
@@ -348,8 +546,8 @@ export function SwapPoolInterface() {
       {/* Add liquidity button and error display */}
       <LiquidityActions
         user={user}
-        tokenA={tokenA as any}
-        tokenB={tokenB as any}
+        tokenA={tokenA}
+        tokenB={tokenB}
         amountA={amountA}
         amountB={amountB}
         slippageTolerance={slippageTolerance}

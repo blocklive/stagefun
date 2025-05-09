@@ -8,6 +8,7 @@ export interface Token {
   isCustom?: boolean;
   lastUsed?: number;
   hasLiquidity?: boolean;
+  isVerified?: boolean;
 }
 
 export type TokenSource = "core" | "platform" | "custom" | "recent";
