@@ -99,6 +99,27 @@ export function SwapInterface() {
   const [isExactIn, setIsExactIn] = useState(true);
   const [isSwapping, setIsSwapping] = useState(false);
 
+  // Create wrapper functions for token selection that implement auto-switching
+  const handleInputTokenSelect = (token: Token) => {
+    // If user selects the same token that's already in the output field
+    if (outputToken && token.address === outputToken.address) {
+      // Swap them - put the previous input token in the output field
+      setOutputToken(inputToken);
+    }
+    // Set the new input token
+    setInputToken(token);
+  };
+
+  const handleOutputTokenSelect = (token: Token) => {
+    // If user selects the same token that's already in the input field
+    if (inputToken && token.address === inputToken.address) {
+      // Swap them - put the previous output token in the input field
+      setInputToken(outputToken);
+    }
+    // Set the new output token
+    setOutputToken(token);
+  };
+
   // Use the price impact hook for price impact calculations
   const {
     priceImpact,
@@ -595,7 +616,7 @@ export function SwapInterface() {
           value={inputAmount}
           onChange={setInputAmount}
           token={inputToken}
-          onTokenSelect={setInputToken}
+          onTokenSelect={handleInputTokenSelect}
           tokens={allTokens}
           balance={getTokenBalance(inputToken)}
           disabled={isLoading}
@@ -622,7 +643,7 @@ export function SwapInterface() {
           value={outputAmount}
           onChange={() => {}} // Read-only for output in exactIn mode
           token={outputToken}
-          onTokenSelect={setOutputToken}
+          onTokenSelect={handleOutputTokenSelect}
           tokens={allTokens}
           balance={getTokenBalance(outputToken)}
           disabled={isLoading}

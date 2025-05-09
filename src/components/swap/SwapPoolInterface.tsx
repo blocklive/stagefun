@@ -110,13 +110,33 @@ export function SwapPoolInterface() {
   const [amountB, setAmountB] = useState("");
 
   // Create stable callback functions for token changes
-  const handleTokenAChange = useCallback((token: TokenInfo) => {
-    setTokenA(token as any);
-  }, []);
+  const handleTokenAChange = useCallback(
+    (token: TokenInfo) => {
+      // If the user selects the same token that's already in the second position,
+      // swap the tokens to prevent having the same token in both positions
+      if (token.address === tokenB.address) {
+        setTokenA(tokenB);
+        setTokenB(token as any);
+      } else {
+        setTokenA(token as any);
+      }
+    },
+    [tokenB]
+  );
 
-  const handleTokenBChange = useCallback((token: TokenInfo) => {
-    setTokenB(token as any);
-  }, []);
+  const handleTokenBChange = useCallback(
+    (token: TokenInfo) => {
+      // If the user selects the same token that's already in the first position,
+      // swap the tokens to prevent having the same token in both positions
+      if (token.address === tokenA.address) {
+        setTokenB(tokenA);
+        setTokenA(token as any);
+      } else {
+        setTokenB(token as any);
+      }
+    },
+    [tokenA]
+  );
 
   // Create stable amount change handlers
   const handleAmountAFromParams = useCallback((value: string) => {
@@ -298,16 +318,7 @@ export function SwapPoolInterface() {
         value={amountA}
         onChange={handleAmountAChange}
         token={tokenA as any}
-        onTokenSelect={(token) => {
-          // If the user selects the same token that's already in the second position,
-          // swap the tokens to prevent having the same token in both positions
-          if (token.address === tokenB.address) {
-            setTokenA(tokenB);
-            setTokenB(token as any);
-          } else {
-            setTokenA(token as any);
-          }
-        }}
+        onTokenSelect={(token) => handleTokenAChange(token as any)}
         tokens={allTokens as any}
         balance={getTokenBalance(tokenA)}
         disabled={isLoading}
@@ -321,16 +332,7 @@ export function SwapPoolInterface() {
           value={amountB}
           onChange={handleAmountBChange}
           token={tokenB as any}
-          onTokenSelect={(token) => {
-            // If the user selects the same token that's already in the first position,
-            // swap the tokens to prevent having the same token in both positions
-            if (token.address === tokenA.address) {
-              setTokenB(tokenA);
-              setTokenA(token as any);
-            } else {
-              setTokenB(token as any);
-            }
-          }}
+          onTokenSelect={(token) => handleTokenBChange(token as any)}
           tokens={allTokens as any}
           balance={getTokenBalance(tokenB)}
           disabled={isLoading}
