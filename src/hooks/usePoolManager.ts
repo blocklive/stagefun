@@ -207,11 +207,26 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
   // Calculate paired amount based on pool ratio
   const calculatePairedAmount = useCallback(
     (inputAmount: string, inputToken: Token, outputToken: Token) => {
-      if (!poolRatio || !inputAmount || parseFloat(inputAmount) === 0)
-        return "";
+      // Handle special cases of invalid inputs
+      if (!poolRatio || !inputAmount) return "";
 
+      // Additional validation for inputAmount
       try {
-        const amount = ethers.parseUnits(inputAmount, inputToken.decimals);
+        // Check if the input is valid for calculation
+        // Handle edge cases like "." or starting with decimal
+        if (inputAmount === "." || inputAmount === "") return "";
+
+        // Normalize input to ensure it's valid for parseUnits
+        // If it's just a decimal point, add a leading zero
+        const normalizedInput = inputAmount.startsWith(".")
+          ? `0${inputAmount}`
+          : inputAmount;
+
+        // Check if it's a valid number and greater than zero
+        const floatValue = parseFloat(normalizedInput);
+        if (isNaN(floatValue) || floatValue <= 0) return "";
+
+        const amount = ethers.parseUnits(normalizedInput, inputToken.decimals);
 
         // Handle native token addresses
         const effectiveTokenAAddress =

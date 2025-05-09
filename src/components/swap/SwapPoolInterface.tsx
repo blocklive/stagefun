@@ -14,7 +14,6 @@ import { useSearchParams } from "next/navigation";
 // Import all the new components
 import { PoolStatusCard } from "./PoolStatusCard";
 import { FeeDisplay } from "./FeeDisplay";
-import { PoolRatioDisplay } from "./PoolRatioDisplay";
 import { TokenInputSection } from "./TokenInputSection";
 import { SlippageSettings } from "./SlippageSettings";
 import { InfoCard } from "./InfoCard";
@@ -32,6 +31,7 @@ interface SwapToken {
   decimals: number;
   logoURI: string;
   isCustom?: boolean;
+  isVerified?: boolean;
 }
 
 // Fixed fee - 0.3% for all pools based on Uniswap V2
@@ -52,6 +52,7 @@ const CORE_TOKENS: SwapToken[] = [
     name: "USD Coin",
     decimals: 6,
     logoURI: "/icons/usdc-logo.svg",
+    isVerified: true,
   },
   {
     address: "NATIVE", // Special marker for native MON
@@ -59,6 +60,7 @@ const CORE_TOKENS: SwapToken[] = [
     name: "Monad",
     decimals: 18,
     logoURI: "/icons/mon-logo.svg",
+    isVerified: true,
   },
   {
     address: OFFICIAL_WMON_ADDRESS,
@@ -66,6 +68,7 @@ const CORE_TOKENS: SwapToken[] = [
     name: "Wrapped MON",
     decimals: 18,
     logoURI: "/icons/mon-logo.svg",
+    isVerified: true,
   },
 ];
 
@@ -252,7 +255,8 @@ export function SwapPoolInterface() {
     setAmountA(value);
 
     // Only auto-calculate if pool definitely exists (not undefined or false)
-    if (poolExists === true && poolRatio) {
+    // And we have a valid numeric value to calculate with
+    if (poolExists === true && poolRatio && isValidNumericInput(value)) {
       console.log("Auto-calculating token B amount based on pool ratio");
       setAmountB(calculatePairedAmount(value, tokenA as any, tokenB as any));
     }
@@ -266,9 +270,25 @@ export function SwapPoolInterface() {
     setAmountB(value);
 
     // Only auto-calculate if pool definitely exists (not undefined or false)
-    if (poolExists === true && poolRatio) {
+    // And we have a valid numeric value to calculate with
+    if (poolExists === true && poolRatio && isValidNumericInput(value)) {
       console.log("Auto-calculating token A amount based on pool ratio");
       setAmountA(calculatePairedAmount(value, tokenB as any, tokenA as any));
+    }
+  };
+
+  // Helper function to check if input is a valid number for calculations
+  const isValidNumericInput = (value: string): boolean => {
+    // Handle edge cases like "." or empty string
+    if (value === "." || value === "") return false;
+
+    // If it starts with a decimal, ethers.js will fail
+    // Try parsing it as a float first to check validity
+    try {
+      const floatValue = parseFloat(value);
+      return !isNaN(floatValue) && floatValue > 0;
+    } catch (e) {
+      return false;
     }
   };
 

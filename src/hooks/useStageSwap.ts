@@ -49,6 +49,7 @@ export interface AddLiquidityETHParams {
   amountETHMin: string;
   to: string;
   deadline: number;
+  value?: string; // Optional value parameter to specify full MON amount to send
 }
 
 export interface SwapETHParams {
@@ -716,11 +717,14 @@ export function useStageSwap(): UseStageSwapResult {
             "function approve(address spender, uint256 value) returns (bool)",
           ];
 
+          // Use maximum uint256 value for unlimited approval
+          const MAX_UINT256 = ethers.MaxUint256; // 2^256-1
+
           const approvalResult = await callContractFunction(
             params.token as `0x${string}`,
             tokenABI,
             "approve",
-            [routerAddress, params.amountTokenDesired],
+            [routerAddress, MAX_UINT256],
             "Approve token for liquidity"
           );
 
@@ -747,10 +751,10 @@ export function useStageSwap(): UseStageSwapResult {
           deadline: params.deadline,
         });
 
-        // This is the key: We need to send the native MON as value
-        // Convert ETH min to the actual amount we want to send
-        // Uniswap V2's RouterV2 will use the specified amount, or as much as needed by the ratio
-        const ethValueToSend = params.amountETHMin;
+        // This is the key: We need to send the MON as value
+        // For adding liquidity, we should send the full MON amount, not the minimum
+        // The router will only use what's needed based on the ratio
+        const ethValueToSend = params.value || params.amountETHMin;
 
         console.log(
           `Sending ${ethers.formatEther(ethValueToSend)} MON as value`

@@ -1,4 +1,9 @@
 import React from "react";
+import {
+  ArrowsRightLeftIcon,
+  InformationCircleIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 
 // Adding formatTokenAmount function based on WalletAssets.tsx
 const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
@@ -36,9 +41,15 @@ export function PoolStatusCard({
     ? formatTokenAmount(parseFloat(displayRatio), 6)
     : null;
 
+  // Calculate the inverse ratio
+  const inverseRatio =
+    displayRatio && parseFloat(displayRatio) > 0
+      ? formatTokenAmount(1 / parseFloat(displayRatio), 6)
+      : null;
+
   return (
     <div
-      className={`mb-4 p-3 rounded-lg ${
+      className={`mb-4 p-4 rounded-lg ${
         poolExists
           ? "bg-blue-900/30 text-blue-400 border border-blue-800/50"
           : "bg-yellow-900/30 text-yellow-400 border border-yellow-800/50"
@@ -46,49 +57,62 @@ export function PoolStatusCard({
     >
       {poolExists ? (
         <div className="flex items-start">
-          <svg
-            className="w-5 h-5 mr-2 mt-0.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <div>
-            <span className="font-medium">Existing Pool</span>
-            <p className="text-xs mt-1">
+          <InformationCircleIcon className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+          <div className="w-full">
+            <span className="font-medium text-lg">Existing Pool</span>
+            <p className="text-sm mt-1 mb-3">
               Tokens will be added according to the current pool ratio.
             </p>
+
             {displayRatio && tokenASymbol && tokenBSymbol && (
-              <p className="text-xs mt-2 font-medium">
-                Pool Ratio: 1 {tokenASymbol} = {formattedRatio} {tokenBSymbol}
-              </p>
+              <div className="mt-2 p-3 bg-blue-900/40 rounded-lg">
+                <div className="text-sm font-medium mb-2 text-white">
+                  Current Exchange Rate
+                </div>
+
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <div className="bg-blue-900/50 rounded-full p-1 mr-2">
+                      <span className="text-xs px-2 py-1">1</span>
+                    </div>
+                    <span className="font-medium">{tokenASymbol}</span>
+                  </div>
+                  <ArrowsRightLeftIcon className="h-4 w-4 mx-2 text-gray-400" />
+                  <div className="flex items-center">
+                    <div className="bg-blue-900/50 rounded-full p-1 mr-2">
+                      <span className="text-xs px-2 py-1">
+                        {formattedRatio}
+                      </span>
+                    </div>
+                    <span className="font-medium">{tokenBSymbol}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="bg-blue-900/50 rounded-full p-1 mr-2">
+                      <span className="text-xs px-2 py-1">1</span>
+                    </div>
+                    <span className="font-medium">{tokenBSymbol}</span>
+                  </div>
+                  <ArrowsRightLeftIcon className="h-4 w-4 mx-2 text-gray-400" />
+                  <div className="flex items-center">
+                    <div className="bg-blue-900/50 rounded-full p-1 mr-2">
+                      <span className="text-xs px-2 py-1">{inverseRatio}</span>
+                    </div>
+                    <span className="font-medium">{tokenASymbol}</span>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
       ) : (
         <div className="flex items-center">
-          <svg
-            className="w-5 h-5 mr-2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-            />
-          </svg>
+          <ExclamationTriangleIcon className="w-5 h-5 mr-2 flex-shrink-0" />
           <div>
-            <span className="font-medium">New or Empty Pool</span>
-            <p className="text-xs mt-1">
+            <span className="font-medium text-lg">New or Empty Pool</span>
+            <p className="text-sm mt-1">
               You are creating a new pool or resetting an empty one. Your input
               will set the price ratio.
             </p>
