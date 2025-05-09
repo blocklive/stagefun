@@ -43,7 +43,6 @@ export function useWalletAssetsAlchemy(
         address,
         chainId
       );
-      console.log("Alchemy Portfolio API result:", result);
       return {
         tokens: result.tokens || [],
         totalValue: result.totalValue || 0,

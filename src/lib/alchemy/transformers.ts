@@ -40,15 +40,6 @@ export function alchemyTokenToZerionAsset(token: TokenWithBalance): Asset {
   // Use formattedBalance instead of parsing the hex tokenBalance
   const balanceFloat = parseFloat(token.formattedBalance || "0");
 
-  // Log details about the balance conversion
-  if (tokenSymbol === "???" || !token.metadata?.symbol) {
-    console.log(`Converting balance for unknown token (${contractAddress}): 
-      formattedBalance: ${token.formattedBalance}, 
-      tokenBalance: ${token.tokenBalance}, 
-      parsed float: ${balanceFloat}, 
-      original float check: ${parseFloat(token.formattedBalance || "0")}`);
-  }
-
   // Create quantity object in Zerion format
   const quantity: AssetQuantity = {
     int: token.tokenBalance || "0", // Keep the original hex balance for reference
@@ -97,8 +88,6 @@ export function alchemyTokenToZerionAsset(token: TokenWithBalance): Asset {
 export function alchemyTokensToZerionAssets(
   tokens: TokenWithBalance[]
 ): Asset[] {
-  console.log(`Total tokens from API: ${tokens.length}`);
-
   // First, filter out tokens with near-zero balances (dust)
   const filteredTokens = tokens.filter((token) => {
     const balance = parseFloat(token.formattedBalance || "0");
@@ -108,11 +97,8 @@ export function alchemyTokensToZerionAssets(
     return keep;
   });
 
-  console.log(`Tokens after filtering: ${filteredTokens.length}`);
-
   // Convert filtered tokens to Zerion assets
   const assets = filteredTokens.map(alchemyTokenToZerionAsset);
-  console.log(`Final assets count: ${assets.length}`);
 
   return assets;
 }
