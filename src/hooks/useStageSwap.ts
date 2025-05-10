@@ -80,6 +80,16 @@ export interface GetPairResult {
   error?: string;
 }
 
+// Add new interface for removeLiquidityETH parameters
+export interface RemoveLiquidityETHParams {
+  token: string; // The ERC20 token address
+  liquidity: string;
+  amountTokenMin: string;
+  amountETHMin: string;
+  to: string;
+  deadline: number;
+}
+
 export interface UseStageSwapResult {
   isLoading: boolean;
   error: string | null;
@@ -115,6 +125,9 @@ export interface UseStageSwapResult {
     amountBMin: string,
     to: string,
     deadline: number
+  ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
+  removeLiquidityETH: (
+    params: RemoveLiquidityETHParams
   ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
   getPair: (params: GetPairParams) => Promise<GetPairResult>;
 }
@@ -1358,6 +1371,131 @@ export function useStageSwap(): UseStageSwapResult {
     [getProvider]
   );
 
+  // New function: Remove liquidity for ETH (Native Token) pairs
+  const removeLiquidityETH = useCallback(
+    async (
+      params: RemoveLiquidityETHParams
+    ): Promise<{ success: boolean; error?: string; txHash?: string }> => {
+      if (!user) {
+        return {
+          success: false,
+          error: "User is not authenticated. Please log in.",
+        };
+      }
+
+      setError(null);
+      setIsLoading(true);
+      const loadingToast = showToast.loading("Removing native liquidity...");
+
+      try {
+        const smartWalletResult = await ensureSmartWallet(user, loadingToast);
+        if (!smartWalletResult.success) {
+          throw new Error(
+            smartWalletResult.error ||
+              "Smart wallet sync in progress, please retry"
+          );
+        }
+        if (!smartWalletAddress || !callContractFunction) {
+          throw new Error(
+            "Smart wallet functions not available. Please try again later."
+          );
+        }
+
+        const provider = await getProvider();
+        const routerContract = await getRouterContract(provider);
+        const routerAddress = await routerContract.getAddress();
+        const wethAddress = await routerContract.WETH(); // Get WETH address from router
+
+        // Get the pair address (ERC20 token and WETH)
+        // The factory getPair function expects token addresses, so WETH is used here.
+        const factoryContract = await getFactoryContract(provider);
+        const pairAddress = await factoryContract.getPair(
+          params.token,
+          wethAddress
+        );
+
+        if (pairAddress === ethers.ZeroAddress) {
+          throw new Error(
+            "Liquidity pair does not exist for token and WETH/Native"
+          );
+        }
+
+        // Approve the router to spend the LP tokens from the pair contract
+        const pairABI = [
+          "function approve(address spender, uint256 value) returns (bool)",
+        ];
+        const approvalResult = await callContractFunction(
+          pairAddress as `0x${string}`,
+          pairABI,
+          "approve",
+          [routerAddress, params.liquidity],
+          "Approve LP tokens for native removal"
+        );
+
+        if (!approvalResult.success) {
+          throw new Error(
+            approvalResult.error ||
+              "Failed to approve LP tokens for native removal"
+          );
+        }
+        await provider.waitForTransaction(approvalResult.txHash as string);
+
+        // Call removeLiquidityETH on the router
+        const routerABI = [
+          "function removeLiquidityETH(address token, uint liquidity, uint amountTokenMin, uint amountETHMin, address to, uint deadline) external returns (uint amountToken, uint amountETH)",
+        ];
+        const result = await callContractFunction(
+          routerAddress as `0x${string}`,
+          routerABI,
+          "removeLiquidityETH",
+          [
+            params.token,
+            params.liquidity,
+            params.amountTokenMin,
+            params.amountETHMin,
+            smartWalletAddress, // Recipient is the smart wallet
+            params.deadline,
+          ],
+          "Remove native liquidity"
+        );
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to remove native liquidity");
+        }
+        const receipt = await provider.waitForTransaction(
+          result.txHash as string
+        );
+        if (!receipt || receipt.status === 0) {
+          throw new Error(
+            "Native liquidity removal transaction failed on-chain"
+          );
+        }
+
+        showToast.success("Native liquidity removed successfully!", {
+          id: loadingToast,
+        });
+        return { success: true, txHash: result.txHash };
+      } catch (error) {
+        console.error("Error in removeLiquidityETH:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
+        const standardizedError = standardizeSmartWalletError(errorMessage);
+        setError(standardizedError);
+        showToast.error(standardizedError, { id: loadingToast });
+        return { success: false, error: standardizedError };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      user,
+      getProvider,
+      smartWalletAddress,
+      callContractFunction,
+      // getTokenDecimals is not directly used here but kept for consistency if other ETH functions use it
+    ]
+  );
+
   return {
     isLoading: isLoading || smartWalletIsLoading,
     error,
@@ -1368,6 +1506,7 @@ export function useStageSwap(): UseStageSwapResult {
     addLiquidity,
     addLiquidityETH,
     removeLiquidity,
+    removeLiquidityETH,
     getPair,
   };
 }

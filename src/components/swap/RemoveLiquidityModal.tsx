@@ -1,12 +1,17 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { useStageSwap } from "@/hooks/useStageSwap";
+import {
+  useStageSwap,
+  RemoveLiquidityETHParams,
+  UseStageSwapResult,
+} from "@/hooks/useStageSwap";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
 import { getDeadlineTimestamp } from "@/lib/contracts/StageSwap";
 import { ethers } from "ethers";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
 interface RemoveLiquidityModalProps {
   position: any;
@@ -15,6 +20,14 @@ interface RemoveLiquidityModalProps {
   getTokenIconPath: (symbol: string) => string;
   formatNumber: (value: string, decimals?: number) => string;
 }
+
+type RemoveLiquidityResult = Promise<{
+  success: boolean;
+  error?: string;
+  txHash?: string;
+}>;
+
+const WMON_ADDRESS = CONTRACT_ADDRESSES.monadTestnet.weth.toLowerCase();
 
 export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
   position,
@@ -25,18 +38,18 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
 }) => {
   const [removePercent, setRemovePercent] = useState(100);
   const [isRemoving, setIsRemoving] = useState(false);
-  const { removeLiquidity } = useStageSwap();
+  const { removeLiquidity, removeLiquidityETH } = useStageSwap();
   const { smartWalletAddress } = useSmartWallet();
 
   const executeRemoveLiquidity = async () => {
     if (!position || !smartWalletAddress) return;
 
     setIsRemoving(true);
-    try {
-      // Calculate the amount of LP tokens to remove based on the percentage
-      const lpTokenBalance = position.lpTokenBalance;
+    const deadline = getDeadlineTimestamp(20);
+    let result: RemoveLiquidityResult | undefined = undefined;
 
-      // Validate that we have LP tokens to remove
+    try {
+      const lpTokenBalance = position.lpTokenBalance;
       if (Number(lpTokenBalance) <= 0) {
         console.error("No LP tokens to remove");
         setIsRemoving(false);
@@ -47,25 +60,17 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
         Math.floor(((Number(lpTokenBalance) * removePercent) / 100) * 10 ** 18)
       );
 
-      // Ensure lpTokensToRemove is not zero
       if (lpTokensToRemove <= BigInt(0)) {
         console.error("LP token amount too small to remove");
         setIsRemoving(false);
         return;
       }
 
-      console.log("LP token calculation:", {
-        lpTokenBalance,
-        removePercent,
-        lpTokensToRemove: lpTokensToRemove.toString(),
-      });
-
-      // The minimum amounts to receive when removing liquidity (with some slippage protection)
-      const slippageFactor = 0.995; // 0.5% slippage protection
+      const slippageFactor = 0.995;
       const token0Amount = parseFloat(position.tokenAmounts.amount0);
       const token1Amount = parseFloat(position.tokenAmounts.amount1);
 
-      const amountAMin = BigInt(
+      const amount0Min = BigInt(
         Math.floor(
           token0Amount *
             (removePercent / 100) *
@@ -74,7 +79,7 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
         )
       );
 
-      const amountBMin = BigInt(
+      const amount1Min = BigInt(
         Math.floor(
           token1Amount *
             (removePercent / 100) *
@@ -83,40 +88,67 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
         )
       );
 
-      // Log all calculation values for debugging
-      console.log("Removing liquidity calculation:", {
-        tokenA: position.token0.address,
-        tokenB: position.token1.address,
-        liquidity: lpTokensToRemove.toString(),
-        amountAMin: amountAMin.toString(),
-        amountBMin: amountBMin.toString(),
-        token0Amount,
-        token1Amount,
-        removePercent,
-        slippageFactor,
-      });
+      const isToken0WMON =
+        position.token0.address.toLowerCase() === WMON_ADDRESS;
+      const isToken1WMON =
+        position.token1.address.toLowerCase() === WMON_ADDRESS;
 
-      // Set a deadline 20 minutes from now
-      const deadline = getDeadlineTimestamp(20);
+      if (isToken0WMON || isToken1WMON) {
+        console.log("Removing liquidity for a WMON (native) pair.");
+        const erc20Token = isToken0WMON ? position.token1 : position.token0;
+        const amountETHMin = (
+          isToken0WMON ? amount0Min : amount1Min
+        ).toString();
+        const amountTokenMin = (
+          isToken0WMON ? amount1Min : amount0Min
+        ).toString();
 
-      const result = await removeLiquidity(
-        position.token0.address,
-        position.token1.address,
-        lpTokensToRemove.toString(),
-        amountAMin.toString(),
-        amountBMin.toString(),
-        "", // Empty string will be replaced with smart wallet address in the hook
-        deadline
-      );
+        console.log("RemoveLiquidityETH params:", {
+          token: erc20Token.address,
+          liquidity: lpTokensToRemove.toString(),
+          amountTokenMin,
+          amountETHMin,
+          to: smartWalletAddress,
+          deadline,
+        });
 
-      if (result.success) {
-        // Close the modal
+        result = removeLiquidityETH({
+          token: erc20Token.address,
+          liquidity: lpTokensToRemove.toString(),
+          amountTokenMin: amountTokenMin,
+          amountETHMin: amountETHMin,
+          to: smartWalletAddress,
+          deadline,
+        });
+      } else {
+        console.log("Removing liquidity for an ERC20-ERC20 pair.");
+        console.log("RemoveLiquidity params:", {
+          tokenA: position.token0.address,
+          tokenB: position.token1.address,
+          liquidity: lpTokensToRemove.toString(),
+          amountAMin: amount0Min.toString(),
+          amountBMin: amount1Min.toString(),
+          to: smartWalletAddress,
+          deadline,
+        });
+        result = removeLiquidity(
+          position.token0.address,
+          position.token1.address,
+          lpTokensToRemove.toString(),
+          amount0Min.toString(),
+          amount1Min.toString(),
+          smartWalletAddress,
+          deadline
+        );
+      }
+
+      const finalResult = await result;
+      if (finalResult && finalResult.success) {
         onClose();
-        // Refresh the positions list
         onSuccess();
       }
     } catch (error) {
-      console.error("Error removing liquidity:", error);
+      console.error("Error in executeRemoveLiquidity:", error);
     } finally {
       setIsRemoving(false);
     }
