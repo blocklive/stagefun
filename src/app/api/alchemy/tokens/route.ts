@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ethers } from "ethers";
-import { Alchemy, Network } from "alchemy-sdk";
+// Alchemy SDK is not directly used for the Portfolio API fetch, but kept for potential other uses or consistency.
+// import { Alchemy, Network } from "alchemy-sdk";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
 // Alchemy API configuration
@@ -12,11 +13,21 @@ const OFFICIAL_WMON_ADDRESS =
 const OFFICIAL_USDC_ADDRESS =
   CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase();
 
-interface TokenMetadata {
-  name: string;
-  symbol: string;
-  decimals: number;
-  logo?: string;
+// Interface for processed token structure, can be enhanced if needed
+interface ProcessedToken {
+  contractAddress: string | null; // Native token might have null
+  tokenBalance: string;
+  metadata: {
+    name: string;
+    symbol: string;
+    decimals: number;
+    logo?: string;
+  };
+  formattedBalance: string;
+  isNative: boolean;
+  isOfficialWmon: boolean;
+  isOfficialUsdc: boolean;
+  // Add other fields if needed, e.g., priceInfo
 }
 
 /**
@@ -42,7 +53,6 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Map our chain ID format to Alchemy's network format
     const alchemyNetwork = mapChainIdToAlchemyNetwork(chainId);
     if (!alchemyNetwork) {
       return NextResponse.json(
@@ -51,154 +61,170 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    console.log(`Fetching tokens for ${address} on ${alchemyNetwork}`);
+    console.log(
+      `Fetching tokens for ${address} on ${alchemyNetwork} via Portfolio API`
+    );
 
-    // Use the Portfolio API with the correct request format
     const url = `https://api.g.alchemy.com/data/v1/${ALCHEMY_API_KEY}/assets/tokens/by-address`;
+    let allProcessedTokens: ProcessedToken[] = [];
+    let currentPageKey: string | undefined = undefined;
+    let pagesRetrieved = 0;
 
-    // Structure the request with address objects and networks array
-    const payload = {
-      addresses: [
-        {
-          address: address,
-          networks: [alchemyNetwork],
-        },
-      ],
-      withMetadata: true,
-      withPrices: true,
-      includeNativeTokens: true,
-    };
-
-    console.log(
-      "Fetching tokens using Portfolio API with request:",
-      JSON.stringify(payload)
-    );
-
-    const portfolioResponse = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!portfolioResponse.ok) {
-      const errorText = await portfolioResponse.text();
-      console.error(
-        `Portfolio API error: ${portfolioResponse.status} - ${errorText}`
-      );
-      console.error(`Full request details:
-        URL: ${url}
-        Request Body: ${JSON.stringify(payload)}
-      `);
-
-      return NextResponse.json(
-        {
-          error: `Failed to fetch tokens: ${portfolioResponse.statusText}`,
-          details: errorText,
-        },
-        { status: portfolioResponse.status }
-      );
-    }
-
-    const portfolioData = await portfolioResponse.json();
-    console.log(
-      "Portfolio API response:",
-      JSON.stringify(portfolioData).substring(0, 500) + "..."
-    );
-
-    const tokenData = portfolioData?.data?.tokens || [];
-    console.log(`Retrieved ${tokenData.length} tokens from Portfolio API`);
-    console.log("tokenData", tokenData);
-
-    // Process the tokens and filter out zero balances in one pass
-    const processedTokens = tokenData
-      .filter((token: any) => {
-        // check if contract address is official usdc
-        const isOfficialUsdc =
-          token?.tokenAddress?.toLowerCase() === OFFICIAL_USDC_ADDRESS;
-
-        // For native token or tokens without balance, use 0
-        const balance = token.tokenBalance || "0x0";
-        // Check if it's not zero (can be hex or decimal string)
-        const isNonZero =
-          balance !== "0x0" &&
-          balance !== "0" &&
-          balance !== "0x00" &&
-          balance !==
-            "0x0000000000000000000000000000000000000000000000000000000000000000";
-
-        return isNonZero;
-      })
-      .map((token: any) => {
-        const contractAddress = token.tokenAddress;
-        const metadata = token.tokenMetadata || {};
-        const balance = token.tokenBalance || "0";
-        const isNative = !contractAddress;
-
-        let decimals = metadata.decimals;
-        if (decimals === undefined || decimals === null) {
-          decimals = isNative ? 18 : 0;
-        }
-
-        // Format the balance
-        let formattedBalance;
-        try {
-          formattedBalance = ethers.formatUnits(balance, decimals);
-        } catch (error) {
-          console.error(
-            `Error formatting balance for ${contractAddress}:`,
-            error
-          );
-          formattedBalance = "0";
-        }
-
-        // Check if this is an official token
-        const contractAddressLower = contractAddress?.toLowerCase();
-
-        // Check for official WMON
-        const isOfficialWmon = contractAddressLower === OFFICIAL_WMON_ADDRESS;
-
-        // Check for official USDC
-        const isOfficialUsdc = contractAddressLower === OFFICIAL_USDC_ADDRESS;
-
-        // Set proper logo for official tokens
-        let logoUrl = metadata.logo;
-        if (isNative) {
-          logoUrl = `/icons/mon-logo.svg`;
-        } else if (isOfficialWmon) {
-          logoUrl = `/icons/mon-logo.svg`;
-        } else if (isOfficialUsdc) {
-          logoUrl = `/icons/usdc-logo.svg`;
-        }
-
-        return {
-          contractAddress,
-          tokenBalance: balance,
-          metadata: {
-            name:
-              metadata.name ||
-              (isNative ? getNativeName(chainId) : "Unknown Token"),
-            symbol:
-              metadata.symbol || (isNative ? getNativeSymbol(chainId) : "???"),
-            decimals: decimals,
-            logo: logoUrl,
+    do {
+      pagesRetrieved++;
+      const payload: any = {
+        addresses: [
+          {
+            address: address,
+            networks: [alchemyNetwork],
           },
-          formattedBalance,
-          isNative,
-          isOfficialWmon,
-          isOfficialUsdc,
-        };
+        ],
+        withMetadata: true,
+        withPrices: true,
+        includeNativeTokens: true,
+      };
+
+      if (currentPageKey) {
+        payload.pageKey = currentPageKey;
+      }
+
+      console.log(
+        `Fetching tokens page ${pagesRetrieved} with request:`,
+        JSON.stringify(payload)
+      );
+
+      const portfolioResponse = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
+      if (!portfolioResponse.ok) {
+        const errorText = await portfolioResponse.text();
+        console.error(
+          `Portfolio API error on page ${pagesRetrieved}: ${portfolioResponse.status} - ${errorText}`
+        );
+        if (portfolioResponse.status >= 400) {
+          console.error(
+            `Full request details for failing page ${pagesRetrieved}:\\nURL: ${url}\\nRequest Body: ${JSON.stringify(
+              payload
+            )}`
+          );
+        }
+        return NextResponse.json(
+          {
+            error: `Failed to fetch tokens: ${portfolioResponse.statusText}`,
+            details: errorText,
+          },
+          { status: portfolioResponse.status }
+        );
+      }
+
+      const portfolioData = await portfolioResponse.json();
+      // console.log(
+      //   `Portfolio API response for page ${pagesRetrieved}:`,
+      //   JSON.stringify(portfolioData, null, 2)
+      // );
+
+      // REVERTING to previous way of accessing tokenData, as per user feedback
+      const tokenData = portfolioData?.data?.tokens || [];
+      console.log(
+        `Retrieved ${tokenData.length} token objects from Portfolio API on page ${pagesRetrieved}`
+      );
+
+      const processedTokensThisPage: ProcessedToken[] = tokenData
+        .filter((token: any) => {
+          const balance = token.tokenBalance || "0x0";
+          const isNonZero =
+            balance !== "0x0" &&
+            balance !== "0" &&
+            balance !== "0x00" &&
+            balance !==
+              "0x0000000000000000000000000000000000000000000000000000000000000000";
+          return isNonZero;
+        })
+        .map((token: any): ProcessedToken => {
+          const contractAddress = token.tokenAddress;
+          const rawBalance = token.tokenBalance || "0";
+          // Assuming tokenMetadata is directly available and structured as needed
+          const tokenMetadata = token.tokenMetadata || {};
+
+          const isNative = !contractAddress;
+
+          let decimals = tokenMetadata.decimals;
+          if (decimals === undefined || decimals === null) {
+            decimals = isNative ? 18 : 0;
+          }
+
+          let formattedBalance;
+          try {
+            formattedBalance = ethers.formatUnits(rawBalance, decimals);
+          } catch (error) {
+            console.error(
+              `Error formatting balance for ${
+                contractAddress || "Native Token"
+              }:`,
+              rawBalance,
+              `with decimals ${decimals}`,
+              error
+            );
+            formattedBalance = "0.0";
+          }
+
+          const contractAddressLower = contractAddress?.toLowerCase();
+          const isOfficialWmon = contractAddressLower === OFFICIAL_WMON_ADDRESS;
+          const isOfficialUsdc = contractAddressLower === OFFICIAL_USDC_ADDRESS;
+
+          let logoUrl = tokenMetadata.logo;
+          if (isNative) {
+            logoUrl = `/icons/mon-logo.svg`;
+          } else if (isOfficialWmon) {
+            logoUrl = `/icons/mon-logo.svg`;
+          } else if (isOfficialUsdc) {
+            logoUrl = `/icons/usdc-logo.svg`;
+          }
+
+          return {
+            contractAddress: contractAddress || null,
+            tokenBalance: rawBalance,
+            metadata: {
+              name:
+                tokenMetadata.name ||
+                (isNative ? getNativeName(chainId) : "Unknown Token"),
+              symbol:
+                tokenMetadata.symbol ||
+                (isNative ? getNativeSymbol(chainId) : "???"),
+              decimals: decimals,
+              logo: logoUrl,
+            },
+            formattedBalance,
+            isNative,
+            isOfficialWmon,
+            isOfficialUsdc,
+          };
+        });
+
+      allProcessedTokens = allProcessedTokens.concat(processedTokensThisPage);
+
+      // REVERTING to previous way of accessing currentPageKey, as per user feedback
+      currentPageKey = portfolioData?.data?.pageKey;
+
+      if (currentPageKey) {
+        console.log(`Next pageKey found: ${currentPageKey}`);
+      } else {
+        console.log(`No more pageKey found. Fetched all pages.`);
+      }
+    } while (currentPageKey);
+
     console.log(
-      `After filtering and processing: ${processedTokens.length} tokens`
+      `Total after filtering and processing all pages: ${allProcessedTokens.length} tokens across ${pagesRetrieved} pages.`
     );
 
     return NextResponse.json({
-      tokens: processedTokens,
-      totalValue: 0, // We can calculate this if needed from token.tokenPrices
+      tokens: allProcessedTokens,
       metadata: {
-        totalTokens: processedTokens.length,
-        pagesRetrieved: 1,
+        totalTokens: allProcessedTokens.length,
+        pagesRetrieved: pagesRetrieved,
         hasMorePages: false,
       },
     });
@@ -206,7 +232,7 @@ export async function GET(req: NextRequest) {
     console.error("Error fetching tokens:", error);
     return NextResponse.json(
       {
-        error: "Failed to fetch tokens from Alchemy",
+        error: "Failed to fetch tokens from Alchemy Portfolio API",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
@@ -225,7 +251,7 @@ function mapChainIdToAlchemyNetwork(chainId: string): string | null {
     "polygon-mumbai": "POLYGON_MUMBAI",
     "opt-mainnet": "OPT_MAINNET",
     "arb-mainnet": "ARB_MAINNET",
-    "monad-test-v2": "MONAD_TESTNET",
+    "monad-test-v2": "MONAD_TESTNET", // Ensure this matches Alchemy's expected value if it's custom
   };
 
   return chainMapping[chainId] || null;
@@ -243,13 +269,13 @@ function getNativeSymbol(chainId: string): string {
     case "polygon-mumbai":
       return "MATIC";
     case "monad-test-v2":
-      return "MON";
+      return "MON"; // Assuming MON for your custom testnet
     case "opt-mainnet":
-      return "ETH";
+      return "ETH"; // Optimism uses ETH
     case "arb-mainnet":
-      return "ETH";
+      return "ETH"; // Arbitrum uses ETH
     default:
-      return "ETH";
+      return "ETH"; // Default or throw error
   }
 }
 
@@ -265,12 +291,12 @@ function getNativeName(chainId: string): string {
     case "polygon-mumbai":
       return "Polygon";
     case "monad-test-v2":
-      return "Monad";
+      return "Monad"; // Assuming Monad for your custom testnet
     case "opt-mainnet":
-      return "Optimism Ethereum";
+      return "Optimism";
     case "arb-mainnet":
-      return "Arbitrum Ethereum";
+      return "Arbitrum";
     default:
-      return "Ethereum";
+      return "Ethereum"; // Default or throw error
   }
 }
