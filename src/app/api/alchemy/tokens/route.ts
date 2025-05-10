@@ -107,10 +107,15 @@ export async function GET(req: NextRequest) {
 
     const tokenData = portfolioData?.data?.tokens || [];
     console.log(`Retrieved ${tokenData.length} tokens from Portfolio API`);
+    console.log("tokenData", tokenData);
 
     // Process the tokens and filter out zero balances in one pass
     const processedTokens = tokenData
       .filter((token: any) => {
+        // check if contract address is official usdc
+        const isOfficialUsdc =
+          token?.tokenAddress?.toLowerCase() === OFFICIAL_USDC_ADDRESS;
+
         // For native token or tokens without balance, use 0
         const balance = token.tokenBalance || "0x0";
         // Check if it's not zero (can be hex or decimal string)

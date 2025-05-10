@@ -13,6 +13,7 @@ import { VirtualizedTokenList } from "./VirtualizedTokenList";
 import { AddCustomToken } from "./AddCustomToken";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import showToast from "@/utils/toast";
+import { useAlphaMode } from "@/hooks/useAlphaMode";
 
 interface EnhancedTokenSelectorProps {
   isOpen: boolean;
@@ -37,7 +38,10 @@ export function EnhancedTokenSelector({
   onlyMainTokens = false,
   modalPosition,
 }: EnhancedTokenSelectorProps) {
-  const [activeTab, setActiveTab] = useState<"all" | "stages">("all");
+  // Check if alpha mode is enabled
+  const isAlphaMode = useAlphaMode();
+
+  const [activeTab, setActiveTab] = useState<"core" | "stages">("core");
   const [isAddTokenModalOpen, setIsAddTokenModalOpen] = useState(false);
   const [potentialTokenAddress, setPotentialTokenAddress] = useState<
     string | null
@@ -47,6 +51,7 @@ export function EnhancedTokenSelector({
 
   const {
     filteredTokens,
+    coreTokens,
     searchTerm,
     setSearchTerm,
     isLoading,
@@ -166,8 +171,10 @@ export function EnhancedTokenSelector({
 
   if (!isOpen) return null;
 
+  // Use core tokens for the "core" tab, and platform tokens for the "stages" tab
+  // For non-alpha users, we always show just the core tokens regardless of tab
   const currentTokens = getFilteredTokens(
-    activeTab === "all" ? filteredTokens.all : filteredTokens.platform // Use platform tokens for "stages" tab
+    !isAlphaMode || activeTab === "core" ? coreTokens : filteredTokens.platform
   );
 
   return (
@@ -215,29 +222,31 @@ export function EnhancedTokenSelector({
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex">
-            <button
-              className={`px-4 py-3 text-sm font-medium flex-1 ${
-                activeTab === "all"
-                  ? "text-white border-b-2 border-[#836ef9]"
-                  : "text-gray-400 hover:text-white border-b-0"
-              }`}
-              onClick={() => setActiveTab("all")}
-            >
-              All
-            </button>
-            <button
-              className={`px-4 py-3 text-sm font-medium flex-1 ${
-                activeTab === "stages"
-                  ? "text-white border-b-2 border-[#836ef9]"
-                  : "text-gray-400 hover:text-white border-b-0"
-              }`}
-              onClick={() => setActiveTab("stages")}
-            >
-              Stages
-            </button>
-          </div>
+          {/* Tabs - Only show if in alpha mode */}
+          {isAlphaMode && (
+            <div className="flex">
+              <button
+                className={`px-4 py-3 text-sm font-medium flex-1 ${
+                  activeTab === "core"
+                    ? "text-white border-b-2 border-[#836ef9]"
+                    : "text-gray-400 hover:text-white border-b-0"
+                }`}
+                onClick={() => setActiveTab("core")}
+              >
+                Core
+              </button>
+              <button
+                className={`px-4 py-3 text-sm font-medium flex-1 ${
+                  activeTab === "stages"
+                    ? "text-white border-b-2 border-[#836ef9]"
+                    : "text-gray-400 hover:text-white border-b-0"
+                }`}
+                onClick={() => setActiveTab("stages")}
+              >
+                Stages
+              </button>
+            </div>
+          )}
 
           {/* Token list or import section */}
           <div
@@ -288,7 +297,7 @@ export function EnhancedTokenSelector({
                   searchTerm
                     ? "No tokens found. Try a different search term."
                     : `No ${
-                        activeTab === "stages" ? "stage" : "matching"
+                        activeTab === "stages" ? "stage" : "core"
                       } tokens found.`
                 }
               />
@@ -303,7 +312,7 @@ export function EnhancedTokenSelector({
                   {searchTerm
                     ? "No tokens found. Try a different search term."
                     : `No ${
-                        activeTab === "stages" ? "stage" : "matching"
+                        activeTab === "stages" ? "stage" : "core"
                       } tokens found.`}
                 </p>
               </div>

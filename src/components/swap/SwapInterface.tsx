@@ -609,8 +609,6 @@ export function SwapInterface() {
 
   return (
     <div className="p-4 bg-[#1B1B1F] rounded-lg shadow-lg max-w-md mx-auto text-white">
-      <h2 className="text-2xl font-bold mb-6">Swap</h2>
-
       {/* Only render TokenInputSection if tokens are selected */}
       {inputToken && (
         <TokenInputSection
