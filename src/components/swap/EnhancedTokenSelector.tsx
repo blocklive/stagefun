@@ -210,113 +210,118 @@ export function EnhancedTokenSelector({
               </button>
             </div>
 
-            {/* Search input */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search by name or paste address"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 bg-[#1e1e2a] border border-[#20203a] rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-[#836ef9] placeholder:text-gray-500"
-              />
-            </div>
-          </div>
-
-          {/* Tabs - Only show if in alpha mode */}
-          {isAlphaMode && (
-            <div className="flex">
-              <button
-                className={`px-4 py-3 text-sm font-medium flex-1 ${
-                  activeTab === "core"
-                    ? "text-white border-b-2 border-[#836ef9]"
-                    : "text-gray-400 hover:text-white border-b-0"
-                }`}
-                onClick={() => setActiveTab("core")}
-              >
-                Core
-              </button>
-              <button
-                className={`px-4 py-3 text-sm font-medium flex-1 ${
-                  activeTab === "stages"
-                    ? "text-white border-b-2 border-[#836ef9]"
-                    : "text-gray-400 hover:text-white border-b-0"
-                }`}
-                onClick={() => setActiveTab("stages")}
-              >
-                Stages
-              </button>
-            </div>
-          )}
-
-          {/* Token list or import section */}
-          <div
-            className="overflow-auto flex-grow"
-            style={{ minHeight: "350px" }}
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center h-[350px] text-gray-400">
-                Loading tokens...
-              </div>
-            ) : detectedToken ? (
-              <div className="p-4 h-[350px]">
-                <div className="mb-4 bg-indigo-900/20 border border-indigo-900/50 rounded-lg p-4">
-                  <h4 className="text-white font-medium mb-2">Token found!</h4>
-                  <div className="text-sm text-gray-300 mb-4">
-                    <p>
-                      <span className="text-gray-400">Name:</span>{" "}
-                      {detectedToken.name}
-                    </p>
-                    <p>
-                      <span className="text-gray-400">Symbol:</span>{" "}
-                      {detectedToken.symbol}
-                    </p>
-                    <p>
-                      <span className="text-gray-400">Decimals:</span>{" "}
-                      {detectedToken.decimals}
-                    </p>
-                    <p className="text-yellow-300 text-xs mt-3">
-                      Warning: Make sure this is the correct token you want to
-                      import. Anyone can create a token with any name or symbol.
-                    </p>
-                  </div>
-                  <PrimaryButton onClick={handleImportToken} fullWidth>
-                    Import {detectedToken.symbol}
-                  </PrimaryButton>
-                </div>
-              </div>
-            ) : isDetecting ? (
-              <div className="flex items-center justify-center h-[350px] text-gray-400">
-                Checking address...
-              </div>
-            ) : currentTokens.length > 0 ? (
-              <VirtualizedTokenList
-                tokens={currentTokens}
-                onSelectToken={handleSelectToken}
-                height={350}
-                emptyMessage={
-                  searchTerm
-                    ? "No tokens found. Try a different search term."
-                    : `No ${
-                        activeTab === "stages" ? "stage" : "core"
-                      } tokens found.`
-                }
-              />
-            ) : potentialTokenAddress ? (
-              <div className="flex items-center justify-center h-[350px] text-gray-400">
-                No tokens found. Checking if address is valid...
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-[350px] px-6 py-8 text-center">
-                <ExclamationCircleIcon className="w-12 h-12 text-gray-500 mb-4" />
-                <p className="text-gray-400 text-base">
-                  {searchTerm
-                    ? "No tokens found. Try a different search term."
-                    : `No ${
-                        activeTab === "stages" ? "stage" : "core"
-                      } tokens found.`}
-                </p>
+            {/* Search input - Only show in alpha mode */}
+            {isAlphaMode && (
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search by name or paste address"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#1e1e2a] border border-[#20203a] rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-[#836ef9] placeholder:text-gray-500"
+                />
               </div>
             )}
+
+            {/* Tabs - Only show if in alpha mode */}
+            {isAlphaMode && (
+              <div className="flex">
+                <button
+                  className={`px-4 py-3 text-sm font-medium flex-1 ${
+                    activeTab === "core"
+                      ? "text-white border-b-2 border-[#836ef9]"
+                      : "text-gray-400 hover:text-white border-b-0"
+                  }`}
+                  onClick={() => setActiveTab("core")}
+                >
+                  Core
+                </button>
+                <button
+                  className={`px-4 py-3 text-sm font-medium flex-1 ${
+                    activeTab === "stages"
+                      ? "text-white border-b-2 border-[#836ef9]"
+                      : "text-gray-400 hover:text-white border-b-0"
+                  }`}
+                  onClick={() => setActiveTab("stages")}
+                >
+                  Stages
+                </button>
+              </div>
+            )}
+
+            {/* Token list or import section */}
+            <div
+              className="overflow-auto flex-grow"
+              style={{ minHeight: "350px" }}
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center h-[350px] text-gray-400">
+                  Loading tokens...
+                </div>
+              ) : detectedToken ? (
+                <div className="p-4 h-[350px]">
+                  <div className="mb-4 bg-indigo-900/20 border border-indigo-900/50 rounded-lg p-4">
+                    <h4 className="text-white font-medium mb-2">
+                      Token found!
+                    </h4>
+                    <div className="text-sm text-gray-300 mb-4">
+                      <p>
+                        <span className="text-gray-400">Name:</span>{" "}
+                        {detectedToken.name}
+                      </p>
+                      <p>
+                        <span className="text-gray-400">Symbol:</span>{" "}
+                        {detectedToken.symbol}
+                      </p>
+                      <p>
+                        <span className="text-gray-400">Decimals:</span>{" "}
+                        {detectedToken.decimals}
+                      </p>
+                      <p className="text-yellow-300 text-xs mt-3">
+                        Warning: Make sure this is the correct token you want to
+                        import. Anyone can create a token with any name or
+                        symbol.
+                      </p>
+                    </div>
+                    <PrimaryButton onClick={handleImportToken} fullWidth>
+                      Import {detectedToken.symbol}
+                    </PrimaryButton>
+                  </div>
+                </div>
+              ) : isDetecting ? (
+                <div className="flex items-center justify-center h-[350px] text-gray-400">
+                  Checking address...
+                </div>
+              ) : currentTokens.length > 0 ? (
+                <VirtualizedTokenList
+                  tokens={currentTokens}
+                  onSelectToken={handleSelectToken}
+                  height={350}
+                  emptyMessage={
+                    searchTerm
+                      ? "No tokens found. Try a different search term."
+                      : `No ${
+                          activeTab === "stages" ? "stage" : "core"
+                        } tokens found.`
+                  }
+                />
+              ) : potentialTokenAddress ? (
+                <div className="flex items-center justify-center h-[350px] text-gray-400">
+                  No tokens found. Checking if address is valid...
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-[350px] px-6 py-8 text-center">
+                  <ExclamationCircleIcon className="w-12 h-12 text-gray-500 mb-4" />
+                  <p className="text-gray-400 text-base">
+                    {searchTerm
+                      ? "No tokens found. Try a different search term."
+                      : `No ${
+                          activeTab === "stages" ? "stage" : "core"
+                        } tokens found.`}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
