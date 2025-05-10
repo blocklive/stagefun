@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+"use client";
+
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { ArrowDownIcon, ArrowsUpDownIcon } from "@heroicons/react/24/solid";
 import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
@@ -79,7 +81,8 @@ const TOKENS = [
 // Define a constant for the high price impact threshold
 const HIGH_PRICE_IMPACT_THRESHOLD = 15; // 15%
 
-export function SwapInterface() {
+// Internal component with all the logic
+function SwapInterfaceContent() {
   const { user } = usePrivy();
   // Use token list hook with onlyWithLiquidity = true for swap
   // And onlyMainTokens = true to only show MON, WMON, and USDC
@@ -767,5 +770,26 @@ export function SwapInterface() {
         </div>
       )}
     </div>
+  );
+}
+
+// Export the main component that wraps the content in Suspense
+export function SwapInterface() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full max-w-md mx-auto bg-[#1e1e2a] rounded-2xl shadow-md p-6 text-white">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-700 rounded mb-4"></div>
+            <div className="h-4 bg-gray-700 rounded w-3/4 mb-8"></div>
+            <div className="h-24 bg-gray-700 rounded mb-4"></div>
+            <div className="h-16 bg-gray-700 rounded mb-4"></div>
+            <div className="h-12 bg-gray-700 rounded"></div>
+          </div>
+        </div>
+      }
+    >
+      <SwapInterfaceContent />
+    </Suspense>
   );
 }
