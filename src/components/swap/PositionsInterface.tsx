@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+"use client";
+
+import React, { useState, useEffect, Suspense } from "react";
 import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { usePrivy } from "@privy-io/react-auth";
@@ -8,7 +10,8 @@ import { useSmartWallet } from "@/hooks/useSmartWallet";
 import { MyPoolsTable } from "./MyPoolsTable";
 import { AllPoolsTable } from "./AllPoolsTable";
 
-export function PositionsInterface() {
+// Wrap the main content in a Content component with Suspense
+function PositionsContent() {
   const router = useRouter();
   const { user } = usePrivy();
   const { positions, isLoading, refresh, error } = useLiquidityPositions();
@@ -184,5 +187,14 @@ export function PositionsInterface() {
           document.body
         )}
     </div>
+  );
+}
+
+// Export main component which wraps content in Suspense
+export function PositionsInterface() {
+  return (
+    <Suspense fallback={<div>Loading positions data...</div>}>
+      <PositionsContent />
+    </Suspense>
   );
 }

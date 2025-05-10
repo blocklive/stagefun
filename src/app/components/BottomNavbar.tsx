@@ -3,9 +3,10 @@
 import { useRouter } from "next/navigation";
 import { IoFlash } from "react-icons/io5";
 import { FaTrophy } from "react-icons/fa";
+import { BiTransfer } from "react-icons/bi";
 
 interface BottomNavbarProps {
-  activeTab?: "party" | "portfolio" | "leaderboard" | "";
+  activeTab?: "party" | "portfolio" | "leaderboard" | "swap" | "";
   isAuthenticated?: boolean;
 }
 
@@ -50,6 +51,24 @@ export default function BottomNavbar({
           }`}
         >
           Party Rounds
+        </span>
+      </div>
+
+      <div
+        className="flex flex-col items-center"
+        onClick={() => router.push("/swap")}
+      >
+        <BiTransfer
+          className={`text-2xl ${
+            activeTab === "swap" ? "text-[#8B7EF8]" : "text-gray-500"
+          }`}
+        />
+        <span
+          className={`text-xs mt-1 ${
+            activeTab === "swap" ? "text-[#8B7EF8]" : "text-gray-500"
+          }`}
+        >
+          Swap
         </span>
       </div>
 

@@ -94,9 +94,11 @@ const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
   });
 };
 
-export function SwapPoolInterface() {
+// Internal component with all the logic
+function SwapPoolInterfaceContent() {
   const { user } = usePrivy();
   const { smartWalletAddress } = useSmartWallet();
+  const searchParamsHook = useSearchParams();
 
   // Set a loading state for initial render
   const [initialLoading, setInitialLoading] = useState(true);
@@ -220,7 +222,7 @@ export function SwapPoolInterface() {
         tokenA &&
         token.address &&
         tokenA.address &&
-        token.address.toLowerCase() === tokenA.address.toLowerCase()
+        token.address.toLowerCase() === token.address.toLowerCase()
       ) {
         // Swap the tokens to maintain uniqueness
         console.log(
@@ -272,9 +274,8 @@ export function SwapPoolInterface() {
 
   // Check for URL parameters
   const checkForURLParams = useCallback(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    return searchParams.has("tokenA") || searchParams.has("tokenB");
-  }, []);
+    return searchParamsHook.has("tokenA") || searchParamsHook.has("tokenB");
+  }, [searchParamsHook]);
 
   // For non-URL tokens, handle the initialization
   useEffect(() => {
@@ -569,5 +570,27 @@ export function SwapPoolInterface() {
       {/* Information card */}
       <InfoCard poolExists={poolExists} />
     </div>
+  );
+}
+
+// Export the main component that wraps the content in Suspense
+export function SwapPoolInterface() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full max-w-md mx-auto bg-[#1e1e2a] rounded-2xl shadow-md p-6 text-white">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-700 rounded mb-4"></div>
+            <div className="h-4 bg-gray-700 rounded w-3/4 mb-8"></div>
+            <div className="h-24 bg-gray-700 rounded mb-4"></div>
+            <div className="h-16 bg-gray-700 rounded mb-4"></div>
+            <div className="h-16 bg-gray-700 rounded mb-4"></div>
+            <div className="h-12 bg-gray-700 rounded"></div>
+          </div>
+        </div>
+      }
+    >
+      <SwapPoolInterfaceContent />
+    </Suspense>
   );
 }

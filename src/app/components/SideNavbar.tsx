@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { IoFlash } from "react-icons/io5";
 import { FaTrophy } from "react-icons/fa";
+import { BiTransfer } from "react-icons/bi";
 
 interface SideNavbarProps {
-  activeTab?: "party" | "portfolio" | "leaderboard" | "";
+  activeTab?: "party" | "portfolio" | "leaderboard" | "swap" | "";
   isAuthenticated?: boolean;
 }
 
@@ -59,6 +60,25 @@ export default function SideNavbar({
             }`}
           >
             Party Rounds
+          </span>
+        </div>
+
+        {/* Swap */}
+        <div
+          className="flex items-center cursor-pointer px-4 py-3 rounded-full hover:bg-[#FFFFFF14] transition-colors"
+          onClick={() => router.push("/swap")}
+        >
+          <BiTransfer
+            className={`text-2xl mr-4 ${
+              activeTab === "swap" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          />
+          <span
+            className={`text-lg ${
+              activeTab === "swap" ? "text-[#8B7EF8]" : "text-gray-500"
+            }`}
+          >
+            Swap
           </span>
         </div>
 
