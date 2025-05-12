@@ -320,6 +320,7 @@ function SwapPoolInterfaceContent() {
 
   // Slippage tolerance
   const [slippageTolerance, setSlippageTolerance] = useState("0.5");
+  const [isAutoSlippage, setIsAutoSlippage] = useState(true);
 
   // Loading state
   const [isAddingLiquidity, setIsAddingLiquidity] = useState(false);
@@ -333,6 +334,14 @@ function SwapPoolInterfaceContent() {
     calculatePairedAmount,
     getDisplayRatio,
   } = usePoolManager(tokenA, tokenB);
+
+  // Force check pool exists when tokens change, especially when navigating from other tabs
+  useEffect(() => {
+    if (tokenA && tokenB && tokenA.address && tokenB.address) {
+      console.log("Forcing pool check on token change");
+      checkPoolExists().catch(console.error);
+    }
+  }, [tokenA.address, tokenB.address, checkPoolExists]);
 
   // Get token balances using the WalletAssetsAdapter hook for consistency with swap page
   const {
@@ -572,10 +581,14 @@ function SwapPoolInterfaceContent() {
       </div>
 
       {/* Slippage settings */}
-      <SlippageSettings
-        slippageTolerance={slippageTolerance}
-        onChange={setSlippageTolerance}
-      />
+      <div className="mb-6">
+        <SlippageSettings
+          slippageTolerance={slippageTolerance}
+          onChange={setSlippageTolerance}
+          isAuto={isAutoSlippage}
+          setIsAuto={setIsAutoSlippage}
+        />
+      </div>
 
       {/* Add liquidity button and error display */}
       <LiquidityActions
