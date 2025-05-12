@@ -47,7 +47,7 @@ export function AmountInput({
           onChange={handleChange}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full py-2 pl-0 pr-3 text-xl bg-transparent border-none text-white rounded-lg focus:outline-none ${
+          className={`w-full pl-0 pr-3 py-2 text-xl bg-transparent border-none text-white rounded-lg focus:outline-none ${
             disabled ? "cursor-not-allowed bg-gray-800/30" : ""
           }`}
           inputMode="decimal"

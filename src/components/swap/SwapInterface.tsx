@@ -690,7 +690,7 @@ function SwapInterfaceContent() {
 
       {/* Price info */}
       {inputToken && outputToken && inputAmount && outputAmount && (
-        <div className="mt-4 mb-6 p-3 bg-gray-800 rounded-lg text-sm">
+        <div className="mt-4 mb-6 p-3 rounded-lg text-sm">
           <div className="flex justify-between">
             <span className="text-gray-400">Price</span>
             <span>

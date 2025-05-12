@@ -50,6 +50,10 @@ export function TokenInputSection({
     onChange(amount);
   };
 
+  // Common styles to ensure alignment
+  const inputContainerStyle = { paddingLeft: "5px" };
+  const usdValueStyle = { paddingLeft: "7px" };
+
   return (
     <div className="mb-4">
       {tagLabel && (
@@ -58,11 +62,11 @@ export function TokenInputSection({
         </div>
       )}
 
-      <div className="border border-gray-700 rounded-lg p-3 bg-[#1e1e2a]/50">
+      <div className="rounded-lg p-3 bg-[#FFFFFF0A]">
         {/* Input and token selector in one row */}
         <div className="flex items-center">
           {/* Left side: Input amount (taking more space) */}
-          <div className="flex-grow mr-2 pl-3">
+          <div className="flex-grow mr-2" style={inputContainerStyle}>
             <AmountInput
               value={value}
               onChange={onChange}
@@ -87,7 +91,7 @@ export function TokenInputSection({
         {/* USD value and Balance on the same line */}
         <div className="flex justify-between mt-1 text-sm text-gray-400">
           {/* USD value on the left - always show with $0 as default */}
-          <div className="pl-3">${usdValue || "0"}</div>
+          <div style={usdValueStyle}>${usdValue || "0"}</div>
 
           {/* Balance on the right */}
           <div>
@@ -101,10 +105,10 @@ export function TokenInputSection({
 
         {/* Percentage buttons - only show if hideBuyingControls is false */}
         {!hideBuyingControls && (
-          <div className="mt-2" style={{ paddingLeft: "10px" }}>
+          <div className="mt-2 -ml-2.5">
             <button
               type="button"
-              className="px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30 mr-2"
+              className="mr-2 px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30"
               onClick={() => handlePercentClick(0.25)}
               disabled={disabled || balanceLoading}
             >
@@ -112,7 +116,7 @@ export function TokenInputSection({
             </button>
             <button
               type="button"
-              className="px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30 mr-2"
+              className="mr-2 px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30"
               onClick={() => handlePercentClick(0.5)}
               disabled={disabled || balanceLoading}
             >
