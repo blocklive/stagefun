@@ -8,8 +8,6 @@ interface AmountInputProps {
   disabled?: boolean;
   max?: string;
   className?: string;
-  showMaxButton?: boolean;
-  onMaxClick?: () => void;
 }
 
 export function AmountInput({
@@ -20,8 +18,6 @@ export function AmountInput({
   disabled = false,
   max,
   className = "",
-  showMaxButton = false,
-  onMaxClick,
 }: AmountInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
@@ -51,24 +47,14 @@ export function AmountInput({
           onChange={handleChange}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full px-3 py-2 text-xl bg-transparent border border-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#836ef9] ${
-            disabled ? "cursor-not-allowed bg-gray-800" : ""
+          className={`w-full py-2 pl-0 pr-3 text-xl bg-transparent border-none text-white rounded-lg focus:outline-none ${
+            disabled ? "cursor-not-allowed bg-gray-800/30" : ""
           }`}
           inputMode="decimal"
           autoComplete="off"
           autoCorrect="off"
           pattern="^[0-9]*[.,]?[0-9]*$"
         />
-        {showMaxButton && onMaxClick && (
-          <button
-            type="button"
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30"
-            onClick={onMaxClick}
-            disabled={disabled}
-          >
-            MAX
-          </button>
-        )}
       </div>
     </div>
   );

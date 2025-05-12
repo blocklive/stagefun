@@ -16,6 +16,10 @@ interface TokenInputSectionProps {
   secondaryDisabled?: boolean;
   balanceLoading?: boolean;
   tokenLoading?: boolean;
+  tagLabel?: string;
+  showUsdValue?: boolean;
+  usdValue?: string;
+  hideBuyingControls?: boolean;
 }
 
 export function TokenInputSection({
@@ -30,52 +34,100 @@ export function TokenInputSection({
   secondaryDisabled = false,
   balanceLoading = false,
   tokenLoading = false,
+  tagLabel,
+  showUsdValue = false,
+  usdValue,
+  hideBuyingControls = false,
 }: TokenInputSectionProps) {
-  return (
-    <div className="mb-2">
-      <div className="flex justify-between items-center mb-1">
-        <label className="text-sm text-gray-400">{label}</label>
+  // Helper function to handle percentage buttons
+  const handlePercentClick = (percent: number) => {
+    if (balanceLoading || !balance) return;
 
-        <div className="text-sm flex items-center">
-          {balanceLoading ? (
-            <BalanceSkeleton />
-          ) : (
-            <div className="flex items-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 text-gray-400 mr-1"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                />
-              </svg>
-              <span className="font-medium text-gray-300">{balance}</span>
-            </div>
-          )}
+    const balanceNum = parseFloat(balance);
+    if (isNaN(balanceNum) || balanceNum <= 0) return;
+
+    const amount = (balanceNum * percent).toString();
+    onChange(amount);
+  };
+
+  return (
+    <div className="mb-4">
+      {tagLabel && (
+        <div className="mb-2">
+          <span className="text-sm text-gray-400">{tagLabel}</span>
         </div>
-      </div>
-      <AmountInput
-        value={value}
-        onChange={onChange}
-        max={balance}
-        showMaxButton={!balanceLoading}
-        onMaxClick={() => onChange(balance)}
-        disabled={disabled || balanceLoading}
-      />
-      <div className="mt-2">
-        <TokenSelector
-          selectedToken={token}
-          onTokenSelect={onTokenSelect}
-          tokens={tokens}
-          disabled={disabled || secondaryDisabled}
-          loading={tokenLoading}
-        />
+      )}
+
+      <div className="border border-gray-700 rounded-lg p-3 bg-[#1e1e2a]/50">
+        {/* Input and token selector in one row */}
+        <div className="flex items-center">
+          {/* Left side: Input amount (taking more space) */}
+          <div className="flex-grow mr-2 pl-3">
+            <AmountInput
+              value={value}
+              onChange={onChange}
+              max={balance}
+              disabled={disabled || balanceLoading}
+              className="w-full"
+            />
+          </div>
+
+          {/* Right side: Token selector */}
+          <div className="flex-shrink-0">
+            <TokenSelector
+              selectedToken={token}
+              onTokenSelect={onTokenSelect}
+              tokens={tokens}
+              disabled={disabled || secondaryDisabled}
+              loading={tokenLoading}
+            />
+          </div>
+        </div>
+
+        {/* USD value and Balance on the same line */}
+        <div className="flex justify-between mt-1 text-sm text-gray-400">
+          {/* USD value on the left - always show with $0 as default */}
+          <div className="pl-3">${usdValue || "0"}</div>
+
+          {/* Balance on the right */}
+          <div>
+            {balanceLoading ? (
+              <BalanceSkeleton />
+            ) : (
+              <span>Balance: {balance}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Percentage buttons - only show if hideBuyingControls is false */}
+        {!hideBuyingControls && (
+          <div className="mt-2" style={{ paddingLeft: "10px" }}>
+            <button
+              type="button"
+              className="px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30 mr-2"
+              onClick={() => handlePercentClick(0.25)}
+              disabled={disabled || balanceLoading}
+            >
+              25%
+            </button>
+            <button
+              type="button"
+              className="px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30 mr-2"
+              onClick={() => handlePercentClick(0.5)}
+              disabled={disabled || balanceLoading}
+            >
+              50%
+            </button>
+            <button
+              type="button"
+              className="px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30"
+              onClick={() => handlePercentClick(1)}
+              disabled={disabled || balanceLoading}
+            >
+              MAX
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

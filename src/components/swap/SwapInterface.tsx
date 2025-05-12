@@ -611,11 +611,11 @@ function SwapInterfaceContent() {
   };
 
   return (
-    <div className="p-4 bg-[#1B1B1F] rounded-lg shadow-lg max-w-md mx-auto text-white">
+    <div className="p-6 bg-[#1B1B1F] rounded-2xl shadow-lg max-w-md mx-auto text-white">
       {/* Only render TokenInputSection if tokens are selected */}
       {inputToken && (
         <TokenInputSection
-          label="From"
+          tagLabel="Selling"
           value={inputAmount}
           onChange={setInputAmount}
           token={inputToken}
@@ -625,6 +625,22 @@ function SwapInterfaceContent() {
           disabled={isLoading}
           balanceLoading={balanceLoading}
           tokenLoading={isTokensLoading}
+          showUsdValue={true}
+          usdValue={
+            inputAmount && parseFloat(inputAmount) > 0
+              ? formatTokenAmount(
+                  parseFloat(inputAmount) *
+                    (inputToken.symbol === "USDC"
+                      ? 1
+                      : outputToken &&
+                        outputToken.symbol === "USDC" &&
+                        outputAmount
+                      ? parseFloat(outputAmount) / parseFloat(inputAmount)
+                      : 0),
+                  2
+                )
+              : "0"
+          }
         />
       )}
 
@@ -642,7 +658,7 @@ function SwapInterfaceContent() {
       {/* Only render output TokenInputSection if tokens are selected */}
       {outputToken && (
         <TokenInputSection
-          label="To"
+          tagLabel="Buying"
           value={outputAmount}
           onChange={() => {}} // Read-only for output in exactIn mode
           token={outputToken}
@@ -652,12 +668,29 @@ function SwapInterfaceContent() {
           disabled={isLoading}
           balanceLoading={balanceLoading}
           tokenLoading={isTokensLoading}
+          showUsdValue={true}
+          usdValue={
+            outputAmount && parseFloat(outputAmount) > 0
+              ? formatTokenAmount(
+                  parseFloat(outputAmount) *
+                    (outputToken.symbol === "USDC"
+                      ? 1
+                      : inputToken &&
+                        inputToken.symbol === "USDC" &&
+                        inputAmount
+                      ? parseFloat(inputAmount) / parseFloat(outputAmount)
+                      : 0),
+                  2
+                )
+              : "0"
+          }
+          hideBuyingControls={true} // Hide percentage controls for the "Buying" section
         />
       )}
 
       {/* Price info */}
       {inputToken && outputToken && inputAmount && outputAmount && (
-        <div className="mb-6 p-3 bg-gray-800 rounded-lg text-sm">
+        <div className="mt-4 mb-6 p-3 bg-gray-800 rounded-lg text-sm">
           <div className="flex justify-between">
             <span className="text-gray-400">Price</span>
             <span>
@@ -778,7 +811,7 @@ export function SwapInterface() {
   return (
     <Suspense
       fallback={
-        <div className="w-full max-w-md mx-auto bg-[#1e1e2a] rounded-2xl shadow-md p-6 text-white">
+        <div className="w-full max-w-md mx-auto bg-[#1B1B1F] rounded-2xl shadow-md p-6 text-white">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-700 rounded mb-4"></div>
             <div className="h-4 bg-gray-700 rounded w-3/4 mb-8"></div>

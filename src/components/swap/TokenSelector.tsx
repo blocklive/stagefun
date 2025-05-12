@@ -42,7 +42,7 @@ export function TokenSelector({
     if (isOpen && containerRef.current) {
       // Look for the swap container (the main card containing the swap UI)
       const swapContainer = document.querySelector(
-        ".max-w-md.mx-auto.bg-\\[\\#1e1e2a\\]"
+        ".max-w-md.mx-auto.bg-\\[\\#1B1B1F\\]"
       );
 
       if (swapContainer) {
@@ -82,7 +82,7 @@ export function TokenSelector({
     <div ref={containerRef}>
       <button
         type="button"
-        className={`flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-700 transition-colors ${
+        className={`flex items-center space-x-2 p-2 px-3 bg-gray-800/30 rounded-lg hover:bg-gray-700 transition-colors ${
           disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
         }`}
         onClick={() => !disabled && setIsOpen(true)}
@@ -110,7 +110,7 @@ export function TokenSelector({
             </div>
           </>
         ) : (
-          <span className="font-medium">Select a token</span>
+          <span className="font-medium">Select</span>
         )}
         <ChevronDownIcon className="h-4 w-4 text-gray-400" />
       </button>
