@@ -18,6 +18,7 @@ import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useTokenList } from "@/hooks/useTokenList";
 import { Token } from "@/types/token";
 import { useSwapPriceImpact } from "@/hooks/useSwapPriceImpact";
+import { SlippageSettings } from "./SlippageSettings";
 
 // Get the WMON address from the contracts file
 const WMON_ADDRESS = CONTRACT_ADDRESSES.monadTestnet.officialWmon;
@@ -102,6 +103,15 @@ function SwapInterfaceContent() {
   const [isExactIn, setIsExactIn] = useState(true);
   const [isSwapping, setIsSwapping] = useState(false);
 
+  // Add slippage tolerance state - set Auto mode as default
+  const [slippageTolerance, setSlippageTolerance] = useState("0.5");
+  const [isAutoSlippage, setIsAutoSlippage] = useState(true);
+
+  // Calculate actual slippage value
+  const actualSlippageValue = isAutoSlippage
+    ? 0.005
+    : parseFloat(slippageTolerance) / 100;
+
   // Create wrapper functions for token selection that implement auto-switching
   const handleInputTokenSelect = (token: Token) => {
     // If user selects the same token that's already in the output field
@@ -135,6 +145,7 @@ function SwapInterfaceContent() {
     outputAmount,
     inputToken,
     outputToken,
+    slippageTolerance: actualSlippageValue,
   });
 
   // Initialize tokens when allTokens are loaded
@@ -361,6 +372,20 @@ function SwapInterfaceContent() {
     getQuote();
   }, [inputAmount, inputToken, outputToken, getAmountsOut]);
 
+  // Calculate minimum output amount using the current slippage tolerance
+  const getMinimumOutputAmount = () => {
+    if (!outputAmount || parseFloat(outputAmount) === 0 || !outputToken) {
+      return "0";
+    }
+
+    const slippageFactor = isAutoSlippage
+      ? 0.995
+      : 1 - parseFloat(slippageTolerance) / 100;
+    return (parseFloat(outputAmount) * slippageFactor).toFixed(
+      outputToken.decimals
+    );
+  };
+
   // Handle swap
   const handleSwap = async () => {
     if (!user) {
@@ -410,12 +435,9 @@ function SwapInterfaceContent() {
         .parseUnits(inputAmount, inputToken.decimals)
         .toString();
 
-      // Set a minimum output amount with 0.5% slippage
+      // Set a minimum output amount with slippage tolerance
       const minOutputAmount = ethers
-        .parseUnits(
-          (parseFloat(outputAmount) * 0.995).toFixed(outputToken.decimals),
-          outputToken.decimals
-        )
+        .parseUnits(getMinimumOutputAmount(), outputToken.decimals)
         .toString();
 
       // Set deadline to 20 minutes from now
@@ -688,9 +710,19 @@ function SwapInterfaceContent() {
         />
       )}
 
+      {/* Slippage settings at bottom left */}
+      <div className="flex justify-start mt-3 mb-3">
+        <SlippageSettings
+          slippageTolerance={slippageTolerance}
+          onChange={setSlippageTolerance}
+          isAuto={isAutoSlippage}
+          setIsAuto={setIsAutoSlippage}
+        />
+      </div>
+
       {/* Price info */}
       {inputToken && outputToken && inputAmount && outputAmount && (
-        <div className="mt-4 mb-6 p-3 rounded-lg text-sm">
+        <div className="mt-2 mb-6 p-3 rounded-lg text-sm">
           <div className="flex justify-between">
             <span className="text-gray-400">Price</span>
             <span>
