@@ -22,6 +22,7 @@ export interface User {
   twitter_username?: string;
   avatar_url?: string;
   created_at: string;
+  alpha_mode?: boolean;
 }
 
 export type Pool = {

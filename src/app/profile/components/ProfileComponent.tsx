@@ -45,6 +45,7 @@ import { useWalletNFTs } from "../../../hooks/useWalletNFTs";
 import NFTList from "./NFTList";
 import ProfileSkeleton from "./ProfileSkeleton";
 import NFTSkeleton from "./NFTSkeleton";
+import SettingsButton from "./SettingsButton";
 
 interface ProfileComponentProps {
   isUsernameRoute?: boolean;
@@ -631,6 +632,9 @@ export default function ProfileComponent({
                             Export Keys
                           </span>
                         </button>
+
+                        {/* Settings Button */}
+                        <SettingsButton />
                       </div>
                     )}
                   </>
