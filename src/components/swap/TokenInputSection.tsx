@@ -46,8 +46,18 @@ export function TokenInputSection({
     const balanceNum = parseFloat(balance);
     if (isNaN(balanceNum) || balanceNum <= 0) return;
 
-    const amount = (balanceNum * percent).toString();
-    onChange(amount);
+    // Calculate the percentage amount
+    const calculatedAmount = balanceNum * percent;
+
+    // Format to avoid excessive decimals based on token decimals
+    // Use at most 6 decimal places or the token's decimals, whichever is smaller
+    const maxDecimals = Math.min(token.decimals, 6);
+    const formattedAmount = calculatedAmount.toFixed(maxDecimals);
+
+    // Remove trailing zeros
+    const trimmedAmount = parseFloat(formattedAmount).toString();
+
+    onChange(trimmedAmount);
   };
 
   // Common styles to ensure alignment

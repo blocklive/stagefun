@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 interface AmountInputProps {
   value: string;
@@ -19,6 +19,18 @@ export function AmountInput({
   max,
   className = "",
 }: AmountInputProps) {
+  // Limit display value to 8 decimal places
+  useEffect(() => {
+    if (value.includes(".")) {
+      const parts = value.split(".");
+      if (parts[1] && parts[1].length > 8) {
+        // Format to 8 decimal places for display
+        const newValue = `${parts[0]}.${parts[1].substring(0, 8)}`;
+        onChange(newValue);
+      }
+    }
+  }, [value, onChange]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
 

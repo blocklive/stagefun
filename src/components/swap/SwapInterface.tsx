@@ -41,16 +41,32 @@ const WMON_ABI = [
 const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
   // For very small numbers, use scientific notation below a certain threshold
   if (quantity > 0 && quantity < 0.000001) {
-    return quantity.toExponential(6);
+    return quantity.toExponential(2); // Reduce from 6 to 2 significant digits for readability
   }
 
   // Otherwise use regular formatting with appropriate decimals
+  // Cap at 6 decimals max as requested, or fewer based on token decimals
   const maxDecimals = Math.min(decimals, 6);
+
+  // For larger numbers (>=0.01), use fewer decimal places for better readability
+  const effectiveDecimals =
+    quantity >= 0.01 ? Math.min(maxDecimals, 4) : maxDecimals;
 
   return quantity.toLocaleString(undefined, {
     minimumFractionDigits: 0,
-    maximumFractionDigits: maxDecimals,
+    maximumFractionDigits: effectiveDecimals,
   });
+};
+
+// Format long input values to maximum 8 decimal places for display
+const formatInputDisplay = (value: string): string => {
+  if (value.includes(".")) {
+    const parts = value.split(".");
+    if (parts[1] && parts[1].length > 8) {
+      return `${parts[0]}.${parts[1].substring(0, 8)}`;
+    }
+  }
+  return value;
 };
 
 // Token data with real contract addresses
@@ -325,9 +341,26 @@ function SwapInterfaceContent() {
           : outputToken.address;
         const path = [adjustedInputAddress, adjustedOutputAddress];
 
-        // Get Actual Output for User's Input Amount
+        // Ensure proper formatting to avoid the "too many decimals" error
+        // Format the input amount based on the token's decimals
+        // We need to ensure the number doesn't have more decimal places than the token supports
+        let formattedInput = inputAmount;
+
+        // If the input contains a decimal, ensure it doesn't exceed the token's decimal places
+        if (inputAmount.includes(".")) {
+          const parts = inputAmount.split(".");
+          // If the decimal part is longer than the token's decimals, truncate it
+          if (parts[1].length > inputToken.decimals) {
+            formattedInput = `${parts[0]}.${parts[1].substring(
+              0,
+              inputToken.decimals
+            )}`;
+          }
+        }
+
+        // Convert formatted input to Wei
         const amountInWei = ethers
-          .parseUnits(inputAmount, inputToken.decimals)
+          .parseUnits(formattedInput, inputToken.decimals)
           .toString();
 
         const actualQuoteResult = await getAmountsOut({
@@ -363,9 +396,19 @@ function SwapInterfaceContent() {
       } catch (error) {
         console.error("Error getting quote:", error);
         setOutputAmount("");
-        showToast.error(
-          error instanceof Error ? error.message : "Error calculating quote."
-        );
+        // Check specifically for the "too many decimals" error
+        if (
+          error instanceof Error &&
+          error.message.includes("too many decimals")
+        ) {
+          showToast.error(
+            "The amount has too many decimal places. Please adjust the input amount."
+          );
+        } else {
+          showToast.error(
+            error instanceof Error ? error.message : "Error calculating quote."
+          );
+        }
       }
     };
 
@@ -381,9 +424,17 @@ function SwapInterfaceContent() {
     const slippageFactor = isAutoSlippage
       ? 0.995
       : 1 - parseFloat(slippageTolerance) / 100;
-    return (parseFloat(outputAmount) * slippageFactor).toFixed(
-      outputToken.decimals
-    );
+
+    // Calculate the minimum amount with slippage applied
+    const minAmount = parseFloat(outputAmount) * slippageFactor;
+
+    // Format to the appropriate number of decimals for the token
+    // Use at most the token's decimals (capped at 8 to be safe)
+    const maxDecimals = Math.min(outputToken.decimals, 8);
+    const result = minAmount.toFixed(maxDecimals);
+
+    // Format the display for UI
+    return formatInputDisplay(result);
   };
 
   // Handle swap
@@ -638,7 +689,7 @@ function SwapInterfaceContent() {
       {inputToken && (
         <TokenInputSection
           tagLabel="Selling"
-          value={inputAmount}
+          value={formatInputDisplay(inputAmount)}
           onChange={setInputAmount}
           token={inputToken}
           onTokenSelect={handleInputTokenSelect}
@@ -681,7 +732,7 @@ function SwapInterfaceContent() {
       {outputToken && (
         <TokenInputSection
           tagLabel="Buying"
-          value={outputAmount}
+          value={formatInputDisplay(outputAmount)}
           onChange={() => {}} // Read-only for output in exactIn mode
           token={outputToken}
           onTokenSelect={handleOutputTokenSelect}
@@ -773,8 +824,8 @@ function SwapInterfaceContent() {
                   outputToken.address === WMON_ADDRESS) ||
                 (outputToken.address === "NATIVE" &&
                   inputToken.address === WMON_ADDRESS)
-                  ? inputAmount // Exact 1:1 conversion
-                  : minimumReceived}{" "}
+                  ? formatInputDisplay(inputAmount) // Exact 1:1 conversion, but format display
+                  : formatInputDisplay(minimumReceived)}{" "}
                 {outputToken.symbol}
               </span>
             </div>
