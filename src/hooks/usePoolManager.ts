@@ -28,8 +28,6 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
   const prevTokensRef = useRef<{ tokenA: string; tokenB: string } | null>(null);
   // Add a ref to track if a check is in progress
   const isCheckingRef = useRef(false);
-  // Timeout ref for debouncing
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if pool exists and get reserves
   const checkPoolExists = useCallback(async () => {
@@ -40,6 +38,17 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
     try {
       // Set checking flag
       isCheckingRef.current = true;
+
+      console.log("Starting pool existence check for:", {
+        tokenA: {
+          symbol: tokenA.symbol,
+          address: tokenA.address,
+        },
+        tokenB: {
+          symbol: tokenB.symbol,
+          address: tokenB.address,
+        },
+      });
 
       // Validate addresses before making contract calls
       const isValidAddressA =
@@ -80,6 +89,8 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
           effectiveTokenBAddress
         );
         setPairAddress(pairAddress);
+
+        console.log("Pair address result:", pairAddress);
 
         // If zero address, no pool exists
         if (pairAddress === "0x0000000000000000000000000000000000000000") {
@@ -146,10 +157,45 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
           reserveBValue === 0 ||
           reserveBValue < DUST_THRESHOLD;
 
-        if (isPoolEmpty) {
+        console.log(
+          `Pool emptiness check: reserveA=${reserveAValue}, reserveB=${reserveBValue}, DUST_THRESHOLD=${DUST_THRESHOLD}, isPoolEmpty=${isPoolEmpty}`
+        );
+
+        // Check total supply too - if there are no LP tokens, treat as empty pool
+        const totalSupplyValue = Number(ethers.formatUnits(totalSupply, 18));
+
+        // For LP tokens, use a much smaller threshold - LP tokens can be very small
+        // even when the pool has significant reserves
+        const LP_DUST_THRESHOLD = 1e-12; // Extremely small threshold for LP tokens
+        const isLpSupplyEmpty =
+          totalSupplyValue === 0 || totalSupplyValue < LP_DUST_THRESHOLD;
+
+        console.log(
+          `LP supply check: totalSupply=${totalSupplyValue}, LP_DUST_THRESHOLD=${LP_DUST_THRESHOLD}, isLpSupplyEmpty=${isLpSupplyEmpty}`
+        );
+
+        console.log(
+          `Total LP supply: ${totalSupplyValue}, isLpSupplyEmpty: ${isLpSupplyEmpty}`
+        );
+
+        // If both tokens have significant reserves, consider pool as valid regardless of LP supply
+        const SIGNIFICANT_RESERVE = 1.0; // Higher threshold for significant reserves
+        const hasSignificantReserves =
+          reserveAValue > SIGNIFICANT_RESERVE &&
+          reserveBValue > SIGNIFICANT_RESERVE;
+
+        console.log(
+          `Significant reserves check: reserveA=${reserveAValue}, reserveB=${reserveBValue}, SIGNIFICANT_RESERVE=${SIGNIFICANT_RESERVE}, hasSignificantReserves=${hasSignificantReserves}`
+        );
+
+        // Consider the pool empty if reserves are low OR (LP supply is empty AND there are no significant reserves)
+        const considerPoolEmpty =
+          isPoolEmpty || (isLpSupplyEmpty && !hasSignificantReserves);
+
+        if (considerPoolEmpty) {
           // Pool exists but is effectively empty - treat it like a new pool
           console.log(
-            "Pool exists but has minimal reserves, treating as new pool"
+            `Pool exists but treating as new pool because: isPoolEmpty=${isPoolEmpty}, isLpSupplyEmpty=${isLpSupplyEmpty}, hasSignificantReserves=${hasSignificantReserves}`
           );
           setPoolExists(false);
           setPoolRatio(null);
@@ -298,30 +344,20 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
 
     console.log("Token change effect triggered");
 
-    // Save current tokens to ref
+    // Save current tokens to ref for future comparisons
     prevTokensRef.current = { tokenA: currentTokenA, tokenB: currentTokenB };
 
-    // Clear any existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    // Check immediately with a minimal delay
-    timeoutRef.current = setTimeout(() => {
-      // Reset poolExists to null to show loading state
+    // Only if not already checking, reset the state and check pool existence
+    if (!isCheckingRef.current) {
+      // Reset poolExists to false to show loading state
       setPoolExists(false);
       setPoolRatio(null);
 
-      // Execute the check
+      // Execute the check immediately without setTimeout
       checkPoolExists().catch(console.error);
-    }, 100); // Reduce timeout to 100ms for faster response
+    }
 
-    // Cleanup
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
+    // No need for cleanup since we're not using timeouts
   }, [tokenA.address, tokenB.address, checkPoolExists, poolExists]);
 
   // Add a component mount effect to force check on page load/navigation

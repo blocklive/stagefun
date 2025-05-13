@@ -329,15 +329,28 @@ function SwapPoolInterfaceContent() {
   // Loading state
   const [isAddingLiquidity, setIsAddingLiquidity] = useState(false);
 
+  // Add state to track when pool check is in progress
+  const [isCheckingPool, setIsCheckingPool] = useState(false);
+
   // Use custom hook for pool-related logic
   const {
     poolExists,
     poolRatio,
     pairAddress,
-    checkPoolExists,
+    checkPoolExists: originalCheckPoolExists,
     calculatePairedAmount,
     getDisplayRatio,
   } = usePoolManager(tokenA, tokenB);
+
+  // Wrap checkPoolExists to track loading state
+  const checkPoolExists = useCallback(async () => {
+    try {
+      setIsCheckingPool(true);
+      return await originalCheckPoolExists();
+    } finally {
+      setIsCheckingPool(false);
+    }
+  }, [originalCheckPoolExists]);
 
   // Force check pool exists when tokens change, especially when navigating from other tabs
   useEffect(() => {
@@ -346,6 +359,21 @@ function SwapPoolInterfaceContent() {
       checkPoolExists().catch(console.error);
     }
   }, [tokenA.address, tokenB.address, checkPoolExists]);
+
+  // Special effect to force check pool exists after URL parameters are processed
+  useEffect(() => {
+    if (
+      initialLoadComplete &&
+      tokenA &&
+      tokenB &&
+      tokenA.address &&
+      tokenB.address
+    ) {
+      console.log("URL params processed, forcing pool existence check");
+      // Perform immediate check without setTimeout
+      checkPoolExists().catch(console.error);
+    }
+  }, [initialLoadComplete, tokenA, tokenB, checkPoolExists]);
 
   // Get token balances using the WalletAssetsAdapter hook for consistency with swap page
   const {
@@ -519,6 +547,7 @@ function SwapPoolInterfaceContent() {
         tokenASymbol={tokenA.symbol}
         tokenBSymbol={tokenB.symbol}
         displayRatio={getDisplayRatio()}
+        isLoading={isCheckingPool}
       />
 
       {/* Fee - Just show the fixed fee */}

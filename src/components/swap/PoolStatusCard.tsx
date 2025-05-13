@@ -26,6 +26,7 @@ interface PoolStatusCardProps {
   tokenASymbol?: string;
   tokenBSymbol?: string;
   displayRatio?: string | null;
+  isLoading?: boolean;
 }
 
 export function PoolStatusCard({
@@ -33,8 +34,22 @@ export function PoolStatusCard({
   tokenASymbol,
   tokenBSymbol,
   displayRatio,
+  isLoading = false,
 }: PoolStatusCardProps) {
-  if (poolExists === undefined) return null;
+  // Show loading state when poolExists is undefined or explicitly loading
+  if (poolExists === undefined || isLoading) {
+    return (
+      <div className="mb-4 p-4 rounded-lg bg-gray-900/30 text-gray-400 border border-gray-800/50 animate-pulse">
+        <div className="flex items-center">
+          <div className="w-5 h-5 mr-2 bg-gray-700 rounded-full"></div>
+          <div>
+            <div className="h-5 w-32 bg-gray-700 rounded mb-2"></div>
+            <div className="h-4 w-64 bg-gray-700 rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Format the display ratio using our formatter for better readability
   const formattedRatio = displayRatio

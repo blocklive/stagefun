@@ -43,19 +43,37 @@ export function TokenInputSection({
   const handlePercentClick = (percent: number) => {
     if (balanceLoading || !balance) return;
 
-    const balanceNum = parseFloat(balance);
+    console.log("balance", balance, percent);
+
+    // Clean the balance string by removing any non-numeric characters except decimal points
+    const cleanedBalance = String(balance).replace(/[^0-9.]/g, "");
+    const balanceNum = parseFloat(cleanedBalance);
+
+    console.log("balanceNum", balanceNum);
     if (isNaN(balanceNum) || balanceNum <= 0) return;
 
     // Calculate the percentage amount
     const calculatedAmount = balanceNum * percent;
 
+    console.log("calculatedAmount", calculatedAmount);
+    console.log("token.decimals", token.decimals);
+
     // Format to avoid excessive decimals based on token decimals
+    // Ensure token.decimals is converted to a number
+    const tokenDecimals =
+      typeof token.decimals === "bigint"
+        ? Number(token.decimals)
+        : token.decimals;
+
     // Use at most 6 decimal places or the token's decimals, whichever is smaller
-    const maxDecimals = Math.min(token.decimals, 6);
+    const maxDecimals = Math.min(tokenDecimals, 6);
+    console.log("maxDecimals", maxDecimals);
     const formattedAmount = calculatedAmount.toFixed(maxDecimals);
 
+    console.log("formattedAmount", formattedAmount);
     // Remove trailing zeros
     const trimmedAmount = parseFloat(formattedAmount).toString();
+    console.log("trimmedAmount", trimmedAmount);
 
     onChange(trimmedAmount);
   };

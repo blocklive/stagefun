@@ -337,7 +337,7 @@ export function LiquidityActions({
           // Refresh balances
           refreshBalances();
           // Refresh pool info after adding liquidity
-          setTimeout(checkPoolExists, 5000);
+          checkPoolExists();
         }
       } else {
         // Regular addLiquidity for token-token pairs (including WMON-token)
@@ -440,7 +440,7 @@ export function LiquidityActions({
             // Refresh balances
             refreshBalances();
             // Refresh pool info after adding liquidity
-            setTimeout(checkPoolExists, 5000);
+            checkPoolExists();
           }
         } catch (error) {
           console.error("Error converting token amounts:", error);
