@@ -278,7 +278,19 @@ function SwapPoolInterfaceContent() {
 
   // Check for URL parameters
   const checkForURLParams = useCallback(() => {
-    return searchParamsHook.has("tokenA") || searchParamsHook.has("tokenB");
+    const hasTokenA = searchParamsHook.has("tokenA");
+    const hasTokenB = searchParamsHook.has("tokenB");
+    const hasParams = hasTokenA || hasTokenB;
+
+    console.log("URL parameters check:", {
+      hasTokenA,
+      tokenA: searchParamsHook.get("tokenA"),
+      hasTokenB,
+      tokenB: searchParamsHook.get("tokenB"),
+      hasParams,
+    });
+
+    return hasParams;
   }, [searchParamsHook]);
 
   // For non-URL tokens, handle the initialization
@@ -330,7 +342,18 @@ function SwapPoolInterfaceContent() {
   const [isAddingLiquidity, setIsAddingLiquidity] = useState(false);
 
   // Add state to track when pool check is in progress
-  const [isCheckingPool, setIsCheckingPool] = useState(false);
+  // Initialize to true to show loading state from the beginning
+  const [isCheckingPool, setIsCheckingPool] = useState(true);
+
+  // Add state to track if the pool check has been completed at least once
+  // for URL parameters
+  const [poolCheckCompletedForParams, setPoolCheckCompletedForParams] =
+    useState(false);
+
+  // Add state to track the final pool status for URL parameters
+  const [finalPoolCheckComplete, setFinalPoolCheckComplete] = useState(false);
+
+  const urlParamsRef = useRef(checkForURLParams());
 
   // Use custom hook for pool-related logic
   const {
@@ -345,12 +368,60 @@ function SwapPoolInterfaceContent() {
   // Wrap checkPoolExists to track loading state
   const checkPoolExists = useCallback(async () => {
     try {
+      // Start loading
       setIsCheckingPool(true);
-      return await originalCheckPoolExists();
+
+      // Record start time
+      const startTime = Date.now();
+
+      // Perform the actual check
+      const result = await originalCheckPoolExists();
+
+      // If URL params are present and we have not completed the check for them yet,
+      // mark as completed after initialization is done
+      if (
+        urlParamsRef.current &&
+        initialLoadComplete &&
+        !poolCheckCompletedForParams
+      ) {
+        console.log("URL params pool check completed");
+        setPoolCheckCompletedForParams(true);
+
+        // Don't exit loading state here - we'll exit it when finalPoolCheckComplete is set
+        // This prevents flickering between states
+      }
+
+      // Ensure loading state is shown for at least 1 second to be visible
+      const elapsedTime = Date.now() - startTime;
+      const MIN_LOADING_TIME = 1000; // 1 second minimum loading time
+
+      if (elapsedTime < MIN_LOADING_TIME) {
+        console.log(
+          `Extending loading state by ${
+            MIN_LOADING_TIME - elapsedTime
+          }ms to ensure visibility`
+        );
+        await new Promise((resolve) =>
+          setTimeout(resolve, MIN_LOADING_TIME - elapsedTime)
+        );
+      }
+
+      return result;
     } finally {
-      setIsCheckingPool(false);
+      // Only exit checking state if we're not handling URL parameters
+      // or if we've already completed the final pool check
+      if (!urlParamsRef.current || finalPoolCheckComplete) {
+        setIsCheckingPool(false);
+      } else {
+        console.log("Keeping loading state active for URL parameters");
+      }
     }
-  }, [originalCheckPoolExists]);
+  }, [
+    originalCheckPoolExists,
+    initialLoadComplete,
+    poolCheckCompletedForParams,
+    finalPoolCheckComplete,
+  ]);
 
   // Force check pool exists when tokens change, especially when navigating from other tabs
   useEffect(() => {
@@ -370,8 +441,24 @@ function SwapPoolInterfaceContent() {
       tokenB.address
     ) {
       console.log("URL params processed, forcing pool existence check");
-      // Perform immediate check without setTimeout
-      checkPoolExists().catch(console.error);
+      // Mark this as the final check for URL parameters
+      const finalCheck = async () => {
+        try {
+          await checkPoolExists();
+
+          // Now that we've loaded the tokens specified in the URL and checked the pool,
+          // mark this as the final state so we can show the actual pool state
+          if (urlParamsRef.current) {
+            console.log("Setting final pool check complete flag");
+            setFinalPoolCheckComplete(true);
+          }
+        } catch (error) {
+          console.error("Error in final pool check:", error);
+          setFinalPoolCheckComplete(true); // Still mark as complete in case of error
+        }
+      };
+
+      finalCheck();
     }
   }, [initialLoadComplete, tokenA, tokenB, checkPoolExists]);
 
@@ -397,6 +484,30 @@ function SwapPoolInterfaceContent() {
 
   // Combined loading state
   const isLoading = isAddingLiquidity || isLoadingTokens;
+
+  // Overall pool card loading state:
+  // - If URL params are present, show loading until the final pool check is complete
+  // - If no URL params, show loading while checking pool for default tokens
+  const showPoolLoading =
+    isCheckingPool || (urlParamsRef.current && !finalPoolCheckComplete);
+
+  // Log to help debug loading state
+  useEffect(() => {
+    console.log(`Pool loading state updated:`, {
+      isCheckingPool,
+      hasUrlParams: urlParamsRef.current,
+      poolCheckCompletedForParams,
+      finalPoolCheckComplete,
+      showPoolLoading,
+      poolExists,
+    });
+  }, [
+    isCheckingPool,
+    poolCheckCompletedForParams,
+    finalPoolCheckComplete,
+    showPoolLoading,
+    poolExists,
+  ]);
 
   // Handle amount changes with auto calculation for existing pools
   const handleAmountAChange = (value: string) => {
@@ -532,6 +643,35 @@ function SwapPoolInterfaceContent() {
     return minAmount.toString();
   };
 
+  // Add a component mount effect to force check on page load/navigation
+  useEffect(() => {
+    console.log("Component mount effect triggered");
+    // Check pool existence on component mount
+    // Note: We're already in loading state on first render, so no need to set it again
+    checkPoolExists().catch(console.error);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array means this runs once on mount
+
+  // Helper function to check if this is the first render
+  const isFirstRender = useRef(true);
+
+  // Ensure poolExists is undefined until final pool check completes
+  // This prevents showing the "New Pool" state before loading
+  const displayPoolExists =
+    urlParamsRef.current && !finalPoolCheckComplete
+      ? undefined // Keep it undefined (loading) until the final state is known for URL params
+      : isFirstRender.current
+      ? undefined // Keep it undefined (loading) for initial render
+      : poolExists; // Show actual value once fully loaded
+
+  // Update firstRender ref after first pool check completes
+  useEffect(() => {
+    if (!isCheckingPool && isFirstRender.current) {
+      isFirstRender.current = false;
+    }
+  }, [isCheckingPool]);
+
   return (
     <div className="w-full max-w-md mx-auto bg-[#1B1B1F] rounded-2xl shadow-md p-6 text-white">
       <div className="mb-4">
@@ -543,11 +683,11 @@ function SwapPoolInterfaceContent() {
 
       {/* Pool exists indicator */}
       <PoolStatusCard
-        poolExists={poolExists}
+        poolExists={displayPoolExists}
         tokenASymbol={tokenA.symbol}
         tokenBSymbol={tokenB.symbol}
         displayRatio={getDisplayRatio()}
-        isLoading={isCheckingPool}
+        isLoading={showPoolLoading}
       />
 
       {/* Fee - Just show the fixed fee */}

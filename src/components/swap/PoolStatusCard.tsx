@@ -36,15 +36,38 @@ export function PoolStatusCard({
   displayRatio,
   isLoading = false,
 }: PoolStatusCardProps) {
-  // Show loading state when poolExists is undefined or explicitly loading
-  if (poolExists === undefined || isLoading) {
+  // Show loading state when explicitly loading or poolExists is undefined
+  if (isLoading || poolExists === undefined) {
+    // Log to console for debugging
+    console.log("PoolStatusCard rendering loading skeleton", {
+      isLoading,
+      poolExists,
+    });
+
     return (
-      <div className="mb-4 p-4 rounded-lg bg-gray-900/30 text-gray-400 border border-gray-800/50 animate-pulse">
-        <div className="flex items-center">
-          <div className="w-5 h-5 mr-2 bg-gray-700 rounded-full"></div>
-          <div>
-            <div className="h-5 w-32 bg-gray-700 rounded mb-2"></div>
-            <div className="h-4 w-64 bg-gray-700 rounded"></div>
+      <div className="mb-4 p-4 rounded-lg bg-gray-900/30 text-gray-400 border border-gray-800/50">
+        <div className="flex items-start">
+          <div className="w-5 h-5 mr-2 mt-0.5 bg-gray-700 rounded-full animate-pulse"></div>
+          <div className="w-full">
+            <div className="h-5 w-40 bg-gray-700 rounded mb-2 animate-pulse"></div>
+            <div className="h-4 w-56 bg-gray-700 rounded mb-3 animate-pulse"></div>
+
+            {/* Simulate a ratio box */}
+            <div className="mt-2 p-3 bg-gray-800/40 rounded-lg">
+              <div className="h-4 w-32 bg-gray-700 rounded mb-2 animate-pulse"></div>
+
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <div className="h-6 w-6 bg-gray-700 rounded-full mr-2 animate-pulse"></div>
+                  <div className="h-4 w-20 bg-gray-700 rounded animate-pulse"></div>
+                </div>
+                <div className="h-4 w-4 bg-gray-700 rounded animate-pulse"></div>
+                <div className="flex items-center">
+                  <div className="h-6 w-12 bg-gray-700 rounded-full mr-2 animate-pulse"></div>
+                  <div className="h-4 w-20 bg-gray-700 rounded animate-pulse"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
