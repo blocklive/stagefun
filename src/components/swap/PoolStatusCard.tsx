@@ -5,21 +5,24 @@ import {
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 
-// Adding formatTokenAmount function based on WalletAssets.tsx
+// Format token amounts with appropriate precision
 const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
-  // For very small numbers, use scientific notation below a certain threshold
   if (quantity > 0 && quantity < 0.000001) {
     return quantity.toExponential(6);
   }
 
-  // Otherwise use regular formatting with appropriate decimals
   const maxDecimals = Math.min(decimals, 6);
-
   return quantity.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: maxDecimals,
   });
 };
+
+interface Fee {
+  fee: number;
+  displayName: string;
+  description: string;
+}
 
 interface PoolStatusCardProps {
   poolExists: boolean | undefined;
@@ -27,6 +30,7 @@ interface PoolStatusCardProps {
   tokenBSymbol?: string;
   displayRatio?: string | null;
   isLoading?: boolean;
+  fee: Fee;
 }
 
 export function PoolStatusCard({
@@ -35,126 +39,97 @@ export function PoolStatusCard({
   tokenBSymbol,
   displayRatio,
   isLoading = false,
+  fee,
 }: PoolStatusCardProps) {
-  // Show loading state when explicitly loading or poolExists is undefined
+  // Show loading state
   if (isLoading || poolExists === undefined) {
-    // Log to console for debugging
-    console.log("PoolStatusCard rendering loading skeleton", {
-      isLoading,
-      poolExists,
-    });
-
     return (
-      <div className="mb-4 p-4 rounded-lg bg-gray-900/30 text-gray-400 border border-gray-800/50">
-        <div className="flex items-start">
-          <div className="w-5 h-5 mr-2 mt-0.5 bg-gray-700 rounded-full animate-pulse"></div>
-          <div className="w-full">
-            <div className="h-5 w-40 bg-gray-700 rounded mb-2 animate-pulse"></div>
-            <div className="h-4 w-56 bg-gray-700 rounded mb-3 animate-pulse"></div>
-
-            {/* Simulate a ratio box */}
-            <div className="mt-2 p-3 bg-gray-800/40 rounded-lg">
-              <div className="h-4 w-32 bg-gray-700 rounded mb-2 animate-pulse"></div>
-
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center">
-                  <div className="h-6 w-6 bg-gray-700 rounded-full mr-2 animate-pulse"></div>
-                  <div className="h-4 w-20 bg-gray-700 rounded animate-pulse"></div>
-                </div>
-                <div className="h-4 w-4 bg-gray-700 rounded animate-pulse"></div>
-                <div className="flex items-center">
-                  <div className="h-6 w-12 bg-gray-700 rounded-full mr-2 animate-pulse"></div>
-                  <div className="h-4 w-20 bg-gray-700 rounded animate-pulse"></div>
-                </div>
-              </div>
-            </div>
+      <div className="mb-4 bg-[#FFFFFF0A] rounded-lg p-4">
+        <div className="animate-pulse space-y-2">
+          <div className="flex items-center mb-2">
+            <div className="w-5 h-5 rounded-full bg-gray-700 mr-2"></div>
+            <div className="h-5 w-40 bg-gray-700 rounded"></div>
           </div>
+          <div className="h-10 w-full bg-gray-700 rounded-lg"></div>
+          <div className="h-8 w-full bg-gray-700 rounded-lg"></div>
+          <div className="h-4 w-56 bg-gray-700 rounded"></div>
         </div>
       </div>
     );
   }
 
-  // Format the display ratio using our formatter for better readability
+  // Format display ratio
   const formattedRatio = displayRatio
     ? formatTokenAmount(parseFloat(displayRatio), 6)
     : null;
 
-  // Calculate the inverse ratio
-  const inverseRatio =
-    displayRatio && parseFloat(displayRatio) > 0
-      ? formatTokenAmount(1 / parseFloat(displayRatio), 6)
-      : null;
+  // Ensure we display the fee correctly
+  const displayFee =
+    fee.displayName || (fee.fee > 0 ? `${fee.fee / 100}%` : "0%");
 
   return (
-    <div
-      className={`mb-4 p-4 rounded-lg ${
-        poolExists
-          ? "bg-blue-900/30 text-blue-400 border border-blue-800/50"
-          : "bg-yellow-900/30 text-yellow-400 border border-yellow-800/50"
-      }`}
-    >
+    <div className="mb-4 bg-[#FFFFFF0A] rounded-lg p-4">
       {poolExists ? (
-        <div className="flex items-start">
-          <InformationCircleIcon className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
-          <div className="w-full">
-            <span className="font-medium text-lg">Existing Pool</span>
-            <p className="text-sm mt-1 mb-3">
-              Tokens will be added according to the current pool ratio.
-            </p>
-
-            {displayRatio && tokenASymbol && tokenBSymbol && (
-              <div className="mt-2 p-3 bg-blue-900/40 rounded-lg">
-                <div className="text-sm font-medium mb-2 text-white">
-                  Current Exchange Rate
-                </div>
-
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center">
-                    <div className="bg-blue-900/50 rounded-full p-1 mr-2">
-                      <span className="text-xs px-2 py-1">1</span>
-                    </div>
-                    <span className="font-medium">{tokenASymbol}</span>
-                  </div>
-                  <ArrowsRightLeftIcon className="h-4 w-4 mx-2 text-gray-400" />
-                  <div className="flex items-center">
-                    <div className="bg-blue-900/50 rounded-full p-1 mr-2">
-                      <span className="text-xs px-2 py-1">
-                        {formattedRatio}
-                      </span>
-                    </div>
-                    <span className="font-medium">{tokenBSymbol}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="bg-blue-900/50 rounded-full p-1 mr-2">
-                      <span className="text-xs px-2 py-1">1</span>
-                    </div>
-                    <span className="font-medium">{tokenBSymbol}</span>
-                  </div>
-                  <ArrowsRightLeftIcon className="h-4 w-4 mx-2 text-gray-400" />
-                  <div className="flex items-center">
-                    <div className="bg-blue-900/50 rounded-full p-1 mr-2">
-                      <span className="text-xs px-2 py-1">{inverseRatio}</span>
-                    </div>
-                    <span className="font-medium">{tokenASymbol}</span>
-                  </div>
-                </div>
-              </div>
-            )}
+        <div className="space-y-2">
+          {/* Line 1: Existing Pool title with icon */}
+          <div className="flex items-center mb-2">
+            <InformationCircleIcon className="w-5 h-5 mr-2 text-[#9b6dff]" />
+            <span className="font-medium text-lg text-[#9b6dff]">
+              Existing Pool
+            </span>
           </div>
+
+          {/* Line 2: Exchange rate in single direction */}
+          {displayRatio && tokenASymbol && tokenBSymbol && (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#1B1B1F] rounded-lg">
+              <div className="text-white">1 {tokenASymbol}</div>
+              <ArrowsRightLeftIcon className="h-4 w-4 mx-4 text-gray-400" />
+              <div className="text-white">
+                {formattedRatio} {tokenBSymbol}
+              </div>
+            </div>
+          )}
+
+          {/* Line 3: Pool fee on a single line */}
+          <div className="px-4 py-2 bg-[#1B1B1F] rounded-lg">
+            <div className="flex items-center">
+              <span className="mr-1 text-white text-sm">Pool Fee:</span>
+              <span className="font-medium text-white text-sm">
+                {displayFee}
+              </span>
+            </div>
+          </div>
+
+          {/* Line 4: Message about token addition */}
+          <p className="text-gray-400 text-xs">
+            Tokens will be added according to the current pool fee and ratio.
+          </p>
         </div>
       ) : (
-        <div className="flex items-center">
-          <ExclamationTriangleIcon className="w-5 h-5 mr-2 flex-shrink-0" />
-          <div>
-            <span className="font-medium text-lg">New or Empty Pool</span>
-            <p className="text-sm mt-1">
-              You are creating a new pool or resetting an empty one. Your input
-              will set the price ratio.
-            </p>
+        <div className="space-y-2">
+          {/* New Pool Header */}
+          <div className="flex items-center mb-2">
+            <ExclamationTriangleIcon className="w-5 h-5 mr-2 text-yellow-400" />
+            <span className="font-medium text-lg text-yellow-400">
+              New or Empty Pool
+            </span>
           </div>
+
+          {/* Fee info */}
+          <div className="px-4 py-2 bg-[#1B1B1F] rounded-lg">
+            <div className="flex items-center">
+              <span className="mr-1 text-white text-sm">Pool Fee:</span>
+              <span className="font-medium text-white text-sm">
+                {displayFee}
+              </span>
+            </div>
+          </div>
+
+          {/* Message */}
+          <p className="text-gray-400 text-xs">
+            You are creating a new pool or resetting an empty one. Your input
+            will set the price ratio.
+          </p>
         </div>
       )}
     </div>

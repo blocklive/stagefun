@@ -6,6 +6,7 @@ import React, {
   useEffect,
   Suspense,
   useRef,
+  useMemo,
 } from "react";
 import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
@@ -19,7 +20,6 @@ import { useSearchParams } from "next/navigation";
 
 // Import all the new components
 import { PoolStatusCard } from "./PoolStatusCard";
-import { FeeDisplay } from "./FeeDisplay";
 import { TokenInputSection } from "./TokenInputSection";
 import { SlippageSettings } from "./SlippageSettings";
 import { InfoCard } from "./InfoCard";
@@ -42,7 +42,7 @@ interface SwapToken {
 
 // Fixed fee - 0.3% for all pools based on Uniswap V2
 const FIXED_FEE = {
-  fee: 30, // 0.3%
+  fee: 30, // 0.3% (represented as basis points: 30 = 0.3%)
   displayName: "0.3%",
   description: "Standard fee for all pools",
 };
@@ -175,10 +175,8 @@ function SwapPoolInterfaceContent() {
         // First update tokenA to the current tokenB
         setTokenA(currentTokenB as any);
 
-        // // Then set tokenB to the new token
-        setTimeout(() => {
-          setTokenB(token as any);
-        }, 0);
+        // Then set tokenB to the new token (do it immediately, not with setTimeout)
+        setTokenB(token as any);
 
         console.log(
           "After switch: TokenA:",
@@ -237,10 +235,8 @@ function SwapPoolInterfaceContent() {
         // First update tokenB to the current tokenA
         setTokenB(currentTokenA as any);
 
-        // Then set tokenA to the new token
-        setTimeout(() => {
-          setTokenA(token as any);
-        }, 0);
+        // Then set tokenA to the new token (do it immediately, not with setTimeout)
+        setTokenA(token as any);
 
         console.log(
           "After switch: TokenA:",
@@ -341,6 +337,9 @@ function SwapPoolInterfaceContent() {
   // Loading state
   const [isAddingLiquidity, setIsAddingLiquidity] = useState(false);
 
+  // Helper function to check if this is the first render
+  const isFirstRender = useRef(true);
+
   // Add state to track when pool check is in progress
   // Initialize to true to show loading state from the beginning
   const [isCheckingPool, setIsCheckingPool] = useState(true);
@@ -371,9 +370,6 @@ function SwapPoolInterfaceContent() {
       // Start loading
       setIsCheckingPool(true);
 
-      // Record start time
-      const startTime = Date.now();
-
       // Perform the actual check
       const result = await originalCheckPoolExists();
 
@@ -387,33 +383,22 @@ function SwapPoolInterfaceContent() {
         console.log("URL params pool check completed");
         setPoolCheckCompletedForParams(true);
 
-        // Don't exit loading state here - we'll exit it when finalPoolCheckComplete is set
-        // This prevents flickering between states
-      }
-
-      // Ensure loading state is shown for at least 1 second to be visible
-      const elapsedTime = Date.now() - startTime;
-      const MIN_LOADING_TIME = 1000; // 1 second minimum loading time
-
-      if (elapsedTime < MIN_LOADING_TIME) {
-        console.log(
-          `Extending loading state by ${
-            MIN_LOADING_TIME - elapsedTime
-          }ms to ensure visibility`
-        );
-        await new Promise((resolve) =>
-          setTimeout(resolve, MIN_LOADING_TIME - elapsedTime)
-        );
+        // Only mark as complete if the pool exists (to prevent showing New Pool during transition)
+        if (
+          !finalPoolCheckComplete &&
+          (result === true || !urlParamsRef.current)
+        ) {
+          setFinalPoolCheckComplete(true);
+        }
       }
 
       return result;
     } finally {
-      // Only exit checking state if we're not handling URL parameters
-      // or if we've already completed the final pool check
-      if (!urlParamsRef.current || finalPoolCheckComplete) {
+      // Exit loading state when we're sure it's safe
+      const shouldExitLoading =
+        !urlParamsRef.current || finalPoolCheckComplete || poolExists === true;
+      if (shouldExitLoading) {
         setIsCheckingPool(false);
-      } else {
-        console.log("Keeping loading state active for URL parameters");
       }
     }
   }, [
@@ -421,6 +406,8 @@ function SwapPoolInterfaceContent() {
     initialLoadComplete,
     poolCheckCompletedForParams,
     finalPoolCheckComplete,
+    urlParamsRef,
+    poolExists,
   ]);
 
   // Force check pool exists when tokens change, especially when navigating from other tabs
@@ -441,6 +428,7 @@ function SwapPoolInterfaceContent() {
       tokenB.address
     ) {
       console.log("URL params processed, forcing pool existence check");
+
       // Mark this as the final check for URL parameters
       const finalCheck = async () => {
         try {
@@ -451,10 +439,12 @@ function SwapPoolInterfaceContent() {
           if (urlParamsRef.current) {
             console.log("Setting final pool check complete flag");
             setFinalPoolCheckComplete(true);
+            setIsCheckingPool(false);
           }
         } catch (error) {
           console.error("Error in final pool check:", error);
           setFinalPoolCheckComplete(true); // Still mark as complete in case of error
+          setIsCheckingPool(false); // Ensure we exit loading state
         }
       };
 
@@ -485,11 +475,17 @@ function SwapPoolInterfaceContent() {
   // Combined loading state
   const isLoading = isAddingLiquidity || isLoadingTokens;
 
-  // Overall pool card loading state:
-  // - If URL params are present, show loading until the final pool check is complete
-  // - If no URL params, show loading while checking pool for default tokens
+  // Overall pool card loading state - show loading in these situations:
+  // 1. During initial loading
+  // 2. While URL params are being processed
+  // 3. When we're still checking the pool
   const showPoolLoading =
-    isCheckingPool || (urlParamsRef.current && !finalPoolCheckComplete);
+    isCheckingPool ||
+    (urlParamsRef.current && !finalPoolCheckComplete) ||
+    isFirstRender.current;
+
+  // Only show the actual pool status when we're not loading
+  const displayPoolExists = showPoolLoading ? undefined : poolExists;
 
   // Log to help debug loading state
   useEffect(() => {
@@ -653,18 +649,6 @@ function SwapPoolInterfaceContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array means this runs once on mount
 
-  // Helper function to check if this is the first render
-  const isFirstRender = useRef(true);
-
-  // Ensure poolExists is undefined until final pool check completes
-  // This prevents showing the "New Pool" state before loading
-  const displayPoolExists =
-    urlParamsRef.current && !finalPoolCheckComplete
-      ? undefined // Keep it undefined (loading) until the final state is known for URL params
-      : isFirstRender.current
-      ? undefined // Keep it undefined (loading) for initial render
-      : poolExists; // Show actual value once fully loaded
-
   // Update firstRender ref after first pool check completes
   useEffect(() => {
     if (!isCheckingPool && isFirstRender.current) {
@@ -681,17 +665,15 @@ function SwapPoolInterfaceContent() {
         </p>
       </div>
 
-      {/* Pool exists indicator */}
+      {/* Pool exists indicator with fee information */}
       <PoolStatusCard
         poolExists={displayPoolExists}
         tokenASymbol={tokenA.symbol}
         tokenBSymbol={tokenB.symbol}
         displayRatio={getDisplayRatio()}
         isLoading={showPoolLoading}
+        fee={FIXED_FEE}
       />
-
-      {/* Fee - Just show the fixed fee */}
-      <FeeDisplay fee={FIXED_FEE} />
 
       {/* First token input */}
       <TokenInputSection
