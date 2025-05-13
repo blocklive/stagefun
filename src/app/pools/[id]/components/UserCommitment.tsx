@@ -9,6 +9,7 @@ import { ClaimDistributionButton } from "@/components/pools/ClaimDistributionBut
 import { ProvidePoolLiquidityButton } from "@/components/pools/ProvidePoolLiquidityButton";
 import { getPoolEffectiveStatus } from "../../../../lib/contracts/types";
 import { useAlphaMode } from "@/hooks/useAlphaMode";
+import { useAlphaModeValue } from "@/hooks/useAlphaModeValue";
 import { useZerionLpBalance } from "@/hooks/useZerionLpBalance";
 
 interface UserCommitmentProps {
@@ -96,7 +97,7 @@ export default function UserCommitment({
   // Determine if user can claim refund (must have LP tokens)
   const canClaimRefund = isUnfunded && lpBalance > BigInt(0);
 
-  const isAlpha = useAlphaMode();
+  const isAlphaMode = useAlphaModeValue();
 
   // Reset error state when loading state changes
   useEffect(() => {
@@ -220,7 +221,7 @@ export default function UserCommitment({
           {!isLpBalanceLoading &&
             lpBalance > BigInt(0) &&
             !isUnfunded &&
-            isAlpha && (
+            isAlphaMode && (
               <ProvidePoolLiquidityButton
                 lpTokenSymbol={lpSymbol || ""}
                 lpTokenAddress={pool.lp_token_address || ""}

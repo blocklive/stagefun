@@ -1,9 +1,10 @@
 "use client";
 
-import { useAlphaMode } from "@/hooks/useAlphaMode";
+import { useAlphaModeValue } from "@/hooks/useAlphaModeValue";
 import React, { Suspense, ReactNode } from "react";
 
 // Component that checks alpha mode and renders children accordingly
+// Now using useAlphaModeValue for better caching and reactivity
 function AlphaModeChecker({
   children,
   alphaContent,
@@ -11,7 +12,7 @@ function AlphaModeChecker({
   children: ReactNode;
   alphaContent: ReactNode;
 }) {
-  const isAlphaMode = useAlphaMode();
+  const isAlphaMode = useAlphaModeValue();
   return isAlphaMode ? alphaContent : children;
 }
 
