@@ -611,7 +611,7 @@ function SwapPoolInterfaceContent() {
     if (rawBalance === 0) return "0";
 
     // Get the token decimals for proper formatting
-    const tokenDecimals = token.decimals || (token.symbol === "USDC" ? 6 : 18);
+    const tokenDecimals = token.decimals || 6;
 
     // Format the balance
     return formatTokenAmount(rawBalance, tokenDecimals);

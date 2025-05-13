@@ -282,7 +282,7 @@ function SwapInterfaceContent() {
       const tokenDecimals =
         asset.attributes.quantity.decimals ||
         asset.attributes.fungible_info?.implementations?.[0]?.decimals ||
-        (token.symbol === "USDC" ? 6 : 18);
+        6;
       return formatTokenAmount(quantity, tokenDecimals);
     }
 

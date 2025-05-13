@@ -23,7 +23,7 @@ export function alchemyTokenToZerionAsset(token: TokenWithBalance): Asset {
   // Extract and convert token data
   const tokenSymbol = token.metadata?.symbol || "Unknown";
   const tokenName = token.metadata?.name || "Unknown Token";
-  const tokenDecimals = token.metadata?.decimals || 18;
+  const tokenDecimals = token.metadata?.decimals || 6;
   const tokenLogo = token.metadata?.logo || "";
 
   // Contract address in lowercase for comparisons

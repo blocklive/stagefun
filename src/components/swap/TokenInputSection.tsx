@@ -58,12 +58,11 @@ export function TokenInputSection({
     console.log("calculatedAmount", calculatedAmount);
     console.log("token.decimals", token.decimals);
 
-    // Format to avoid excessive decimals based on token decimals
     // Ensure token.decimals is converted to a number
     const tokenDecimals =
       typeof token.decimals === "bigint"
         ? Number(token.decimals)
-        : token.decimals;
+        : token.decimals || 6;
 
     // Use at most 6 decimal places or the token's decimals, whichever is smaller
     const maxDecimals = Math.min(tokenDecimals, 6);

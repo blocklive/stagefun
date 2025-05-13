@@ -153,7 +153,7 @@ export async function GET(req: NextRequest) {
 
           let decimals = tokenMetadata.decimals;
           if (decimals === undefined || decimals === null) {
-            decimals = isNative ? 18 : 0;
+            decimals = isNative ? 18 : 6;
           }
 
           let formattedBalance;

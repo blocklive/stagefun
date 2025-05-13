@@ -58,7 +58,7 @@ export function TokenIcon({
     lg: "text-lg",
   }[size];
 
-  let iconPath = logoURI;
+  const iconPath = logoURI;
 
   // State to track if the image failed to load
   const [imageError, setImageError] = React.useState(false);
