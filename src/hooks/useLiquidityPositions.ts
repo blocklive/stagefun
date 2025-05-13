@@ -3,10 +3,7 @@ import useSWR from "swr";
 import { ethers } from "ethers";
 import { useSmartWallet } from "./useSmartWallet";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
-import {
-  getFactoryContract,
-  getERC20Contract,
-} from "@/lib/contracts/StageSwap";
+import { getFactoryContract, getPairContract } from "@/lib/contracts/StageSwap";
 
 // Structure to hold token information
 interface TokenInfo {
@@ -21,11 +18,10 @@ export interface LiquidityPosition {
   pairAddress: string;
   token0: TokenInfo;
   token1: TokenInfo;
-  hasUserLiquidity: boolean; // Flag to indicate if user has LP tokens in this pool
 }
 
-// Known token info cache
-const knownTokens: Record<string, TokenInfo> = {
+// Known token info hardcoded for common tokens
+const KNOWN_TOKENS: Record<string, TokenInfo> = {
   [CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase()]: {
     address: CONTRACT_ADDRESSES.monadTestnet.usdc,
     symbol: "USDC",
@@ -38,102 +34,105 @@ const knownTokens: Record<string, TokenInfo> = {
     name: "Wrapped MON",
     decimals: 18,
   },
+  [CONTRACT_ADDRESSES.monadTestnet.officialWmon.toLowerCase()]: {
+    address: CONTRACT_ADDRESSES.monadTestnet.officialWmon,
+    symbol: "WMON",
+    name: "Wrapped MON",
+    decimals: 18,
+  },
 };
 
-// Global token info cache to avoid repeated calls
-const tokenInfoCache = new Map<string, TokenInfo>();
+// Hardcoded mapping of known pair addresses to token addresses
+// This avoids having to call the pair contract to get token0/token1
+const KNOWN_PAIRS: Record<string, { token0: string; token1: string }> = {
+  // Add any known pairs here
+  // Example format:
+  // "0x1234...": { token0: "0xToken0Address", token1: "0xToken1Address" },
+};
+
+// Interface for the pool data from the database
+interface PoolData {
+  lp_token_address: string;
+  token_symbol: string;
+  contract_address?: string;
+}
+
+// Function to fetch pool data from our database
+const fetchPoolsData = async (): Promise<Record<string, string>> => {
+  try {
+    // Fetch pool data from your API endpoint
+    const response = await fetch("/api/pools");
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch pools: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    // Create a mapping of token addresses to symbols
+    const tokenSymbolMap: Record<string, string> = {};
+
+    data.pools.forEach((pool: PoolData) => {
+      if (pool.lp_token_address && pool.token_symbol) {
+        tokenSymbolMap[pool.lp_token_address.toLowerCase()] = pool.token_symbol;
+      }
+    });
+
+    return tokenSymbolMap;
+  } catch (error) {
+    console.error("Error fetching pool data:", error);
+    return {};
+  }
+};
+
+// Function to get token info using our pool data or hardcoded values
+const getTokenInfo = (
+  tokenAddress: string,
+  tokenSymbolMap: Record<string, string>
+): TokenInfo => {
+  // Check hardcoded tokens first
+  const normalizedAddress = tokenAddress.toLowerCase();
+  if (KNOWN_TOKENS[normalizedAddress]) {
+    return KNOWN_TOKENS[normalizedAddress];
+  }
+
+  // Check our pool database mapping
+  if (tokenSymbolMap[normalizedAddress]) {
+    const symbol = tokenSymbolMap[normalizedAddress];
+    return {
+      address: tokenAddress,
+      symbol,
+      name: symbol, // Use symbol as name if we don't have the name
+      decimals: 18, // Default to 18 decimals
+    };
+  }
+
+  // Fallback for unknown tokens
+  return {
+    address: tokenAddress,
+    symbol: `Token-${tokenAddress.slice(0, 6)}`,
+    name: `Unknown Token ${tokenAddress.slice(0, 6)}`,
+    decimals: 18,
+  };
+};
 
 export function useLiquidityPositions() {
   const { smartWalletAddress } = useSmartWallet();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Function to get token info (symbol, name, decimals)
-  const getTokenInfo = async (
-    tokenAddress: string,
-    provider: ethers.Provider
-  ): Promise<TokenInfo> => {
-    // Check cache first
-    if (tokenInfoCache.has(tokenAddress)) {
-      return tokenInfoCache.get(tokenAddress)!;
-    }
-
-    const normalizedAddress = tokenAddress.toLowerCase();
-    if (knownTokens[normalizedAddress]) {
-      const tokenInfo = knownTokens[normalizedAddress];
-      // Store in cache
-      tokenInfoCache.set(tokenAddress, tokenInfo);
-      return tokenInfo;
-    }
-
-    try {
-      const tokenContract = await getERC20Contract(tokenAddress, provider);
-
-      // Make individual calls and handle errors for each
-      let symbol = `Token-${tokenAddress.slice(0, 6)}`;
-      let name = `Unknown Token ${tokenAddress.slice(0, 6)}`;
-      let decimals = 18;
-
-      try {
-        symbol = await tokenContract.symbol();
-      } catch (error) {
-        console.warn(`Error getting symbol for token ${tokenAddress}:`, error);
-      }
-
-      try {
-        name = await tokenContract.name();
-      } catch (error) {
-        console.warn(`Error getting name for token ${tokenAddress}:`, error);
-      }
-
-      try {
-        decimals = await tokenContract.decimals();
-      } catch (error) {
-        console.warn(
-          `Error getting decimals for token ${tokenAddress}:`,
-          error
-        );
-      }
-
-      console.log(
-        `Token info for ${tokenAddress}: symbol=${symbol}, name=${name}, decimals=${decimals}`
-      );
-
-      const tokenInfo = {
-        address: tokenAddress,
-        symbol,
-        name,
-        decimals,
-      };
-
-      // Store in cache
-      tokenInfoCache.set(tokenAddress, tokenInfo);
-      return tokenInfo;
-    } catch (error) {
-      console.error(`Error fetching token info for ${tokenAddress}:`, error);
-
-      // Always return something to prevent UI errors
-      const fallbackInfo = {
-        address: tokenAddress,
-        symbol: `Token-${tokenAddress.slice(0, 6)}`,
-        name: `Unknown Token ${tokenAddress.slice(0, 6)}`,
-        decimals: 18,
-      };
-
-      // Still cache the fallback info to avoid repeated failed calls
-      tokenInfoCache.set(tokenAddress, fallbackInfo);
-
-      return fallbackInfo;
-    }
-  };
-
-  // Main fetch function for liquidity positions - simplified to only get basic data
+  // Main fetch function for liquidity positions
   const fetchLiquidityPositions = async (
     walletAddress: string
   ): Promise<LiquidityPosition[]> => {
     try {
+      console.time("Total loading time");
       const provider = new ethers.JsonRpcProvider(
         process.env.NEXT_PUBLIC_RPC_URL
       );
+
+      // Get token symbol mapping from our database
+      const tokenSymbolMap = await fetchPoolsData();
+      console.log("Loaded token symbol map from database:", tokenSymbolMap);
 
       // Get factory contract
       const factoryContract = await getFactoryContract(provider);
@@ -142,70 +141,100 @@ export function useLiquidityPositions() {
       const pairsLength = await factoryContract.allPairsLength();
       console.log(`Found ${pairsLength} total pairs`);
 
+      // STEP 1: Get all pair addresses in parallel batches
+      console.time("Get all pairs");
+      const batchSize = 5; // Reduce batch size to avoid rate limiting
+      const pairAddresses: string[] = [];
+
+      // Create array of indices to process
+      const indices = Array.from({ length: Number(pairsLength) }, (_, i) => i);
+
+      // Process in batches to avoid rate limiting
+      for (let i = 0; i < indices.length; i += batchSize) {
+        const batch = indices.slice(i, i + batchSize);
+        const batchPromises = batch.map(async (index) => {
+          try {
+            const pairAddress = await factoryContract.allPairs(index);
+            if (pairAddress && ethers.isAddress(pairAddress)) {
+              console.log(`Pair ${index} address: ${pairAddress}`);
+              return pairAddress;
+            }
+            return null;
+          } catch (error) {
+            // Silent error handling - don't log to console
+            // These errors are expected sometimes due to contract issues
+            return null;
+          }
+        });
+
+        // Wait for this batch to complete
+        const batchResults = await Promise.all(batchPromises);
+        pairAddresses.push(
+          ...(batchResults.filter((address) => address !== null) as string[])
+        );
+      }
+
+      console.timeEnd("Get all pairs");
+      console.log(
+        `Successfully retrieved ${pairAddresses.length} of ${pairsLength} pairs`
+      );
+
+      if (pairAddresses.length === 0) {
+        console.warn("No valid pairs found. Returning empty array.");
+        return [];
+      }
+
+      // STEP 2: Get token info for each pair, one pair at a time to avoid failures
+      console.time("Process all pairs");
       const positions: LiquidityPosition[] = [];
 
-      // Loop through all pairs to get basic info
-      for (let i = 0; i < Number(pairsLength); i++) {
+      for (const pairAddress of pairAddresses) {
         try {
-          // Get pair address
-          const pairAddress = await factoryContract.allPairs(i);
-          console.log(`Pair ${i} address: ${pairAddress}`);
+          // Use try/catch for each pair to isolate failures
+          console.log(`Processing pair ${pairAddress}`);
+          const pairContract = await getPairContract(pairAddress, provider);
 
           try {
-            // Create pair contract to get token addresses
-            const pairABI = [
-              "function token0() external view returns (address)",
-              "function token1() external view returns (address)",
-              "function balanceOf(address owner) view returns (uint)",
-            ];
-            const pairContract = new ethers.Contract(
-              pairAddress,
-              pairABI,
-              provider
-            );
-
-            // Get token addresses
+            // Get token addresses with individual try/catch
             const token0Address = await pairContract.token0();
             const token1Address = await pairContract.token1();
-            console.log(`Pair ${i} tokens: ${token0Address}, ${token1Address}`);
 
-            // Fetch token info
-            const [token0Info, token1Info] = await Promise.all([
-              getTokenInfo(token0Address, provider),
-              getTokenInfo(token1Address, provider),
-            ]);
+            console.log(
+              `Pair ${pairAddress} tokens: ${token0Address}, ${token1Address}`
+            );
 
-            // Check if user has any LP tokens
-            let hasUserLiquidity = false;
-            try {
-              const lpBalance = await pairContract.balanceOf(walletAddress);
-              hasUserLiquidity = lpBalance > 0;
-            } catch (error) {
-              console.warn(
-                `Error checking LP balance for ${pairAddress}:`,
-                error
-              );
-            }
+            // Get token info
+            const token0Info = getTokenInfo(token0Address, tokenSymbolMap);
+            const token1Info = getTokenInfo(token1Address, tokenSymbolMap);
 
-            // Add position to array
+            // Add to positions array
             positions.push({
               pairAddress,
               token0: token0Info,
               token1: token1Info,
-              hasUserLiquidity,
             });
+
+            console.log(
+              `Successfully processed pair ${pairAddress}: ${token0Info.symbol}/${token1Info.symbol}`
+            );
           } catch (error) {
-            console.error(`Error processing pair ${i} data:`, error);
+            // Silent error handling - expected for some pairs
+            // Just skip this pair without logging error
           }
         } catch (error) {
-          console.error(`Error getting pair ${i} address:`, error);
+          // Silent error handling - expected for some pairs
+          // Just skip this pair without logging error
         }
       }
 
+      console.timeEnd("Process all pairs");
+      console.timeEnd("Total loading time");
+      console.log(`Successfully loaded ${positions.length} positions`);
       return positions;
     } catch (error) {
       console.error("Error fetching liquidity positions:", error);
-      throw error;
+      // Return empty array instead of throwing to prevent UI errors
+      return [];
     }
   };
 

@@ -7,7 +7,6 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
-import { MyPoolsTable } from "./MyPoolsTable";
 import { AllPoolsTable } from "./AllPoolsTable";
 
 // Wrap the main content in a Content component with Suspense
@@ -128,13 +127,6 @@ function PositionsContent() {
         </div>
       ) : (
         <>
-          {/* My Positions section */}
-          <MyPoolsTable
-            userPositions={positions}
-            getTokenIconPath={getTokenIconPath}
-            toggleMenu={toggleMenu}
-          />
-
           {/* All Positions Section */}
           <AllPoolsTable
             positions={positions}
@@ -169,18 +161,6 @@ function PositionsContent() {
                 >
                   Add Liquidity
                 </button>
-                {positions.find((p) => p.pairAddress === activeMenu)
-                  ?.hasUserLiquidity && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/swap/positions/${activeMenu}`);
-                    }}
-                    className="px-4 py-2 text-sm text-white w-full text-left hover:bg-gray-700"
-                  >
-                    Manage Position
-                  </button>
-                )}
               </>
             )}
           </div>,

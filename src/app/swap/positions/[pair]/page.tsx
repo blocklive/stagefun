@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
 import { usePositionDetails } from "@/hooks/usePositionDetails";
 import { useSyncPool } from "@/hooks/useSyncPool";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -16,7 +15,6 @@ export default function PositionDetailsPage() {
   const { pair } = useParams();
   const router = useRouter();
   const { user } = usePrivy();
-  const { positions } = useLiquidityPositions();
   const {
     positionDetails,
     isLoading: isLoadingDetails,
