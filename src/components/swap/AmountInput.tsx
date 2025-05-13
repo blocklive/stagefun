@@ -21,11 +21,13 @@ export function AmountInput({
 }: AmountInputProps) {
   // Limit display value to 8 decimal places
   useEffect(() => {
+    console.log("value", value);
     if (value.includes(".")) {
       const parts = value.split(".");
       if (parts[1] && parts[1].length > 8) {
         // Format to 8 decimal places for display
         const newValue = `${parts[0]}.${parts[1].substring(0, 8)}`;
+        console.log("newValue", newValue);
         onChange(newValue);
       }
     }

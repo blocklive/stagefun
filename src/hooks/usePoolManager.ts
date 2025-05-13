@@ -289,7 +289,37 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
           result = (amount * poolRatio.reserveA) / poolRatio.reserveB;
         }
 
-        return ethers.formatUnits(result, outputToken.decimals);
+        // Format with proper precision
+        const formattedResult = ethers.formatUnits(
+          result,
+          outputToken.decimals
+        );
+
+        // Check if input is an integer (no decimal point)
+        const isInputInteger = /^\d+$/.test(inputAmount);
+
+        // For integer inputs, if the result is very close to an integer value,
+        // round it to preserve the expected ratio
+        if (isInputInteger) {
+          const parsedResult = parseFloat(formattedResult);
+          const closeToInteger =
+            Math.abs(Math.round(parsedResult) - parsedResult) < 0.0001;
+
+          if (closeToInteger) {
+            return Math.round(parsedResult).toString();
+          }
+        }
+
+        // For consistency when handling small decimals, limit to 8 decimal places
+        // but only when necessary (don't convert integers to decimals)
+        if (formattedResult.includes(".")) {
+          const parts = formattedResult.split(".");
+          if (parts[1] && parts[1].length > 8) {
+            return `${parts[0]}.${parts[1].substring(0, 8)}`;
+          }
+        }
+
+        return formattedResult;
       } catch (error) {
         console.error("Error calculating paired amount:", error);
         return "";
