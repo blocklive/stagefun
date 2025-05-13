@@ -44,6 +44,8 @@ interface SendAssetModalProps {
     symbol: string;
     balance: string;
     address?: string;
+    isNative?: boolean;
+    decimals?: number;
   } | null;
   onSuccess?: () => void;
 }
@@ -207,6 +209,8 @@ export default function SendAssetModal({
         symbol: asset.symbol,
         address: asset.address || "Not provided",
         name: asset.name,
+        isNative: asset.isNative || false,
+        decimals: asset.decimals || 18, // Default to 18 if not provided
       },
     });
 

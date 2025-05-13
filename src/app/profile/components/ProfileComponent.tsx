@@ -391,6 +391,18 @@ export default function ProfileComponent({
     const balance = asset.attributes?.quantity?.float || 0;
     const balanceString = balance.toString();
 
+    // Check if this is a native MON token (if isNative was set by BalanceSection)
+    const isNative =
+      asset.isNative ||
+      (asset.attributes?.fungible_info?.symbol === "MON" &&
+        (!asset.attributes?.fungible_info?.implementations?.[0]?.address ||
+          asset.attributes?.fungible_info?.implementations?.[0]?.address ===
+            null));
+
+    // Get token decimals from the asset
+    const decimals =
+      asset.decimals || asset.attributes?.fungible_info?.decimals || 18;
+
     setSelectedAsset({
       name: asset.attributes?.fungible_info?.name || asset.name || "Unknown",
       symbol:
@@ -399,6 +411,8 @@ export default function ProfileComponent({
       address:
         asset.attributes?.fungible_info?.implementations?.[0]?.address ||
         asset.address,
+      isNative: isNative, // Pass the isNative flag to the SendAssetModal
+      decimals: decimals, // Pass the decimals to the SendAssetModal
     });
     setShowSendModal(true);
   };

@@ -40,7 +40,8 @@ export function useSmartWallet() {
   const sendTransaction = async (
     contractAddress: `0x${string}`,
     data: `0x${string}`,
-    description: string = "Send Transaction"
+    description: string = "Send Transaction",
+    value: bigint | string = BigInt(0)
   ) => {
     if (!client) {
       console.error("Smart wallet client not available");
@@ -58,10 +59,13 @@ export function useSmartWallet() {
         },
       };
 
+      // Convert string value to BigInt if needed
+      const valueBigInt = typeof value === "string" ? BigInt(value) : value;
+
       const txRequest = {
         to: contractAddress,
         data,
-        value: BigInt(0),
+        value: valueBigInt,
       };
 
       console.log("Sending transaction with smart wallet:", txRequest);

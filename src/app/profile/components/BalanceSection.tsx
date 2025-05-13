@@ -46,11 +46,16 @@ export default function BalanceSection({
   // Function to detect if an asset is the native currency
   const isNativeCurrency = (asset: Asset): boolean => {
     // Check if it's the base asset for the Monad chain
-    return (
+    const isNative =
       asset.id === "base-monad-test-v2-asset-asset" ||
       (asset.attributes.fungible_info?.symbol === "MON" &&
-        asset.attributes.fungible_info?.implementations?.[0]?.address === null)
-    );
+        asset.attributes.fungible_info?.implementations?.[0]?.address === null);
+
+    if (isNative && process.env.NODE_ENV !== "production") {
+      console.log("Found native MON token:", asset);
+    }
+
+    return isNative;
   };
 
   // Custom priority ordering for specific tokens (similar to WalletAssets.tsx)
@@ -163,7 +168,17 @@ export default function BalanceSection({
                     </div>
                     {isOwnProfile && (
                       <button
-                        onClick={(e) => onSendClick(asset, e)}
+                        onClick={(e) => {
+                          // Create a modified asset object to pass to onSendClick
+                          // with isNative flag for native MON
+                          const modifiedAsset = {
+                            ...asset,
+                            isNative: isNativeCurrency(asset),
+                            decimals:
+                              asset.attributes?.fungible_info?.decimals || 18,
+                          };
+                          onSendClick(modifiedAsset, e);
+                        }}
                         className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors"
                       >
                         Send
