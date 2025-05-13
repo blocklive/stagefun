@@ -58,8 +58,8 @@ export function usePlatformTokens({
         name: `${pool.name} LP Token`,
         // Default ERC20 decimals
         decimals: 6,
-        // Use a standard LP token logo or generate based on the token symbol
-        logoURI: `/icons/lp-token.svg`,
+        // Let the TokenIcon component handle the fallback
+        logoURI: undefined,
         source: "platform",
         hasLiquidity: Boolean(pool.raised_amount && pool.raised_amount > 0),
       }));

@@ -95,6 +95,11 @@ export function TokenSelector({
             <TokenIcon
               symbol={selectedToken.symbol}
               logoURI={selectedToken.logoURI}
+              address={
+                selectedToken.address !== "NATIVE"
+                  ? selectedToken.address
+                  : null
+              }
               size="sm"
             />
             <div className="flex items-center">

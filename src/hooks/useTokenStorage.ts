@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Token } from "@/types/token";
+import { TOKEN_ICONS } from "@/components/token/TokenIcon";
 
 const CUSTOM_TOKENS_KEY = "customTokens";
 const RECENT_TOKENS_KEY = "recentTokens";
@@ -78,9 +79,23 @@ export function useTokenStorage() {
         (t) => t.address.toLowerCase() !== token.address.toLowerCase()
       );
 
+      // Apply proper icon for known tokens
+      // or make sure we don't store generic-token.svg references
+      let properLogoURI = token.logoURI;
+
+      // Use known token icons for any tokens with symbols in our TOKEN_ICONS map
+      if (token.symbol && TOKEN_ICONS[token.symbol]) {
+        properLogoURI = TOKEN_ICONS[token.symbol];
+      }
+      // Don't preserve generic token icon paths
+      else if (properLogoURI && properLogoURI.includes("generic-token")) {
+        properLogoURI = undefined;
+      }
+
       // Add token with updated timestamp and source
       const updatedToken = {
         ...token,
+        logoURI: properLogoURI,
         lastUsed: Date.now(),
         source: "recent" as const,
       };

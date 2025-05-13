@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
@@ -58,25 +58,15 @@ export function TokenIcon({
     lg: "text-lg",
   }[size];
 
-  // Check if we should use a known logo based on address
-  const addressLower = address?.toLowerCase();
   let iconPath = logoURI;
-
-  // Override with our verified token icons if the address matches
-  if (addressLower === OFFICIAL_USDC_ADDRESS) {
-    iconPath = "/icons/usdc-logo.svg";
-  } else if (addressLower === OFFICIAL_WMON_ADDRESS) {
-    iconPath = "/icons/mon-logo.svg";
-  } else if (symbol === "MON" && !address) {
-    // Native MON token
-    iconPath = "/icons/mon-logo.svg";
-  } else if (TOKEN_ICONS[symbol] && !logoURI) {
-    // Fallback to symbol-based lookup only if no logoURI provided
-    iconPath = TOKEN_ICONS[symbol];
-  }
 
   // State to track if the image failed to load
   const [imageError, setImageError] = React.useState(false);
+
+  // Reset image error state when token changes
+  useEffect(() => {
+    setImageError(false);
+  }, [symbol, logoURI]);
 
   return (
     <div
