@@ -18,6 +18,7 @@ import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useTokenList } from "@/hooks/useTokenList";
 import { Token } from "@/types/token";
 import { useSwapPriceImpact } from "@/hooks/useSwapPriceImpact";
+import { SlippageSettings } from "./SlippageSettings";
 
 // Get the WMON address from the contracts file
 const WMON_ADDRESS = CONTRACT_ADDRESSES.monadTestnet.officialWmon;
@@ -40,16 +41,32 @@ const WMON_ABI = [
 const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
   // For very small numbers, use scientific notation below a certain threshold
   if (quantity > 0 && quantity < 0.000001) {
-    return quantity.toExponential(6);
+    return quantity.toExponential(2); // Reduce from 6 to 2 significant digits for readability
   }
 
   // Otherwise use regular formatting with appropriate decimals
+  // Cap at 6 decimals max as requested, or fewer based on token decimals
   const maxDecimals = Math.min(decimals, 6);
+
+  // For larger numbers (>=0.01), use fewer decimal places for better readability
+  const effectiveDecimals =
+    quantity >= 0.01 ? Math.min(maxDecimals, 4) : maxDecimals;
 
   return quantity.toLocaleString(undefined, {
     minimumFractionDigits: 0,
-    maximumFractionDigits: maxDecimals,
+    maximumFractionDigits: effectiveDecimals,
   });
+};
+
+// Format long input values to maximum 8 decimal places for display
+const formatInputDisplay = (value: string): string => {
+  if (value.includes(".")) {
+    const parts = value.split(".");
+    if (parts[1] && parts[1].length > 8) {
+      return `${parts[0]}.${parts[1].substring(0, 8)}`;
+    }
+  }
+  return value;
 };
 
 // Token data with real contract addresses
@@ -102,6 +119,15 @@ function SwapInterfaceContent() {
   const [isExactIn, setIsExactIn] = useState(true);
   const [isSwapping, setIsSwapping] = useState(false);
 
+  // Add slippage tolerance state - set Auto mode as default
+  const [slippageTolerance, setSlippageTolerance] = useState("0.5");
+  const [isAutoSlippage, setIsAutoSlippage] = useState(true);
+
+  // Calculate actual slippage value
+  const actualSlippageValue = isAutoSlippage
+    ? 0.005
+    : parseFloat(slippageTolerance) / 100;
+
   // Create wrapper functions for token selection that implement auto-switching
   const handleInputTokenSelect = (token: Token) => {
     // If user selects the same token that's already in the output field
@@ -135,6 +161,7 @@ function SwapInterfaceContent() {
     outputAmount,
     inputToken,
     outputToken,
+    slippageTolerance: actualSlippageValue,
   });
 
   // Initialize tokens when allTokens are loaded
@@ -314,9 +341,26 @@ function SwapInterfaceContent() {
           : outputToken.address;
         const path = [adjustedInputAddress, adjustedOutputAddress];
 
-        // Get Actual Output for User's Input Amount
+        // Ensure proper formatting to avoid the "too many decimals" error
+        // Format the input amount based on the token's decimals
+        // We need to ensure the number doesn't have more decimal places than the token supports
+        let formattedInput = inputAmount;
+
+        // If the input contains a decimal, ensure it doesn't exceed the token's decimal places
+        if (inputAmount.includes(".")) {
+          const parts = inputAmount.split(".");
+          // If the decimal part is longer than the token's decimals, truncate it
+          if (parts[1].length > inputToken.decimals) {
+            formattedInput = `${parts[0]}.${parts[1].substring(
+              0,
+              inputToken.decimals
+            )}`;
+          }
+        }
+
+        // Convert formatted input to Wei
         const amountInWei = ethers
-          .parseUnits(inputAmount, inputToken.decimals)
+          .parseUnits(formattedInput, inputToken.decimals)
           .toString();
 
         const actualQuoteResult = await getAmountsOut({
@@ -352,14 +396,46 @@ function SwapInterfaceContent() {
       } catch (error) {
         console.error("Error getting quote:", error);
         setOutputAmount("");
-        showToast.error(
-          error instanceof Error ? error.message : "Error calculating quote."
-        );
+        // Check specifically for the "too many decimals" error
+        if (
+          error instanceof Error &&
+          error.message.includes("too many decimals")
+        ) {
+          showToast.error(
+            "The amount has too many decimal places. Please adjust the input amount."
+          );
+        } else {
+          showToast.error(
+            error instanceof Error ? error.message : "Error calculating quote."
+          );
+        }
       }
     };
 
     getQuote();
   }, [inputAmount, inputToken, outputToken, getAmountsOut]);
+
+  // Calculate minimum output amount using the current slippage tolerance
+  const getMinimumOutputAmount = () => {
+    if (!outputAmount || parseFloat(outputAmount) === 0 || !outputToken) {
+      return "0";
+    }
+
+    const slippageFactor = isAutoSlippage
+      ? 0.995
+      : 1 - parseFloat(slippageTolerance) / 100;
+
+    // Calculate the minimum amount with slippage applied
+    const minAmount = parseFloat(outputAmount) * slippageFactor;
+
+    // Format to the appropriate number of decimals for the token
+    // Use at most the token's decimals (capped at 8 to be safe)
+    const maxDecimals = Math.min(outputToken.decimals, 8);
+    const result = minAmount.toFixed(maxDecimals);
+
+    // Format the display for UI
+    return formatInputDisplay(result);
+  };
 
   // Handle swap
   const handleSwap = async () => {
@@ -410,12 +486,9 @@ function SwapInterfaceContent() {
         .parseUnits(inputAmount, inputToken.decimals)
         .toString();
 
-      // Set a minimum output amount with 0.5% slippage
+      // Set a minimum output amount with slippage tolerance
       const minOutputAmount = ethers
-        .parseUnits(
-          (parseFloat(outputAmount) * 0.995).toFixed(outputToken.decimals),
-          outputToken.decimals
-        )
+        .parseUnits(getMinimumOutputAmount(), outputToken.decimals)
         .toString();
 
       // Set deadline to 20 minutes from now
@@ -611,12 +684,12 @@ function SwapInterfaceContent() {
   };
 
   return (
-    <div className="p-4 bg-[#1B1B1F] rounded-lg shadow-lg max-w-md mx-auto text-white">
+    <div className="p-6 bg-[#1B1B1F] rounded-2xl shadow-lg max-w-md mx-auto text-white">
       {/* Only render TokenInputSection if tokens are selected */}
       {inputToken && (
         <TokenInputSection
-          label="From"
-          value={inputAmount}
+          tagLabel="Selling"
+          value={formatInputDisplay(inputAmount)}
           onChange={setInputAmount}
           token={inputToken}
           onTokenSelect={handleInputTokenSelect}
@@ -625,6 +698,22 @@ function SwapInterfaceContent() {
           disabled={isLoading}
           balanceLoading={balanceLoading}
           tokenLoading={isTokensLoading}
+          showUsdValue={true}
+          usdValue={
+            inputAmount && parseFloat(inputAmount) > 0
+              ? formatTokenAmount(
+                  parseFloat(inputAmount) *
+                    (inputToken.symbol === "USDC"
+                      ? 1
+                      : outputToken &&
+                        outputToken.symbol === "USDC" &&
+                        outputAmount
+                      ? parseFloat(outputAmount) / parseFloat(inputAmount)
+                      : 0),
+                  2
+                )
+              : "0"
+          }
         />
       )}
 
@@ -642,8 +731,8 @@ function SwapInterfaceContent() {
       {/* Only render output TokenInputSection if tokens are selected */}
       {outputToken && (
         <TokenInputSection
-          label="To"
-          value={outputAmount}
+          tagLabel="Buying"
+          value={formatInputDisplay(outputAmount)}
           onChange={() => {}} // Read-only for output in exactIn mode
           token={outputToken}
           onTokenSelect={handleOutputTokenSelect}
@@ -652,12 +741,39 @@ function SwapInterfaceContent() {
           disabled={isLoading}
           balanceLoading={balanceLoading}
           tokenLoading={isTokensLoading}
+          showUsdValue={true}
+          usdValue={
+            outputAmount && parseFloat(outputAmount) > 0
+              ? formatTokenAmount(
+                  parseFloat(outputAmount) *
+                    (outputToken.symbol === "USDC"
+                      ? 1
+                      : inputToken &&
+                        inputToken.symbol === "USDC" &&
+                        inputAmount
+                      ? parseFloat(inputAmount) / parseFloat(outputAmount)
+                      : 0),
+                  2
+                )
+              : "0"
+          }
+          hideBuyingControls={true} // Hide percentage controls for the "Buying" section
         />
       )}
 
+      {/* Slippage settings at bottom left */}
+      <div className="flex justify-start mt-3 mb-3">
+        <SlippageSettings
+          slippageTolerance={slippageTolerance}
+          onChange={setSlippageTolerance}
+          isAuto={isAutoSlippage}
+          setIsAuto={setIsAutoSlippage}
+        />
+      </div>
+
       {/* Price info */}
       {inputToken && outputToken && inputAmount && outputAmount && (
-        <div className="mb-6 p-3 bg-gray-800 rounded-lg text-sm">
+        <div className="mt-2 mb-6 p-3 rounded-lg text-sm">
           <div className="flex justify-between">
             <span className="text-gray-400">Price</span>
             <span>
@@ -708,8 +824,8 @@ function SwapInterfaceContent() {
                   outputToken.address === WMON_ADDRESS) ||
                 (outputToken.address === "NATIVE" &&
                   inputToken.address === WMON_ADDRESS)
-                  ? inputAmount // Exact 1:1 conversion
-                  : minimumReceived}{" "}
+                  ? formatInputDisplay(inputAmount) // Exact 1:1 conversion, but format display
+                  : formatInputDisplay(minimumReceived)}{" "}
                 {outputToken.symbol}
               </span>
             </div>
@@ -778,7 +894,7 @@ export function SwapInterface() {
   return (
     <Suspense
       fallback={
-        <div className="w-full max-w-md mx-auto bg-[#1e1e2a] rounded-2xl shadow-md p-6 text-white">
+        <div className="w-full max-w-md mx-auto bg-[#1B1B1F] rounded-2xl shadow-md p-6 text-white">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-700 rounded mb-4"></div>
             <div className="h-4 bg-gray-700 rounded w-3/4 mb-8"></div>

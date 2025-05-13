@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 interface AmountInputProps {
   value: string;
@@ -8,8 +8,6 @@ interface AmountInputProps {
   disabled?: boolean;
   max?: string;
   className?: string;
-  showMaxButton?: boolean;
-  onMaxClick?: () => void;
 }
 
 export function AmountInput({
@@ -20,9 +18,19 @@ export function AmountInput({
   disabled = false,
   max,
   className = "",
-  showMaxButton = false,
-  onMaxClick,
 }: AmountInputProps) {
+  // Limit display value to 8 decimal places
+  useEffect(() => {
+    if (value.includes(".")) {
+      const parts = value.split(".");
+      if (parts[1] && parts[1].length > 8) {
+        // Format to 8 decimal places for display
+        const newValue = `${parts[0]}.${parts[1].substring(0, 8)}`;
+        onChange(newValue);
+      }
+    }
+  }, [value, onChange]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
 
@@ -51,24 +59,14 @@ export function AmountInput({
           onChange={handleChange}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full px-3 py-2 text-xl bg-transparent border border-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#836ef9] ${
-            disabled ? "cursor-not-allowed bg-gray-800" : ""
+          className={`w-full pl-0 pr-3 py-2 text-xl bg-transparent border-none text-white rounded-lg focus:outline-none ${
+            disabled ? "cursor-not-allowed bg-gray-800/30" : ""
           }`}
           inputMode="decimal"
           autoComplete="off"
           autoCorrect="off"
           pattern="^[0-9]*[.,]?[0-9]*$"
         />
-        {showMaxButton && onMaxClick && (
-          <button
-            type="button"
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30"
-            onClick={onMaxClick}
-            disabled={disabled}
-          >
-            MAX
-          </button>
-        )}
       </div>
     </div>
   );

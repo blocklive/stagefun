@@ -320,6 +320,7 @@ function SwapPoolInterfaceContent() {
 
   // Slippage tolerance
   const [slippageTolerance, setSlippageTolerance] = useState("0.5");
+  const [isAutoSlippage, setIsAutoSlippage] = useState(true);
 
   // Loading state
   const [isAddingLiquidity, setIsAddingLiquidity] = useState(false);
@@ -333,6 +334,14 @@ function SwapPoolInterfaceContent() {
     calculatePairedAmount,
     getDisplayRatio,
   } = usePoolManager(tokenA, tokenB);
+
+  // Force check pool exists when tokens change, especially when navigating from other tabs
+  useEffect(() => {
+    if (tokenA && tokenB && tokenA.address && tokenB.address) {
+      console.log("Forcing pool check on token change");
+      checkPoolExists().catch(console.error);
+    }
+  }, [tokenA.address, tokenB.address, checkPoolExists]);
 
   // Get token balances using the WalletAssetsAdapter hook for consistency with swap page
   const {
@@ -491,7 +500,7 @@ function SwapPoolInterfaceContent() {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-[#1e1e2a] rounded-2xl shadow-md p-6 text-white">
+    <div className="w-full max-w-md mx-auto bg-[#1B1B1F] rounded-2xl shadow-md p-6 text-white">
       <div className="mb-4">
         <h2 className="text-xl font-semibold">Add Liquidity</h2>
         <p className="text-sm text-gray-400 mt-1">
@@ -512,7 +521,6 @@ function SwapPoolInterfaceContent() {
 
       {/* First token input */}
       <TokenInputSection
-        label="Input"
         value={amountA}
         onChange={handleAmountAChange}
         token={tokenA}
@@ -522,12 +530,27 @@ function SwapPoolInterfaceContent() {
         disabled={isLoading}
         balanceLoading={balanceLoading}
         tokenLoading={isLoadingTokens}
+        showUsdValue={true}
+        usdValue={
+          amountA && parseFloat(amountA) > 0
+            ? formatTokenAmount(
+                parseFloat(amountA) *
+                  (tokenA.symbol === "USDC"
+                    ? 1
+                    : tokenB.symbol === "USDC" &&
+                      amountB &&
+                      parseFloat(amountB) > 0
+                    ? parseFloat(amountB) / parseFloat(amountA)
+                    : 0),
+                2
+              )
+            : "0"
+        }
       />
 
       {/* Second token input */}
       <div className="mb-6">
         <TokenInputSection
-          label="Input"
           value={amountB}
           onChange={handleAmountBChange}
           token={tokenB}
@@ -538,14 +561,34 @@ function SwapPoolInterfaceContent() {
           secondaryDisabled={false}
           balanceLoading={balanceLoading}
           tokenLoading={isLoadingTokens}
+          showUsdValue={true}
+          usdValue={
+            amountB && parseFloat(amountB) > 0
+              ? formatTokenAmount(
+                  parseFloat(amountB) *
+                    (tokenB.symbol === "USDC"
+                      ? 1
+                      : tokenA.symbol === "USDC" &&
+                        amountA &&
+                        parseFloat(amountA) > 0
+                      ? parseFloat(amountA) / parseFloat(amountB)
+                      : 0),
+                  2
+                )
+              : "0"
+          }
         />
       </div>
 
       {/* Slippage settings */}
-      <SlippageSettings
-        slippageTolerance={slippageTolerance}
-        onChange={setSlippageTolerance}
-      />
+      <div className="mb-6">
+        <SlippageSettings
+          slippageTolerance={slippageTolerance}
+          onChange={setSlippageTolerance}
+          isAuto={isAutoSlippage}
+          setIsAuto={setIsAutoSlippage}
+        />
+      </div>
 
       {/* Add liquidity button and error display */}
       <LiquidityActions
@@ -578,7 +621,7 @@ export function SwapPoolInterface() {
   return (
     <Suspense
       fallback={
-        <div className="w-full max-w-md mx-auto bg-[#1e1e2a] rounded-2xl shadow-md p-6 text-white">
+        <div className="w-full max-w-md mx-auto bg-[#1B1B1F] rounded-2xl shadow-md p-6 text-white">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-700 rounded mb-4"></div>
             <div className="h-4 bg-gray-700 rounded w-3/4 mb-8"></div>

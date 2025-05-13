@@ -288,7 +288,11 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
           prevTokensRef.current.tokenB === currentTokenA)
       );
 
-    if (!tokensChanged) {
+    // Always check the pool exists on first render even if tokens haven't changed
+    // This helps when switching between tabs (Swap to Add Liquidity)
+    const shouldCheck = tokensChanged || !poolExists;
+
+    if (!shouldCheck) {
       return;
     }
 
@@ -302,10 +306,15 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
       clearTimeout(timeoutRef.current);
     }
 
-    // Set a timeout to avoid rapid consecutive API calls
+    // Check immediately with a minimal delay
     timeoutRef.current = setTimeout(() => {
+      // Reset poolExists to null to show loading state
+      setPoolExists(false);
+      setPoolRatio(null);
+
+      // Execute the check
       checkPoolExists().catch(console.error);
-    }, 500);
+    }, 100); // Reduce timeout to 100ms for faster response
 
     // Cleanup
     return () => {
@@ -313,7 +322,16 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [tokenA.address, tokenB.address, checkPoolExists]);
+  }, [tokenA.address, tokenB.address, checkPoolExists, poolExists]);
+
+  // Add a component mount effect to force check on page load/navigation
+  useEffect(() => {
+    console.log("Component mount effect triggered");
+    // Check pool existence on component mount
+    checkPoolExists().catch(console.error);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array means this runs once on mount
 
   return {
     poolExists,

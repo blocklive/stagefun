@@ -24,6 +24,15 @@ interface UseSwapPriceImpactResult {
 }
 
 /**
+ * Format a number to a maximum of 8 decimal places for display
+ */
+const formatDisplayValue = (value: number, decimals: number = 8): string => {
+  // Cap at 8 decimals maximum for UI display
+  const maxDecimals = Math.min(decimals, 8);
+  return value.toFixed(maxDecimals);
+};
+
+/**
  * Hook to calculate price impact and minimum received amount for a swap
  * Uses a simplified constant product formula approach
  */
@@ -64,7 +73,8 @@ export function useSwapPriceImpact({
     if (isWmonToMon || isMonToWmon) {
       setPriceImpact("0.00");
       setIsPriceImpactTooHigh(false);
-      setMinimumReceived(outputAmount); // 1:1 exchange, so minimum is same as output
+      // Display with limited decimal places for 1:1 conversion
+      setMinimumReceived(outputAmount);
       setLowLiquidityMessage(null);
       setIsSwapLikelyInvalid(false);
       return;
@@ -101,7 +111,9 @@ export function useSwapPriceImpact({
 
     // Calculate minimum received based on slippage tolerance
     const minReceivedVal = numericOutputAmount * (1 - slippageTolerance);
-    setMinimumReceived(minReceivedVal.toFixed(outputToken.decimals));
+
+    // Format minReceivedVal with at most 8 decimal places for UI display
+    setMinimumReceived(formatDisplayValue(minReceivedVal, 8));
 
     try {
       // Calculate price impact using the constant product formula approach
