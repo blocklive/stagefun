@@ -80,15 +80,19 @@ const CORE_TOKENS: SwapToken[] = [
 
 // Adding formatTokenAmount function based on WalletAssets.tsx
 const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
+  // Convert any BigInt values to numbers at the entry point
+  const safeDecimals = Number(decimals);
+  const safeQuantity = Number(quantity);
+
   // For very small numbers, use scientific notation below a certain threshold
-  if (quantity > 0 && quantity < 0.000001) {
-    return quantity.toExponential(6);
+  if (safeQuantity > 0 && safeQuantity < 0.000001) {
+    return safeQuantity.toExponential(6);
   }
 
   // Otherwise use regular formatting with appropriate decimals
-  const maxDecimals = Math.min(decimals, 6);
+  const maxDecimals = Math.min(safeDecimals, 6);
 
-  return quantity.toLocaleString(undefined, {
+  return safeQuantity.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: maxDecimals,
   });
@@ -456,7 +460,8 @@ function SwapPoolInterfaceContent() {
 
     // Return the raw numeric value without formatting
     if (asset) {
-      return asset.attributes.quantity.float || 0;
+      // Ensure we convert to number if it's a BigInt
+      return Number(asset.attributes.quantity.float) || 0;
     }
 
     return 0;

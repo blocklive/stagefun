@@ -1,6 +1,5 @@
 import { useSupabase } from "@/contexts/SupabaseContext";
-import { useState, useEffect, useCallback } from "react";
-import { mutate } from "swr";
+import { useCallback, useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 
 // Key for the alpha mode cache
@@ -16,31 +15,34 @@ export function useAlphaMode(): {
 } {
   const { dbUser, isLoadingUser, refreshUser } = useSupabase();
   const { getAccessToken } = usePrivy();
-  const [isLoading, setIsLoading] = useState(true);
   const [isAlphaMode, setIsAlphaMode] = useState(false);
 
-  // Check if the user has alpha mode enabled in their profile
+  // Update local state whenever dbUser changes
   useEffect(() => {
-    if (!isLoadingUser) {
-      setIsAlphaMode(!!dbUser?.alpha_mode);
-      setIsLoading(false);
+    if (dbUser) {
+      setIsAlphaMode(!!dbUser.alpha_mode);
     }
-  }, [dbUser, isLoadingUser]);
+  }, [dbUser]);
 
-  // Function to toggle alpha mode
+  // Toggle function that updates local state immediately and then syncs with DB
   const toggleAlphaMode = useCallback(async () => {
     if (!dbUser) return;
 
-    setIsLoading(true);
+    // Immediately toggle local state for responsive UI
+    const newValue = !isAlphaMode;
+    setIsAlphaMode(newValue);
+
     try {
       // Get auth token from Privy
       const token = await getAccessToken();
-
       if (!token) {
         console.error("Failed to get authentication token");
+        // Revert if authentication fails
+        setIsAlphaMode(!newValue);
         return;
       }
 
+      // Call API to update DB
       const response = await fetch("/api/user/alpha-mode", {
         method: "POST",
         headers: {
@@ -48,38 +50,30 @@ export function useAlphaMode(): {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          enabled: !isAlphaMode,
+          enabled: newValue,
         }),
       });
 
       const result = await response.json();
 
       if (result.success) {
-        // Update local state first
-        setIsAlphaMode(!isAlphaMode);
-
-        // Invalidate all relevant caches
-        mutate("api-user-profile"); // Update user profile cache
-        mutate(ALPHA_MODE_CACHE_KEY); // Update dedicated alpha mode cache
-
-        // Force revalidation of all SWR caches that might display alpha features
-        // This ensures all components will re-render with the updated setting
-        mutate(null, true, { revalidate: true });
-
-        // Refresh user data with a slight delay to avoid UI flicker
-        // This will update the database user object without disrupting the UI
-        setTimeout(() => {
-          refreshUser();
-        }, 100);
+        // Success! Refresh user data to keep everything in sync
+        refreshUser();
       } else {
+        // Revert on failure
         console.error("Failed to toggle alpha mode:", result.error);
+        setIsAlphaMode(!newValue);
       }
     } catch (error) {
+      // Revert on error
       console.error("Error toggling alpha mode:", error);
-    } finally {
-      setIsLoading(false);
+      setIsAlphaMode(!newValue);
     }
   }, [dbUser, isAlphaMode, getAccessToken, refreshUser]);
 
-  return { isAlphaMode, isLoading, toggleAlphaMode };
+  return {
+    isAlphaMode,
+    isLoading: isLoadingUser,
+    toggleAlphaMode,
+  };
 }

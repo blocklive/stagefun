@@ -13,7 +13,7 @@ import { VirtualizedTokenList } from "./VirtualizedTokenList";
 import { AddCustomToken } from "./AddCustomToken";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import showToast from "@/utils/toast";
-import { useAlphaModeValue } from "@/hooks/useAlphaModeValue";
+import { useAlphaMode } from "@/hooks/useAlphaMode";
 
 interface EnhancedTokenSelectorProps {
   isOpen: boolean;
@@ -39,7 +39,7 @@ export function EnhancedTokenSelector({
   modalPosition,
 }: EnhancedTokenSelectorProps) {
   // Check if alpha mode is enabled
-  const isAlphaMode = useAlphaModeValue();
+  const { isAlphaMode } = useAlphaMode();
 
   const [activeTab, setActiveTab] = useState<"core" | "stages">("core");
   const [isAddTokenModalOpen, setIsAddTokenModalOpen] = useState(false);

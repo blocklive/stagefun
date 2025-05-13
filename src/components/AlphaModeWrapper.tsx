@@ -1,22 +1,12 @@
 "use client";
 
-import { useAlphaModeValue } from "@/hooks/useAlphaModeValue";
-import React, { Suspense, ReactNode } from "react";
+import { useAlphaMode } from "@/hooks/useAlphaMode";
+import React, { ReactNode } from "react";
 
-// Component that checks alpha mode and renders children accordingly
-// Now using useAlphaModeValue for better caching and reactivity
-function AlphaModeChecker({
-  children,
-  alphaContent,
-}: {
-  children: ReactNode;
-  alphaContent: ReactNode;
-}) {
-  const isAlphaMode = useAlphaModeValue();
-  return isAlphaMode ? alphaContent : children;
-}
-
-// Exported component that wraps the checker in Suspense
+/**
+ * Component that conditionally renders alpha content based on user's alpha mode setting.
+ * Uses SWR under the hood via the useAlphaMode hook for fast cached access.
+ */
 export function AlphaModeWrapper({
   children,
   alphaContent,
@@ -24,11 +14,8 @@ export function AlphaModeWrapper({
   children: ReactNode;
   alphaContent: ReactNode;
 }) {
-  return (
-    <Suspense fallback={<div className="h-8 w-full animate-pulse"></div>}>
-      <AlphaModeChecker alphaContent={alphaContent}>
-        {children}
-      </AlphaModeChecker>
-    </Suspense>
-  );
+  const { isAlphaMode } = useAlphaMode();
+
+  // Render alpha content if alpha mode is enabled, otherwise render children
+  return isAlphaMode ? alphaContent : children;
 }
