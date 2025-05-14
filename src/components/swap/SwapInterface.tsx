@@ -878,16 +878,6 @@ function SwapInterfaceContent() {
             </div>
           )}
 
-          {/* No pool exists message */}
-          {noPoolExists && (
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-gray-400">Pool Status</span>
-              <span className="text-yellow-500 font-medium">
-                No liquidity pool exists for this pair
-              </span>
-            </div>
-          )}
-
           {/* Display Price Impact or N/A message - only if we have an output and no pool error */}
           {priceImpact !== null &&
             !isCalculating &&
@@ -963,7 +953,7 @@ function SwapInterfaceContent() {
         </div>
       )}
 
-      {/* Swap button - disable if no pool exists */}
+      {/* Swap button - update to improve disabled styling */}
       <div className="mt-6">
         <PrimaryButton
           onClick={handleSwap}
@@ -977,14 +967,25 @@ function SwapInterfaceContent() {
             isSwapLikelyInvalid ||
             noPoolExists
           }
-          className="w-full py-3 text-lg font-semibold"
+          className={`w-full py-3 text-lg font-semibold ${
+            isLoading ||
+            !inputToken ||
+            !outputToken ||
+            !inputAmount ||
+            parseFloat(inputAmount) === 0 ||
+            isPriceImpactTooHigh ||
+            isSwapLikelyInvalid ||
+            noPoolExists
+              ? "opacity-50 cursor-not-allowed"
+              : ""
+          }`}
         >
           {isSwapLikelyInvalid
             ? "Amount Error / No Output"
             : isPriceImpactTooHigh
             ? "Price Impact Too High"
             : noPoolExists
-            ? "No Liquidity Pool"
+            ? "No Pool Liquidity"
             : isSwapping
             ? "Swapping..."
             : "Swap"}
