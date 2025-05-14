@@ -3,18 +3,40 @@ import Image from "next/image";
 import Link from "next/link";
 import { BsThreeDots } from "react-icons/bs";
 import { LiquidityPosition } from "@/hooks/useLiquidityPositions";
+import { useRouter } from "next/navigation";
 
 interface AllPoolsTableProps {
   positions: LiquidityPosition[];
   getTokenIconPath: (symbol: string) => string;
   toggleMenu: (pairAddress: string, event: React.MouseEvent) => void;
+  activeMenu: string | null;
+  onAddLiquidity: (
+    position: LiquidityPosition,
+    event: React.MouseEvent
+  ) => void;
+  closeMenu: () => void;
 }
 
 export const AllPoolsTable: React.FC<AllPoolsTableProps> = ({
   positions,
   getTokenIconPath,
   toggleMenu,
+  activeMenu,
+  onAddLiquidity,
+  closeMenu,
 }) => {
+  const router = useRouter();
+
+  const handleRowClick = (pairAddress: string) => {
+    // Use router for client-side navigation
+    router.push(`/swap/positions/${pairAddress}`);
+  };
+
+  // Determine if a row is in the top half of the table
+  const isTopHalf = (index: number) => {
+    return index < positions.length / 2;
+  };
+
   return (
     <div>
       <h3 className="text-xl font-medium text-white mb-4">All Pools</h3>
@@ -35,9 +57,7 @@ export const AllPoolsTable: React.FC<AllPoolsTableProps> = ({
               <tr
                 key={position.pairAddress}
                 className="border-b border-gray-800 hover:bg-gray-800/30 cursor-pointer"
-                onClick={() =>
-                  (window.location.href = `/swap/positions/${position.pairAddress}`)
-                }
+                onClick={() => handleRowClick(position.pairAddress)}
               >
                 <td className="p-4 text-gray-300">{index + 1}</td>
                 <td className="p-4">
@@ -86,23 +106,63 @@ export const AllPoolsTable: React.FC<AllPoolsTableProps> = ({
                 </td>
                 <td className="p-4 text-gray-300">0.3%</td>
                 <td className="p-4 text-gray-300">
-                  {position.hasUserLiquidity ? (
-                    <span className="text-purple-400">Yes</span>
-                  ) : (
-                    <span className="text-gray-500">-</span>
-                  )}
+                  <span className="text-gray-500">-</span>
                 </td>
                 <td className="p-4">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleMenu(position.pairAddress, e);
-                    }}
-                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-700"
-                    aria-label="Pool options"
-                  >
-                    <BsThreeDots size={18} />
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMenu(position.pairAddress, e);
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-700"
+                      aria-label="Pool options"
+                    >
+                      <BsThreeDots size={18} />
+                    </button>
+
+                    {/* Adaptive dropdown menu */}
+                    {activeMenu === position.pairAddress && (
+                      <div
+                        className={`absolute ${
+                          isTopHalf(index)
+                            ? "top-full mt-2" // Open downward for top half
+                            : "bottom-full mb-2" // Open upward for bottom half
+                        } w-48 rounded-md shadow-xl z-[2000] border border-gray-700 overflow-hidden`}
+                        style={{
+                          backgroundColor: "#191C27",
+                          boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.0)",
+                          right: "calc(100% + 5px)", // Position to the left of the button
+                        }}
+                      >
+                        <ul className="py-1">
+                          <li className="block">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onAddLiquidity(position, e);
+                              }}
+                              className="block w-full px-4 py-2 text-sm text-white text-left bg-[#191C27] hover:bg-gray-700"
+                            >
+                              Add Liquidity
+                            </button>
+                          </li>
+                          <li className="block">
+                            <Link
+                              href={`/swap/positions/${position.pairAddress}`}
+                              className="block w-full px-4 py-2 text-sm text-white text-left bg-[#191C27] hover:bg-gray-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                closeMenu();
+                              }}
+                            >
+                              View Details
+                            </Link>
+                          </li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

@@ -5,9 +5,9 @@ import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
-import { createPortal } from "react-dom";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
 import { AllPoolsTable } from "./AllPoolsTable";
+import { LiquidityPosition } from "@/hooks/useLiquidityPositions";
 
 // Wrap the main content in a Content component with Suspense
 function PositionsContent() {
@@ -16,7 +16,6 @@ function PositionsContent() {
   const { positions, isLoading, refresh, error } = useLiquidityPositions();
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -48,12 +47,6 @@ function PositionsContent() {
 
   const toggleMenu = (pairAddress: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-
-    setMenuPosition({
-      top: rect.bottom + window.scrollY,
-      left: rect.right - 150 + window.scrollX, // Position menu to the left of the button
-    });
 
     if (activeMenu === pairAddress) {
       setActiveMenu(null);
@@ -62,10 +55,18 @@ function PositionsContent() {
     }
   };
 
+  // Simple method to close any open menu
+  const closeMenu = () => {
+    setActiveMenu(null);
+  };
+
   // Close menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => {
-      setActiveMenu(null);
+    const handleClickOutside = (event: MouseEvent) => {
+      // Close menu when clicking outside
+      if (activeMenu && mounted) {
+        setActiveMenu(null);
+      }
     };
 
     if (activeMenu) {
@@ -75,9 +76,12 @@ function PositionsContent() {
     return () => {
       document.removeEventListener("click", handleClickOutside);
     };
-  }, [activeMenu]);
+  }, [activeMenu, mounted]);
 
-  const handleAddLiquidity = (position: any, event: React.MouseEvent) => {
+  const handleAddLiquidity = (
+    position: LiquidityPosition,
+    event: React.MouseEvent
+  ) => {
     event.stopPropagation();
     // Navigate to add liquidity page with tokens pre-selected
     router.push(
@@ -87,7 +91,7 @@ function PositionsContent() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto">
+    <div className="w-full max-w-6xl mx-auto pb-16">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-white">Liquidity Pools</h2>
         <button
@@ -132,40 +136,12 @@ function PositionsContent() {
             positions={positions}
             getTokenIconPath={getTokenIconPath}
             toggleMenu={toggleMenu}
+            activeMenu={activeMenu}
+            onAddLiquidity={handleAddLiquidity}
+            closeMenu={closeMenu}
           />
         </>
       )}
-
-      {/* Portal for dropdown menu - rendered outside the table to avoid overflow issues */}
-      {mounted &&
-        activeMenu &&
-        createPortal(
-          <div
-            className="fixed py-2 w-48 bg-gray-800 rounded-md shadow-lg z-50 border border-gray-700"
-            style={{
-              top: `${menuPosition.top}px`,
-              left: `${menuPosition.left}px`,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {positions.find((p) => p.pairAddress === activeMenu) && (
-              <>
-                <button
-                  onClick={(e) =>
-                    handleAddLiquidity(
-                      positions.find((p) => p.pairAddress === activeMenu)!,
-                      e
-                    )
-                  }
-                  className="px-4 py-2 text-sm text-white w-full text-left hover:bg-gray-700"
-                >
-                  Add Liquidity
-                </button>
-              </>
-            )}
-          </div>,
-          document.body
-        )}
     </div>
   );
 }
