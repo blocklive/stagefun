@@ -116,6 +116,21 @@ const getTokenInfo = (
   };
 };
 
+// Helper function to retry a promise multiple times
+async function retryPromise<T>(
+  fn: () => Promise<T>,
+  retries: number = 3,
+  delay: number = 500
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (retries <= 1) throw error;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    return retryPromise(fn, retries - 1, delay);
+  }
+}
+
 export function useLiquidityPositions() {
   const { smartWalletAddress } = useSmartWallet();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -154,15 +169,21 @@ export function useLiquidityPositions() {
         const batch = indices.slice(i, i + batchSize);
         const batchPromises = batch.map(async (index) => {
           try {
-            const pairAddress = await factoryContract.allPairs(index);
-            if (pairAddress && ethers.isAddress(pairAddress)) {
-              console.log(`Pair ${index} address: ${pairAddress}`);
-              return pairAddress;
-            }
-            return null;
+            // Retry up to 3 times with a 500ms delay
+            return await retryPromise(
+              async () => {
+                const pairAddress = await factoryContract.allPairs(index);
+                if (pairAddress && ethers.isAddress(pairAddress)) {
+                  console.log(`Pair ${index} address: ${pairAddress}`);
+                  return pairAddress;
+                }
+                return null;
+              },
+              3,
+              500
+            );
           } catch (error) {
-            // Silent error handling - don't log to console
-            // These errors are expected sometimes due to contract issues
+            // Silent error handling
             return null;
           }
         });
@@ -195,9 +216,35 @@ export function useLiquidityPositions() {
           const pairContract = await getPairContract(pairAddress, provider);
 
           try {
-            // Get token addresses with individual try/catch
-            const token0Address = await pairContract.token0();
-            const token1Address = await pairContract.token1();
+            // Special handling for USDC/MON pair which seems to fail most often
+            // Retry the token calls up to 3 times with a 500ms delay
+            let token0Address, token1Address;
+
+            try {
+              token0Address = await retryPromise(
+                async () => {
+                  return await pairContract.token0();
+                },
+                3,
+                500
+              );
+            } catch (error) {
+              // If all retries fail, skip this pair
+              continue;
+            }
+
+            try {
+              token1Address = await retryPromise(
+                async () => {
+                  return await pairContract.token1();
+                },
+                3,
+                500
+              );
+            } catch (error) {
+              // If all retries fail, skip this pair
+              continue;
+            }
 
             console.log(
               `Pair ${pairAddress} tokens: ${token0Address}, ${token1Address}`
@@ -218,12 +265,10 @@ export function useLiquidityPositions() {
               `Successfully processed pair ${pairAddress}: ${token0Info.symbol}/${token1Info.symbol}`
             );
           } catch (error) {
-            // Silent error handling - expected for some pairs
-            // Just skip this pair without logging error
+            // Silent error handling
           }
         } catch (error) {
-          // Silent error handling - expected for some pairs
-          // Just skip this pair without logging error
+          // Silent error handling
         }
       }
 
