@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { Token } from "@/types/token";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+import { useStageSwap } from "@/hooks/useStageSwap";
+import { ethers } from "ethers";
 
 // Constants
 const HIGH_PRICE_IMPACT_THRESHOLD = 15; // 15%
 const DEFAULT_SLIPPAGE_TOLERANCE = 0.005; // 0.5%
 const WMON_ADDRESS = CONTRACT_ADDRESSES.monadTestnet.weth;
+const MAX_RETRIES = 3; // Maximum number of retry attempts
 
 interface UseSwapPriceImpactProps {
   inputAmount: string;
@@ -21,6 +24,7 @@ interface UseSwapPriceImpactResult {
   minimumReceived: string | null;
   lowLiquidityMessage: string | null;
   isSwapLikelyInvalid: boolean;
+  isCalculating: boolean; // Added loading state
 }
 
 /**
@@ -33,8 +37,51 @@ const formatDisplayValue = (value: number, decimals: number = 8): string => {
 };
 
 /**
+ * Retry function with exponential backoff
+ * @param fn Function to retry
+ * @param retries Number of retries
+ * @param baseDelay Base delay in ms
+ * @returns Promise with the result
+ */
+const retryWithBackoff = async <T>(
+  fn: () => Promise<T>,
+  retries = MAX_RETRIES,
+  baseDelay = 300
+): Promise<T> => {
+  try {
+    return await fn();
+  } catch (error) {
+    // Check if the error is related to rate limiting (status 429)
+    const isRateLimitError =
+      error instanceof Error &&
+      (error.message.includes("429") ||
+        error.message.includes("rate limit") ||
+        error.message.includes("requests limited"));
+
+    // If we have retries left and it's a rate limit error, retry with backoff
+    if (retries > 0 && isRateLimitError) {
+      // Calculate exponential backoff delay: baseDelay * 2^(MAX_RETRIES - retries)
+      // e.g., for baseDelay=300, retries on attempts will be: 300ms, 600ms, 1200ms
+      const delay = baseDelay * Math.pow(2, MAX_RETRIES - retries);
+      console.log(
+        `Rate limited, retrying in ${delay}ms... (${retries} attempts left)`
+      );
+
+      // Wait for the calculated delay
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      // Retry with one less retry
+      return retryWithBackoff(fn, retries - 1, baseDelay);
+    }
+
+    // If no retries left or not a rate limit error, throw the error
+    throw error;
+  }
+};
+
+/**
  * Hook to calculate price impact and minimum received amount for a swap
- * Uses a simplified constant product formula approach
+ * Uses a constant product formula approach (x*y=k)
  */
 export function useSwapPriceImpact({
   inputAmount,
@@ -51,6 +98,10 @@ export function useSwapPriceImpact({
     null
   );
   const [isSwapLikelyInvalid, setIsSwapLikelyInvalid] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false); // Added loading state
+
+  // Use the existing StageSwap hook for getting pool information
+  const { getPair } = useStageSwap();
 
   useEffect(() => {
     // Reset all values if any required values are missing
@@ -60,6 +111,7 @@ export function useSwapPriceImpact({
       setMinimumReceived(null);
       setLowLiquidityMessage(null);
       setIsSwapLikelyInvalid(false);
+      setIsCalculating(false);
       return;
     }
 
@@ -77,6 +129,7 @@ export function useSwapPriceImpact({
       setMinimumReceived(outputAmount);
       setLowLiquidityMessage(null);
       setIsSwapLikelyInvalid(false);
+      setIsCalculating(false);
       return;
     }
 
@@ -96,6 +149,7 @@ export function useSwapPriceImpact({
       setMinimumReceived(null);
       setLowLiquidityMessage(null);
       setIsSwapLikelyInvalid(numericInputAmount > 0); // Invalid only if input > 0 but output is invalid
+      setIsCalculating(false);
       return;
     }
 
@@ -106,6 +160,7 @@ export function useSwapPriceImpact({
       setMinimumReceived(null);
       setLowLiquidityMessage(null);
       setIsSwapLikelyInvalid(true);
+      setIsCalculating(false);
       return;
     }
 
@@ -115,49 +170,114 @@ export function useSwapPriceImpact({
     // Format minReceivedVal with at most 8 decimal places for UI display
     setMinimumReceived(formatDisplayValue(minReceivedVal, 8));
 
-    try {
-      // Calculate price impact using the constant product formula approach
-      // For a simple constant product AMM (x*y=k), price impact increases with trade size
-      // relative to the pool reserves.
+    // Set calculating to true when starting the calculation
+    setIsCalculating(true);
 
-      // To best match actual AMM behavior:
-      // - Use input amount relative to input token reserve
-      // - Larger trades = higher impact, smaller trades = lower impact
+    // Calculate price impact using pool reserves
+    const calculatePriceImpact = async () => {
+      try {
+        // Get token addresses for pool lookup (handle NATIVE -> WMON)
+        const tokenA = isInputNative ? WMON_ADDRESS : inputToken.address;
+        const tokenB = isOutputNative ? WMON_ADDRESS : outputToken.address;
 
-      // Note: This uses the MON reserve (11.67) from pool statistics provided previously
-      // For a more general/dynamic approach, you would query the actual reserves
-      const inputReserve = 11.67; // Based on the pool provided - MON reserve
+        // Get pool information using the getPair function from useStageSwap
+        // Wrap in retry logic to handle rate limiting
+        const pairInfo = await retryWithBackoff(async () => {
+          return await getPair({ tokenA, tokenB });
+        });
 
-      // Calculate price impact as a function of input size relative to reserve
-      const estimatedImpact =
-        (numericInputAmount / (inputReserve + numericInputAmount)) * 100;
+        // If pool doesn't exist or request failed
+        if (
+          !pairInfo.success ||
+          !pairInfo.reserves ||
+          pairInfo.pairAddress === ethers.ZeroAddress
+        ) {
+          setPriceImpact(null);
+          setIsPriceImpactTooHigh(false);
+          setLowLiquidityMessage("No liquidity found for this pair");
+          setIsCalculating(false);
+          return;
+        }
 
-      // Format and set the price impact
-      const formattedImpact = estimatedImpact.toFixed(2);
-      setPriceImpact(formattedImpact);
+        // Get reserves from the pair info
+        const [reserveA, reserveB] = pairInfo.reserves;
 
-      // Determine if price impact is too high
-      if (estimatedImpact > HIGH_PRICE_IMPACT_THRESHOLD) {
-        setIsPriceImpactTooHigh(true);
-      } else {
+        // If reserves are zero
+        if (
+          !reserveA ||
+          !reserveB ||
+          reserveA === BigInt(0) ||
+          reserveB === BigInt(0)
+        ) {
+          setPriceImpact(null);
+          setIsPriceImpactTooHigh(false);
+          setLowLiquidityMessage("No liquidity found for this pair");
+          setIsCalculating(false);
+          return;
+        }
+
+        // Convert reserves to numbers for calculation
+        const inputTokenDecimals = inputToken.decimals || 18;
+        const outputTokenDecimals = outputToken.decimals || 18;
+
+        const inputReserveFloat = parseFloat(
+          ethers.formatUnits(reserveA, inputTokenDecimals)
+        );
+        const outputReserveFloat = parseFloat(
+          ethers.formatUnits(reserveB, outputTokenDecimals)
+        );
+
+        // Calculate spot price before the swap (output/input)
+        const spotPrice = outputReserveFloat / inputReserveFloat;
+
+        // Calculate execution price (output amount / input amount)
+        const executionPrice = numericOutputAmount / numericInputAmount;
+
+        // Calculate price impact: 1 - (execution price / spot price)
+        const impact = (1 - executionPrice / spotPrice) * 100;
+
+        // Ensure we don't show negative price impact (which can happen due to rounding)
+        const adjustedImpact = Math.max(0, impact);
+
+        // Format and set the price impact
+        const formattedImpact = adjustedImpact.toFixed(2);
+        setPriceImpact(formattedImpact);
+
+        // Determine if price impact is too high
+        if (adjustedImpact > HIGH_PRICE_IMPACT_THRESHOLD) {
+          setIsPriceImpactTooHigh(true);
+        } else {
+          setIsPriceImpactTooHigh(false);
+        }
+
+        // Clear any previous low liquidity messages
+        setLowLiquidityMessage(null);
+
+        // Mark swap as valid
+        setIsSwapLikelyInvalid(false);
+      } catch (error) {
+        console.error("Error calculating price impact:", error);
+        setPriceImpact(null);
         setIsPriceImpactTooHigh(false);
+        setLowLiquidityMessage(
+          "Note: Price impact could not be calculated accurately."
+        );
+        setIsSwapLikelyInvalid(false); // Don't block the swap just because we can't calculate impact
+      } finally {
+        // Set calculating to false when done
+        setIsCalculating(false);
       }
+    };
 
-      // Clear any previous low liquidity messages
-      setLowLiquidityMessage(null);
-
-      // Mark swap as valid
-      setIsSwapLikelyInvalid(false);
-    } catch (error) {
-      console.error("Error calculating price impact:", error);
-      setPriceImpact(null);
-      setIsPriceImpactTooHigh(false);
-      setLowLiquidityMessage(
-        "Note: Price impact could not be calculated accurately."
-      );
-      setIsSwapLikelyInvalid(false); // Don't block the swap just because we can't calculate impact
-    }
-  }, [inputAmount, outputAmount, inputToken, outputToken, slippageTolerance]);
+    calculatePriceImpact();
+  }, [
+    inputAmount,
+    outputAmount,
+    inputToken,
+    outputToken,
+    slippageTolerance,
+    getPair,
+  ]);
 
   return {
     priceImpact,
@@ -165,5 +285,6 @@ export function useSwapPriceImpact({
     minimumReceived,
     lowLiquidityMessage,
     isSwapLikelyInvalid,
+    isCalculating,
   };
 }

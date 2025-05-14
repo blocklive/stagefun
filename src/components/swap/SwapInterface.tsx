@@ -156,6 +156,7 @@ function SwapInterfaceContent() {
     minimumReceived,
     lowLiquidityMessage,
     isSwapLikelyInvalid,
+    isCalculating,
   } = useSwapPriceImpact({
     inputAmount,
     outputAmount,
@@ -786,7 +787,7 @@ function SwapInterfaceContent() {
             </span>
           </div>
           {/* Display Price Impact or N/A message */}
-          {priceImpact !== null && (
+          {priceImpact !== null && !isCalculating && (
             <div className="flex justify-between mt-1">
               <span className="text-gray-400">Price Impact</span>
               <span
@@ -806,7 +807,15 @@ function SwapInterfaceContent() {
               </span>
             </div>
           )}
+          {/* Loading skeleton for price impact */}
+          {isCalculating && (
+            <div className="flex justify-between mt-1">
+              <span className="text-gray-400">Price Impact</span>
+              <div className="w-16 h-4 bg-gray-700 rounded animate-pulse"></div>
+            </div>
+          )}
           {priceImpact === null &&
+            !isCalculating &&
             outputAmount &&
             parseFloat(outputAmount) > 0 && (
               <div className="flex justify-between mt-1">
