@@ -19,23 +19,11 @@ import { useTokenList } from "@/hooks/useTokenList";
 import { Token } from "@/types/token";
 import { useSwapPriceImpact } from "@/hooks/useSwapPriceImpact";
 import { SlippageSettings } from "./SlippageSettings";
+import { useWrapUnwrap } from "@/hooks/useWrapUnwrap";
 
 // Get the WMON address from the contracts file
 const WMON_ADDRESS = CONTRACT_ADDRESSES.monadTestnet.officialWmon;
 console.log("Using official WMON address:", WMON_ADDRESS);
-
-// Create a detailed WMON contract interface exactly matching the contract
-const WMON_ABI = [
-  // Basic ERC20 functions
-  "function balanceOf(address) view returns (uint256)",
-  "function allowance(address, address) view returns (uint256)",
-  "function approve(address, uint256) returns (bool)",
-  "function transfer(address, uint256) returns (bool)",
-  "function transferFrom(address, address, uint256) returns (bool)",
-  // WMON specific functions
-  "function deposit() payable",
-  "function withdraw(uint256)",
-];
 
 // Adding formatTokenAmount function based on WalletAssets.tsx
 const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
@@ -69,7 +57,7 @@ const formatInputDisplay = (value: string): string => {
   return value;
 };
 
-// Token data with real contract addresses
+// Create a token data array with real contract addresses
 // Note: We're keeping this for backward compatibility but using useTokenList instead
 const TOKENS = [
   {
@@ -216,15 +204,6 @@ function SwapInterfaceContent() {
     }
   }, [allTokens, inputToken, outputToken]);
 
-  const {
-    swapExactTokensForTokens,
-    getAmountsOut,
-    isLoading: isSwapHookLoading,
-    error,
-    swapExactETHForTokens,
-    swapExactTokensForETH,
-  } = useStageSwap();
-
   // Set a loading state for initial render
   const [initialLoading, setInitialLoading] = useState(true);
 
@@ -238,6 +217,22 @@ function SwapInterfaceContent() {
     combineData: false, // Don't use combined data
   });
 
+  // Get hooks for swap and wrap/unwrap operations
+  const {
+    swapExactTokensForTokens,
+    getAmountsOut,
+    isLoading: isSwapHookLoading,
+    error,
+    swapExactETHForTokens,
+    swapExactTokensForETH,
+  } = useStageSwap();
+
+  const {
+    wrapMon,
+    unwrapWmon,
+    isLoading: isWrapUnwrapLoading,
+  } = useWrapUnwrap();
+
   // When assets are loaded for the first time, set initialLoading to false
   useEffect(() => {
     if (assets && assets.length > 0 && initialLoading) {
@@ -246,7 +241,8 @@ function SwapInterfaceContent() {
   }, [assets, initialLoading]);
 
   // Combined loading state
-  const isLoading = isSwapping || isSwapHookLoading || isTokensLoading;
+  const isLoading =
+    isSwapping || isSwapHookLoading || isTokensLoading || isWrapUnwrapLoading;
 
   // Balance loading state - show loading when assets are loading OR during initial load
   const balanceLoading = assetsLoading || initialLoading;
@@ -615,21 +611,8 @@ function SwapInterfaceContent() {
           console.log("Direct wrapping MON to WMON...");
 
           try {
-            const amountBigInt = BigInt(amountInWei);
-            console.log(
-              `Wrapping ${amountBigInt.toString()} MON to WMON with detailed contract interface`
-            );
-            console.log(`WMON address: ${WMON_ADDRESS}`);
-
-            // Call deposit with MON value
-            swapResult = await callContractFunction(
-              WMON_ADDRESS as `0x${string}`,
-              WMON_ABI,
-              "deposit",
-              [], // no arguments needed
-              "Wrap MON to WMON",
-              { value: amountBigInt } // Send the MON as value
-            );
+            // Use the new hook for wrapping
+            swapResult = await wrapMon(amountInWei);
 
             console.log("MON to WMON wrap result:", swapResult);
           } catch (wrapError) {
@@ -651,50 +634,20 @@ function SwapInterfaceContent() {
           const wmonBalanceInWei = getTokenBalance(inputToken);
           console.log(`User WMON balance: ${wmonBalanceInWei}`);
 
-          // Convert the balance to a number for comparison
-          const wmonBalance = parseFloat(wmonBalanceInWei);
-          const requestedAmount = parseFloat(inputAmount);
+          try {
+            // Use the new hook for unwrapping
+            swapResult = await unwrapWmon(amountInWei, wmonBalanceInWei);
 
-          // Check if the user has enough WMON
-          if (wmonBalance < requestedAmount) {
+            console.log("WMON to MON unwrap result:", swapResult);
+          } catch (unwrapError) {
+            console.error("Error in WMON unwrapping:", unwrapError);
             swapResult = {
               success: false,
-              error: `Insufficient WMON balance. You have ${wmonBalanceInWei} WMON but are trying to unwrap ${inputAmount} WMON.`,
+              error:
+                unwrapError instanceof Error
+                  ? unwrapError.message
+                  : "Unknown error during unwrapping",
             };
-            console.log(
-              "WMON unwrap failed due to insufficient balance:",
-              swapResult
-            );
-          } else {
-            try {
-              // Using ethers.js to format the number correctly
-              const amountBigInt = BigInt(amountInWei);
-
-              console.log(
-                `Unwrapping ${amountBigInt.toString()} WMON to MON with detailed contract interface`
-              );
-              console.log(`WMON address: ${WMON_ADDRESS}`);
-
-              // Call withdraw with the exact parameter type from the contract
-              swapResult = await callContractFunction(
-                WMON_ADDRESS as `0x${string}`,
-                WMON_ABI,
-                "withdraw",
-                [amountBigInt],
-                "Unwrap WMON to MON"
-              );
-
-              console.log("WMON to MON unwrap result:", swapResult);
-            } catch (unwrapError) {
-              console.error("Error in WMON unwrapping:", unwrapError);
-              swapResult = {
-                success: false,
-                error:
-                  unwrapError instanceof Error
-                    ? unwrapError.message
-                    : "Unknown error during unwrapping",
-              };
-            }
           }
         }
       }
