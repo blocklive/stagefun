@@ -31,6 +31,11 @@ export function usePoolManager(tokenA: Token, tokenB: Token) {
 
   // Check if pool exists and get reserves
   const checkPoolExists = useCallback(async () => {
+    // if tokens addresses match, don't check
+    if (tokenA.address === tokenB.address) {
+      return false;
+    }
+
     if (!tokenA.address || !tokenB.address || isCheckingRef.current) {
       return false;
     }

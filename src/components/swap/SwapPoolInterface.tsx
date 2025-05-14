@@ -380,7 +380,6 @@ function SwapPoolInterfaceContent() {
         initialLoadComplete &&
         !poolCheckCompletedForParams
       ) {
-        console.log("URL params pool check completed");
         setPoolCheckCompletedForParams(true);
 
         // Only mark as complete if the pool exists (to prevent showing New Pool during transition)
@@ -413,7 +412,6 @@ function SwapPoolInterfaceContent() {
   // Force check pool exists when tokens change, especially when navigating from other tabs
   useEffect(() => {
     if (tokenA && tokenB && tokenA.address && tokenB.address) {
-      console.log("Forcing pool check on token change");
       checkPoolExists().catch(console.error);
     }
   }, [tokenA.address, tokenB.address, checkPoolExists]);
