@@ -121,10 +121,6 @@ export async function GET(req: NextRequest) {
       }
 
       const portfolioData = await portfolioResponse.json();
-      // console.log(
-      //   `Portfolio API response for page ${pagesRetrieved}:`,
-      //   JSON.stringify(portfolioData, null, 2)
-      // );
 
       // REVERTING to previous way of accessing tokenData, as per user feedback
       const tokenData = portfolioData?.data?.tokens || [];

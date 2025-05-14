@@ -13,6 +13,7 @@ interface TokenInputSectionProps {
   tokens: Token[];
   balance: string;
   disabled?: boolean;
+  disableInput?: boolean;
   secondaryDisabled?: boolean;
   balanceLoading?: boolean;
   tokenLoading?: boolean;
@@ -31,6 +32,7 @@ export function TokenInputSection({
   tokens,
   balance,
   disabled = false,
+  disableInput = false,
   secondaryDisabled = false,
   balanceLoading = false,
   tokenLoading = false,
@@ -41,7 +43,7 @@ export function TokenInputSection({
 }: TokenInputSectionProps) {
   // Helper function to handle percentage buttons
   const handlePercentClick = (percent: number) => {
-    if (balanceLoading || !balance) return;
+    if (balanceLoading || !balance || disabled || disableInput) return;
 
     console.log("balance", balance, percent);
 
@@ -98,7 +100,7 @@ export function TokenInputSection({
               value={value}
               onChange={onChange}
               max={balance}
-              disabled={disabled || balanceLoading}
+              disabled={disabled || disableInput || balanceLoading}
               className="w-full"
             />
           </div>
@@ -137,7 +139,7 @@ export function TokenInputSection({
               type="button"
               className="mr-2 px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30"
               onClick={() => handlePercentClick(0.25)}
-              disabled={disabled || balanceLoading}
+              disabled={disabled || disableInput || balanceLoading}
             >
               25%
             </button>
@@ -145,7 +147,7 @@ export function TokenInputSection({
               type="button"
               className="mr-2 px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30"
               onClick={() => handlePercentClick(0.5)}
-              disabled={disabled || balanceLoading}
+              disabled={disabled || disableInput || balanceLoading}
             >
               50%
             </button>
@@ -153,7 +155,7 @@ export function TokenInputSection({
               type="button"
               className="px-2 py-1 text-xs font-medium text-[#836ef9] bg-[#836ef9]/20 rounded-md hover:bg-[#836ef9]/30"
               onClick={() => handlePercentClick(1)}
-              disabled={disabled || balanceLoading}
+              disabled={disabled || disableInput || balanceLoading}
             >
               MAX
             </button>

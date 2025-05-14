@@ -101,6 +101,40 @@ const HIGH_PRICE_IMPACT_THRESHOLD = 15; // 15%
 // Internal component with all the logic
 function SwapInterfaceContent() {
   const { user } = usePrivy();
+
+  // Add console error handler to filter out specific error messages
+  useEffect(() => {
+    // Store the original console.error
+    const originalConsoleError = console.error;
+
+    // Override console.error
+    console.error = function () {
+      // Convert arguments to string to check for specific errors
+      const errorString = Array.from(arguments).join(" ");
+
+      // Check if this is a missing pool error
+      if (
+        errorString.includes("missing revert data") ||
+        errorString.includes("CALL_EXCEPTION")
+      ) {
+        // Replace with a less alarming log for missing pools
+        console.log("Swap pool does not exist for this pair");
+        return;
+      }
+
+      // For all other errors, call the original console.error with proper typing
+      originalConsoleError.apply(
+        console,
+        arguments as unknown as [any, ...any[]]
+      );
+    };
+
+    // Clean up when component unmounts
+    return () => {
+      console.error = originalConsoleError;
+    };
+  }, []);
+
   // Use token list hook with onlyWithLiquidity = true for swap
   // And onlyMainTokens = true to only show MON, WMON, and USDC
   const { allTokens, isLoading: isTokensLoading } = useTokenList({
@@ -122,6 +156,9 @@ function SwapInterfaceContent() {
   // Add slippage tolerance state - set Auto mode as default
   const [slippageTolerance, setSlippageTolerance] = useState("0.5");
   const [isAutoSlippage, setIsAutoSlippage] = useState(true);
+
+  // Add a new state for no pool error
+  const [noPoolExists, setNoPoolExists] = useState(false);
 
   // Calculate actual slippage value
   const actualSlippageValue = isAutoSlippage
@@ -301,9 +338,12 @@ function SwapInterfaceContent() {
     setIsExactIn(!isExactIn);
   };
 
-  // Get quote when input amount or tokens change
+  // Update the getQuote function to handle missing pool errors
   useEffect(() => {
     const getQuote = async () => {
+      // Reset no pool error state at the start of each quote attempt
+      setNoPoolExists(false);
+
       // Validate inputAmount before proceeding
       const parsedInputAmount = parseFloat(inputAmount);
       if (
@@ -386,29 +426,75 @@ function SwapInterfaceContent() {
           // actualQuoteResult failed
           setOutputAmount("");
           if (actualQuoteResult.error) {
-            showToast.error(
-              actualQuoteResult.error ||
-                "Failed to get quote for the specified amount."
-            );
+            // Check for missing pool errors first before logging to console
+            if (
+              typeof actualQuoteResult.error === "string" &&
+              (actualQuoteResult.error.includes("missing revert data") ||
+                actualQuoteResult.error.includes("CALL_EXCEPTION"))
+            ) {
+              // Silently handle this expected case
+              console.log("No pool exists for this pair");
+              setNoPoolExists(true);
+              setOutputAmount("");
+              return;
+            }
+
+            // Only log unexpected errors
+            console.error("Error getting quote:", actualQuoteResult.error);
+            setOutputAmount("");
+
+            // Display appropriate error message
+            if (
+              typeof actualQuoteResult.error === "string" &&
+              actualQuoteResult.error.includes("too many decimals")
+            ) {
+              showToast.error(
+                "The amount has too many decimal places. Please adjust the input amount."
+              );
+            } else {
+              showToast.error(
+                typeof actualQuoteResult.error === "string"
+                  ? actualQuoteResult.error
+                  : "Failed to get quote for the specified amount."
+              );
+            }
           } else {
-            showToast.error("Failed to get quote for the specified amount.");
+            console.error("Error getting quote:", actualQuoteResult.error);
+            setOutputAmount("");
+            showToast.error("Error calculating quote.");
           }
         }
       } catch (error) {
-        console.error("Error getting quote:", error);
-        setOutputAmount("");
-        // Check specifically for the "too many decimals" error
-        if (
-          error instanceof Error &&
-          error.message.includes("too many decimals")
-        ) {
-          showToast.error(
-            "The amount has too many decimal places. Please adjust the input amount."
-          );
+        // Check for missing pool errors first before logging to console
+        if (error instanceof Error) {
+          const errorMessage = error.message;
+          if (
+            errorMessage.includes("missing revert data") ||
+            errorMessage.includes("CALL_EXCEPTION")
+          ) {
+            // Silently handle this expected case
+            console.log("No pool exists for this pair");
+            setNoPoolExists(true);
+            setOutputAmount("");
+            return;
+          }
+
+          // Only log unexpected errors
+          console.error("Error getting quote:", error);
+          setOutputAmount("");
+
+          // Check specifically for the "too many decimals" error
+          if (errorMessage.includes("too many decimals")) {
+            showToast.error(
+              "The amount has too many decimal places. Please adjust the input amount."
+            );
+          } else {
+            showToast.error(errorMessage);
+          }
         } else {
-          showToast.error(
-            error instanceof Error ? error.message : "Error calculating quote."
-          );
+          console.error("Error getting quote:", error);
+          setOutputAmount("");
+          showToast.error("Error calculating quote.");
         }
       }
     };
@@ -697,6 +783,7 @@ function SwapInterfaceContent() {
           tokens={allTokens}
           balance={getTokenBalance(inputToken)}
           disabled={isLoading}
+          disableInput={noPoolExists}
           balanceLoading={balanceLoading}
           tokenLoading={isTokensLoading}
           showUsdValue={true}
@@ -740,6 +827,7 @@ function SwapInterfaceContent() {
           tokens={allTokens}
           balance={getTokenBalance(outputToken)}
           disabled={isLoading}
+          disableInput={true} // Always disable output input field in exactIn mode
           balanceLoading={balanceLoading}
           tokenLoading={isTokensLoading}
           showUsdValue={true}
@@ -773,42 +861,59 @@ function SwapInterfaceContent() {
       </div>
 
       {/* Price info */}
-      {inputToken && outputToken && inputAmount && outputAmount && (
+      {inputToken && outputToken && inputAmount && (
         <div className="mt-2 mb-6 p-3 rounded-lg text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-400">Price</span>
-            <span>
-              1 {inputToken.symbol} ={" "}
-              {formatTokenAmount(
-                parseFloat(outputAmount) / parseFloat(inputAmount),
-                6
-              )}{" "}
-              {outputToken.symbol}
-            </span>
-          </div>
-          {/* Display Price Impact or N/A message */}
-          {priceImpact !== null && !isCalculating && (
-            <div className="flex justify-between mt-1">
-              <span className="text-gray-400">Price Impact</span>
-              <span
-                className={`${
-                  parseFloat(priceImpact) > 5 // Still color if it's a high number, even if not blocking
-                    ? "text-red-500"
-                    : "text-gray-300"
-                }`}
-              >
-                {/* Always show 0% for MON/WMON pairs */}
-                {(inputToken.address === "NATIVE" &&
-                  outputToken.address === WMON_ADDRESS) ||
-                (outputToken.address === "NATIVE" &&
-                  inputToken.address === WMON_ADDRESS)
-                  ? "0.00%" // Hardcoded 0% for MON/WMON pairs
-                  : priceImpact + "%"}
+          {/* Only show price if we have output amount and no pool error */}
+          {outputAmount && parseFloat(outputAmount) > 0 && !noPoolExists && (
+            <div className="flex justify-between">
+              <span className="text-gray-400">Price</span>
+              <span>
+                1 {inputToken.symbol} ={" "}
+                {formatTokenAmount(
+                  parseFloat(outputAmount) / parseFloat(inputAmount),
+                  6
+                )}{" "}
+                {outputToken.symbol}
               </span>
             </div>
           )}
-          {/* Loading skeleton for price impact */}
-          {isCalculating && (
+
+          {/* No pool exists message */}
+          {noPoolExists && (
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-gray-400">Pool Status</span>
+              <span className="text-yellow-500 font-medium">
+                No liquidity pool exists for this pair
+              </span>
+            </div>
+          )}
+
+          {/* Display Price Impact or N/A message - only if we have an output and no pool error */}
+          {priceImpact !== null &&
+            !isCalculating &&
+            !noPoolExists &&
+            outputAmount && (
+              <div className="flex justify-between mt-1">
+                <span className="text-gray-400">Price Impact</span>
+                <span
+                  className={`${
+                    parseFloat(priceImpact) > 5 // Still color if it's a high number, even if not blocking
+                      ? "text-red-500"
+                      : "text-gray-300"
+                  }`}
+                >
+                  {/* Always show 0% for MON/WMON pairs */}
+                  {(inputToken.address === "NATIVE" &&
+                    outputToken.address === WMON_ADDRESS) ||
+                  (outputToken.address === "NATIVE" &&
+                    inputToken.address === WMON_ADDRESS)
+                    ? "0.00%" // Hardcoded 0% for MON/WMON pairs
+                    : priceImpact + "%"}
+                </span>
+              </div>
+            )}
+          {/* Loading skeleton for price impact - only if not no pool error */}
+          {isCalculating && !noPoolExists && (
             <div className="flex justify-between mt-1">
               <span className="text-gray-400">Price Impact</span>
               <div className="w-16 h-4 bg-gray-700 rounded animate-pulse"></div>
@@ -816,6 +921,7 @@ function SwapInterfaceContent() {
           )}
           {priceImpact === null &&
             !isCalculating &&
+            !noPoolExists &&
             outputAmount &&
             parseFloat(outputAmount) > 0 && (
               <div className="flex justify-between mt-1">
@@ -823,8 +929,8 @@ function SwapInterfaceContent() {
                 <span className="text-gray-300">N/A</span>
               </div>
             )}
-          {/* Display Minimum Received */}
-          {minimumReceived && outputToken && (
+          {/* Display Minimum Received - only if we have an output and no pool error */}
+          {minimumReceived && outputToken && !noPoolExists && (
             <div className="flex justify-between mt-1">
               <span className="text-gray-400">Minimum Received</span>
               <span className="text-gray-300">
@@ -839,8 +945,9 @@ function SwapInterfaceContent() {
               </span>
             </div>
           )}
-          {/* Display Low Liquidity Message */}
+          {/* Display Low Liquidity Message - only if not no pool error */}
           {lowLiquidityMessage &&
+            !noPoolExists &&
             !(
               inputToken.address === "NATIVE" &&
               outputToken.address === WMON_ADDRESS
@@ -856,7 +963,7 @@ function SwapInterfaceContent() {
         </div>
       )}
 
-      {/* Swap button */}
+      {/* Swap button - disable if no pool exists */}
       <div className="mt-6">
         <PrimaryButton
           onClick={handleSwap}
@@ -867,7 +974,8 @@ function SwapInterfaceContent() {
             !inputAmount ||
             parseFloat(inputAmount) === 0 ||
             isPriceImpactTooHigh ||
-            isSwapLikelyInvalid
+            isSwapLikelyInvalid ||
+            noPoolExists
           }
           className="w-full py-3 text-lg font-semibold"
         >
@@ -875,6 +983,8 @@ function SwapInterfaceContent() {
             ? "Amount Error / No Output"
             : isPriceImpactTooHigh
             ? "Price Impact Too High"
+            : noPoolExists
+            ? "No Liquidity Pool"
             : isSwapping
             ? "Swapping..."
             : "Swap"}
