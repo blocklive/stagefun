@@ -107,10 +107,10 @@ function SwapInterfaceContent() {
     // Store the original console.error
     const originalConsoleError = console.error;
 
-    // Override console.error
-    console.error = function () {
+    // Override console.error with rest parameters
+    console.error = function (...args) {
       // Convert arguments to string to check for specific errors
-      const errorString = Array.from(arguments).join(" ");
+      const errorString = args.join(" ");
 
       // Check if this is a missing pool error
       if (
@@ -123,10 +123,7 @@ function SwapInterfaceContent() {
       }
 
       // For all other errors, call the original console.error with proper typing
-      originalConsoleError.apply(
-        console,
-        arguments as unknown as [any, ...any[]]
-      );
+      originalConsoleError.apply(console, args);
     };
 
     // Clean up when component unmounts
