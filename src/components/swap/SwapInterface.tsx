@@ -20,6 +20,7 @@ import { Token } from "@/types/token";
 import { useSwapPriceImpact } from "@/hooks/useSwapPriceImpact";
 import { SlippageSettings } from "./SlippageSettings";
 import { useWrapUnwrap } from "@/hooks/useWrapUnwrap";
+import { useSwapParams } from "@/hooks/useSwapParams";
 
 // Get the WMON address from the contracts file
 const WMON_ADDRESS = CONTRACT_ADDRESSES.monadTestnet.officialWmon;
@@ -123,8 +124,8 @@ function SwapInterfaceContent() {
   // Use token list hook with onlyWithLiquidity = true for swap
   // And onlyMainTokens = true to only show MON, WMON, and USDC
   const { allTokens, isLoading: isTokensLoading } = useTokenList({
-    onlyWithLiquidity: true,
-    onlyMainTokens: true,
+    onlyWithLiquidity: false, // Include tokens without liquidity
+    onlyMainTokens: false, // Include all tokens, not just main ones
   });
 
   // Get callContractFunction and smartWalletAddress from useSmartWallet for direct WMON operations
@@ -187,7 +188,14 @@ function SwapInterfaceContent() {
     slippageTolerance: actualSlippageValue,
   });
 
-  // Initialize tokens when allTokens are loaded
+  // Use the swap params hook to handle URL query parameters for tokens
+  const { isLoadingTokens: isLoadingParamTokens } = useSwapParams({
+    allTokens,
+    onInputTokenChange: handleInputTokenSelect,
+    onOutputTokenChange: handleOutputTokenSelect,
+  });
+
+  // Initialize tokens when allTokens are loaded (only if not already set from URL params)
   useEffect(() => {
     if (allTokens.length > 0 && !inputToken && !outputToken) {
       // Find USDC by address and MON from loaded tokens
@@ -240,9 +248,13 @@ function SwapInterfaceContent() {
     }
   }, [assets, initialLoading]);
 
-  // Combined loading state
+  // Combined loading state - include the new param tokens loading state
   const isLoading =
-    isSwapping || isSwapHookLoading || isTokensLoading || isWrapUnwrapLoading;
+    isSwapping ||
+    isSwapHookLoading ||
+    isTokensLoading ||
+    isWrapUnwrapLoading ||
+    isLoadingParamTokens;
 
   // Balance loading state - show loading when assets are loading OR during initial load
   const balanceLoading = assetsLoading || initialLoading;
