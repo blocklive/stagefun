@@ -11,6 +11,7 @@ interface UseSwapParamsProps {
 
 interface UseSwapParamsResult {
   isLoadingTokens: boolean;
+  tokensSetFromUrl: boolean;
 }
 
 export function useSwapParams({
@@ -20,6 +21,7 @@ export function useSwapParams({
 }: UseSwapParamsProps): UseSwapParamsResult {
   const searchParams = useSearchParams();
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
+  const [tokensSetFromUrl, setTokensSetFromUrl] = useState(false);
   const initialSetupCompleteRef = useRef(false);
   const [pendingInputTokenAddress, setPendingInputTokenAddress] = useState<
     string | null
@@ -104,12 +106,16 @@ export function useSwapParams({
 
     try {
       // Process input token parameter
+      let foundInput = false;
+      let foundOutput = false;
+
       if (queryParams.inputToken) {
         const inputToken = findToken(queryParams.inputToken);
         if (inputToken) {
           console.log("Setting input token from URL:", inputToken.symbol);
           onInputTokenChange(inputToken);
           setPendingInputTokenAddress(null); // Clear if found
+          foundInput = true;
         } else {
           console.warn(
             `Could not find input token with address ${queryParams.inputToken}, will try again later`
@@ -125,12 +131,18 @@ export function useSwapParams({
           console.log("Setting output token from URL:", outputToken.symbol);
           onOutputTokenChange(outputToken);
           setPendingOutputTokenAddress(null); // Clear if found
+          foundOutput = true;
         } else {
           console.warn(
             `Could not find output token with address ${queryParams.outputToken}, will try again later`
           );
           // Keep pendingOutputTokenAddress set
         }
+      }
+
+      // Set the tokensSetFromUrl flag if we found and set at least one token
+      if (foundInput || foundOutput) {
+        setTokensSetFromUrl(true);
       }
 
       // Mark initial setup as complete
@@ -168,6 +180,9 @@ export function useSwapParams({
       );
 
       // Try to resolve any pending tokens
+      let foundInput = false;
+      let foundOutput = false;
+
       if (pendingInputTokenAddress) {
         const inputToken = findToken(pendingInputTokenAddress);
         if (inputToken) {
@@ -176,6 +191,7 @@ export function useSwapParams({
           );
           onInputTokenChange(inputToken);
           setPendingInputTokenAddress(null);
+          foundInput = true;
         }
       }
 
@@ -187,7 +203,13 @@ export function useSwapParams({
           );
           onOutputTokenChange(outputToken);
           setPendingOutputTokenAddress(null);
+          foundOutput = true;
         }
+      }
+
+      // Update the tokensSetFromUrl flag if we found any tokens
+      if (foundInput || foundOutput) {
+        setTokensSetFromUrl(true);
       }
 
       // Update the last processed token count
@@ -205,5 +227,6 @@ export function useSwapParams({
 
   return {
     isLoadingTokens,
+    tokensSetFromUrl,
   };
 }

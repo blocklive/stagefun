@@ -437,6 +437,20 @@ export default function ProfileComponent({
           asset.attributes?.fungible_info?.implementations?.[0]?.address ===
             null));
 
+    // Special direct URL for WMON to MON swaps
+    if (
+      symbol === "WMON" ||
+      address?.toLowerCase() ===
+        CONTRACT_ADDRESSES.monadTestnet.officialWmon.toLowerCase()
+    ) {
+      // For WMON, hardcode the exact URL parameters for WMON → MON
+      router.push(
+        `/swap?inputToken=${CONTRACT_ADDRESSES.monadTestnet.officialWmon}&outputToken=NATIVE`
+      );
+      return;
+    }
+
+    // Normal handling for other tokens
     // Determine which tokens to use for the swap
     let inputToken = "";
     let outputToken = "";
@@ -449,15 +463,6 @@ export default function ProfileComponent({
       symbol === "USDC" ||
       address?.toLowerCase() ===
         CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase()
-    ) {
-      inputToken = tokenAddress;
-      outputToken = "NATIVE"; // MON
-    }
-    // If WMON, set up swap between WMON and MON
-    else if (
-      symbol === "WMON" ||
-      address?.toLowerCase() ===
-        CONTRACT_ADDRESSES.monadTestnet.officialWmon.toLowerCase()
     ) {
       inputToken = tokenAddress;
       outputToken = "NATIVE"; // MON

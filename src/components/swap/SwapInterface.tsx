@@ -189,15 +189,54 @@ function SwapInterfaceContent() {
   });
 
   // Use the swap params hook to handle URL query parameters for tokens
-  const { isLoadingTokens: isLoadingParamTokens } = useSwapParams({
-    allTokens,
-    onInputTokenChange: handleInputTokenSelect,
-    onOutputTokenChange: handleOutputTokenSelect,
-  });
+  const { isLoadingTokens: isLoadingParamTokens, tokensSetFromUrl } =
+    useSwapParams({
+      allTokens,
+      onInputTokenChange: handleInputTokenSelect,
+      onOutputTokenChange: handleOutputTokenSelect,
+    });
+
+  // Track if tokens have been initialized from URL or defaults
+  const [tokensInitialized, setTokensInitialized] = useState(false);
 
   // Initialize tokens when allTokens are loaded (only if not already set from URL params)
   useEffect(() => {
+    // Skip if already initialized or no tokens available
+    if (tokensInitialized || allTokens.length === 0) {
+      return;
+    }
+
+    // If tokens were set from URL, mark as initialized and don't set defaults
+    if (tokensSetFromUrl) {
+      console.log("Tokens set from URL, not setting defaults");
+      setTokensInitialized(true);
+      return;
+    }
+
+    // If tokens are already set (from some other source), mark as initialized
+    if (inputToken && outputToken) {
+      console.log("Tokens already set, marking as initialized");
+      setTokensInitialized(true);
+      return;
+    }
+
+    // If we have tokens but they aren't set yet, set defaults
     if (allTokens.length > 0 && !inputToken && !outputToken) {
+      // Check URL parameters first before setting defaults
+      const urlParams = new URLSearchParams(window.location.search);
+      const hasUrlTokenParams =
+        urlParams.has("inputToken") || urlParams.has("outputToken");
+
+      // Skip setting defaults if URL parameters exist for tokens
+      if (hasUrlTokenParams) {
+        console.log(
+          "URL contains token parameters, skipping default token setup"
+        );
+        setTokensInitialized(true);
+        return;
+      }
+
+      console.log("Setting default tokens");
       // Find USDC by address and MON from loaded tokens
       const usdc = allTokens.find(
         (t) =>
@@ -209,8 +248,9 @@ function SwapInterfaceContent() {
       // Set default input token to USDC and output token to MON
       if (usdc) setInputToken(usdc);
       if (mon) setOutputToken(mon);
+      setTokensInitialized(true);
     }
-  }, [allTokens, inputToken, outputToken]);
+  }, [allTokens, inputToken, outputToken, tokensInitialized, tokensSetFromUrl]);
 
   // Set a loading state for initial render
   const [initialLoading, setInitialLoading] = useState(true);
