@@ -118,6 +118,8 @@ export function useWrapUnwrap() {
         const wmonBalance = parseFloat(wmonBalanceWei);
         const requestedAmount = parseFloat(amountWei);
 
+        console.log("WMON balance:", wmonBalance);
+        console.log("Requested amount:", requestedAmount);
         // Check if the user has enough WMON
         if (wmonBalance < requestedAmount) {
           const errorMessage = `Insufficient WMON balance. You have ${wmonBalanceWei} WMON but are trying to unwrap ${amountWei} WMON.`;

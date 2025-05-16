@@ -20,6 +20,12 @@ import { Token } from "@/types/token";
 import { useSwapPriceImpact } from "@/hooks/useSwapPriceImpact";
 import { SlippageSettings } from "./SlippageSettings";
 import { useWrapUnwrap } from "@/hooks/useWrapUnwrap";
+import { useSwapParams } from "@/hooks/useSwapParams";
+import {
+  getTokenBalanceFormatted,
+  getTokenBalanceRaw,
+  getTokenBalanceWei,
+} from "@/utils/tokenBalance";
 
 // Get the WMON address from the contracts file
 const WMON_ADDRESS = CONTRACT_ADDRESSES.monadTestnet.officialWmon;
@@ -123,8 +129,8 @@ function SwapInterfaceContent() {
   // Use token list hook with onlyWithLiquidity = true for swap
   // And onlyMainTokens = true to only show MON, WMON, and USDC
   const { allTokens, isLoading: isTokensLoading } = useTokenList({
-    onlyWithLiquidity: true,
-    onlyMainTokens: true,
+    onlyWithLiquidity: false, // Include tokens without liquidity
+    onlyMainTokens: false, // Include all tokens, not just main ones
   });
 
   // Get callContractFunction and smartWalletAddress from useSmartWallet for direct WMON operations
@@ -187,9 +193,55 @@ function SwapInterfaceContent() {
     slippageTolerance: actualSlippageValue,
   });
 
-  // Initialize tokens when allTokens are loaded
+  // Use the swap params hook to handle URL query parameters for tokens
+  const { isLoadingTokens: isLoadingParamTokens, tokensSetFromUrl } =
+    useSwapParams({
+      allTokens,
+      onInputTokenChange: handleInputTokenSelect,
+      onOutputTokenChange: handleOutputTokenSelect,
+    });
+
+  // Track if tokens have been initialized from URL or defaults
+  const [tokensInitialized, setTokensInitialized] = useState(false);
+
+  // Initialize tokens when allTokens are loaded (only if not already set from URL params)
   useEffect(() => {
+    // Skip if already initialized or no tokens available
+    if (tokensInitialized || allTokens.length === 0) {
+      return;
+    }
+
+    // If tokens were set from URL, mark as initialized and don't set defaults
+    if (tokensSetFromUrl) {
+      console.log("Tokens set from URL, not setting defaults");
+      setTokensInitialized(true);
+      return;
+    }
+
+    // If tokens are already set (from some other source), mark as initialized
+    if (inputToken && outputToken) {
+      console.log("Tokens already set, marking as initialized");
+      setTokensInitialized(true);
+      return;
+    }
+
+    // If we have tokens but they aren't set yet, set defaults
     if (allTokens.length > 0 && !inputToken && !outputToken) {
+      // Check URL parameters first before setting defaults
+      const urlParams = new URLSearchParams(window.location.search);
+      const hasUrlTokenParams =
+        urlParams.has("inputToken") || urlParams.has("outputToken");
+
+      // Skip setting defaults if URL parameters exist for tokens
+      if (hasUrlTokenParams) {
+        console.log(
+          "URL contains token parameters, skipping default token setup"
+        );
+        setTokensInitialized(true);
+        return;
+      }
+
+      console.log("Setting default tokens");
       // Find USDC by address and MON from loaded tokens
       const usdc = allTokens.find(
         (t) =>
@@ -201,8 +253,9 @@ function SwapInterfaceContent() {
       // Set default input token to USDC and output token to MON
       if (usdc) setInputToken(usdc);
       if (mon) setOutputToken(mon);
+      setTokensInitialized(true);
     }
-  }, [allTokens, inputToken, outputToken]);
+  }, [allTokens, inputToken, outputToken, tokensInitialized, tokensSetFromUrl]);
 
   // Set a loading state for initial render
   const [initialLoading, setInitialLoading] = useState(true);
@@ -240,9 +293,13 @@ function SwapInterfaceContent() {
     }
   }, [assets, initialLoading]);
 
-  // Combined loading state
+  // Combined loading state - include the new param tokens loading state
   const isLoading =
-    isSwapping || isSwapHookLoading || isTokensLoading || isWrapUnwrapLoading;
+    isSwapping ||
+    isSwapHookLoading ||
+    isTokensLoading ||
+    isWrapUnwrapLoading ||
+    isLoadingParamTokens;
 
   // Balance loading state - show loading when assets are loading OR during initial load
   const balanceLoading = assetsLoading || initialLoading;
@@ -260,64 +317,7 @@ function SwapInterfaceContent() {
 
   // Helper function to get the appropriate balance based on token using Zerion assets
   const getTokenBalance = (token: Token): string => {
-    if (!assets) return "0";
-
-    // Find the asset by address first (most accurate), then by symbol
-    const asset = assets.find((asset) => {
-      const implementation =
-        asset.attributes.fungible_info?.implementations?.[0];
-      const symbol = asset.attributes.fungible_info?.symbol;
-      const contractAddr = implementation?.address?.toLowerCase();
-      const tokenAddr =
-        token.address !== "NATIVE" ? token.address.toLowerCase() : null;
-
-      // For USDC, strictly match by official contract address
-      if (token.symbol === "USDC") {
-        return contractAddr === token.address.toLowerCase();
-      }
-
-      // For WMON, strictly match by official contract address
-      if (token.symbol === "WMON") {
-        return contractAddr === token.address.toLowerCase();
-      }
-
-      // Match native MON
-      if (
-        token.address === "NATIVE" &&
-        (asset.id === "base-monad-test-v2-asset-asset" ||
-          (symbol === "MON" && !implementation?.address))
-      ) {
-        return true;
-      }
-
-      // Match by address for regular tokens
-      if (
-        implementation?.address &&
-        token.address !== "NATIVE" &&
-        implementation.address.toLowerCase() === token.address.toLowerCase()
-      ) {
-        return true;
-      }
-
-      // Match by symbol as fallback (but NOT for USDC or WMON)
-      return (
-        symbol === token.symbol &&
-        token.symbol !== "USDC" &&
-        token.symbol !== "WMON"
-      );
-    });
-
-    // Format the balance using formatTokenAmount instead of formatAmount
-    if (asset) {
-      const quantity = asset.attributes.quantity.float;
-      const tokenDecimals =
-        asset.attributes.quantity.decimals ||
-        asset.attributes.fungible_info?.implementations?.[0]?.decimals ||
-        6;
-      return formatTokenAmount(quantity, tokenDecimals);
-    }
-
-    return "0";
+    return getTokenBalanceFormatted(token, assets || []);
   };
 
   // Function to swap the input and output tokens
@@ -630,9 +630,9 @@ function SwapInterfaceContent() {
         else if (isOutputNative && inputToken.address === WMON_ADDRESS) {
           console.log("Direct unwrapping WMON to MON...");
 
-          // Get the WMON balance of the user first
-          const wmonBalanceInWei = getTokenBalance(inputToken);
-          console.log(`User WMON balance: ${wmonBalanceInWei}`);
+          // Get the WMON balance of the user first - use the utility function
+          const wmonBalanceInWei = getTokenBalanceWei(inputToken, assets || []);
+          console.log(`User WMON balance in Wei: ${wmonBalanceInWei}`);
 
           try {
             // Use the new hook for unwrapping

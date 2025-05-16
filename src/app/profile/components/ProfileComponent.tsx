@@ -46,6 +46,7 @@ import NFTList from "./NFTList";
 import ProfileSkeleton from "./ProfileSkeleton";
 import NFTSkeleton from "./NFTSkeleton";
 import SettingsButton from "./SettingsButton";
+import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 
 interface ProfileComponentProps {
   isUsernameRoute?: boolean;
@@ -417,6 +418,71 @@ export default function ProfileComponent({
     setShowSendModal(true);
   };
 
+  // Handle asset swap click - navigate to swap interface with token parameters
+  const handleSwapClick = (asset: any, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent click event from bubbling up
+
+    // Get the token information
+    const symbol =
+      asset.attributes?.fungible_info?.symbol || asset.symbol || "UNKNOWN";
+    const address =
+      asset.attributes?.fungible_info?.implementations?.[0]?.address ||
+      asset.address;
+
+    // Check if this is a native MON token
+    const isNative =
+      asset.isNative ||
+      (asset.attributes?.fungible_info?.symbol === "MON" &&
+        (!asset.attributes?.fungible_info?.implementations?.[0]?.address ||
+          asset.attributes?.fungible_info?.implementations?.[0]?.address ===
+            null));
+
+    // Special direct URL for WMON to MON swaps
+    if (
+      symbol === "WMON" ||
+      address?.toLowerCase() ===
+        CONTRACT_ADDRESSES.monadTestnet.officialWmon.toLowerCase()
+    ) {
+      // For WMON, hardcode the exact URL parameters for WMON → MON
+      router.push(
+        `/swap?inputToken=${CONTRACT_ADDRESSES.monadTestnet.officialWmon}&outputToken=NATIVE`
+      );
+      return;
+    }
+
+    // Normal handling for other tokens
+    // Determine which tokens to use for the swap
+    let inputToken = "";
+    let outputToken = "";
+
+    // Use "NATIVE" for native MON, otherwise use the token address
+    const tokenAddress = isNative ? "NATIVE" : address;
+
+    // If USDC, set up swap between USDC and MON
+    if (
+      symbol === "USDC" ||
+      address?.toLowerCase() ===
+        CONTRACT_ADDRESSES.monadTestnet.usdc.toLowerCase()
+    ) {
+      inputToken = tokenAddress;
+      outputToken = "NATIVE"; // MON
+    }
+    // Otherwise, set up swap between the token and USDC
+    else {
+      inputToken = tokenAddress;
+      outputToken = CONTRACT_ADDRESSES.monadTestnet.usdc;
+    }
+
+    // Create query string parameters
+    const params = new URLSearchParams({
+      inputToken,
+      outputToken,
+    }).toString();
+
+    // Navigate to the swap page with the parameters
+    router.push(`/swap?${params}`);
+  };
+
   return (
     <>
       {/* Main Content */}
@@ -679,6 +745,7 @@ export default function ProfileComponent({
               {activeTab === "assets" ? (
                 <BalanceSection
                   onSendClick={handleSendClick}
+                  onSwapClick={handleSwapClick}
                   walletAddress={user.smart_wallet_address || null}
                   chainId="monad-test-v2"
                   isOwnProfile={Boolean(isOwnProfile)}

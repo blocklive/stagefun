@@ -17,6 +17,10 @@ import { useTokenResolver } from "@/hooks/useTokenResolver";
 import { TokenInfo } from "@/types/tokens";
 import { Token } from "@/types/token";
 import { useSearchParams } from "next/navigation";
+import {
+  getTokenBalanceFormatted,
+  getTokenBalanceRaw,
+} from "@/utils/tokenBalance";
 
 // Import all the new components
 import { PoolStatusCard } from "./PoolStatusCard";
@@ -550,69 +554,13 @@ function SwapPoolInterfaceContent() {
   };
 
   // New function: Get raw token balance without formatting (for numerical comparisons)
-  const getTokenBalanceRaw = (token: SwapToken): number => {
-    if (!assets) return 0;
-
-    // Find the asset by address first (most accurate), then by symbol
-    const asset = assets.find((asset) => {
-      const implementation =
-        asset.attributes.fungible_info?.implementations?.[0];
-      const symbol = asset.attributes.fungible_info?.symbol;
-      const contractAddr = implementation?.address?.toLowerCase();
-      const tokenAddr =
-        token.address !== "NATIVE" ? token.address.toLowerCase() : null;
-
-      // For USDC, strictly match by official contract address
-      if (token.symbol === "USDC") {
-        return contractAddr === token.address.toLowerCase();
-      }
-
-      // For WMON, strictly match by official contract address
-      if (token.symbol === "WMON") {
-        return contractAddr === token.address.toLowerCase();
-      }
-
-      // Match native MON
-      if (
-        token.address === "NATIVE" &&
-        (asset.id === "base-monad-test-v2-asset-asset" ||
-          (symbol === "MON" && !implementation?.address))
-      ) {
-        return true;
-      }
-
-      // Match by address for regular tokens
-      if (
-        implementation?.address &&
-        token.address !== "NATIVE" &&
-        implementation.address.toLowerCase() === token.address.toLowerCase()
-      ) {
-        return true;
-      }
-    });
-
-    // Return the raw numeric value without formatting
-    if (asset) {
-      // Ensure we convert to number if it's a BigInt
-      return Number(asset.attributes.quantity.float) || 0;
-    }
-
-    return 0;
+  const getTokenBalanceRawWrapper = (token: SwapToken): number => {
+    return getTokenBalanceRaw(token as Token, assets || []);
   };
 
   // Get the relevant balance for the selected token (formatted for display)
-  const getTokenBalance = (token: SwapToken): string => {
-    // Get the raw balance first
-    const rawBalance = getTokenBalanceRaw(token);
-
-    // Return 0 if there's no balance
-    if (rawBalance === 0) return "0";
-
-    // Get the token decimals for proper formatting
-    const tokenDecimals = token.decimals || 6;
-
-    // Format the balance
-    return formatTokenAmount(rawBalance, tokenDecimals);
+  const getTokenBalanceWrapper = (token: SwapToken): string => {
+    return getTokenBalanceFormatted(token as Token, assets || []);
   };
 
   // Calculate minimum amounts based on slippage tolerance
@@ -680,7 +628,7 @@ function SwapPoolInterfaceContent() {
         token={tokenA}
         onTokenSelect={(token) => handleTokenAChange(token as any)}
         tokens={allTokens as any}
-        balance={getTokenBalance(tokenA)}
+        balance={getTokenBalanceWrapper(tokenA)}
         disabled={isLoading}
         balanceLoading={balanceLoading}
         tokenLoading={isLoadingTokens}
@@ -710,7 +658,7 @@ function SwapPoolInterfaceContent() {
           token={tokenB}
           onTokenSelect={(token) => handleTokenBChange(token as any)}
           tokens={allTokens as any}
-          balance={getTokenBalance(tokenB)}
+          balance={getTokenBalanceWrapper(tokenB)}
           disabled={isLoading}
           secondaryDisabled={false}
           balanceLoading={balanceLoading}
@@ -759,8 +707,8 @@ function SwapPoolInterfaceContent() {
         checkPoolExists={checkPoolExists}
         setAmountA={setAmountA}
         setAmountB={setAmountB}
-        getTokenBalance={getTokenBalance}
-        getTokenBalanceRaw={getTokenBalanceRaw}
+        getTokenBalance={getTokenBalanceWrapper}
+        getTokenBalanceRaw={getTokenBalanceRawWrapper}
         calculateMinAmount={calculateMinAmount}
       />
 
