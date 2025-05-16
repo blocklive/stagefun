@@ -21,6 +21,11 @@ import { useSwapPriceImpact } from "@/hooks/useSwapPriceImpact";
 import { SlippageSettings } from "./SlippageSettings";
 import { useWrapUnwrap } from "@/hooks/useWrapUnwrap";
 import { useSwapParams } from "@/hooks/useSwapParams";
+import {
+  getTokenBalanceFormatted,
+  getTokenBalanceRaw,
+  getTokenBalanceWei,
+} from "@/utils/tokenBalance";
 
 // Get the WMON address from the contracts file
 const WMON_ADDRESS = CONTRACT_ADDRESSES.monadTestnet.officialWmon;
@@ -312,64 +317,7 @@ function SwapInterfaceContent() {
 
   // Helper function to get the appropriate balance based on token using Zerion assets
   const getTokenBalance = (token: Token): string => {
-    if (!assets) return "0";
-
-    // Find the asset by address first (most accurate), then by symbol
-    const asset = assets.find((asset) => {
-      const implementation =
-        asset.attributes.fungible_info?.implementations?.[0];
-      const symbol = asset.attributes.fungible_info?.symbol;
-      const contractAddr = implementation?.address?.toLowerCase();
-      const tokenAddr =
-        token.address !== "NATIVE" ? token.address.toLowerCase() : null;
-
-      // For USDC, strictly match by official contract address
-      if (token.symbol === "USDC") {
-        return contractAddr === token.address.toLowerCase();
-      }
-
-      // For WMON, strictly match by official contract address
-      if (token.symbol === "WMON") {
-        return contractAddr === token.address.toLowerCase();
-      }
-
-      // Match native MON
-      if (
-        token.address === "NATIVE" &&
-        (asset.id === "base-monad-test-v2-asset-asset" ||
-          (symbol === "MON" && !implementation?.address))
-      ) {
-        return true;
-      }
-
-      // Match by address for regular tokens
-      if (
-        implementation?.address &&
-        token.address !== "NATIVE" &&
-        implementation.address.toLowerCase() === token.address.toLowerCase()
-      ) {
-        return true;
-      }
-
-      // Match by symbol as fallback (but NOT for USDC or WMON)
-      return (
-        symbol === token.symbol &&
-        token.symbol !== "USDC" &&
-        token.symbol !== "WMON"
-      );
-    });
-
-    // Format the balance using formatTokenAmount instead of formatAmount
-    if (asset) {
-      const quantity = asset.attributes.quantity.float;
-      const tokenDecimals =
-        asset.attributes.quantity.decimals ||
-        asset.attributes.fungible_info?.implementations?.[0]?.decimals ||
-        6;
-      return formatTokenAmount(quantity, tokenDecimals);
-    }
-
-    return "0";
+    return getTokenBalanceFormatted(token, assets || []);
   };
 
   // Function to swap the input and output tokens
@@ -682,9 +630,9 @@ function SwapInterfaceContent() {
         else if (isOutputNative && inputToken.address === WMON_ADDRESS) {
           console.log("Direct unwrapping WMON to MON...");
 
-          // Get the WMON balance of the user first
-          const wmonBalanceInWei = getTokenBalance(inputToken);
-          console.log(`User WMON balance: ${wmonBalanceInWei}`);
+          // Get the WMON balance of the user first - use the utility function
+          const wmonBalanceInWei = getTokenBalanceWei(inputToken, assets || []);
+          console.log(`User WMON balance in Wei: ${wmonBalanceInWei}`);
 
           try {
             // Use the new hook for unwrapping
