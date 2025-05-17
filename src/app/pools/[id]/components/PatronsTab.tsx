@@ -15,6 +15,7 @@ interface PatronsTabProps {
       id: string;
       name: string;
       commitments: {
+        id: string;
         user_address: string;
         amount: number;
         committed_at: string;
@@ -73,17 +74,41 @@ export default function PatronsTab({
         return [];
       }
 
-      return tier.commitments.map((commitment) => ({
-        ...commitment,
-        tierName: tier.name,
-        tierId: tier.id,
-      }));
+      return tier.commitments.map((commitment) => {
+        // Use a combination of properties to create a unique identifier
+        // Prioritize existing ID, then blockchain tx hash, or generate our own ID as a fallback
+        const commitmentId =
+          (commitment as any).id ||
+          (commitment as any).blockchain_tx_hash ||
+          `${commitment.user_address}-${commitment.committed_at}-${tier.id}`;
+
+        return {
+          id: commitmentId,
+          user_address: commitment.user_address,
+          amount: commitment.amount,
+          committed_at: commitment.committed_at,
+          user: commitment.user,
+          tierName: tier.name,
+          tierId: tier.id,
+        };
+      });
     });
+
+    // Track unique commitment IDs to prevent duplicates
+    const processedCommitmentIds = new Set<string>();
 
     // Group commitments by user address and sum amounts
     const patronMap: Record<string, DeduplicatedCommitment> = {};
 
     commitments.forEach((commitment) => {
+      // Skip if we've already processed this commitment ID
+      if (processedCommitmentIds.has(commitment.id)) {
+        return;
+      }
+
+      // Mark this commitment as processed
+      processedCommitmentIds.add(commitment.id);
+
       const userKey = commitment.user_address.toLowerCase();
 
       if (!patronMap[userKey]) {
@@ -133,9 +158,11 @@ export default function PatronsTab({
     });
 
     // Convert map to array and sort by total amount (highest first)
-    return Object.values(patronMap).sort((a, b) => {
+    const sortedPatrons = Object.values(patronMap).sort((a, b) => {
       return b.total_amount - a.total_amount;
     });
+
+    return sortedPatrons;
   }, [pool?.tiers]);
 
   // Call the callback when patron count changes
