@@ -14,6 +14,7 @@ import { AddCustomToken } from "./AddCustomToken";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import showToast from "@/utils/toast";
 import { useAlphaMode } from "@/hooks/useAlphaMode";
+import { useERC20TokenValidation } from "@/hooks/useERC20TokenValidation";
 
 interface EnhancedTokenSelectorProps {
   isOpen: boolean;
@@ -46,8 +47,6 @@ export function EnhancedTokenSelector({
   const [potentialTokenAddress, setPotentialTokenAddress] = useState<
     string | null
   >(null);
-  const [detectedToken, setDetectedToken] = useState<Token | null>(null);
-  const [isDetecting, setIsDetecting] = useState(false);
 
   const {
     filteredTokens,
@@ -58,9 +57,15 @@ export function EnhancedTokenSelector({
     markTokenAsRecent,
   } = useTokenList({ onlyMainTokens });
 
-  const { validateAndFetchToken, isLoading: isTokenFetchLoading } =
-    useTokenFetcher();
   const { addCustomToken } = useTokenStorage();
+
+  // Use our new hook for ERC20 validation
+  const {
+    tokenData: detectedToken,
+    isValidating: isDetecting,
+    isValid,
+    error: tokenValidationError,
+  } = useERC20TokenValidation(potentialTokenAddress);
 
   // Filter out excluded tokens
   const getFilteredTokens = useCallback(
@@ -85,66 +90,57 @@ export function EnhancedTokenSelector({
   // Handle search term changes - check if it might be a token address
   useEffect(() => {
     const checkForTokenAddress = async () => {
-      // Reset detected token when search changes
-      setDetectedToken(null);
+      // Reset potential token address when search changes
+      setPotentialTokenAddress(null);
 
       // If search term is empty or too short, do nothing
       if (!searchTerm || searchTerm.length < 10) {
-        setPotentialTokenAddress(null);
         return;
       }
 
-      // Check if it looks like an Ethereum address
-      if (searchTerm.startsWith("0x") && searchTerm.length >= 40) {
+      // Be more generous with address detection - should be at least 40 chars of hex
+      const cleanedInput = searchTerm.startsWith("0x")
+        ? searchTerm.substring(2)
+        : searchTerm;
+
+      // Check if it looks like a hex string of the right length
+      if (/^[0-9a-fA-F]{40,}$/.test(cleanedInput)) {
         try {
-          // See if it's a valid address format
-          if (ethers.isAddress(searchTerm)) {
-            const checksumAddress = ethers.getAddress(searchTerm);
+          // Ensure the address has 0x prefix
+          const normalizedAddress = searchTerm.startsWith("0x")
+            ? searchTerm
+            : `0x${searchTerm}`;
 
-            // Check if this token is already in our list
-            const allTokens = [
-              ...filteredTokens.all,
-              ...filteredTokens.platform,
-            ];
-            const tokenExists = allTokens.some(
-              (token) =>
-                token.address.toLowerCase() === checksumAddress.toLowerCase()
-            );
+          console.log("Potential token address detected:", normalizedAddress);
 
-            if (tokenExists) {
-              // Token exists, no need to import
-              setPotentialTokenAddress(null);
-            } else {
-              // Potentially new token - set address to check
-              setPotentialTokenAddress(checksumAddress);
+          // Don't validate with ethers here, we'll let the hook handle that
+          const checksumAddress = normalizedAddress;
 
-              // Try to fetch token data
-              setIsDetecting(true);
-              const token = await validateAndFetchToken(checksumAddress);
-              setIsDetecting(false);
+          // Check if this token is already in our list
+          const allTokens = [...filteredTokens.all, ...filteredTokens.platform];
+          const tokenExists = allTokens.some(
+            (token) =>
+              token.address.toLowerCase() === checksumAddress.toLowerCase()
+          );
 
-              if (token) {
-                // Valid token found
-                setDetectedToken(token);
-              } else {
-                // Not a valid token
-                setDetectedToken(null);
-              }
-            }
+          // Always set the potential token address to trigger validation
+          // We need this to happen even for existing tokens
+          setPotentialTokenAddress(checksumAddress);
+
+          if (tokenExists) {
+            console.log("Token already exists in list:", checksumAddress);
           } else {
-            setPotentialTokenAddress(null);
+            console.log("New token address to validate:", checksumAddress);
           }
         } catch (error) {
           console.error("Error checking token address:", error);
           setPotentialTokenAddress(null);
         }
-      } else {
-        setPotentialTokenAddress(null);
       }
     };
 
     checkForTokenAddress();
-  }, [searchTerm, filteredTokens, validateAndFetchToken]);
+  }, [searchTerm, filteredTokens]);
 
   // Import detected token
   const handleImportToken = useCallback(() => {
@@ -164,7 +160,6 @@ export function EnhancedTokenSelector({
   useEffect(() => {
     if (!isOpen) {
       setSearchTerm("");
-      setDetectedToken(null);
       setPotentialTokenAddress(null);
     }
   }, [isOpen, setSearchTerm]);
@@ -258,40 +253,81 @@ export function EnhancedTokenSelector({
                 <div className="flex items-center justify-center h-[350px] text-gray-400">
                   Loading tokens...
                 </div>
-              ) : detectedToken ? (
-                <div className="p-4 h-[350px]">
-                  <div className="mb-4 bg-indigo-900/20 border border-indigo-900/50 rounded-lg p-4">
-                    <h4 className="text-white font-medium mb-2">
-                      Token found!
-                    </h4>
-                    <div className="text-sm text-gray-300 mb-4">
-                      <p>
-                        <span className="text-gray-400">Name:</span>{" "}
-                        {detectedToken.name}
-                      </p>
-                      <p>
-                        <span className="text-gray-400">Symbol:</span>{" "}
-                        {detectedToken.symbol}
-                      </p>
-                      <p>
-                        <span className="text-gray-400">Decimals:</span>{" "}
-                        {detectedToken.decimals}
-                      </p>
-                      <p className="text-yellow-300 text-xs mt-3">
-                        Warning: Make sure this is the correct token you want to
-                        import. Anyone can create a token with any name or
-                        symbol.
+              ) : potentialTokenAddress ? (
+                isDetecting ? (
+                  <div className="flex items-center justify-center h-[350px] text-gray-400">
+                    <div className="text-center">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#836EF9] mb-4"></div>
+                      <p>Checking if address is a valid ERC20 token...</p>
+                      <p className="text-xs mt-2 text-gray-500">
+                        {potentialTokenAddress}
                       </p>
                     </div>
-                    <PrimaryButton onClick={handleImportToken} fullWidth>
-                      Import {detectedToken.symbol}
-                    </PrimaryButton>
                   </div>
-                </div>
-              ) : isDetecting ? (
-                <div className="flex items-center justify-center h-[350px] text-gray-400">
-                  Checking address...
-                </div>
+                ) : detectedToken ? (
+                  <div className="p-4 h-[350px]">
+                    <div className="mb-4 bg-indigo-900/20 border border-indigo-900/50 rounded-lg p-4">
+                      <h4 className="text-white font-medium mb-2">
+                        Token found!
+                      </h4>
+                      <div className="text-sm text-gray-300 mb-4">
+                        <p>
+                          <span className="text-gray-400">Name:</span>{" "}
+                          {detectedToken.name}
+                        </p>
+                        <p>
+                          <span className="text-gray-400">Symbol:</span>{" "}
+                          {detectedToken.symbol}
+                        </p>
+                        <p>
+                          <span className="text-gray-400">Decimals:</span>{" "}
+                          {detectedToken.decimals}
+                        </p>
+                        <p className="text-yellow-300 text-xs mt-3">
+                          Warning: Make sure this is the correct token you want
+                          to import. Anyone can create a token with any name or
+                          symbol.
+                        </p>
+                      </div>
+                      <PrimaryButton onClick={handleImportToken} fullWidth>
+                        Import {detectedToken.symbol}
+                      </PrimaryButton>
+                    </div>
+                  </div>
+                ) : tokenValidationError ? (
+                  <div className="p-4 h-[350px]">
+                    <div className="mb-4 bg-red-900/20 border border-red-900/50 rounded-lg p-4">
+                      <h4 className="text-white font-medium mb-2">
+                        Invalid Token Contract
+                      </h4>
+                      <div className="text-sm text-gray-300 mb-4">
+                        <p>
+                          The address you entered doesn't appear to be a valid
+                          ERC20 token. Please make sure you entered the correct
+                          contract address.
+                        </p>
+                        <p className="text-xs mt-3 text-gray-400">
+                          Address: {potentialTokenAddress}
+                        </p>
+                      </div>
+                      <PrimaryButton
+                        onClick={() => setPotentialTokenAddress(null)}
+                        fullWidth
+                      >
+                        Try Again
+                      </PrimaryButton>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-[350px] text-gray-400">
+                    <div className="text-center">
+                      <p>Looking up token information...</p>
+                      <p className="text-xs mt-2 text-gray-500">
+                        {potentialTokenAddress}
+                      </p>
+                    </div>
+                  </div>
+                )
               ) : currentTokens.length > 0 ? (
                 <VirtualizedTokenList
                   tokens={currentTokens}
@@ -305,20 +341,22 @@ export function EnhancedTokenSelector({
                         } tokens found.`
                   }
                 />
-              ) : potentialTokenAddress ? (
-                <div className="flex items-center justify-center h-[350px] text-gray-400">
-                  No tokens found. Checking if address is valid...
-                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-[350px] px-6 py-8 text-center">
                   <ExclamationCircleIcon className="w-12 h-12 text-gray-500 mb-4" />
-                  <p className="text-gray-400 text-base">
+                  <p className="text-gray-400 text-base mb-2">
                     {searchTerm
-                      ? "No tokens found. Try a different search term."
+                      ? "No tokens found. Try a different search term or paste a token address."
                       : `No ${
                           activeTab === "stages" ? "stage" : "core"
                         } tokens found.`}
                   </p>
+                  {searchTerm && (
+                    <p className="text-gray-500 text-sm mt-2">
+                      You can paste any valid ERC20 token address to add it to
+                      your list.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
