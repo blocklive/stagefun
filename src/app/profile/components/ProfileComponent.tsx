@@ -47,6 +47,7 @@ import ProfileSkeleton from "./ProfileSkeleton";
 import NFTSkeleton from "./NFTSkeleton";
 import SettingsButton from "./SettingsButton";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+import TransactionsList from "./transactions/TransactionsList";
 
 interface ProfileComponentProps {
   isUsernameRoute?: boolean;
@@ -69,7 +70,7 @@ export default function ProfileComponent({
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "assets" | "hosted" | "funded" | "passes"
+    "assets" | "hosted" | "funded" | "passes" | "activity"
   >("assets");
   const { smartWalletAddress } = useSmartWallet();
 
@@ -733,10 +734,18 @@ export default function ProfileComponent({
                 { id: "hosted", label: "Hosted" },
                 { id: "funded", label: "Committed" },
                 { id: "passes", label: "Passes" },
+                { id: "activity", label: "Activity" },
               ]}
               activeTab={activeTab}
-              onTabChange={(tabId) =>
-                setActiveTab(tabId as "assets" | "hosted" | "funded" | "passes")
+              onTabChange={(tabId: string) =>
+                setActiveTab(
+                  tabId as
+                    | "assets"
+                    | "hosted"
+                    | "funded"
+                    | "passes"
+                    | "activity"
+                )
               }
             />
 
@@ -749,6 +758,11 @@ export default function ProfileComponent({
                   walletAddress={user.smart_wallet_address || null}
                   chainId="monad-test-v2"
                   isOwnProfile={Boolean(isOwnProfile)}
+                />
+              ) : activeTab === "activity" ? (
+                <TransactionsList
+                  walletAddress={user.smart_wallet_address || ""}
+                  chainId="monad-test-v2"
                 />
               ) : activeTab === "hosted" ? (
                 <PoolList
