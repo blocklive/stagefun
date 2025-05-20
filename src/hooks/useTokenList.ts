@@ -132,7 +132,7 @@ const CORE_TOKENS: Token[] = [
     symbol: "WBTC",
     name: "Wrapped Bitcoin",
     decimals: 8,
-    logoURI: "/icons/wbtc-logo.png",
+    logoURI: "/icons/wbtc-icon.svg",
     source: "core",
     hasLiquidity: true,
     isVerified: true,
