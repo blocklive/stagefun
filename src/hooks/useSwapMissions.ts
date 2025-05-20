@@ -2,6 +2,8 @@ import { useCallback } from "react";
 import { useAuthJwt } from "./useAuthJwt";
 import showToast from "@/utils/toast";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+import { onboardingMissions } from "@/app/data/onboarding-missions";
+import confetti from "canvas-confetti";
 
 interface UseSwapMissionsProps {
   showSuccessToast?: boolean;
@@ -14,6 +16,84 @@ export function useSwapMissions({
   showSuccessToast = true,
 }: UseSwapMissionsProps = {}) {
   const { token: authToken } = useAuthJwt();
+
+  /**
+   * Gets a user-friendly mission title from the mission ID
+   */
+  const getMissionTitle = useCallback((missionId: string): string => {
+    const mission = onboardingMissions.find((m) => m.id === missionId);
+    return mission?.title || missionId.replace(/_/g, " ");
+  }, []);
+
+  /**
+   * Triggers a confetti celebration effect
+   */
+  const triggerConfetti = useCallback(() => {
+    const canvas = document.createElement("canvas");
+    canvas.style.position = "fixed";
+    canvas.style.top = "0";
+    canvas.style.left = "0";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    canvas.style.pointerEvents = "none";
+    canvas.style.zIndex = "1000";
+    document.body.appendChild(canvas);
+
+    const myConfetti = confetti.create(canvas, {
+      resize: true,
+      useWorker: false,
+    });
+
+    const count = 3; // Slightly less than pool commitment
+    const defaults = {
+      startVelocity: 30,
+      spread: 360,
+      ticks: 60,
+      zIndex: 1000,
+      shapes: ["star", "circle"],
+      colors: ["#836EF9", "#6F5BD0", "#FFD700", "#FFA500"],
+      disableForReducedMotion: true,
+    };
+
+    const fire = (particleRatio: number, opts: any) => {
+      myConfetti({
+        ...defaults,
+        particleCount: Math.floor(200 * particleRatio),
+        origin: { x: Math.random(), y: Math.random() },
+        ...opts,
+      });
+    };
+
+    fire(0.35, {
+      spread: 100,
+      decay: 0.91,
+      scalar: 0.8,
+    });
+
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        fire(0.25, {
+          spread: 26,
+          startVelocity: 55,
+        });
+
+        fire(0.2, {
+          spread: 60,
+        });
+
+        fire(0.1, {
+          spread: 120,
+          startVelocity: 25,
+          decay: 0.92,
+          scalar: 1.2,
+        });
+      }, i * 150);
+    }
+
+    setTimeout(() => {
+      document.body.removeChild(canvas);
+    }, 3000); // Shorter cleanup time
+  }, []);
 
   /**
    * Verifies a swap mission with the server using the transaction hash
@@ -44,11 +124,14 @@ export function useSwapMissions({
         if (response.ok && data.success && !data.alreadyCompleted) {
           // Successfully verified and awarded points
           if (showSuccessToast) {
+            showToast.remove();
+            const missionTitle = getMissionTitle(missionId);
             showToast.success(
-              `${missionId.replace("_", " ")} mission completed! +${
-                data.points
-              } points`
+              `${missionTitle} mission completed! +${data.points} points`
             );
+
+            // Launch confetti celebration
+            triggerConfetti();
           }
 
           // Trigger points refresh
@@ -71,7 +154,7 @@ export function useSwapMissions({
         return false;
       }
     },
-    [authToken, showSuccessToast]
+    [authToken, showSuccessToast, getMissionTitle, triggerConfetti]
   );
 
   /**
