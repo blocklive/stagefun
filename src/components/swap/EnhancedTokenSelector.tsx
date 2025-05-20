@@ -13,7 +13,6 @@ import { VirtualizedTokenList } from "./VirtualizedTokenList";
 import { AddCustomToken } from "./AddCustomToken";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import showToast from "@/utils/toast";
-import { useAlphaMode } from "@/hooks/useAlphaMode";
 import { useERC20TokenValidation } from "@/hooks/useERC20TokenValidation";
 
 interface EnhancedTokenSelectorProps {
@@ -40,9 +39,8 @@ export function EnhancedTokenSelector({
   modalPosition,
 }: EnhancedTokenSelectorProps) {
   // Check if alpha mode is enabled
-  const { isAlphaMode } = useAlphaMode();
 
-  const [activeTab, setActiveTab] = useState<"core" | "stages">("core");
+  const [activeTab, setActiveTab] = useState<"all" | "stages">("all");
   const [isAddTokenModalOpen, setIsAddTokenModalOpen] = useState(false);
   const [potentialTokenAddress, setPotentialTokenAddress] = useState<
     string | null
@@ -166,10 +164,13 @@ export function EnhancedTokenSelector({
 
   if (!isOpen) return null;
 
-  // Use core tokens for the "core" tab, and platform tokens for the "stages" tab
-  // For non-alpha users, we always show just the core tokens regardless of tab
+  // Generate token list based on the active tab
+  // "all" tab: show core tokens first, then platform tokens
+  // "stages" tab: show only platform tokens
   const currentTokens = getFilteredTokens(
-    !isAlphaMode || activeTab === "core" ? coreTokens : filteredTokens.platform
+    activeTab === "all"
+      ? [...coreTokens, ...filteredTokens.platform]
+      : filteredTokens.platform
   );
 
   return (
@@ -205,44 +206,40 @@ export function EnhancedTokenSelector({
               </button>
             </div>
 
-            {/* Search input - Only show in alpha mode */}
-            {isAlphaMode && (
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search by name or paste address"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#1e1e2a] border border-[#20203a] rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-[#836ef9] placeholder:text-gray-500"
-                />
-              </div>
-            )}
+            {/* Search input - */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search by name or paste address"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-3 bg-[#1e1e2a] border border-[#20203a] rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-[#836ef9] placeholder:text-gray-500"
+              />
+            </div>
 
-            {/* Tabs - Only show if in alpha mode */}
-            {isAlphaMode && (
-              <div className="flex">
-                <button
-                  className={`px-4 py-3 text-sm font-medium flex-1 ${
-                    activeTab === "core"
-                      ? "text-white border-b-2 border-[#836ef9]"
-                      : "text-gray-400 hover:text-white border-b-0"
-                  }`}
-                  onClick={() => setActiveTab("core")}
-                >
-                  Core
-                </button>
-                <button
-                  className={`px-4 py-3 text-sm font-medium flex-1 ${
-                    activeTab === "stages"
-                      ? "text-white border-b-2 border-[#836ef9]"
-                      : "text-gray-400 hover:text-white border-b-0"
-                  }`}
-                  onClick={() => setActiveTab("stages")}
-                >
-                  Stages
-                </button>
-              </div>
-            )}
+            {/* Tabs  */}
+            <div className="flex">
+              <button
+                className={`px-4 py-3 text-sm font-medium flex-1 ${
+                  activeTab === "all"
+                    ? "text-white border-b-2 border-[#836ef9]"
+                    : "text-gray-400 hover:text-white border-b-0"
+                }`}
+                onClick={() => setActiveTab("all")}
+              >
+                All
+              </button>
+              <button
+                className={`px-4 py-3 text-sm font-medium flex-1 ${
+                  activeTab === "stages"
+                    ? "text-white border-b-2 border-[#836ef9]"
+                    : "text-gray-400 hover:text-white border-b-0"
+                }`}
+                onClick={() => setActiveTab("stages")}
+              >
+                Stage
+              </button>
+            </div>
 
             {/* Token list or import section */}
             <div
@@ -337,7 +334,7 @@ export function EnhancedTokenSelector({
                     searchTerm
                       ? "No tokens found. Try a different search term."
                       : `No ${
-                          activeTab === "stages" ? "stage" : "core"
+                          activeTab === "stages" ? "stage" : ""
                         } tokens found.`
                   }
                 />
@@ -348,7 +345,7 @@ export function EnhancedTokenSelector({
                     {searchTerm
                       ? "No tokens found. Try a different search term or paste a token address."
                       : `No ${
-                          activeTab === "stages" ? "stage" : "core"
+                          activeTab === "stages" ? "stage" : ""
                         } tokens found.`}
                   </p>
                   {searchTerm && (

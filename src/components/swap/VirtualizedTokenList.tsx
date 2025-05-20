@@ -39,10 +39,10 @@ const TokenItem = ({ token, onClick, style }: TokenItemProps) => {
           <div className="font-bold text-white truncate flex items-center">
             {displayName}
             {token.isVerified && (
-              <span
-                className="inline-block h-2 w-2 ml-1.5 bg-[#836EF9] opacity-70 rounded-full"
+              <CheckCircleIcon
+                className="h-4 w-4 ml-1 text-blue-400"
                 aria-label="Verified token"
-              ></span>
+              />
             )}
           </div>
           <div className="text-sm text-gray-400 truncate">{tokenSymbol}</div>
