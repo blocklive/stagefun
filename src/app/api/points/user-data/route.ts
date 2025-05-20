@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   authenticateRequest,
+  extractBearerToken,
   getSupabaseAdmin,
 } from "../../../../lib/auth/server";
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
   try {
-
-    // Extract the token manually for debugging
+    // Authenticate the request using Privy JWT
     const authResult = await authenticateRequest(request);
-
-    if (!authResult.authenticated) {
 
     if (!authResult.authenticated) {
       console.log("Authentication failed:", authResult.error);
