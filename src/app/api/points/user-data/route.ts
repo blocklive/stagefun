@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   authenticateRequest,
-  extractBearerToken,
   getSupabaseAdmin,
 } from "../../../../lib/auth/server";
 
@@ -25,7 +24,6 @@ export async function GET(request: NextRequest) {
     const supabaseAdmin = getSupabaseAdmin();
 
     // Fetch user points data and check-in data in parallel
-    const dbStartTime = Date.now();
     const [pointsResult, checkinResult] = await Promise.all([
       supabaseAdmin
         .from("user_points")
@@ -91,7 +89,6 @@ export async function GET(request: NextRequest) {
           },
     };
 
-    console.log(`Total API request took ${Date.now() - startTime}ms`);
     return NextResponse.json(response);
   } catch (error) {
     console.error("Error in user-data API:", error);
