@@ -38,7 +38,7 @@ const CORE_TOKENS: Token[] = [
     isVerified: true, // This is the official WMON token
   },
   {
-    address: "0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37",
+    address: CONTRACT_ADDRESSES.monadTestnet.weth_token,
     symbol: "WETH",
     name: "Wrapped Ether",
     decimals: 18,
@@ -48,7 +48,7 @@ const CORE_TOKENS: Token[] = [
     isVerified: true,
   },
   {
-    address: "0xb2f82D0f38dc453D596Ad40A37799446Cc89274A",
+    address: CONTRACT_ADDRESSES.monadTestnet.aprmon,
     symbol: "apMON",
     name: "aPriori Monad LST",
     decimals: 18,
@@ -58,7 +58,7 @@ const CORE_TOKENS: Token[] = [
     isVerified: true,
   },
   {
-    address: "0xE0590015A873bF326bd645c3E1266d4db41C4E6B",
+    address: CONTRACT_ADDRESSES.monadTestnet.chog,
     symbol: "CHOG",
     name: "Chog",
     decimals: 18,
@@ -68,7 +68,7 @@ const CORE_TOKENS: Token[] = [
     isVerified: true,
   },
   {
-    address: "0xfe140e1dCe99Be9F4F15d657CD9b7BF622270C50",
+    address: CONTRACT_ADDRESSES.monadTestnet.moyaki,
     symbol: "MOYAKI",
     name: "Moyaki",
     decimals: 18,
@@ -78,7 +78,7 @@ const CORE_TOKENS: Token[] = [
     isVerified: true,
   },
   {
-    address: "0x0F0BDEbF0F83cD1EE3974779Bcb7315f9808c714",
+    address: CONTRACT_ADDRESSES.monadTestnet.mlndk,
     symbol: "MLNDK",
     name: "Molandak",
     decimals: 18,
@@ -88,7 +88,7 @@ const CORE_TOKENS: Token[] = [
     isVerified: true,
   },
   {
-    address: "0xaEef2f6B429Cb59C9B2D7bB2141ADa993E8571c3",
+    address: CONTRACT_ADDRESSES.monadTestnet.gmon,
     symbol: "gMON",
     name: "gMON",
     decimals: 18,
@@ -98,7 +98,7 @@ const CORE_TOKENS: Token[] = [
     isVerified: true,
   },
   {
-    address: "0x3a98250F98Dd388C211206983453837C8365BDc1",
+    address: CONTRACT_ADDRESSES.monadTestnet.shmon,
     symbol: "ShMON",
     name: "ShMonad",
     decimals: 18,
@@ -108,7 +108,7 @@ const CORE_TOKENS: Token[] = [
     isVerified: true,
   },
   {
-    address: "0xe1d2439b75fb9746E7Bc6cB777Ae10AA7f7ef9c5",
+    address: CONTRACT_ADDRESSES.monadTestnet.ksmon,
     symbol: "ksMON",
     name: "Kintsu Staked Monad",
     decimals: 18,
@@ -118,7 +118,7 @@ const CORE_TOKENS: Token[] = [
     isVerified: true,
   },
   {
-    address: "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D",
+    address: CONTRACT_ADDRESSES.monadTestnet.usdt,
     symbol: "USDT",
     name: "Tether USD",
     decimals: 6,
@@ -128,7 +128,7 @@ const CORE_TOKENS: Token[] = [
     isVerified: true,
   },
   {
-    address: "0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d",
+    address: CONTRACT_ADDRESSES.monadTestnet.wbtc,
     symbol: "WBTC",
     name: "Wrapped Bitcoin",
     decimals: 8,
@@ -138,7 +138,7 @@ const CORE_TOKENS: Token[] = [
     isVerified: true,
   },
   {
-    address: "0x89e4a70de5F2Ae468B18B6B6300B249387f9Adf0",
+    address: CONTRACT_ADDRESSES.monadTestnet.fmon,
     symbol: "FMON",
     name: "Fantasy MON",
     decimals: 18,

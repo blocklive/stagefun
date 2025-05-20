@@ -76,6 +76,12 @@ export default function OnboardingPage() {
 
   // Handle mission actions
   const handleMissionAction = async (mission: Mission) => {
+    // If mission has an actionUrl, navigate to that URL instead of completing the mission
+    if (mission.actionUrl) {
+      router.push(mission.actionUrl);
+      return;
+    }
+
     if (mission.id === "daily_checkin") {
       if (!canClaim) {
         showToast.error(`You can claim again in ${formattedTimeRemaining}`);

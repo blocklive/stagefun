@@ -32,6 +32,7 @@ import { LiquidityActions } from "./LiquidityActions";
 // Import custom hooks
 import { usePoolManager } from "@/hooks/usePoolManager";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
+import { useSwapMissions } from "@/hooks/useSwapMissions";
 
 // Define Token interface
 interface SwapToken {

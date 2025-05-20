@@ -4,6 +4,7 @@ import { getDeadlineTimestamp } from "@/lib/contracts/StageSwap";
 import { useStageSwap } from "@/hooks/useStageSwap";
 import { useWalletAssetsAdapter } from "@/hooks/useWalletAssetsAdapter";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
+import { useSwapMissions } from "@/hooks/useSwapMissions";
 import showToast from "@/utils/toast";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
@@ -65,6 +66,7 @@ export function LiquidityActions({
   const { smartWalletAddress, callContractFunction } = useSmartWallet();
   const { refresh: refreshBalances } =
     useWalletAssetsAdapter(smartWalletAddress);
+  const { verifyAddLiquidity } = useSwapMissions();
 
   // Combined loading state
   const isActionLoading = isLoading || isSwapHookLoading;
@@ -338,6 +340,16 @@ export function LiquidityActions({
           refreshBalances();
           // Refresh pool info after adding liquidity
           checkPoolExists();
+
+          // Verify the add_liquidity mission if the transaction was successful
+          if (result.txHash) {
+            try {
+              await verifyAddLiquidity(result.txHash);
+            } catch (error) {
+              console.error("Error verifying add_liquidity mission:", error);
+              // Non-critical error, don't show to user
+            }
+          }
         }
       } else {
         // Regular addLiquidity for token-token pairs (including WMON-token)
@@ -441,6 +453,16 @@ export function LiquidityActions({
             refreshBalances();
             // Refresh pool info after adding liquidity
             checkPoolExists();
+
+            // Verify the add_liquidity mission if the transaction was successful
+            if (result.txHash) {
+              try {
+                await verifyAddLiquidity(result.txHash);
+              } catch (error) {
+                console.error("Error verifying add_liquidity mission:", error);
+                // Non-critical error, don't show to user
+              }
+            }
           }
         } catch (error) {
           console.error("Error converting token amounts:", error);
