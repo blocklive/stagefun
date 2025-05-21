@@ -49,7 +49,7 @@ const CORE_TOKENS: Token[] = [
   },
   {
     address: CONTRACT_ADDRESSES.monadTestnet.aprmon,
-    symbol: "apMON",
+    symbol: "aprMON",
     name: "aPriori Monad LST",
     decimals: 18,
     logoURI: "/icons/aprmon-logo.svg",
@@ -69,7 +69,7 @@ const CORE_TOKENS: Token[] = [
   },
   {
     address: CONTRACT_ADDRESSES.monadTestnet.moyaki,
-    symbol: "MOYAKI",
+    symbol: "YAKI",
     name: "Moyaki",
     decimals: 18,
     logoURI: "/icons/moyaki-logo.png",
@@ -79,7 +79,7 @@ const CORE_TOKENS: Token[] = [
   },
   {
     address: CONTRACT_ADDRESSES.monadTestnet.mlndk,
-    symbol: "MLNDK",
+    symbol: "DAK",
     name: "Molandak",
     decimals: 18,
     logoURI: "/icons/molandak-logo.png",
@@ -109,7 +109,7 @@ const CORE_TOKENS: Token[] = [
   },
   {
     address: CONTRACT_ADDRESSES.monadTestnet.ksmon,
-    symbol: "ksMON",
+    symbol: "sMON",
     name: "Kintsu Staked Monad",
     decimals: 18,
     logoURI: "/icons/kintsu-staked-mon-logo.png",
