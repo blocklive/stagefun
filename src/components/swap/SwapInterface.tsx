@@ -21,6 +21,8 @@ import { useSwapPriceImpact } from "@/hooks/useSwapPriceImpact";
 import { SlippageSettings } from "./SlippageSettings";
 import { useWrapUnwrap } from "@/hooks/useWrapUnwrap";
 import { useSwapParams } from "@/hooks/useSwapParams";
+import { useAuthJwt } from "@/hooks/useAuthJwt";
+import { useSwapMissions } from "@/hooks/useSwapMissions";
 import {
   getTokenBalanceFormatted,
   getTokenBalanceRaw,
@@ -95,6 +97,7 @@ const HIGH_PRICE_IMPACT_THRESHOLD = 15; // 15%
 // Internal component with all the logic
 function SwapInterfaceContent() {
   const { user } = usePrivy();
+  const { verifySwapByTokens } = useSwapMissions();
 
   // Add console error handler to filter out specific error messages
   useEffect(() => {
@@ -709,6 +712,20 @@ function SwapInterfaceContent() {
         setOutputAmount("");
         // Refresh user's balance
         refreshBalances();
+
+        // Automatically check for swap missions
+        if (swapResult.txHash) {
+          try {
+            await verifySwapByTokens(
+              inputToken.address,
+              outputToken.address,
+              swapResult.txHash
+            );
+          } catch (error) {
+            console.error("Error checking swap mission:", error);
+            // Non-critical error, don't show to user
+          }
+        }
       } else {
         showToast.error(swapResult.error || "Swap failed");
       }

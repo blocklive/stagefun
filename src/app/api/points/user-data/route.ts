@@ -1,41 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   authenticateRequest,
-  extractBearerToken,
   getSupabaseAdmin,
 } from "../../../../lib/auth/server";
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
   try {
-    // Log request headers for debugging
-    const authHeader = request.headers.get("Authorization");
-    console.log("== USER-DATA API ==");
-    console.log("Auth header present:", !!authHeader);
-    if (authHeader) {
-      console.log(
-        "Auth header starts with:",
-        authHeader.substring(0, 15) + "..."
-      );
-    }
-
-    // Extract the token manually for debugging
-    const token = extractBearerToken(request);
-    console.log(
-      "Token extracted:",
-      token ? "Yes (length: " + token.length + ")" : "No"
-    );
-
     // Authenticate the request using Privy JWT
-    console.log("Calling authenticateRequest...");
-    const authStartTime = Date.now();
     const authResult = await authenticateRequest(request);
-    console.log(`Authentication took ${Date.now() - authStartTime}ms`);
-    console.log("Auth result:", {
-      authenticated: authResult.authenticated,
-      userId: authResult.userId,
-      error: authResult.error,
-    });
 
     if (!authResult.authenticated) {
       console.log("Authentication failed:", authResult.error);
@@ -51,7 +24,6 @@ export async function GET(request: NextRequest) {
     const supabaseAdmin = getSupabaseAdmin();
 
     // Fetch user points data and check-in data in parallel
-    const dbStartTime = Date.now();
     const [pointsResult, checkinResult] = await Promise.all([
       supabaseAdmin
         .from("user_points")
@@ -64,7 +36,6 @@ export async function GET(request: NextRequest) {
         .eq("user_id", userId as string)
         .single(),
     ]);
-    console.log(`Database queries took ${Date.now() - dbStartTime}ms`);
 
     // Extract data and handle errors
     const { data: userPoints, error: pointsError } = pointsResult;
@@ -118,7 +89,6 @@ export async function GET(request: NextRequest) {
           },
     };
 
-    console.log(`Total API request took ${Date.now() - startTime}ms`);
     return NextResponse.json(response);
   } catch (error) {
     console.error("Error in user-data API:", error);

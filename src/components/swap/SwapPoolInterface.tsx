@@ -6,12 +6,10 @@ import React, {
   useEffect,
   Suspense,
   useRef,
-  useMemo,
 } from "react";
 import { ethers } from "ethers";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWalletAssetsAdapter } from "@/hooks/useWalletAssetsAdapter";
-import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 import { useTokenList } from "@/hooks/useTokenList";
 import { useTokenResolver } from "@/hooks/useTokenResolver";
 import { TokenInfo } from "@/types/tokens";
@@ -21,6 +19,7 @@ import {
   getTokenBalanceFormatted,
   getTokenBalanceRaw,
 } from "@/utils/tokenBalance";
+import { getSwapCoreTokens, SwapToken } from "@/lib/tokens/core-tokens";
 
 // Import all the new components
 import { PoolStatusCard } from "./PoolStatusCard";
@@ -32,17 +31,7 @@ import { LiquidityActions } from "./LiquidityActions";
 // Import custom hooks
 import { usePoolManager } from "@/hooks/usePoolManager";
 import { useSmartWallet } from "@/hooks/useSmartWallet";
-
-// Define Token interface
-interface SwapToken {
-  address: string;
-  symbol: string;
-  name: string;
-  decimals: number;
-  logoURI: string;
-  isCustom?: boolean;
-  isVerified?: boolean;
-}
+import { useSwapMissions } from "@/hooks/useSwapMissions";
 
 // Fixed fee - 0.3% for all pools based on Uniswap V2
 const FIXED_FEE = {
@@ -51,36 +40,7 @@ const FIXED_FEE = {
   description: "Standard fee for all pools",
 };
 
-// Official WMON token address
-const OFFICIAL_WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
-
-// Token data with real contract addresses
-const CORE_TOKENS: SwapToken[] = [
-  {
-    address: CONTRACT_ADDRESSES.monadTestnet.usdc,
-    symbol: "USDC",
-    name: "USD Coin",
-    decimals: 6,
-    logoURI: "/icons/usdc-logo.svg",
-    isVerified: true,
-  },
-  {
-    address: "NATIVE", // Special marker for native MON
-    symbol: "MON",
-    name: "Monad",
-    decimals: 18,
-    logoURI: "/icons/mon-logo.svg",
-    isVerified: true,
-  },
-  {
-    address: OFFICIAL_WMON_ADDRESS,
-    symbol: "WMON",
-    name: "Wrapped MON",
-    decimals: 18,
-    logoURI: "/icons/mon-logo.svg",
-    isVerified: true,
-  },
-];
+const CORE_TOKENS = getSwapCoreTokens();
 
 // Adding formatTokenAmount function based on WalletAssets.tsx
 const formatTokenAmount = (quantity: number, decimals: number = 4): string => {
@@ -121,8 +81,8 @@ function SwapPoolInterfaceContent() {
   }, [customTokens]);
 
   // Token state
-  const [tokenA, setTokenA] = useState<SwapToken>(CORE_TOKENS[0]); // USDC
-  const [tokenB, setTokenB] = useState<SwapToken>(CORE_TOKENS[1]); // MON
+  const [tokenA, setTokenA] = useState<SwapToken>(CORE_TOKENS[0]!); // USDC
+  const [tokenB, setTokenB] = useState<SwapToken>(CORE_TOKENS[1]!); // MON
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   // Amounts state

@@ -413,6 +413,112 @@ export const useOnboardingMissions = () => {
         }
       }
 
+      // Special handling for swap and add liquidity missions
+      if (
+        missionId === "swap_mon_usdc" ||
+        missionId === "swap_shmon" ||
+        missionId === "swap_aprmon" ||
+        missionId === "swap_gmon" ||
+        missionId === "add_liquidity"
+      ) {
+        showToast.loading(`Verifying ${missionId.replace("_", " ")}...`);
+
+        try {
+          if (!authToken) {
+            showToast.remove();
+            showToast.error(
+              "Authentication token not available. Please try again."
+            );
+            return false;
+          }
+
+          // Open a prompt for the user to enter the transaction hash
+          const txHash = window.prompt(
+            "Please enter the transaction hash to verify:"
+          );
+
+          if (!txHash) {
+            showToast.remove();
+            showToast.info("Transaction verification cancelled");
+            return false;
+          }
+
+          // Call the verify-swap API endpoint
+          const response = await fetch("/api/missions/verify-swap", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({
+              missionId,
+              txHash,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            showToast.remove();
+            showToast.error(data.error || "Failed to verify transaction");
+            return false;
+          }
+
+          // If already completed, just acknowledge it
+          if (data.alreadyCompleted) {
+            showToast.remove();
+            // Update local state to reflect completion
+            setMissions((prevMissions) =>
+              prevMissions.map((mission) =>
+                mission.id === missionId
+                  ? { ...mission, completed: true }
+                  : mission
+              )
+            );
+
+            // Update completed missions cache
+            updateCompletedMissions(missionId);
+
+            return true;
+          }
+
+          // Update local state to reflect completion
+          setMissions((prevMissions) =>
+            prevMissions.map((mission) =>
+              mission.id === missionId
+                ? { ...mission, completed: true }
+                : mission
+            )
+          );
+
+          // Update completed missions cache
+          updateCompletedMissions(missionId);
+
+          // Also trigger a points refresh to show updated points
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("refreshPoints"));
+          }
+
+          // Remove all toasts instantly before showing success
+          showToast.remove();
+          showToast.success(
+            `${missionId.replace(
+              "_",
+              " "
+            )} verified! +${data.points.toLocaleString()} points`
+          );
+
+          return true;
+        } catch (error) {
+          showToast.remove();
+          console.error(`Error verifying ${missionId}:`, error);
+          showToast.error(
+            `Failed to verify ${missionId.replace("_", " ")}. Please try again.`
+          );
+          return false;
+        }
+      }
+
       // Handle other mission types with the existing code
       const mission = defaultMissions.find((m) => m.id === missionId);
       if (!mission) {

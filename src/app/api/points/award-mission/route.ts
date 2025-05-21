@@ -8,6 +8,11 @@ const MISSION_POINTS: Record<string, number> = {
   link_x: 10000,
   follow_x: 10000,
   create_pool: 50000,
+  swap_mon_usdc: 1000,
+  swap_shmon: 1000,
+  swap_aprmon: 1000,
+  swap_gmon: 1000,
+  add_liquidity: 2000,
 };
 
 export async function POST(request: NextRequest) {
