@@ -52,11 +52,11 @@ export interface TransformedPool {
 
 // Map from UI filter terms to database status strings
 export const STATUS_MAP: Record<string, string[]> = {
-  // Main filters
+  // Main filters - Updated logic per requirements
   active: ["ACTIVE"],
-  open: ["ACTIVE"],
-  funded: ["FUNDED", "FULLY_FUNDED", "EXECUTING"],
-  unfunded: ["FAILED", "CANCELLED"],
+  open: ["ACTIVE", "PAUSED", "FUNDED", "FULLY_FUNDED"], // Before end date + these statuses
+  funded: ["EXECUTING", "COMPLETED"], // Pools in production or completed
+  unfunded: ["FAILED", "CANCELLED"], // Explicitly failed/cancelled pools (other logic handles ended pools)
   completed: ["COMPLETED"],
   failed: ["FAILED", "CANCELLED"],
 
@@ -284,8 +284,22 @@ export function usePoolsWithDeposits(
           const statusValues = STATUS_MAP[statusKey];
 
           if (statusValues && statusValues.length > 0) {
+            // Special handling for open pools - must be before end date AND in specified statuses
+            if (statusKey === "open") {
+              const now = new Date();
+              filteredPools = transformedPools.filter((pool) => {
+                // Must be in one of the open statuses
+                if (!statusValues.includes(pool.status)) {
+                  return false;
+                }
+
+                // Must be before the end date
+                const endDate = new Date(pool.ends_at);
+                return endDate > now;
+              });
+            }
             // Special handling for unfunded pools - also include pools that have ended without meeting target
-            if (statusKey === "unfunded") {
+            else if (statusKey === "unfunded") {
               const now = new Date();
               filteredPools = transformedPools.filter((pool) => {
                 // Include pools that are explicitly marked as FAILED or CANCELLED
@@ -307,7 +321,7 @@ export function usePoolsWithDeposits(
               // Set hasMore flag based on total results
               setHasMore(filteredPools.length === POOLS_PER_PAGE);
             } else {
-              // Normal status filtering for other tabs
+              // Normal status filtering for other tabs (including "funded")
               filteredPools = transformedPools.filter((pool) =>
                 statusValues.includes(pool.status)
               );

@@ -190,11 +190,9 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
         return transformedPool;
       });
 
-      // Filter for funded status (include FUNDED, FULLY_FUNDED, EXECUTING, COMPLETED)
+      // Filter for funded status (now only EXECUTING and COMPLETED)
       const fundedPools = transformedPools.filter((pool) =>
-        ["FUNDED", "FULLY_FUNDED", "EXECUTING", "COMPLETED"].includes(
-          pool.status
-        )
+        ["EXECUTING", "COMPLETED"].includes(pool.status)
       );
 
       // Add to our collection
@@ -203,8 +201,8 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
     }
 
     return allPools.slice(0, maxItemsNum);
-  } else {
-    // For the open tab, we need to fetch all pools that should be shown as "ACTIVE"
+  } else if (tabType === "open") {
+    // For the open tab, fetch pools that are before end date and in open statuses
     // Build query based on pool type filter
     let query = supabase
       .from("pools")
@@ -318,12 +316,26 @@ const fetchPools = async (key: string): Promise<OnChainPool[]> => {
       return transformedPool;
     });
 
-    // Filter for only truly ACTIVE pools
-    const activePools = transformedPools.filter(
-      (pool) => pool.status === "ACTIVE"
-    );
+    // Filter for open pools (ACTIVE, PAUSED, FUNDED, FULLY_FUNDED) that are before end date
+    const now = new Date();
+    const openPools = transformedPools.filter((pool) => {
+      // Must be in one of the open statuses
+      if (
+        !["ACTIVE", "PAUSED", "FUNDED", "FULLY_FUNDED"].includes(pool.status)
+      ) {
+        return false;
+      }
 
-    return activePools.slice(0, maxItemsNum);
+      // Must be before the end date
+      const endDate = new Date(pool.ends_at);
+      return endDate > now;
+    });
+
+    return openPools.slice(0, maxItemsNum);
+  } else {
+    // Unknown tab type, return empty array
+    console.warn(`Unknown tab type: ${tabType}`);
+    return [];
   }
 };
 
