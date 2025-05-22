@@ -4,6 +4,7 @@ import { ethers } from "ethers";
 import { useSmartWallet } from "./useSmartWallet";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 import { getERC20Contract } from "@/lib/contracts/StageSwap";
+import { CORE_TOKENS } from "@/lib/tokens/core-tokens";
 
 // Structure to hold token information (same as in useLiquidityPositions)
 interface TokenInfo {
@@ -11,6 +12,7 @@ interface TokenInfo {
   symbol: string;
   name: string;
   decimals: number;
+  logoURI?: string;
 }
 
 // Structure for detailed position information
@@ -78,7 +80,24 @@ export function usePositionDetails(pairAddress: string | null) {
       return tokenInfoCache.get(normalizedAddress)!;
     }
 
-    // Check known tokens list
+    // Check core tokens first
+    const coreToken = CORE_TOKENS.find(
+      (token) => token.address.toLowerCase() === normalizedAddress
+    );
+    if (coreToken) {
+      const tokenInfo = {
+        address: tokenAddress,
+        symbol: coreToken.symbol,
+        name: coreToken.name,
+        decimals: coreToken.decimals,
+        logoURI: coreToken.logoURI,
+      };
+      // Store in global cache to ensure consistency
+      tokenInfoCache.set(normalizedAddress, tokenInfo);
+      return tokenInfo;
+    }
+
+    // Check known tokens list (legacy fallback)
     if (knownTokens[normalizedAddress]) {
       const tokenInfo = knownTokens[normalizedAddress];
       // Store in global cache to ensure consistency
@@ -132,6 +151,7 @@ export function usePositionDetails(pairAddress: string | null) {
         symbol,
         name,
         decimals,
+        logoURI: CORE_TOKENS.find((t) => t.symbol === symbol)?.logoURI,
       };
 
       // Store in global cache to ensure consistency
@@ -141,11 +161,14 @@ export function usePositionDetails(pairAddress: string | null) {
       console.error(`Error fetching token info for ${tokenAddress}:`, error);
 
       // Always return something to prevent UI errors
+      const shortAddress = tokenAddress.slice(0, 6);
       const fallbackInfo = {
         address: tokenAddress,
-        symbol: `Token-${tokenAddress.slice(0, 6)}`,
-        name: `Unknown Token ${tokenAddress.slice(0, 6)}`,
+        symbol: `Token-${shortAddress}`,
+        name: `Unknown Token ${shortAddress}`,
         decimals: 18, // Default to 18
+        logoURI: CORE_TOKENS.find((t) => t.symbol === `Token-${shortAddress}`)
+          ?.logoURI,
       };
 
       // Still cache the fallback info to avoid repeated failed calls

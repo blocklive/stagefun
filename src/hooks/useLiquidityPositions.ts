@@ -13,6 +13,7 @@ interface TokenInfo {
   symbol: string;
   name: string;
   decimals: number;
+  logoURI?: string;
 }
 
 // Simplified structure for a liquidity position in list view
@@ -261,6 +262,7 @@ const getTokenInfoWithFallback = (
         symbol: coreToken.symbol,
         name: coreToken.name,
         decimals: coreToken.decimals,
+        logoURI: coreToken.logoURI,
       };
     }
 
@@ -274,6 +276,7 @@ const getTokenInfoWithFallback = (
         symbol: knownToken.symbol,
         name: knownToken.name,
         decimals: knownToken.decimals,
+        logoURI: knownToken.logoURI,
       };
     }
 
@@ -285,6 +288,7 @@ const getTokenInfoWithFallback = (
         symbol,
         name: symbol, // Use symbol as name if we don't have the name
         decimals: 18, // Default to 18 decimals
+        logoURI: CORE_TOKENS.find((t) => t.symbol === symbol)?.logoURI,
       };
     }
 
@@ -300,6 +304,8 @@ const getTokenInfoWithFallback = (
       symbol: shortAddress.toUpperCase(),
       name: `Token ${shortAddress}`,
       decimals: 18,
+      logoURI: CORE_TOKENS.find((t) => t.symbol === shortAddress.toUpperCase())
+        ?.logoURI,
     };
   } catch (error) {
     console.error(`Error getting token info for ${tokenAddress}:`, error);
@@ -310,6 +316,8 @@ const getTokenInfoWithFallback = (
       symbol: shortAddress.toUpperCase(),
       name: `Token ${shortAddress}`,
       decimals: 18,
+      logoURI: CORE_TOKENS.find((t) => t.symbol === shortAddress.toUpperCase())
+        ?.logoURI,
     };
   }
 };

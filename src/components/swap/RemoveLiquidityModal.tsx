@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import Image from "next/image";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   useStageSwap,
@@ -12,12 +11,12 @@ import { ethers } from "ethers";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+import { TokenIcon } from "@/components/token/TokenIcon";
 
 interface RemoveLiquidityModalProps {
   position: any;
   onClose: () => void;
   onSuccess: () => void;
-  getTokenIconPath: (symbol: string) => string;
   formatNumber: (value: string, decimals?: number) => string;
 }
 
@@ -33,7 +32,6 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
   position,
   onClose,
   onSuccess,
-  getTokenIconPath,
   formatNumber,
 }) => {
   const [removePercent, setRemovePercent] = useState(100);
@@ -172,20 +170,20 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
         {/* Pool info */}
         <div className="flex items-center mb-6">
           <div className="flex -space-x-2 mr-3">
-            <div className="relative z-10 w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white">
-              <Image
-                src={getTokenIconPath(position.token0.symbol)}
-                alt={position.token0.symbol}
-                width={32}
-                height={32}
+            <div className="relative z-10 border-2 border-gray-800 rounded-full">
+              <TokenIcon
+                symbol={position.token0.symbol}
+                logoURI={position.token0.logoURI}
+                address={position.token0.address}
+                size="md"
               />
             </div>
-            <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white">
-              <Image
-                src={getTokenIconPath(position.token1.symbol)}
-                alt={position.token1.symbol}
-                width={32}
-                height={32}
+            <div className="relative border-2 border-gray-800 rounded-full">
+              <TokenIcon
+                symbol={position.token1.symbol}
+                logoURI={position.token1.logoURI}
+                address={position.token1.address}
+                size="md"
               />
             </div>
           </div>
@@ -233,14 +231,13 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
           <div className="space-y-2">
             <div className="flex justify-between">
               <div className="flex items-center">
-                <div className="w-5 h-5 mr-2 rounded-full overflow-hidden bg-white">
-                  <Image
-                    src={getTokenIconPath(position.token0.symbol)}
-                    alt={position.token0.symbol}
-                    width={20}
-                    height={20}
-                  />
-                </div>
+                <TokenIcon
+                  symbol={position.token0.symbol}
+                  logoURI={position.token0.logoURI}
+                  address={position.token0.address}
+                  size="sm"
+                  className="mr-2"
+                />
                 <span>{position.token0.symbol}</span>
               </div>
               <span className="font-medium">
@@ -256,14 +253,13 @@ export const RemoveLiquidityModal: React.FC<RemoveLiquidityModalProps> = ({
             </div>
             <div className="flex justify-between">
               <div className="flex items-center">
-                <div className="w-5 h-5 mr-2 rounded-full overflow-hidden bg-white">
-                  <Image
-                    src={getTokenIconPath(position.token1.symbol)}
-                    alt={position.token1.symbol}
-                    width={20}
-                    height={20}
-                  />
-                </div>
+                <TokenIcon
+                  symbol={position.token1.symbol}
+                  logoURI={position.token1.logoURI}
+                  address={position.token1.address}
+                  size="sm"
+                  className="mr-2"
+                />
                 <span>{position.token1.symbol}</span>
               </div>
               <span className="font-medium">

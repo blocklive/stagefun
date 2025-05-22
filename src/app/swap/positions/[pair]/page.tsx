@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { usePositionDetails } from "@/hooks/usePositionDetails";
@@ -10,6 +9,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { usePrivy } from "@privy-io/react-auth";
 import { GoLinkExternal } from "react-icons/go";
 import { RemoveLiquidityModal } from "@/components/swap/RemoveLiquidityModal";
+import { TokenIcon } from "@/components/token/TokenIcon";
 
 export default function PositionDetailsPage() {
   const { pair } = useParams();
@@ -36,17 +36,6 @@ export default function PositionDetailsPage() {
           minimumFractionDigits: 2,
           maximumFractionDigits: decimals,
         });
-  };
-
-  const getTokenIconPath = (symbol: string): string => {
-    switch (symbol) {
-      case "MON":
-        return "/icons/mon-logo.svg";
-      case "USDC":
-        return "/icons/usdc-logo.svg";
-      default:
-        return "/icons/unknown-logo.svg";
-    }
   };
 
   const handleRefresh = async () => {
@@ -126,28 +115,20 @@ export default function PositionDetailsPage() {
         <div className="flex justify-between items-center">
           <div className="flex items-center">
             <div className="flex -space-x-2 mr-3">
-              <div className="relative z-10 w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white">
-                <Image
-                  src={getTokenIconPath(positionDetails.token0.symbol)}
-                  alt={positionDetails.token0.symbol}
-                  width={32}
-                  height={32}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      "/icons/unknown-logo.svg";
-                  }}
+              <div className="relative z-10 border-2 border-gray-800 rounded-full">
+                <TokenIcon
+                  symbol={positionDetails.token0.symbol}
+                  logoURI={positionDetails.token0.logoURI}
+                  address={positionDetails.token0.address}
+                  size="md"
                 />
               </div>
-              <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white">
-                <Image
-                  src={getTokenIconPath(positionDetails.token1.symbol)}
-                  alt={positionDetails.token1.symbol}
-                  width={32}
-                  height={32}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      "/icons/unknown-logo.svg";
-                  }}
+              <div className="relative border-2 border-gray-800 rounded-full">
+                <TokenIcon
+                  symbol={positionDetails.token1.symbol}
+                  logoURI={positionDetails.token1.logoURI}
+                  address={positionDetails.token1.address}
+                  size="md"
                 />
               </div>
             </div>
@@ -285,18 +266,13 @@ export default function PositionDetailsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white mr-2">
-                <Image
-                  src={getTokenIconPath(positionDetails.token0.symbol)}
-                  alt={positionDetails.token0.symbol}
-                  width={32}
-                  height={32}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      "/icons/unknown-logo.svg";
-                  }}
-                />
-              </div>
+              <TokenIcon
+                symbol={positionDetails.token0.symbol}
+                logoURI={positionDetails.token0.logoURI}
+                address={positionDetails.token0.address}
+                size="md"
+                className="mr-2"
+              />
               <h3 className="text-lg font-medium text-white">
                 {positionDetails.token0.symbol}
               </h3>
@@ -330,18 +306,13 @@ export default function PositionDetailsPage() {
 
           <div className="space-y-4">
             <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white mr-2">
-                <Image
-                  src={getTokenIconPath(positionDetails.token1.symbol)}
-                  alt={positionDetails.token1.symbol}
-                  width={32}
-                  height={32}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      "/icons/unknown-logo.svg";
-                  }}
-                />
-              </div>
+              <TokenIcon
+                symbol={positionDetails.token1.symbol}
+                logoURI={positionDetails.token1.logoURI}
+                address={positionDetails.token1.address}
+                size="md"
+                className="mr-2"
+              />
               <h3 className="text-lg font-medium text-white">
                 {positionDetails.token1.symbol}
               </h3>
@@ -401,7 +372,6 @@ export default function PositionDetailsPage() {
             setIsRemoveLiquidityModalOpen(false);
             refreshDetails();
           }}
-          getTokenIconPath={getTokenIconPath}
           formatNumber={formatNumber}
         />
       )}

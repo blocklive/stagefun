@@ -1,13 +1,12 @@
 import React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { BsThreeDots } from "react-icons/bs";
 import { LiquidityPosition } from "@/hooks/useLiquidityPositions";
 import { useRouter } from "next/navigation";
+import { TokenIcon } from "@/components/token/TokenIcon";
 
 interface AllPoolsTableProps {
   positions: LiquidityPosition[];
-  getTokenIconPath: (symbol: string) => string;
   toggleMenu: (pairAddress: string, event: React.MouseEvent) => void;
   activeMenu: string | null;
   onAddLiquidity: (
@@ -19,7 +18,6 @@ interface AllPoolsTableProps {
 
 export const AllPoolsTable: React.FC<AllPoolsTableProps> = ({
   positions,
-  getTokenIconPath,
   toggleMenu,
   activeMenu,
   onAddLiquidity,
@@ -62,30 +60,20 @@ export const AllPoolsTable: React.FC<AllPoolsTableProps> = ({
                 <td className="p-4">
                   <div className="flex items-center">
                     <div className="flex -space-x-2 mr-3">
-                      <div className="relative z-10 w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white">
-                        <Image
-                          src={getTokenIconPath(position.token0.symbol)}
-                          alt={position.token0.symbol}
-                          width={32}
-                          height={32}
-                          onError={(e) => {
-                            // Fallback if token icon isn't found
-                            (e.target as HTMLImageElement).src =
-                              "/icons/unknown-logo.svg";
-                          }}
+                      <div className="relative z-10 border-2 border-gray-800 rounded-full">
+                        <TokenIcon
+                          symbol={position.token0.symbol}
+                          logoURI={position.token0.logoURI}
+                          address={position.token0.address}
+                          size="md"
                         />
                       </div>
-                      <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-gray-800 bg-white">
-                        <Image
-                          src={getTokenIconPath(position.token1.symbol)}
-                          alt={position.token1.symbol}
-                          width={32}
-                          height={32}
-                          onError={(e) => {
-                            // Fallback if token icon isn't found
-                            (e.target as HTMLImageElement).src =
-                              "/icons/unknown-logo.svg";
-                          }}
+                      <div className="relative border-2 border-gray-800 rounded-full">
+                        <TokenIcon
+                          symbol={position.token1.symbol}
+                          logoURI={position.token1.logoURI}
+                          address={position.token1.address}
+                          size="md"
                         />
                       </div>
                     </div>

@@ -34,17 +34,6 @@ function PositionsContent() {
     }
   };
 
-  const getTokenIconPath = (symbol: string): string => {
-    switch (symbol) {
-      case "MON":
-        return "/icons/mon-logo.svg";
-      case "USDC":
-        return "/icons/usdc-logo.svg";
-      default:
-        return "/icons/unknown-logo.svg";
-    }
-  };
-
   const toggleMenu = (pairAddress: string, event: React.MouseEvent) => {
     event.stopPropagation();
 
@@ -134,7 +123,6 @@ function PositionsContent() {
           {/* All Positions Section */}
           <AllPoolsTable
             positions={positions}
-            getTokenIconPath={getTokenIconPath}
             toggleMenu={toggleMenu}
             activeMenu={activeMenu}
             onAddLiquidity={handleAddLiquidity}

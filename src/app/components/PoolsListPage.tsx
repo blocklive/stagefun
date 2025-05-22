@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "../../contexts/SupabaseContext";
 import {
@@ -165,12 +165,12 @@ export default function PoolsListPage() {
   }, [pools, page, loading]);
 
   // Function to load more pools
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     if (hasMore && !loading) {
       setPage((prev) => prev + 1);
       loadMore();
     }
-  };
+  }, [hasMore, loading, loadMore]);
 
   return (
     <div className="flex flex-col h-full">
