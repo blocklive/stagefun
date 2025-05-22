@@ -48,7 +48,6 @@ export const AllPoolsTable: React.FC<AllPoolsTableProps> = ({
               <th className="p-4 font-medium text-gray-400">Pool</th>
               <th className="p-4 font-medium text-gray-400">Status</th>
               <th className="p-4 font-medium text-gray-400">Fee tier</th>
-              <th className="p-4 font-medium text-gray-400">Your LP</th>
               <th className="p-4 font-medium text-gray-400">Actions</th>
             </tr>
           </thead>
@@ -105,9 +104,6 @@ export const AllPoolsTable: React.FC<AllPoolsTableProps> = ({
                   </span>
                 </td>
                 <td className="p-4 text-gray-300">0.3%</td>
-                <td className="p-4 text-gray-300">
-                  <span className="text-gray-500">-</span>
-                </td>
                 <td className="p-4">
                   <div className="relative">
                     <button
