@@ -2,6 +2,9 @@ import { useCallback, useState } from "react";
 import { useSmartWallet } from "./useSmartWallet";
 import showToast from "@/utils/toast";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+import { ethers } from "ethers";
+import { formatTokenAmount } from "@/utils/tokenBalance";
+import { Token } from "@/types/token";
 
 // Create a detailed WMON contract interface exactly matching the contract
 const WMON_ABI = [
@@ -96,10 +99,7 @@ export function useWrapUnwrap() {
 
   // Unwrap WMON to MON
   const unwrapWmon = useCallback(
-    async (
-      amountWei: string,
-      wmonBalanceWei: string
-    ): Promise<WrapUnwrapResult> => {
+    async (amountWei: string): Promise<WrapUnwrapResult> => {
       if (!callContractFunction || !smartWalletAddress) {
         return {
           success: false,
@@ -114,29 +114,6 @@ export function useWrapUnwrap() {
       const loadingToast = showToast.loading("Swap in progress...");
 
       try {
-        // Convert the balance to numbers for comparison
-        const wmonBalance = parseFloat(wmonBalanceWei);
-        const requestedAmount = parseFloat(amountWei);
-
-        console.log("WMON balance:", wmonBalance);
-        console.log("Requested amount:", requestedAmount);
-        // Check if the user has enough WMON
-        if (wmonBalance < requestedAmount) {
-          const errorMessage = `Insufficient WMON balance. You have ${wmonBalanceWei} WMON but are trying to unwrap ${amountWei} WMON.`;
-
-          console.log("WMON unwrap failed due to insufficient balance:", {
-            success: false,
-            error: errorMessage,
-          });
-
-          showToast.error("Swap failed: " + errorMessage, { id: loadingToast });
-
-          return {
-            success: false,
-            error: errorMessage,
-          };
-        }
-
         // Using ethers.js to format the number correctly
         const amountBigInt = BigInt(amountWei);
 

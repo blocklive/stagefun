@@ -53,10 +53,6 @@ export default function BalanceSection({
       (asset.attributes.fungible_info?.symbol === "MON" &&
         asset.attributes.fungible_info?.implementations?.[0]?.address === null);
 
-    if (isNative && process.env.NODE_ENV !== "production") {
-      console.log("Found native MON token:", asset);
-    }
-
     return isNative;
   };
 
@@ -103,6 +99,14 @@ export default function BalanceSection({
       <div className="space-y-4">
         {assets.length > 0 ? (
           assets
+            // Filter out tokens with "Unknown Token" name or "???" symbol
+            .filter((asset) => {
+              const tokenName =
+                asset.attributes.fungible_info?.name || "Unknown Token";
+              const tokenSymbol =
+                asset.attributes.fungible_info?.symbol || "???";
+              return tokenName !== "Unknown Token" && tokenSymbol !== "???";
+            })
             .sort((a, b) => {
               const priorityA = getPriorityOrder(a);
               const priorityB = getPriorityOrder(b);

@@ -550,6 +550,27 @@ function SwapInterfaceContent() {
       return;
     }
 
+    // Check if user has sufficient balance
+    const rawInputBalance = getTokenBalanceRaw(inputToken, assets || []);
+    const rawInputAmount = parseFloat(inputAmount);
+
+    if (rawInputBalance < rawInputAmount) {
+      // Format the values for display
+      const balanceFormatted = formatTokenAmount(
+        rawInputBalance,
+        inputToken.decimals
+      );
+      const amountFormatted = formatTokenAmount(
+        rawInputAmount,
+        inputToken.decimals
+      );
+
+      const errorMessage = `Insufficient ${inputToken.symbol} balance. You have ${balanceFormatted} ${inputToken.symbol} but are trying to swap ${amountFormatted} ${inputToken.symbol}.`;
+
+      showToast.error(errorMessage);
+      return;
+    }
+
     setIsSwapping(true);
 
     try {
@@ -639,7 +660,7 @@ function SwapInterfaceContent() {
 
           try {
             // Use the new hook for unwrapping
-            swapResult = await unwrapWmon(amountInWei, wmonBalanceInWei);
+            swapResult = await unwrapWmon(amountInWei);
 
             console.log("WMON to MON unwrap result:", swapResult);
           } catch (unwrapError) {
