@@ -43,9 +43,8 @@ const PointsButton: React.FC<PointsButtonProps> = ({ onClick }) => {
   const showFireIcon = canClaim && streakCount > 1;
 
   // Only show the red dot if there are incomplete missions (excluding daily check-in)
-  // or if daily check-in is available but we're not showing the fire icon
-  const showRedDot =
-    hasIncompleteActionableMissions || (canClaim && !showFireIcon);
+  // AND we're not showing the fire icon
+  const showRedDot = hasIncompleteActionableMissions && !showFireIcon;
 
   return (
     <div className="relative">
