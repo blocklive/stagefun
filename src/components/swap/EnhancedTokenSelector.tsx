@@ -168,7 +168,11 @@ export function EnhancedTokenSelector({
   // "all" tab: show core tokens first, then platform tokens
   // "stages" tab: show only platform tokens
   const currentTokens = getFilteredTokens(
-    activeTab === "all"
+    searchTerm
+      ? activeTab === "all"
+        ? filteredTokens.all
+        : filteredTokens.platform
+      : activeTab === "all"
       ? [...coreTokens, ...filteredTokens.platform]
       : filteredTokens.platform
   );
