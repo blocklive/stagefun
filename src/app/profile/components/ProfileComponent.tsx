@@ -47,6 +47,7 @@ import ProfileSkeleton from "./ProfileSkeleton";
 import NFTSkeleton from "./NFTSkeleton";
 import SettingsButton from "./SettingsButton";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+import CopyButton from "../../components/CopyButton";
 
 interface ProfileComponentProps {
   isUsernameRoute?: boolean;
@@ -67,7 +68,6 @@ export default function ProfileComponent({
   const { fundWallet } = useFundWallet();
   const { dbUser, isLoadingUser, refreshUser } = useSupabase();
   const [viewportHeight, setViewportHeight] = useState("100vh");
-  const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "assets" | "hosted" | "funded" | "passes"
   >("assets");
@@ -569,50 +569,10 @@ export default function ProfileComponent({
                           user.smart_wallet_address.length - 4
                         )}`}
                     </span>
-                    <button
-                      onClick={() => {
-                        if (user.smart_wallet_address) {
-                          navigator.clipboard.writeText(
-                            user.smart_wallet_address
-                          );
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
-                        }
-                      }}
-                      className="ml-2 p-1 w-6 h-6 flex items-center justify-center bg-[#3A3650] hover:bg-[#454058] rounded-full transition-colors"
-                    >
-                      {copied ? (
-                        <FaCheck className="text-[#9EEB00] text-xs" />
-                      ) : (
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="text-white"
-                        >
-                          <rect
-                            x="9"
-                            y="9"
-                            width="13"
-                            height="13"
-                            rx="2"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      )}
-                    </button>
+                    <CopyButton
+                      textToCopy={user.smart_wallet_address}
+                      className="ml-2"
+                    />
                   </div>
                 )}
               </div>

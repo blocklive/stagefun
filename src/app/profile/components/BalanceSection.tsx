@@ -6,6 +6,7 @@ import { useWalletAssetsAdapter } from "@/hooks/useWalletAssetsAdapter";
 import { TokenIcon } from "@/components/token/TokenIcon";
 import AssetsSkeleton from "./AssetsSkeleton";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+import CopyButton from "../../components/CopyButton";
 
 // Official token addresses for verification
 const OFFICIAL_USDC_ADDRESS =
@@ -159,6 +160,16 @@ export default function BalanceSection({
                     <div className="ml-4 flex-1">
                       <h3 className="font-bold flex items-center">
                         {tokenName}
+                        {/* Copy button for token address */}
+                        <CopyButton
+                          textToCopy={
+                            isNative
+                              ? "Native MON Token"
+                              : address || "Address not available"
+                          }
+                          size="md"
+                          className="ml-2"
+                        />
                         {(isVerified || isPinned) && (
                           <span
                             className="inline-block h-2 w-2 ml-1.5 bg-[#836EF9] opacity-70 rounded-full"
