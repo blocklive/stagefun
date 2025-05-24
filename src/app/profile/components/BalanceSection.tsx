@@ -7,6 +7,9 @@ import { TokenIcon } from "@/components/token/TokenIcon";
 import AssetsSkeleton from "./AssetsSkeleton";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
 import CopyButton from "../../components/CopyButton";
+import { BiTransfer } from "react-icons/bi";
+import { FaPaperPlane } from "react-icons/fa";
+import Tooltip from "../../../components/Tooltip";
 
 // Official token addresses for verification
 const OFFICIAL_USDC_ADDRESS =
@@ -185,38 +188,54 @@ export default function BalanceSection({
                     </div>
                     {isOwnProfile && (
                       <div className="flex space-x-2">
-                        <button
-                          onClick={(e) => {
-                            // Create a modified asset object to pass to onSwapClick
-                            // with isNative flag for native MON
-                            const modifiedAsset = {
-                              ...asset,
-                              isNative: isNativeCurrency(asset),
-                              decimals:
-                                asset.attributes?.fungible_info?.decimals || 18,
-                            };
-                            onSwapClick(modifiedAsset, e);
-                          }}
-                          className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors"
-                        >
-                          Swap
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            // Create a modified asset object to pass to onSendClick
-                            // with isNative flag for native MON
-                            const modifiedAsset = {
-                              ...asset,
-                              isNative: isNativeCurrency(asset),
-                              decimals:
-                                asset.attributes?.fungible_info?.decimals || 18,
-                            };
-                            onSendClick(modifiedAsset, e);
-                          }}
-                          className="px-4 py-2 bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-lg text-white text-sm transition-colors"
-                        >
-                          Send
-                        </button>
+                        <Tooltip
+                          text="Swap"
+                          position="left"
+                          width="60px"
+                          icon={
+                            <button
+                              onClick={(e) => {
+                                // Create a modified asset object to pass to onSwapClick
+                                // with isNative flag for native MON
+                                const modifiedAsset = {
+                                  ...asset,
+                                  isNative: isNativeCurrency(asset),
+                                  decimals:
+                                    asset.attributes?.fungible_info?.decimals ||
+                                    18,
+                                };
+                                onSwapClick(modifiedAsset, e);
+                              }}
+                              className="w-9 h-9 flex items-center justify-center bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-white transition-colors"
+                            >
+                              <BiTransfer className="w-4 h-4" />
+                            </button>
+                          }
+                        />
+                        <Tooltip
+                          text="Send"
+                          position="left"
+                          width="60px"
+                          icon={
+                            <button
+                              onClick={(e) => {
+                                // Create a modified asset object to pass to onSendClick
+                                // with isNative flag for native MON
+                                const modifiedAsset = {
+                                  ...asset,
+                                  isNative: isNativeCurrency(asset),
+                                  decimals:
+                                    asset.attributes?.fungible_info?.decimals ||
+                                    18,
+                                };
+                                onSendClick(modifiedAsset, e);
+                              }}
+                              className="w-9 h-9 flex items-center justify-center bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-white transition-colors"
+                            >
+                              <FaPaperPlane className="w-4 h-4" />
+                            </button>
+                          }
+                        />
                       </div>
                     )}
                   </div>
