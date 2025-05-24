@@ -1,101 +1,205 @@
 import { useState, useMemo } from "react";
+import { useWalletNFTs } from "./useWalletNFTs";
+import { useSupabase } from "@/contexts/SupabaseContext";
+import { usePrivy } from "@privy-io/react-auth";
+import useSWR from "swr";
 
 export interface NFTCollection {
   id: string;
   name: string;
+  contractAddress: string;
   multiplier: number;
-  owned: boolean;
-  locked: boolean;
   icon?: string;
   buyUrl?: string;
 }
 
-// Mock NFT collections based on the design
+// Hardcoded NFT collections with contract addresses
 const NFT_COLLECTIONS: NFTCollection[] = [
   {
-    id: "stage-nft-1",
+    id: "stage-nft",
     name: "Stage NFT",
+    contractAddress: "0x39fa705f2441c1265cf3c0f677144edc61a53ac4", // Replace with actual contract address
     multiplier: 1.1,
-    owned: true,
-    locked: false,
-  },
-  {
-    id: "stage-nft-2",
-    name: "Stage NFT",
-    multiplier: 1.1,
-    owned: true,
-    locked: false,
+    buyUrl: "https://magiceden.us/collections/stage-nft",
   },
   {
     id: "lil-chogstars",
     name: "lil chogstars",
+    contractAddress: "0x23cac938d2e7c930068f026b4047daada72eb680", // Replace with actual contract address
     multiplier: 1.15,
-    owned: true,
-    locked: false,
+    buyUrl: "https://magiceden.us/collections/lil-chogstars",
   },
   {
     id: "tequila",
     name: "Tequila",
+    contractAddress: "0x789...", // Replace with actual contract address
     multiplier: 1.2,
-    owned: false,
-    locked: true,
-    buyUrl: "#",
+    buyUrl: "https://magiceden.us/collections/tequila",
   },
   {
     id: "spikes",
     name: "Spikes",
+    contractAddress: "0xabc...", // Replace with actual contract address
     multiplier: 1.25,
-    owned: false,
-    locked: true,
-    buyUrl: "#",
+    buyUrl: "https://magiceden.us/collections/spikes",
   },
   {
     id: "bears",
     name: "Bears",
+    contractAddress: "0xdef...", // Replace with actual contract address
     multiplier: 1.3,
-    owned: false,
-    locked: true,
-    buyUrl: "#",
+    buyUrl: "https://magiceden.us/collections/bears",
   },
 ];
 
+// Fetcher function for SWR
+const fetchUserData = async ([url, token]: [string, string]) => {
+  if (!token) {
+    throw new Error("No access token available");
+  }
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch user data: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
 export function useNFTPartners() {
-  const [selectedCollection, setSelectedCollection] = useState<string | null>(
-    // Default to first owned collection
-    NFT_COLLECTIONS.find((c) => c.owned && !c.locked)?.id || null
+  const { dbUser } = useSupabase();
+  const { getAccessToken } = usePrivy();
+  const { nfts, isLoading: nftsLoading } = useWalletNFTs(
+    dbUser?.smart_wallet_address || null
   );
 
-  const collections = useMemo(() => NFT_COLLECTIONS, []);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  // Use SWR to fetch user data (including selected_nft_collection)
+  const { data: userData, mutate } = useSWR(
+    dbUser ? "/api/user/profile" : null,
+    async (url: string) => {
+      const token = await getAccessToken();
+      if (!token) {
+        throw new Error("No access token available");
+      }
+      return fetchUserData([url, token]);
+    },
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 10000,
+      errorRetryCount: 2,
+    }
+  );
+
+  // Get user's owned NFT contract addresses
+  const ownedContractAddresses = useMemo(() => {
+    if (!nfts.length) return new Set<string>();
+    return new Set(nfts.map((nft) => nft.contractAddress.toLowerCase()));
+  }, [nfts]);
+
+  // Enhance collections with ownership status
+  const enhancedCollections = useMemo(() => {
+    return NFT_COLLECTIONS.map((collection) => ({
+      ...collection,
+      owned: ownedContractAddresses.has(
+        collection.contractAddress.toLowerCase()
+      ),
+    }));
+  }, [ownedContractAddresses]);
 
   const ownedCollections = useMemo(
-    () => collections.filter((c) => c.owned && !c.locked),
-    [collections]
+    () => enhancedCollections.filter((c) => c.owned),
+    [enhancedCollections]
   );
 
   const lockedCollections = useMemo(
-    () => collections.filter((c) => c.locked),
-    [collections]
+    () => enhancedCollections.filter((c) => !c.owned),
+    [enhancedCollections]
   );
 
-  const activeMultiplier = useMemo(() => {
-    if (!selectedCollection) return 1.0;
-    const collection = collections.find((c) => c.id === selectedCollection);
-    return collection?.multiplier || 1.0;
-  }, [selectedCollection, collections]);
+  // Get selected collection from database (source of truth)
+  const selectedCollectionId = userData?.user?.selected_nft_collection || null;
 
-  const selectCollection = (collectionId: string) => {
-    const collection = collections.find((c) => c.id === collectionId);
-    if (collection && collection.owned && !collection.locked) {
-      setSelectedCollection(collectionId);
+  // Calculate active collection and multiplier from DATABASE state
+  const activeCollection = useMemo(() => {
+    if (selectedCollectionId) {
+      return (
+        enhancedCollections.find((c) => c.id === selectedCollectionId) || null
+      );
+    }
+    // Auto-select first owned collection if no selection
+    return ownedCollections[0] || null;
+  }, [selectedCollectionId, enhancedCollections, ownedCollections]);
+
+  const activeMultiplier = useMemo(() => {
+    return activeCollection?.multiplier || 1.0;
+  }, [activeCollection]);
+
+  // Update NFT collection selection
+  const selectCollection = async (collectionId: string) => {
+    const collection = enhancedCollections.find((c) => c.id === collectionId);
+    if (collection && collection.owned) {
+      setDropdownOpen(false);
+
+      try {
+        // Get auth token
+        const token = await getAccessToken();
+        if (!token) {
+          console.error("Failed to get authentication token");
+          return;
+        }
+
+        // Update database
+        const response = await fetch("/api/user/nft-collection", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ collectionId }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Failed to update NFT collection:", errorData.error);
+          return;
+        }
+
+        // Invalidate SWR cache to trigger refetch
+        await mutate();
+        console.log("NFT collection updated successfully");
+      } catch (error) {
+        console.error("Error updating NFT collection:", error);
+      }
     }
   };
 
+  const toggleDropdown = () => {
+    setDropdownOpen(!dropdownOpen);
+  };
+
+  const closeDropdown = () => {
+    setDropdownOpen(false);
+  };
+
   return {
-    collections,
+    collections: enhancedCollections,
     ownedCollections,
     lockedCollections,
-    selectedCollection,
-    activeMultiplier,
+    selectedCollection: activeCollection?.id || null,
+    activeCollection,
+    activeMultiplier, // This comes from database via SWR
     selectCollection,
+    dropdownOpen,
+    toggleDropdown,
+    closeDropdown,
+    isLoading: nftsLoading || !userData,
   };
 }

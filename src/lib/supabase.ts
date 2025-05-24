@@ -23,6 +23,7 @@ export interface User {
   avatar_url?: string;
   created_at: string;
   alpha_mode?: boolean;
+  selected_nft_collection?: string;
 }
 
 export type Pool = {
