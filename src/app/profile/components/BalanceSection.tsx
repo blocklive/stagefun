@@ -151,7 +151,7 @@ export default function BalanceSection({
               return (
                 <div
                   key={asset.id}
-                  className="bg-[#FFFFFF0A] rounded-xl overflow-hidden cursor-pointer hover:bg-[#2A2640] transition-colors p-4"
+                  className="bg-[#FFFFFF0A] rounded-xl overflow-hidden hover:bg-[#2A2640] transition-colors p-4"
                 >
                   <div className="flex items-center">
                     <TokenIcon
