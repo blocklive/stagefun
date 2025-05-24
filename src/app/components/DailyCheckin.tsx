@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { usePoints } from "../../hooks/usePoints";
 import { FaClock } from "react-icons/fa";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { IoCalendarNumberOutline } from "react-icons/io5";
 
 // Function to format time directly in our component
 const formatTime = (milliseconds: number): string => {
@@ -53,18 +52,6 @@ const DailyCheckin = () => {
     setTimeout(() => setIsClicking(false), 1500);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center w-full p-4 bg-[#FFFFFF0A] rounded-lg">
-        <LoadingSpinner color="#836EF9" size={20} />
-        <span className="ml-2 text-gray-300">Loading...</span>
-      </div>
-    );
-  }
-
-  // Format the time for display
-  const displayTime = formatTime(localTime);
-
   // Get fire emoji count based on tier
   const getFireEmojis = (multiplier: number) => {
     if (multiplier >= 2.0) return "🔥🔥🔥"; // Legendary
@@ -93,8 +80,22 @@ const DailyCheckin = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="w-full p-4 bg-[#FFFFFF0A] rounded-xl">
+        <div className="flex items-center justify-center">
+          <LoadingSpinner color="#836EF9" size={20} />
+          <span className="ml-2 text-gray-300">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Format the time for display
+  const displayTime = formatTime(localTime);
+
   return (
-    <div id="daily-checkin-container" className="w-full flex flex-col gap-3">
+    <div className="w-full p-4 bg-[#FFFFFF0A] rounded-xl">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex-shrink-0">
           {/* Main streak display with fire and multiplier on same line */}
@@ -108,14 +109,13 @@ const DailyCheckin = () => {
             {multiplierInfo.multiplier > 1 && (
               <span className="text-[#FFDD50] text-sm font-bold">
                 {getTierSeparator(multiplierInfo.tier)}{" "}
-                {multiplierInfo.multiplier}x {multiplierInfo.tier}
+                {multiplierInfo.multiplier}x
               </span>
             )}
           </div>
 
-          {/* Combined subtitle and progression */}
+          {/* Progression info only */}
           <div className="text-sm text-gray-500 flex items-center gap-3">
-            <span>Claim daily</span>
             {multiplierInfo.nextTierAt && multiplierInfo.nextTierMultiplier && (
               <span className="text-xs">
                 <span className="text-[#FFDD50] font-medium">
