@@ -2,6 +2,8 @@
 
 import React from "react";
 import { usePointsBonus } from "../../hooks/usePointsBonus";
+import { colors } from "../../lib/theme";
+import { FaFire, FaTrophy, FaGem } from "react-icons/fa";
 
 const PointsBonus = () => {
   const bonusInfo = usePointsBonus();
@@ -16,61 +18,73 @@ const PointsBonus = () => {
 
   // Get tier name based on total multiplier
   const getTierName = (multiplier: number): string => {
-    if (multiplier >= 2.0) return "GODLIKE";
-    if (multiplier >= 1.8) return "LEGENDARY";
-    if (multiplier >= 1.6) return "EPIC";
-    if (multiplier >= 1.4) return "RARE";
-    if (multiplier >= 1.2) return "UNCOMMON";
-    return "COMMON";
+    if (multiplier >= 2.0) return "APEX";
+    if (multiplier >= 1.8) return "ELITE";
+    if (multiplier >= 1.6) return "PRIME";
+    if (multiplier >= 1.4) return "ALPHA";
+    if (multiplier >= 1.2) return "BETA";
+    return "BASE";
   };
 
-  // Get tier color based on total multiplier
+  // Get tier color based on total multiplier - simplified gradients
   const getTierColor = (multiplier: number): string => {
-    if (multiplier >= 2.0) return "from-purple-500 to-pink-500";
-    if (multiplier >= 1.8) return "from-orange-500 to-red-500";
-    if (multiplier >= 1.6) return "from-yellow-400 to-orange-500";
-    if (multiplier >= 1.4) return "from-blue-400 to-purple-500";
-    if (multiplier >= 1.2) return "from-green-400 to-blue-500";
-    return "from-gray-400 to-gray-600";
+    if (multiplier >= 2.0)
+      return `from-[${colors.purple.DEFAULT}] to-[${colors.purple.light}]`;
+    if (multiplier >= 1.8)
+      return `from-[${colors.purple.DEFAULT}] to-[${colors.purple.DEFAULT}]`;
+    if (multiplier >= 1.6)
+      return `from-[${colors.purple.dark}] to-[${colors.purple.DEFAULT}]`;
+    if (multiplier >= 1.4)
+      return `from-[${colors.purple.dark}] to-[${colors.purple.DEFAULT}]`;
+    if (multiplier >= 1.2)
+      return `from-[${colors.purple.dark}] to-[${colors.purple.DEFAULT}]`;
+    return "from-gray-500 to-gray-600";
   };
 
   const MultiplierCard = ({
-    icon,
+    icon: IconComponent,
     label,
     multiplier,
     isActive = true,
   }: {
-    icon: string;
+    icon: React.ComponentType<{ color?: string; size?: number }>;
     label: string;
     multiplier: number;
     isActive?: boolean;
   }) => (
     <div
-      className={`relative p-4 rounded-lg border-2 bg-gradient-to-br transition-all w-20 h-20 ${
+      className={`relative p-4 rounded-xl border transition-all w-20 h-20 ${
         isActive
-          ? "border-[#FFDD50] from-[#FFFFFF08] to-[#FFDD50]10 shadow-lg"
-          : "border-gray-600 from-gray-800 to-gray-700 opacity-50"
+          ? `border-[${colors.purple.DEFAULT}] bg-[#FFFFFF0A] shadow-sm`
+          : "border-gray-600 bg-[#FFFFFF05] opacity-50"
       }`}
     >
       <div className="text-center h-full flex flex-col justify-center">
-        <div className="text-lg mb-1">{icon}</div>
+        <div className="mb-1 flex justify-center">
+          <IconComponent
+            color={isActive ? colors.purple.DEFAULT : "#6B7280"}
+            size={20}
+          />
+        </div>
         <div
-          className={`text-xs font-medium mb-1 ${
+          className={`text-xs font-medium mb-1 tracking-wider ${
             isActive ? "text-gray-300" : "text-gray-500"
           }`}
         >
           {label}
         </div>
         <div
-          className={`text-sm font-bold ${
-            isActive ? "text-[#FFDD50]" : "text-gray-400"
+          className={`text-sm font-bold font-mono ${
+            isActive ? `text-[${colors.points.DEFAULT}]` : "text-gray-400"
           }`}
         >
           {formatMultiplier(multiplier)}
         </div>
       </div>
       {isActive && (
-        <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#FFDD50] rounded-full animate-pulse"></div>
+        <div
+          className={`absolute -top-1 -right-1 w-3 h-3 bg-[${colors.purple.DEFAULT}] rounded-full animate-pulse`}
+        ></div>
       )}
     </div>
   );
@@ -83,59 +97,75 @@ const PointsBonus = () => {
       {/* Header */}
       <div className="mb-4">
         <h3 className="font-bold text-white text-base mb-1">Bonus Rewards</h3>
-        <div className="text-sm text-gray-400">Power-ups stacking</div>
+        <div className="text-sm text-gray-400">Active protocols stacking</div>
       </div>
 
       {/* Combo Visual */}
       <div className="flex items-center justify-center gap-2 mb-4">
         {/* Streak Multiplier */}
         <MultiplierCard
-          icon="🔥"
-          label="Streak"
+          icon={FaFire}
+          label="STREAK"
           multiplier={bonusInfo.streakMultiplier}
           isActive={bonusInfo.streakMultiplier > 1.0}
         />
 
-        <div className="text-[#FFDD50] text-xl font-bold">×</div>
+        <div
+          className={`text-[${colors.purple.DEFAULT}] text-xl font-bold font-mono`}
+        >
+          ×
+        </div>
 
         {/* Leaderboard Multiplier */}
         <MultiplierCard
-          icon="🏆"
-          label="Leader"
+          icon={FaTrophy}
+          label="RANK"
           multiplier={bonusInfo.leaderboardMultiplier}
           isActive={bonusInfo.leaderboardMultiplier > 1.0}
         />
 
-        <div className="text-[#FFDD50] text-xl font-bold">×</div>
+        <div
+          className={`text-[${colors.purple.DEFAULT}] text-xl font-bold font-mono`}
+        >
+          ×
+        </div>
 
         {/* NFT Multiplier */}
         <MultiplierCard
-          icon="💎"
-          label="NFT"
+          icon={FaGem}
+          label="ASSET"
           multiplier={bonusInfo.nftMultiplier}
           isActive={bonusInfo.nftMultiplier > 1.0}
         />
 
-        <div className="text-[#FFDD50] text-xl font-bold">=</div>
+        <div
+          className={`text-[${colors.purple.DEFAULT}] text-xl font-bold font-mono`}
+        >
+          =
+        </div>
 
         {/* Result Card */}
         <div
-          className={`relative p-4 rounded-lg border-2 border-[#FFDD50] bg-gradient-to-br ${tierColor} shadow-xl w-20 h-20`}
+          className={`relative p-4 rounded-xl border-2 border-[${colors.purple.DEFAULT}] bg-gradient-to-br ${tierColor} shadow-lg w-20 h-20`}
         >
           <div className="text-center h-full flex flex-col justify-center">
-            <div className="text-lg font-bold text-white">
+            <div className="text-lg font-bold text-white font-mono">
               {formatMultiplier(bonusInfo.totalMultiplier)}
             </div>
           </div>
           {/* Glow effect */}
-          <div className="absolute inset-0 rounded-lg bg-[#FFDD50] opacity-20 blur-sm"></div>
+          <div
+            className={`absolute inset-0 rounded-xl bg-[${colors.purple.DEFAULT}] opacity-10 blur-sm`}
+          ></div>
         </div>
       </div>
 
       {/* Bonus Points Display */}
       <div className="text-center p-3 bg-[#FFFFFF08] rounded-lg border border-[#FFFFFF14]">
-        <div className="text-sm text-gray-400 mb-1">💰 Bonus Points Earned</div>
-        <div className="text-xl font-bold text-[#FFDD50]">
+        <div className="text-sm text-gray-400 mb-1">Bonus Points Generated</div>
+        <div
+          className={`text-xl font-bold text-[${colors.points.DEFAULT}] font-mono`}
+        >
           +{formatPoints(bonusInfo.bonusPoints)}
         </div>
       </div>

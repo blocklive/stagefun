@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { usePoints } from "../../hooks/usePoints";
-import { FaClock } from "react-icons/fa";
+import { FaClock, FaFire } from "react-icons/fa";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { colors } from "../../lib/theme";
 
 // Function to format time directly in our component
 const formatTime = (milliseconds: number): string => {
@@ -52,34 +53,6 @@ const DailyCheckin = () => {
     setTimeout(() => setIsClicking(false), 1500);
   };
 
-  // Get fire emoji count based on tier
-  const getFireEmojis = (multiplier: number) => {
-    if (multiplier >= 2.0) return "🔥🔥🔥"; // Legendary
-    if (multiplier >= 1.75) return "🔥🔥"; // Devoted
-    if (multiplier >= 1.5) return "🔥"; // Committed+
-    return ""; // Lower tiers
-  };
-
-  // Get tier-based separator emoji
-  const getTierSeparator = (tier: string) => {
-    switch (tier) {
-      case "Paper Hands":
-        return "⭐";
-      case "Hodler":
-        return "⚡";
-      case "Degen":
-        return "🔥";
-      case "Diamond Chad":
-        return "💎";
-      case "Giga Whale":
-        return "🚀";
-      case "Moon God":
-        return "👑";
-      default:
-        return "⭐";
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="w-full p-4 bg-[#FFFFFF0A] rounded-xl">
@@ -100,15 +73,12 @@ const DailyCheckin = () => {
         <div className="flex-shrink-0">
           {/* Main streak display with fire and multiplier on same line */}
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-bold text-white text-base flex items-center gap-1">
+            <h3 className="font-bold text-white text-base flex items-center gap-2">
               <span>{streakCount} day streak</span>
-              {getFireEmojis(multiplierInfo.multiplier) && (
-                <span>{getFireEmojis(multiplierInfo.multiplier)}</span>
-              )}
+              <FaFire color={colors.purple.DEFAULT} size={16} />
             </h3>
             {multiplierInfo.multiplier > 1 && (
               <span className="text-[#FFDD50] text-sm font-bold">
-                {getTierSeparator(multiplierInfo.tier)}{" "}
                 {multiplierInfo.multiplier}x
               </span>
             )}
