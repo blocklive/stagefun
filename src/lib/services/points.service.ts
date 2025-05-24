@@ -176,6 +176,64 @@ export const DAILY_CHECKIN_ACTION = "daily_checkin";
 export const MIN_CHECKIN_INTERVAL_HOURS = 24;
 
 /**
+ * Calculate streak multiplier based on streak count
+ * Returns both the multiplier and the actual points to award
+ */
+export function calculateStreakMultiplier(streakCount: number): {
+  multiplier: number;
+  points: number;
+  tier: string;
+  nextTierAt?: number;
+  nextTierMultiplier?: number;
+} {
+  let multiplier: number;
+  let tier: string;
+  let nextTierAt: number | undefined;
+  let nextTierMultiplier: number | undefined;
+
+  if (streakCount <= 1) {
+    multiplier = 1.0;
+    tier = "Paper Hands";
+    nextTierAt = 2;
+    nextTierMultiplier = 1.1;
+  } else if (streakCount <= 3) {
+    multiplier = 1.1;
+    tier = "Hodler";
+    nextTierAt = 4;
+    nextTierMultiplier = 1.25;
+  } else if (streakCount <= 7) {
+    multiplier = 1.25;
+    tier = "Degen";
+    nextTierAt = 8;
+    nextTierMultiplier = 1.5;
+  } else if (streakCount <= 14) {
+    multiplier = 1.5;
+    tier = "Diamond Chad";
+    nextTierAt = 15;
+    nextTierMultiplier = 1.75;
+  } else if (streakCount <= 30) {
+    multiplier = 1.75;
+    tier = "Giga Whale";
+    nextTierAt = 31;
+    nextTierMultiplier = 2.0;
+  } else {
+    multiplier = 2.0;
+    tier = "Moon God";
+    // No next tier - this is the max
+  }
+
+  const points = Math.floor(DAILY_CHECKIN_POINTS * multiplier);
+
+  return {
+    multiplier,
+    points,
+    tier,
+    nextTierAt,
+    nextTierMultiplier,
+  };
+}
+
+/**
  * Format the time remaining until next claim
  */
 export function formatTimeRemaining(milliseconds: number): string {
@@ -565,6 +623,7 @@ export async function awardPointsForPoolExecuting({
 /**
  * Awards points to a user for daily check-in
  * Validates that user hasn't checked in too recently
+ * Applies streak multiplier based on current streak count
  */
 export async function awardPointsForDailyCheckin({
   userId,
@@ -576,7 +635,13 @@ export async function awardPointsForDailyCheckin({
   timestamp?: Date;
   streakCount?: number;
   supabase: SupabaseClient;
-}): Promise<{ success: boolean; error?: string; timeRemaining?: number }> {
+}): Promise<{
+  success: boolean;
+  error?: string;
+  timeRemaining?: number;
+  pointsAwarded?: number;
+  multiplierInfo?: ReturnType<typeof calculateStreakMultiplier>;
+}> {
   try {
     // Check for recent check-ins to prevent abuse
     const minIntervalMs = MIN_CHECKIN_INTERVAL_HOURS * 60 * 60 * 1000;
@@ -613,24 +678,36 @@ export async function awardPointsForDailyCheckin({
       }
     }
 
-    // Award check-in points
+    // Calculate streak multiplier and actual points to award
+    const multiplierInfo = calculateStreakMultiplier(streakCount);
+    const pointsToAward = multiplierInfo.points;
+
+    // Award check-in points with multiplier applied
     const pointsResult = await awardPoints({
       userId,
       type: PointType.CHECKIN,
-      amount: DAILY_CHECKIN_POINTS,
+      amount: pointsToAward,
       description: DAILY_CHECKIN_ACTION,
       metadata: {
         checkin_time: timestamp.toISOString(),
         streak_count: streakCount,
+        base_points: DAILY_CHECKIN_POINTS,
+        multiplier: multiplierInfo.multiplier,
+        points_awarded: pointsToAward,
+        streak_tier: multiplierInfo.tier,
       },
       supabase,
     });
 
     if (pointsResult.success) {
       console.log(
-        `Awarded ${DAILY_CHECKIN_POINTS} check-in points to user ${userId}`
+        `Awarded ${pointsToAward} check-in points (${multiplierInfo.multiplier}x multiplier) to user ${userId} for ${streakCount} day streak`
       );
-      return { success: true };
+      return {
+        success: true,
+        pointsAwarded: pointsToAward,
+        multiplierInfo,
+      };
     } else {
       return pointsResult;
     }

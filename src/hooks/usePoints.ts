@@ -5,6 +5,7 @@ import showToast from "../utils/toast";
 import { formatTimeRemaining } from "../lib/services/points.service";
 import { useAuthenticatedSupabase } from "./useAuthenticatedSupabase";
 import useSWR from "swr";
+import { calculateStreakMultiplier } from "../lib/services/points.service";
 
 // Define types locally since we'll only be accessing data through the API
 interface UserPoints {
@@ -37,6 +38,14 @@ interface UsePointsReturn {
   formattedTimeRemaining: string;
   claimDailyPoints: () => Promise<void>;
   refreshPoints: () => Promise<void>;
+  // Multiplier information
+  multiplierInfo: {
+    multiplier: number;
+    points: number;
+    tier: string;
+    nextTierAt?: number;
+    nextTierMultiplier?: number;
+  };
 }
 
 // Helper functions
@@ -140,6 +149,9 @@ export function usePoints(
   // Only show loading when we have no data and no error
   const isLoading = !userData && !error;
 
+  // Calculate multiplier information based on current streak
+  const multiplierInfo = calculateStreakMultiplier(streakCount);
+
   // Update time remaining countdown
   useEffect(() => {
     // Initialize time remaining on first render or when check-in data changes
@@ -225,10 +237,22 @@ export function usePoints(
       const result = await response.json();
 
       if (response.ok && result.success) {
-        showToast.success(
-          `You earned ${result.points} points! Streak: ${result.newStreak} days`,
-          { id: loadingId }
-        );
+        // Create a more detailed success message based on multiplier
+        let successMessage = `You earned ${result.points} points!`;
+
+        if (result.multiplier && result.multiplier > 1) {
+          successMessage = `You earned ${result.points} points (${result.multiplier}x ${result.streakTier})!`;
+        }
+
+        successMessage += ` Streak: ${result.newStreak} days`;
+
+        // Add info about next tier if available
+        if (result.nextTierAt && result.nextTierMultiplier) {
+          const daysToNext = result.nextTierAt - result.newStreak;
+          successMessage += ` • ${daysToNext} more days for ${result.nextTierMultiplier}x bonus!`;
+        }
+
+        showToast.success(successMessage, { id: loadingId });
 
         // Refresh data
         await mutate();
@@ -282,5 +306,6 @@ export function usePoints(
     formattedTimeRemaining: formatTimeRemaining(timeUntilNextClaim),
     claimDailyPoints,
     refreshPoints,
+    multiplierInfo,
   };
 }

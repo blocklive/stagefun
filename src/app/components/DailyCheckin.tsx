@@ -26,6 +26,7 @@ const DailyCheckin = () => {
     canClaim,
     timeUntilNextClaim,
     claimDailyPoints,
+    multiplierInfo,
   } = usePoints();
   const [isClicking, setIsClicking] = useState(false);
   const [localTime, setLocalTime] = useState(timeUntilNextClaim);
@@ -64,16 +65,68 @@ const DailyCheckin = () => {
   // Format the time for display
   const displayTime = formatTime(localTime);
 
+  // Get fire emoji count based on tier
+  const getFireEmojis = (multiplier: number) => {
+    if (multiplier >= 2.0) return "🔥🔥🔥"; // Legendary
+    if (multiplier >= 1.75) return "🔥🔥"; // Devoted
+    if (multiplier >= 1.5) return "🔥"; // Committed+
+    return ""; // Lower tiers
+  };
+
+  // Get tier-based separator emoji
+  const getTierSeparator = (tier: string) => {
+    switch (tier) {
+      case "Paper Hands":
+        return "⭐";
+      case "Hodler":
+        return "⚡";
+      case "Degen":
+        return "🔥";
+      case "Diamond Chad":
+        return "💎";
+      case "Giga Whale":
+        return "🚀";
+      case "Moon God":
+        return "👑";
+      default:
+        return "⭐";
+    }
+  };
+
   return (
     <div id="daily-checkin-container" className="w-full flex flex-col gap-3">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex-shrink-0">
-          <h3 className="font-bold text-white text-base flex items-center">
-            <span className="mr-1">{streakCount}</span>
-            <span className="font-normal">day streak</span>
-          </h3>
-          <div className="text-sm text-gray-500">
-            Claim your daily points every 24 hours
+          {/* Main streak display with fire and multiplier on same line */}
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-bold text-white text-base flex items-center gap-1">
+              <span>{streakCount} day streak</span>
+              {getFireEmojis(multiplierInfo.multiplier) && (
+                <span>{getFireEmojis(multiplierInfo.multiplier)}</span>
+              )}
+            </h3>
+            {multiplierInfo.multiplier > 1 && (
+              <span className="text-[#FFDD50] text-sm font-bold">
+                {getTierSeparator(multiplierInfo.tier)}{" "}
+                {multiplierInfo.multiplier}x {multiplierInfo.tier}
+              </span>
+            )}
+          </div>
+
+          {/* Combined subtitle and progression */}
+          <div className="text-sm text-gray-500 flex items-center gap-3">
+            <span>Claim daily</span>
+            {multiplierInfo.nextTierAt && multiplierInfo.nextTierMultiplier && (
+              <span className="text-xs">
+                <span className="text-[#FFDD50] font-medium">
+                  {multiplierInfo.nextTierAt - streakCount} days
+                </span>{" "}
+                until{" "}
+                <span className="text-[#FFDD50] font-medium">
+                  {multiplierInfo.nextTierMultiplier}x
+                </span>
+              </span>
+            )}
           </div>
         </div>
         <div className="w-full md:w-auto">
@@ -93,7 +146,14 @@ const DailyCheckin = () => {
                   <span className="ml-2">Processing...</span>
                 </div>
               ) : (
-                "Claim +100 pts"
+                <span>
+                  Claim +{multiplierInfo.points} pts
+                  {multiplierInfo.multiplier > 1 && (
+                    <span className="text-sm ml-1 opacity-75">
+                      ({multiplierInfo.multiplier}x)
+                    </span>
+                  )}
+                </span>
               )}
             </button>
           ) : (

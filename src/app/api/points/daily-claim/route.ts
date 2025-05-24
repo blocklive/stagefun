@@ -132,9 +132,14 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        points: DAILY_CHECKIN_POINTS,
+        points: pointsResult.pointsAwarded || DAILY_CHECKIN_POINTS,
+        basePoints: DAILY_CHECKIN_POINTS,
+        multiplier: pointsResult.multiplierInfo?.multiplier || 1.0,
+        streakTier: pointsResult.multiplierInfo?.tier || "Starter",
         newStreak: newStreakCount,
         nextAvailableAt: nextAvailableDate.toISOString(),
+        nextTierAt: pointsResult.multiplierInfo?.nextTierAt,
+        nextTierMultiplier: pointsResult.multiplierInfo?.nextTierMultiplier,
       });
     } else {
       // First time check-in - create new records
@@ -180,9 +185,14 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        points: DAILY_CHECKIN_POINTS,
+        points: pointsResult.pointsAwarded || DAILY_CHECKIN_POINTS,
+        basePoints: DAILY_CHECKIN_POINTS,
+        multiplier: pointsResult.multiplierInfo?.multiplier || 1.0,
+        streakTier: pointsResult.multiplierInfo?.tier || "Starter",
         newStreak: 1,
         nextAvailableAt: nextAvailableDate.toISOString(),
+        nextTierAt: pointsResult.multiplierInfo?.nextTierAt,
+        nextTierMultiplier: pointsResult.multiplierInfo?.nextTierMultiplier,
       });
     }
   } catch (error) {
