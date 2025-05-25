@@ -28,7 +28,8 @@ const NFT_COLLECTIONS: NFTCollection[] = [
     contractAddress: "0x26c86f2835c114571df2b6ce9ba52296cc0fa6bb",
     multiplier: 1.15,
     icon: "https://ynhuosvbkrazwivjuiwm.supabase.co/storage/v1/object/public/nft-images//lil-chogstars-nft.jpg",
-    buyUrl: "https://magiceden.us/collections/lil-chogstars",
+    buyUrl:
+      "https://magiceden.us/collections/monad-testnet/0x26c86f2835c114571df2b6ce9ba52296cc0fa6bb",
   },
   {
     id: "spikes",
