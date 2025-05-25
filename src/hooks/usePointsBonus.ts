@@ -4,7 +4,8 @@ import { useNFTPartners } from "./useNFTPartners";
 
 interface PointsBonusInfo {
   streakMultiplier: number;
-  leaderboardMultiplier: number;
+  leaderMultiplier: number;
+  levelMultiplier: number;
   nftMultiplier: number;
   totalMultiplier: number;
   basePoints: number;
@@ -12,8 +13,8 @@ interface PointsBonusInfo {
   bonusPoints: number;
 }
 
-// Leaderboard position multipliers (placeholder - would come from actual leaderboard API)
-const getLeaderboardMultiplier = (points: number): number => {
+// Leader position multipliers (based on leaderboard rank)
+const getLeaderMultiplier = (points: number): number => {
   // Top 1% - 1.5x
   if (points >= 50000) return 1.5;
   // Top 5% - 1.3x
@@ -23,6 +24,22 @@ const getLeaderboardMultiplier = (points: number): number => {
   // Top 25% - 1.1x
   if (points >= 5000) return 1.1;
   // Everyone else - 1x
+  return 1.0;
+};
+
+// Level multipliers (based on user level)
+const getLevelMultiplier = (points: number): number => {
+  // Level 10+ - 1.4x
+  if (points >= 100000) return 1.4;
+  // Level 8+ - 1.3x
+  if (points >= 75000) return 1.3;
+  // Level 6+ - 1.25x
+  if (points >= 50000) return 1.25;
+  // Level 4+ - 1.2x
+  if (points >= 25000) return 1.2;
+  // Level 2+ - 1.1x
+  if (points >= 10000) return 1.1;
+  // Level 1 - 1x
   return 1.0;
 };
 
@@ -41,11 +58,12 @@ export function usePointsBonus(): PointsBonusInfo {
   return useMemo(() => {
     const basePoints = points || 0;
     const streakMultiplier = multiplierInfo.multiplier;
-    const leaderboardMultiplier = getLeaderboardMultiplier(basePoints);
+    const leaderMultiplier = getLeaderMultiplier(basePoints);
+    const levelMultiplier = getLevelMultiplier(basePoints);
 
     // Calculate total multiplier (multiplicative)
     const totalMultiplier =
-      streakMultiplier * leaderboardMultiplier * nftMultiplier;
+      streakMultiplier * leaderMultiplier * levelMultiplier * nftMultiplier;
 
     // Calculate multiplied points
     const multipliedPoints = Math.floor(basePoints * totalMultiplier);
@@ -53,7 +71,8 @@ export function usePointsBonus(): PointsBonusInfo {
 
     return {
       streakMultiplier,
-      leaderboardMultiplier,
+      leaderMultiplier,
+      levelMultiplier,
       nftMultiplier,
       totalMultiplier,
       basePoints,
