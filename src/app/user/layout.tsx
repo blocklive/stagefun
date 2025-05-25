@@ -21,7 +21,7 @@ export default function UserLayout({ children }: UserLayoutProps) {
 
   // Handle points button click
   const handlePointsClick = () => {
-    router.push("/onboarding");
+    router.push("/rewards");
   };
 
   return (

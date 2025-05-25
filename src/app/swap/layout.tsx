@@ -23,7 +23,7 @@ export default function SwapLayout({
 
   // Handle points button click
   const handlePointsClick = () => {
-    router.push("/onboarding");
+    router.push("/rewards");
   };
 
   // Handle back button click

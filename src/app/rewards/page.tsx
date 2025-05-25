@@ -55,7 +55,7 @@ export default function OnboardingPage() {
     if (error === "twitter_auth_failed") {
       showToast.error("Failed to connect to Twitter. Please try again.");
       // Clean up the URL
-      window.history.replaceState({}, "", "/onboarding");
+      window.history.replaceState({}, "", "/rewards");
     }
   }, []);
 

@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { IoFlash } from "react-icons/io5";
-import { FaTrophy } from "react-icons/fa";
+import { FaGift } from "react-icons/fa";
 import { BiTransfer } from "react-icons/bi";
 
 interface SideNavbarProps {
-  activeTab?: "party" | "portfolio" | "leaderboard" | "swap" | "";
+  activeTab?: "party" | "portfolio" | "rewards" | "swap" | "";
   isAuthenticated?: boolean;
 }
 
@@ -125,22 +125,22 @@ export default function SideNavbar({
           </span>
         </div>
 
-        {/* Leaderboard */}
+        {/* Rewards */}
         <div
           className="flex items-center cursor-pointer px-4 py-3 rounded-full hover:bg-[#FFFFFF14] transition-colors"
-          onClick={() => router.push("/leaderboard")}
+          onClick={() => router.push("/rewards")}
         >
-          <FaTrophy
+          <FaGift
             className={`text-2xl mr-4 ${
-              activeTab === "leaderboard" ? "text-[#8B7EF8]" : "text-gray-500"
+              activeTab === "rewards" ? "text-[#8B7EF8]" : "text-gray-500"
             }`}
           />
           <span
             className={`text-lg ${
-              activeTab === "leaderboard" ? "text-[#8B7EF8]" : "text-gray-500"
+              activeTab === "rewards" ? "text-[#8B7EF8]" : "text-gray-500"
             }`}
           >
-            Leaderboard
+            Rewards
           </span>
         </div>
       </div>

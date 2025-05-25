@@ -92,15 +92,13 @@ export async function GET(request: NextRequest) {
       throw new Error("Failed to update user's Twitter info");
     }
 
-    // Redirect back to onboarding page
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/onboarding`
-    );
+    // Redirect back to rewards page
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/rewards`);
   } catch (error) {
     console.error("Error in Twitter callback:", error);
-    // Redirect to onboarding page with error
+    // Redirect to rewards page with error
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/onboarding?error=twitter_auth_failed`
+      `${process.env.NEXT_PUBLIC_APP_URL}/rewards?error=twitter_auth_failed`
     );
   }
 }

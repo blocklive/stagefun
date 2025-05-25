@@ -29,7 +29,7 @@ export default function PoolsLayout({ children }: PoolsLayoutProps) {
 
   // Handle points button click
   const handlePointsClick = () => {
-    router.push("/onboarding");
+    router.push("/rewards");
   };
 
   // Handle back button click

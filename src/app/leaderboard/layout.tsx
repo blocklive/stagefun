@@ -23,7 +23,7 @@ export default function LeaderboardLayout({
 
   // Handle points button click
   const handlePointsClick = () => {
-    router.push("/onboarding");
+    router.push("/rewards");
   };
 
   return (

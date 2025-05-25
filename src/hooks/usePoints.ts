@@ -96,10 +96,10 @@ export function usePoints(
   const { token: authJwt, refreshToken } = useAuthJwt();
   const [timeUntilNextClaim, setTimeUntilNextClaim] = useState(0);
 
-  // Get current pathname to check if we're on the onboarding page
+  // Get current pathname to check if we're on the rewards page
   const pathname =
     typeof window !== "undefined" ? window.location.pathname : "";
-  const isOnboardingPage = pathname === "/onboarding";
+  const isRewardsPage = pathname === "/rewards";
 
   // Use SWR to fetch and cache points data
   const {
