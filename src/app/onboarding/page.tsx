@@ -14,6 +14,11 @@ import { usePoints } from "@/hooks/usePoints";
 import DailyCheckin from "../components/DailyCheckin";
 import MissionModal from "./components/MissionModal";
 import GetTokensModal from "../components/GetTokensModal";
+import MyPoints from "../components/MyPoints";
+import MyLevel from "../components/MyLevel";
+import PointsBonus from "../components/PointsBonus";
+import MissionsCompleted from "../components/MissionsCompleted";
+import NFTPartnerList from "../components/NFTPartnerList";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -53,26 +58,6 @@ export default function OnboardingPage() {
       window.history.replaceState({}, "", "/onboarding");
     }
   }, []);
-
-  // Force a check of completed missions when the page loads
-  useEffect(() => {
-    const runOnce = async () => {
-      // Only run if authentication is ready and user is logged in
-      if (!dbUser || isLoading) {
-        return;
-      }
-
-      try {
-        await refreshMissionStatus();
-      } catch (err) {
-        // Silently handle error - no need to log during page load
-        // Network errors during page refresh are expected and shouldn't clutter console
-      }
-    };
-
-    // Run when the component mounts and authentication state changes
-    runOnce();
-  }, [dbUser, isLoading, refreshMissionStatus]);
 
   // Handle mission actions
   const handleMissionAction = async (mission: Mission) => {
@@ -199,6 +184,19 @@ export default function OnboardingPage() {
         {/* Daily Check-in */}
         <div className="mb-8">
           <DailyCheckin />
+        </div>
+
+        {/* Points and Level Cards */}
+        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MyPoints />
+          <MyLevel />
+          <PointsBonus />
+          <MissionsCompleted />
+        </div>
+
+        {/* NFT Partner List */}
+        <div className="mb-8">
+          <NFTPartnerList />
         </div>
 
         {/* Header Section */}

@@ -19,6 +19,16 @@ const nextConfig = {
         hostname: "*.supabase.co",
         pathname: "**",
       },
+      {
+        protocol: "https",
+        hostname: "pbs.twimg.com",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.twimg.com",
+        pathname: "**",
+      },
     ],
   },
   typescript: {
@@ -49,7 +59,7 @@ const nextConfig = {
               script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io https://privy.io https://*.privy.io https://challenges.cloudflare.com https://telegram.org;
               script-src-elem 'self' 'unsafe-inline' https://auth.privy.io https://privy.io https://*.privy.io https://challenges.cloudflare.com https://telegram.org;
               style-src 'self' 'unsafe-inline' https://privy.io https://*.privy.io;
-              img-src 'self' data: blob: https://privy.io https://*.privy.io https://*.supabase.co https://explorer-api.walletconnect.com;
+              img-src 'self' data: blob: https://privy.io https://*.privy.io https://*.supabase.co https://explorer-api.walletconnect.com https://*.twimg.com;
               font-src 'self' data:;
               object-src 'none';
               base-uri 'self';

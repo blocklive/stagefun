@@ -45,6 +45,14 @@ export const colors = {
     bg: "#332C10",
   },
 
+  // Purple accent for multipliers and bonuses
+  purple: {
+    DEFAULT: "#A08FFF",
+    dark: "#8B6FE6",
+    light: "#B4A6FF",
+    bg: "#1A1833",
+  },
+
   // UI colors
   background: {
     DEFAULT: "#15161A",
@@ -85,4 +93,9 @@ export const cssVariables = {
   "points-dark": colors.points.dark,
   "points-light": colors.points.light,
   "points-bg": colors.points.bg,
+
+  purple: colors.purple.DEFAULT,
+  "purple-dark": colors.purple.dark,
+  "purple-light": colors.purple.light,
+  "purple-bg": colors.purple.bg,
 };
