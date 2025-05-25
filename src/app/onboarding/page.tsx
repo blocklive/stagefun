@@ -59,26 +59,6 @@ export default function OnboardingPage() {
     }
   }, []);
 
-  // Force a check of completed missions when the page loads
-  useEffect(() => {
-    const runOnce = async () => {
-      // Only run if authentication is ready and user is logged in
-      if (!dbUser || isLoading) {
-        return;
-      }
-
-      try {
-        await refreshMissionStatus();
-      } catch (err) {
-        // Silently handle error - no need to log during page load
-        // Network errors during page refresh are expected and shouldn't clutter console
-      }
-    };
-
-    // Run when the component mounts and authentication state changes
-    runOnce();
-  }, [dbUser, isLoading, refreshMissionStatus]);
-
   // Handle mission actions
   const handleMissionAction = async (mission: Mission) => {
     // If mission has an actionUrl, navigate to that URL instead of completing the mission

@@ -116,14 +116,7 @@ const DailyCheckin = () => {
                   <span className="ml-2">Processing...</span>
                 </div>
               ) : (
-                <span>
-                  Claim +{multiplierInfo.points} pts
-                  {multiplierInfo.multiplier > 1 && (
-                    <span className="text-sm ml-1 opacity-75">
-                      ({multiplierInfo.multiplier}x)
-                    </span>
-                  )}
-                </span>
+                <span>Claim +{multiplierInfo.points} pts</span>
               )}
             </button>
           ) : (

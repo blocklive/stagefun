@@ -55,8 +55,8 @@ const PointsBonus = () => {
     <div
       className={`relative p-4 rounded-xl border transition-all w-20 h-20 ${
         isActive
-          ? `border-[${colors.purple.DEFAULT}] bg-[#FFFFFF0A] shadow-sm`
-          : "border-gray-600 bg-[#FFFFFF05] opacity-50"
+          ? "border-[#FFFFFF14] bg-[#FFFFFF0A] shadow-sm"
+          : "border-[#FFFFFF08] bg-[#FFFFFF05] opacity-50"
       }`}
     >
       <div className="text-center h-full flex flex-col justify-center">
@@ -145,9 +145,7 @@ const PointsBonus = () => {
         </div>
 
         {/* Result Card */}
-        <div
-          className={`relative p-4 rounded-xl border-2 border-[${colors.purple.DEFAULT}] bg-gradient-to-br ${tierColor} shadow-lg w-20 h-20`}
-        >
+        <div className="relative p-4 rounded-xl border border-[#FFFFFF20] bg-[#FFFFFF0A] shadow-lg w-20 h-20">
           <div className="text-center h-full flex flex-col justify-center">
             <div className="text-lg font-bold text-white font-mono">
               {formatMultiplier(bonusInfo.totalMultiplier)}
@@ -155,7 +153,7 @@ const PointsBonus = () => {
           </div>
           {/* Glow effect */}
           <div
-            className={`absolute inset-0 rounded-xl bg-[${colors.purple.DEFAULT}] opacity-10 blur-sm`}
+            className={`absolute inset-0 rounded-xl bg-[${colors.purple.DEFAULT}] opacity-5 blur-sm`}
           ></div>
         </div>
       </div>

@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNFTPartners } from "../../hooks/useNFTPartners";
 import { NFTCollection } from "../../hooks/useNFTPartners";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/solid";
+import { FaGem } from "react-icons/fa";
+import { colors } from "../../lib/theme";
 
 const NFTPartnerList = () => {
   const {
@@ -36,6 +38,42 @@ const NFTPartnerList = () => {
 
   const formatMultiplier = (value: number): string => {
     return `${value.toFixed(2)}x multiplier`;
+  };
+
+  // Simple collection icon component
+  const CollectionIcon = ({
+    collection,
+    size = 32,
+  }: {
+    collection: NFTCollection;
+    size?: number;
+  }) => {
+    const [showFallback, setShowFallback] = useState(!collection.icon);
+
+    if (showFallback) {
+      return (
+        <div
+          className="rounded-md flex items-center justify-center flex-shrink-0"
+          style={{
+            width: size,
+            height: size,
+            backgroundColor: `${colors.purple.DEFAULT}20`,
+          }}
+        >
+          <FaGem color={colors.purple.DEFAULT} size={size * 0.6} />
+        </div>
+      );
+    }
+
+    return (
+      <img
+        src={collection.icon}
+        alt={collection.name}
+        className="rounded-md flex-shrink-0"
+        style={{ width: size, height: size }}
+        onError={() => setShowFallback(true)}
+      />
+    );
   };
 
   if (isLoading) {
@@ -81,9 +119,7 @@ const NFTPartnerList = () => {
         <div className="flex items-center gap-3">
           {activeCollection ? (
             <>
-              <div className="w-8 h-8 bg-purple-600 rounded-md flex items-center justify-center flex-shrink-0">
-                <div className="w-6 h-6 bg-purple-400 rounded"></div>
-              </div>
+              <CollectionIcon collection={activeCollection} size={32} />
               <div className="flex flex-col">
                 <span className="text-white font-medium text-sm">
                   {activeCollection.name}
@@ -92,8 +128,15 @@ const NFTPartnerList = () => {
             </>
           ) : (
             <>
-              <div className="w-8 h-8 bg-gray-600 rounded-md flex items-center justify-center">
-                <div className="w-6 h-6 bg-gray-500 rounded"></div>
+              <div
+                className="rounded-md flex items-center justify-center"
+                style={{
+                  width: 32,
+                  height: 32,
+                  backgroundColor: `${colors.purple.DEFAULT}20`,
+                }}
+              >
+                <FaGem color={colors.purple.DEFAULT} size={18} />
               </div>
               <span className="text-gray-400">No NFT selected</span>
             </>
@@ -127,10 +170,7 @@ const NFTPartnerList = () => {
               onClick={() => selectCollection(collection.id)}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-purple-600 rounded-md flex items-center justify-center flex-shrink-0">
-                  <div className="w-6 h-6 bg-purple-400 rounded"></div>
-                </div>
-
+                <CollectionIcon collection={collection} size={32} />
                 <div className="flex flex-col">
                   <span className="text-white font-medium text-sm">
                     {collection.name}
@@ -153,10 +193,7 @@ const NFTPartnerList = () => {
               className="flex items-center justify-between p-3 rounded-lg cursor-not-allowed opacity-60"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-purple-600 rounded-md flex items-center justify-center flex-shrink-0">
-                  <div className="w-6 h-6 bg-purple-400 rounded"></div>
-                </div>
-
+                <CollectionIcon collection={collection} size={32} />
                 <div className="flex flex-col">
                   <span className="text-white font-medium text-sm">
                     {collection.name}

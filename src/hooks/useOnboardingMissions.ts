@@ -134,9 +134,9 @@ export const useOnboardingMissions = () => {
       }
     };
 
-    // Only run when dbUser or supabase changes, not on every render
+    // Only run when dbUser ID changes or when we first get a supabase client
     loadMissionStatus();
-  }, [dbUser?.id, supabase]);
+  }, [dbUser?.id, !!supabase]);
 
   // Function to mark a mission as completed via API
   const completeMission = async (missionId: string) => {
