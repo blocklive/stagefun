@@ -120,7 +120,11 @@ export default function OnboardingPage() {
           <TabComponent
             tabs={[
               { id: "rewards", label: "Rewards" },
-              { id: "missions", label: "Missions" },
+              {
+                id: "missions",
+                label: "Missions",
+                hasNotification: !isLoading && completedCount < totalCount,
+              },
               { id: "leaderboard", label: "Leaderboard" },
             ]}
             activeTab={activeTab}

@@ -22,32 +22,41 @@ const NFT_COLLECTIONS: NFTCollection[] = [
     multiplier: 1.1,
     buyUrl: "https://magiceden.us/collections/stage-nft",
   },
+  // {
+  //   id: "lil-chogstars",
+  //   name: "lil chogstars",
+  //   contractAddress: "0x26c86f2835c114571df2b6ce9ba52296cc0fa6bb",
+  //   multiplier: 1.15,
+  //   icon: "https://ynhuosvbkrazwivjuiwm.supabase.co/storage/v1/object/public/nft-images//lil-chogstars-nft.jpg",
+  //   buyUrl:
+  //     "https://magiceden.us/collections/monad-testnet/0x26c86f2835c114571df2b6ce9ba52296cc0fa6bb",
+  // },
+  // {
+  //   id: "spikes",
+  //   name: "Spikes",
+  //   contractAddress: "0x87e1f1824c9356733a25d6bed6b9c87a3b31e107", // Replace with actual contract address
+  //   multiplier: 1.25,
+  //   buyUrl:
+  //     "https://magiceden.us/collections/monad-testnet/0x87e1f1824c9356733a25d6bed6b9c87a3b31e107",
+  //   icon: "https://ynhuosvbkrazwivjuiwm.supabase.co/storage/v1/object/public/nft-images//spike-nft.avif",
+  // },
+  // {
+  //   id: "skrumpets",
+  //   name: "Skrumpets",
+  //   contractAddress: "0xe8f0635591190fb626f9d13c49b60626561ed145", // Replace with actual contract address
+  //   multiplier: 1.3,
+  //   buyUrl:
+  //     "https://magiceden.us/collections/monad-testnet/0xe8f0635591190fb626f9d13c49b60626561ed145",
+  //   icon: "https://ynhuosvbkrazwivjuiwm.supabase.co/storage/v1/object/public/nft-images//skrumpets-nft.png",
+  // },
   {
-    id: "lil-chogstars",
-    name: "lil chogstars",
-    contractAddress: "0x26c86f2835c114571df2b6ce9ba52296cc0fa6bb",
-    multiplier: 1.15,
-    icon: "https://ynhuosvbkrazwivjuiwm.supabase.co/storage/v1/object/public/nft-images//lil-chogstars-nft.jpg",
-    buyUrl:
-      "https://magiceden.us/collections/monad-testnet/0x26c86f2835c114571df2b6ce9ba52296cc0fa6bb",
-  },
-  {
-    id: "spikes",
-    name: "Spikes",
-    contractAddress: "0x87e1f1824c9356733a25d6bed6b9c87a3b31e107", // Replace with actual contract address
-    multiplier: 1.25,
-    buyUrl:
-      "https://magiceden.us/collections/monad-testnet/0x87e1f1824c9356733a25d6bed6b9c87a3b31e107",
-    icon: "https://ynhuosvbkrazwivjuiwm.supabase.co/storage/v1/object/public/nft-images//spike-nft.avif",
-  },
-  {
-    id: "skrumpets",
-    name: "Skrumpets",
-    contractAddress: "0xe8f0635591190fb626f9d13c49b60626561ed145", // Replace with actual contract address
+    id: "jerry",
+    name: "Jerry",
+    contractAddress: "0xf3ad8b549d57004e628d875d452b961affe8a611", // Replace with actual contract address
     multiplier: 1.3,
     buyUrl:
-      "https://magiceden.us/collections/monad-testnet/0xe8f0635591190fb626f9d13c49b60626561ed145",
-    icon: "https://ynhuosvbkrazwivjuiwm.supabase.co/storage/v1/object/public/nft-images//skrumpets-nft.png",
+      "https://magiceden.us/collections/monad-testnet/0xf3ad8b549d57004e628d875d452b961affe8a611",
+    icon: "https://ynhuosvbkrazwivjuiwm.supabase.co/storage/v1/object/public/nft-images//jerry.avif",
   },
 ];
 

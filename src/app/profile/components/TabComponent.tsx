@@ -3,6 +3,7 @@ import React from "react";
 type TabItem = {
   id: string;
   label: string;
+  hasNotification?: boolean;
 };
 
 interface TabComponentProps {
@@ -29,7 +30,12 @@ export default function TabComponent({
             }`}
             onClick={() => onTabChange(tab.id)}
           >
-            {tab.label}
+            <span className="relative">
+              {tab.label}
+              {tab.hasNotification && (
+                <div className="absolute -top-1 -right-2 w-2 h-2 bg-yellow-400 rounded-full"></div>
+              )}
+            </span>
             {activeTab === tab.id && (
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#836EF9]"></div>
             )}

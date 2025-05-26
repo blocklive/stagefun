@@ -29,6 +29,7 @@ import { useWalletAssets } from "../../../hooks/useWalletAssets";
 import GetTokensModal from "../../components/GetTokensModal";
 import InfoModal from "../../components/InfoModal";
 import SendAssetModal from "../../components/SendAssetModal";
+import SendNFTModal from "../../components/SendNFTModal";
 import { getDisplayStatus } from "../../../lib/contracts/types";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import UserAvatar from "../../components/UserAvatar";
@@ -69,7 +70,7 @@ export default function ProfileComponent({
   const { dbUser, isLoadingUser, refreshUser } = useSupabase();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState<
-    "assets" | "hosted" | "funded" | "passes"
+    "assets" | "passes" | "hosted" | "funded"
   >("assets");
   const { smartWalletAddress } = useSmartWallet();
 
@@ -83,6 +84,10 @@ export default function ProfileComponent({
   // Add missing state for send modal and selected asset
   const [showSendModal, setShowSendModal] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
+
+  // Add state for NFT send modal
+  const [showSendNFTModal, setShowSendNFTModal] = useState(false);
+  const [selectedNFT, setSelectedNFT] = useState<any>(null);
 
   // Use our custom hook for avatar uploads
   const { isUploading, uploadAvatar } = useAvatarUpload(
@@ -418,6 +423,14 @@ export default function ProfileComponent({
     setShowSendModal(true);
   };
 
+  const handleSendNFTClick = (nft: any, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent click event from bubbling up
+
+    console.log("Send NFT clicked:", nft);
+    setSelectedNFT(nft);
+    setShowSendNFTModal(true);
+  };
+
   // Handle asset swap click - navigate to swap interface with token parameters
   const handleSwapClick = (asset: any, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent click event from bubbling up
@@ -689,14 +702,14 @@ export default function ProfileComponent({
           <div className="mt-4">
             <TabComponent
               tabs={[
-                { id: "assets", label: "Assets" },
+                { id: "assets", label: "Tokens" },
+                { id: "passes", label: "NFTs" },
                 { id: "hosted", label: "Hosted" },
                 { id: "funded", label: "Committed" },
-                { id: "passes", label: "Passes" },
               ]}
               activeTab={activeTab}
               onTabChange={(tabId) =>
-                setActiveTab(tabId as "assets" | "hosted" | "funded" | "passes")
+                setActiveTab(tabId as "assets" | "passes" | "hosted" | "funded")
               }
             />
 
@@ -709,6 +722,14 @@ export default function ProfileComponent({
                   walletAddress={user.smart_wallet_address || null}
                   chainId="monad-test-v2"
                   isOwnProfile={Boolean(isOwnProfile)}
+                />
+              ) : activeTab === "passes" ? (
+                // NFTs tab content
+                <PassesContent
+                  walletAddress={user.smart_wallet_address || null}
+                  isOwnProfile={Boolean(isOwnProfile)}
+                  displayName={displayName}
+                  onSendNFTClick={handleSendNFTClick}
                 />
               ) : activeTab === "hosted" ? (
                 <PoolList
@@ -749,14 +770,7 @@ export default function ProfileComponent({
                     }
                   }}
                 />
-              ) : (
-                // Passes tab content
-                <PassesContent
-                  walletAddress={user.smart_wallet_address || null}
-                  isOwnProfile={Boolean(isOwnProfile)}
-                  displayName={displayName}
-                />
-              )}
+              ) : null}
             </div>
           </div>
         ) : (
@@ -785,6 +799,19 @@ export default function ProfileComponent({
           }
         }}
       />
+
+      {/* Send NFT Modal */}
+      <SendNFTModal
+        isOpen={showSendNFTModal}
+        onClose={() => setShowSendNFTModal(false)}
+        nft={selectedNFT}
+        onSuccess={() => {
+          if (user.smart_wallet_address) {
+            // Refresh the NFTs list
+            mutate(`wallet-nfts-${user.smart_wallet_address}-monad-test-v2`);
+          }
+        }}
+      />
     </>
   );
 }
@@ -794,10 +821,12 @@ function PassesContent({
   walletAddress,
   isOwnProfile,
   displayName,
+  onSendNFTClick,
 }: {
   walletAddress: string | null;
   isOwnProfile: boolean;
   displayName: string;
+  onSendNFTClick?: (nft: any, e: React.MouseEvent) => void;
 }) {
   // Only fetch NFTs from Monad testnet where our contract is deployed
   const { nfts, isLoading, error } = useWalletNFTs(
@@ -806,8 +835,8 @@ function PassesContent({
   );
 
   const emptyMessage = isOwnProfile
-    ? "You don't have any NFT passes yet."
-    : `${displayName} doesn't have any NFT passes yet.`;
+    ? "You don't have any NFTs yet."
+    : `${displayName} doesn't have any NFTs yet.`;
 
   // Show skeleton loader when loading
   if (isLoading) {
@@ -822,6 +851,7 @@ function PassesContent({
         error={error}
         emptyMessage={emptyMessage}
         isOwnProfile={isOwnProfile}
+        onSendClick={onSendNFTClick}
       />
     </div>
   );

@@ -33,7 +33,8 @@ export default function RewardsLayout({ children }: RewardsLayoutProps) {
     <div className="min-h-screen bg-[#0D0E13]">
       <AppHeader
         showBackButton={true}
-        showTitle={false}
+        showTitle={true}
+        title="REWARDS"
         backgroundColor="#0D0E13"
         showGetTokensButton={true}
         showCreateButton={true}

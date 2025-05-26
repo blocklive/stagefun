@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { NFT } from "../../../hooks/useWalletNFTs";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt, FaPaperPlane } from "react-icons/fa";
+import Tooltip from "../../../components/Tooltip";
 
 interface NFTListProps {
   nfts: NFT[];
@@ -11,6 +12,7 @@ interface NFTListProps {
   error: any;
   emptyMessage?: string;
   isOwnProfile?: boolean;
+  onSendClick?: (nft: NFT, e: React.MouseEvent) => void;
 }
 
 // Helper function to get Magic Eden URL for an NFT
@@ -71,7 +73,11 @@ const PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23202020'/%3E%3Cpath d='M35 30H65C67.7614 30 70 32.2386 70 35V65C70 67.7614 67.7614 70 65 70H35C32.2386 70 30 67.7614 30 65V35C30 32.2386 32.2386 30 35 30ZM35 33C33.8954 33 33 33.8954 33 35V56.25L41.25 48L46.25 53L58.75 40.5L67 48.75V35C67 33.8954 66.1046 33 65 33H35ZM45 45C45 47.7614 42.7614 50 40 50C37.2386 50 35 47.7614 35 45C35 42.2386 37.2386 40 40 40C42.7614 40 45 42.2386 45 45Z' fill='%236E5DD7' fill-rule='evenodd'/%3E%3C/svg%3E";
 
 // NFT Card Component
-const NFTCard: React.FC<{ nft: NFT }> = ({ nft }) => {
+const NFTCard: React.FC<{
+  nft: NFT;
+  isOwnProfile?: boolean;
+  onSendClick?: (nft: NFT, e: React.MouseEvent) => void;
+}> = ({ nft, isOwnProfile, onSendClick }) => {
   const [imageError, setImageError] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -104,18 +110,33 @@ const NFTCard: React.FC<{ nft: NFT }> = ({ nft }) => {
         <p className="text-gray-400 text-sm">{nft.collectionName}</p>
         <h3 className="text-white font-medium truncate">{tierName}</h3>
       </div>
-      <div className="relative mr-4">
+      <div className="relative mr-4 flex space-x-2">
+        {/* View on Magic Eden Button */}
         <a
           href={magicEdenUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="p-2 hover:bg-[#3A3650] rounded-full transition-colors inline-flex"
+          className="w-9 h-9 flex items-center justify-center bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-white transition-colors"
           aria-label="View on Magic Eden"
           onMouseEnter={() => mightHaveViewingIssues && setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
         >
-          <FaExternalLinkAlt className="text-gray-400 hover:text-white w-4 h-4" />
+          <FaExternalLinkAlt className="w-4 h-4" />
         </a>
+
+        {/* Send Button - only show for own profile */}
+        {isOwnProfile && onSendClick && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSendClick(nft, e);
+            }}
+            className="w-9 h-9 flex items-center justify-center bg-[#FFFFFF14] hover:bg-[#FFFFFF1A] rounded-full text-white transition-colors"
+            aria-label="Send NFT"
+          >
+            <FaPaperPlane className="w-4 h-4" />
+          </button>
+        )}
 
         {showTooltip && mightHaveViewingIssues && (
           <div className="absolute right-0 bottom-full mb-2 bg-[#121212] text-white text-xs p-2 rounded shadow-lg w-48 z-10">
@@ -134,6 +155,7 @@ export default function NFTList({
   error,
   emptyMessage = "No NFTs found in this wallet.",
   isOwnProfile = true,
+  onSendClick,
 }: NFTListProps) {
   // Filter for our specific StageDotFunNFT tokens
   const stageNFTs = nfts.filter(
@@ -177,6 +199,8 @@ export default function NFTList({
                   : `${nft.contractAddress}-${index}`
               }
               nft={nft}
+              isOwnProfile={isOwnProfile}
+              onSendClick={onSendClick}
             />
           ))}
         </div>
