@@ -5,6 +5,7 @@ import {
   getSupabaseAdmin,
 } from "@/lib/auth/server";
 import { PrivyTokenPayload } from "@/lib/auth/types";
+import { awardPoints, PointType } from "@/lib/services/points.service";
 
 /**
  * POST handler - Create or update user and track access code utilization
@@ -317,6 +318,8 @@ export async function POST(request: NextRequest) {
             .update({
               usage_count: usageCount + 1,
               user_id: user.id,
+              used_by_user_id: user.id,
+              used_at: new Date().toISOString(),
               fully_utilized: true,
               // Also update is_active based on the NEW usage count vs max_uses
               is_active: usageCount + 1 < maxUses,
@@ -330,6 +333,44 @@ export async function POST(request: NextRequest) {
             console.log(
               `Access code ${formattedCode} marked as utilized by user ${user.id}`
             );
+
+            // Check if this is a referral code (has created_by_user_id) and award points to referrer
+            const createdByUserId = codeData.created_by_user_id as string;
+            if (createdByUserId) {
+              console.log(
+                `Referral code used! Awarding points to referrer: ${createdByUserId}`
+              );
+
+              try {
+                // Award 3000 points to the referrer using the proper points service
+                const pointsResult = await awardPoints({
+                  userId: createdByUserId,
+                  type: PointType.ONBOARDING,
+                  amount: 3000,
+                  description: "referral_used",
+                  metadata: {
+                    referred_user_id: user.id as string,
+                    access_code: formattedCode,
+                    referral_timestamp: new Date().toISOString(),
+                  },
+                  supabase: supabaseAdmin,
+                });
+
+                if (pointsResult.success) {
+                  console.log(
+                    `Successfully awarded 3000 referral points to user ${createdByUserId}`
+                  );
+                } else {
+                  console.error(
+                    "Error awarding referral points:",
+                    pointsResult.error
+                  );
+                }
+              } catch (pointsError) {
+                console.error("Error in referral points process:", pointsError);
+                // Don't fail the login if points awarding fails
+              }
+            }
           }
         }
       }

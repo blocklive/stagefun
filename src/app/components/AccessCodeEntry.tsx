@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import showToast from "@/utils/toast";
 import React from "react";
@@ -57,6 +57,7 @@ const TradingNumbers = dynamic(
 
 export default function AccessCodeEntry() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, authenticated, ready } = usePrivy();
   const [accessCode, setAccessCode] = useState(["", "", "", "", "", ""]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,9 +68,42 @@ export default function AccessCodeEntry() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isSkullHovered, setIsSkullHovered] = useState(false);
   const [isSkullFlipped, setIsSkullFlipped] = useState(false);
+  const [hasAutoFilled, setHasAutoFilled] = useState(false);
 
   // Add a ref to the first input for focus management
   const firstInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Handle referral code from URL parameter
+  useEffect(() => {
+    // Only auto-fill once
+    if (hasAutoFilled) return;
+
+    // Try multiple methods to get the referral code
+    let refCode = searchParams.get("ref");
+
+    // Fallback: parse URL manually if searchParams doesn't work
+    if (!refCode && typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      refCode = urlParams.get("ref");
+    }
+
+    console.log("Referral code from URL:", refCode); // Debug log
+
+    if (refCode) {
+      let processedCode = refCode.toUpperCase();
+
+      // The referral code should be exactly 6 characters (without SF- prefix)
+      if (processedCode.length === 6) {
+        // Auto-populate the access code fields with the referral code
+        const codeArray = processedCode.split("");
+        setAccessCode(codeArray);
+        setHasAutoFilled(true); // Prevent multiple auto-fills
+        console.log("Auto-filled code:", codeArray); // Debug log
+      } else {
+        console.log("Invalid referral code length:", processedCode.length);
+      }
+    }
+  }, [searchParams, hasAutoFilled]);
 
   // Auto-focus the first input on mount
   useEffect(() => {

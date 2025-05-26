@@ -1,0 +1,77 @@
+"use client";
+
+import React from "react";
+import { useReferrals } from "@/hooks/useReferrals";
+import { useUserLevel } from "@/hooks/useUserLevel";
+import { usePoints } from "@/hooks/usePoints";
+import ReferralTable from "./ReferralTable";
+import { FiPlus, FiUsers } from "react-icons/fi";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+
+// Function to calculate max codes based on user level
+function getMaxCodesForLevel(level: number): number {
+  if (level <= 5) return 1; // levels 1-5 get 1 code
+  return level - 4; // level 6+ gets level-4 codes (level 6 = 2, level 7 = 3, etc.)
+}
+
+export default function ReferralSection() {
+  const { codes, isLoading, generateCode, isGenerating } = useReferrals();
+  const { points } = usePoints();
+  const levelInfo = useUserLevel(points || 0);
+
+  const maxCodes = getMaxCodesForLevel(levelInfo.level);
+  const currentCodeCount = codes.length;
+  const canGenerateMore = currentCodeCount < maxCodes;
+  const usedCodes = codes.filter((code: any) => code.used_by_user_id).length;
+
+  const handleGenerateCode = async () => {
+    await generateCode();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Single Line Header */}
+      <div className="flex items-center justify-between py-3 px-4 bg-[#FFFFFF0A] rounded-lg border border-gray-800">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <FiUsers className="text-[#836EF9]" size={16} />
+            <span className="text-white font-medium">Referrals</span>
+          </div>
+
+          <div className="flex items-center gap-4 text-sm text-gray-400">
+            <span>
+              <span className="text-white">{currentCodeCount}</span>/{maxCodes}{" "}
+              Generated
+            </span>
+            <span>
+              <span className="text-white">{usedCodes}</span> Used
+            </span>
+            <span>
+              <span className="text-[#FFDD50]">3000</span> pts/referral
+            </span>
+          </div>
+        </div>
+
+        <button
+          onClick={handleGenerateCode}
+          disabled={!canGenerateMore || isGenerating}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-all ${
+            canGenerateMore && !isGenerating
+              ? "bg-[#836EF9] hover:bg-[#7C5CE8] text-white"
+              : "bg-gray-700 text-gray-400 cursor-not-allowed"
+          }`}
+        >
+          {isGenerating ? (
+            <LoadingSpinner size={14} color="currentColor" />
+          ) : (
+            <FiPlus size={14} />
+          )}
+          Generate
+        </button>
+      </div>
+
+      {/* Table */}
+      <ReferralTable codes={codes} isLoading={isLoading} />
+    </div>
+  );
+}
