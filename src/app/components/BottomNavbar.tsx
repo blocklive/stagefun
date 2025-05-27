@@ -2,11 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { IoFlash } from "react-icons/io5";
-import { FaTrophy } from "react-icons/fa";
+import { FaGift } from "react-icons/fa";
 import { BiTransfer } from "react-icons/bi";
 
 interface BottomNavbarProps {
-  activeTab?: "party" | "portfolio" | "leaderboard" | "swap" | "";
+  activeTab?: "party" | "portfolio" | "rewards" | "swap" | "";
   isAuthenticated?: boolean;
 }
 
@@ -116,19 +116,19 @@ export default function BottomNavbar({
 
       <div
         className="flex flex-col items-center"
-        onClick={() => router.push("/leaderboard")}
+        onClick={() => router.push("/rewards")}
       >
-        <FaTrophy
+        <FaGift
           className={`text-2xl ${
-            activeTab === "leaderboard" ? "text-[#8B7EF8]" : "text-gray-500"
+            activeTab === "rewards" ? "text-[#8B7EF8]" : "text-gray-500"
           }`}
         />
         <span
           className={`text-xs mt-1 ${
-            activeTab === "leaderboard" ? "text-[#8B7EF8]" : "text-gray-500"
+            activeTab === "rewards" ? "text-[#8B7EF8]" : "text-gray-500"
           }`}
         >
-          Leaderboard
+          Rewards
         </span>
       </div>
     </div>

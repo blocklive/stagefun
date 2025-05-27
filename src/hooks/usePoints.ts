@@ -96,10 +96,10 @@ export function usePoints(
   const { token: authJwt, refreshToken } = useAuthJwt();
   const [timeUntilNextClaim, setTimeUntilNextClaim] = useState(0);
 
-  // Get current pathname to check if we're on the onboarding page
+  // Get current pathname to check if we're on the rewards page
   const pathname =
     typeof window !== "undefined" ? window.location.pathname : "";
-  const isOnboardingPage = pathname === "/onboarding";
+  const isRewardsPage = pathname === "/rewards";
 
   // Use SWR to fetch and cache points data
   const {
@@ -237,20 +237,8 @@ export function usePoints(
       const result = await response.json();
 
       if (response.ok && result.success) {
-        // Create a more detailed success message based on multiplier
-        let successMessage = `You earned ${result.points} points!`;
-
-        if (result.multiplier && result.multiplier > 1) {
-          successMessage = `You earned ${result.points} points (${result.multiplier}x ${result.streakTier})!`;
-        }
-
-        successMessage += ` Streak: ${result.newStreak} days`;
-
-        // Add info about next tier if available
-        if (result.nextTierAt && result.nextTierMultiplier) {
-          const daysToNext = result.nextTierAt - result.newStreak;
-          successMessage += ` • ${daysToNext} more days for ${result.nextTierMultiplier}x bonus!`;
-        }
+        // Simple success message with points and streak number
+        const successMessage = `+${result.points} pts • ${result.newStreak} day streak 🔥`;
 
         showToast.success(successMessage, { id: loadingId });
 

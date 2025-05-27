@@ -167,7 +167,7 @@ export default function CreatePoolPage() {
   };
 
   const handlePointsClick = () => {
-    router.push("/onboarding");
+    router.push("/rewards");
   };
 
   // Handle form submission
