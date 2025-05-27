@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { getNftMultiplierById } from "@/lib/constants/nft-collections";
 
 /**
  * Points Service
@@ -164,6 +165,157 @@ export async function awardPoints({
   }
 
   return { success: true };
+}
+
+/**
+ * Get the current level multiplier for a user based on their total points
+ * This matches the logic from usePointsBonus.ts
+ */
+export function getLevelMultiplier(totalPoints: number): number {
+  // Level 10+ - 1.4x
+  if (totalPoints >= 100000) return 1.4;
+  // Level 8+ - 1.3x
+  if (totalPoints >= 75000) return 1.3;
+  // Level 6+ - 1.25x
+  if (totalPoints >= 50000) return 1.25;
+  // Level 4+ - 1.2x
+  if (totalPoints >= 25000) return 1.2;
+  // Level 2+ - 1.1x
+  if (totalPoints >= 10000) return 1.1;
+  // Level 1 - 1x
+  return 1.0;
+}
+
+/**
+ * Get user's current total points to calculate their level multiplier
+ */
+export async function getUserTotalPoints(
+  userId: string,
+  supabase: SupabaseClient
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("user_points")
+    .select("funded_points, raised_points, onboarding_points, checkin_points")
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !data) {
+    return 0;
+  }
+
+  return (
+    (data.funded_points || 0) +
+    (data.raised_points || 0) +
+    (data.onboarding_points || 0) +
+    (data.checkin_points || 0)
+  );
+}
+
+/**
+ * Calculate streak multiplier based on streak count
+ * This matches the logic from points.service.ts calculateStreakMultiplier
+ */
+function getStreakMultiplier(streakCount: number): number {
+  if (streakCount <= 1) return 1.0;
+  if (streakCount <= 3) return 1.1;
+  if (streakCount <= 7) return 1.25;
+  if (streakCount <= 14) return 1.5;
+  if (streakCount <= 30) return 1.75;
+  return 2.0; // 31+ days
+}
+
+/**
+ * Calculate leader multiplier based on total points
+ * This matches the logic from usePointsBonus.ts
+ */
+function getLeaderMultiplier(totalPoints: number): number {
+  if (totalPoints >= 50000) return 1.5; // Top 1%
+  if (totalPoints >= 25000) return 1.3; // Top 5%
+  if (totalPoints >= 15000) return 1.2; // Top 10%
+  if (totalPoints >= 5000) return 1.1; // Top 25%
+  return 1.0;
+}
+
+/**
+ * Get user's complete multiplier breakdown and total
+ * Can be called from frontend or backend
+ */
+export async function getUserMultiplier(
+  userId: string,
+  supabase: SupabaseClient
+): Promise<{
+  levelMultiplier: number;
+  leaderMultiplier: number;
+  streakMultiplier: number;
+  nftMultiplier: number;
+  totalMultiplier: number;
+  totalPoints: number;
+  streakCount: number;
+}> {
+  // Get user's total points
+  const totalPoints = await getUserTotalPoints(userId, supabase);
+
+  // Get user's streak count and selected NFT collection in one query
+  const { data: userData, error } = await supabase
+    .from("users")
+    .select(
+      `
+      selected_nft_collection,
+      daily_checkins(streak_count)
+    `
+    )
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    console.error("Error fetching user multiplier data:", error);
+    // Return base multipliers if query fails
+    const levelMultiplier = getLevelMultiplier(totalPoints);
+    return {
+      levelMultiplier,
+      leaderMultiplier: getLeaderMultiplier(totalPoints),
+      streakMultiplier: 1.0,
+      nftMultiplier: 1.0,
+      totalMultiplier: levelMultiplier * getLeaderMultiplier(totalPoints),
+      totalPoints,
+      streakCount: 0,
+    };
+  }
+
+  // Extract data - daily_checkins is an array, get the first (should be only one)
+  const streakCount = userData?.daily_checkins?.[0]?.streak_count || 0;
+  const selectedNftCollection = userData?.selected_nft_collection || null;
+
+  // Calculate individual multipliers
+  const levelMultiplier = getLevelMultiplier(totalPoints);
+  const leaderMultiplier = getLeaderMultiplier(totalPoints);
+  const streakMultiplier = getStreakMultiplier(streakCount);
+  const nftMultiplier = getNftMultiplierById(selectedNftCollection);
+
+  // Calculate total multiplier (multiplicative)
+  const totalMultiplier =
+    levelMultiplier * leaderMultiplier * streakMultiplier * nftMultiplier;
+
+  return {
+    levelMultiplier,
+    leaderMultiplier,
+    streakMultiplier,
+    nftMultiplier,
+    totalMultiplier,
+    totalPoints,
+    streakCount,
+  };
+}
+
+/**
+ * Get just the total multiplier (simplified version)
+ */
+export async function getUserTotalMultiplier(
+  userId: string,
+  supabase: SupabaseClient
+): Promise<number> {
+  const result = await getUserMultiplier(userId, supabase);
+  return result.totalMultiplier;
 }
 
 // Optionally, add more helpers for leaderboard, history, etc. here.
@@ -412,6 +564,7 @@ export async function awardPointsForPoolCommitment({
   try {
     // Calculate points based on USDC amount (15 points per USDC)
     const funderPoints = calculatePointsFromAmount(amount, 15);
+    console.log("********** funderPoints", funderPoints, amount);
 
     if (funderPoints === 0) {
       console.log(
@@ -443,24 +596,33 @@ export async function awardPointsForPoolCommitment({
       return { success: false, error: "User not found" };
     }
 
-    // 1. Award points to the depositor/funder
+    // 1. Award points to the depositor/funder with multiplier
+    const userMultiplier = await getUserTotalMultiplier(userData.id, supabase);
+    const finalFunderPoints = Math.floor(funderPoints * userMultiplier);
+    const bonusPoints = finalFunderPoints - funderPoints;
+
+    console.log("userMultiplier", userMultiplier);
     const funderResult = await awardPoints({
       userId: userData.id,
       type: PointType.FUNDED,
-      amount: funderPoints,
+      amount: finalFunderPoints,
       description: "pool_commitment",
       metadata: {
         poolAddress,
         tierId,
         amount,
         txHash,
+        base_amount: funderPoints,
+        bonus_amount: bonusPoints,
+        multiplier_applied: userMultiplier,
+        multiplier_eligible: true,
       },
       supabase,
     });
 
     if (funderResult.success) {
       console.log(
-        `Awarded ${funderPoints} funded points to user ${userData.id} for pool commitment`
+        `Awarded ${finalFunderPoints} funded points (${funderPoints} base + ${bonusPoints} bonus, ${userMultiplier}x multiplier) to user ${userData.id} for pool commitment`
       );
     } else {
       console.error("Failed to award points to funder:", funderResult.error);
@@ -492,11 +654,18 @@ export async function awardPointsForPoolCommitment({
         return { success: funderResult.success, error: funderResult.error };
       }
 
-      // Award points directly to the creator using creator_id
+      // Award points directly to the creator using creator_id with multiplier
+      const creatorMultiplier = await getUserTotalMultiplier(
+        poolData.creator_id,
+        supabase
+      );
+      const finalCreatorPoints = Math.floor(creatorPoints * creatorMultiplier);
+      const creatorBonusPoints = finalCreatorPoints - creatorPoints;
+
       const creatorResult = await awardPoints({
         userId: poolData.creator_id,
         type: PointType.RAISED,
-        amount: creatorPoints,
+        amount: finalCreatorPoints,
         description: "received_commitment",
         metadata: {
           poolAddress,
@@ -504,13 +673,17 @@ export async function awardPointsForPoolCommitment({
           amount,
           funderAddress: userAddress,
           txHash,
+          base_amount: creatorPoints,
+          bonus_amount: creatorBonusPoints,
+          multiplier_applied: creatorMultiplier,
+          multiplier_eligible: true,
         },
         supabase,
       });
 
       if (creatorResult.success) {
         console.log(
-          `Awarded ${creatorPoints} raised points to creator ${poolData.creator_id} for receiving commitment`
+          `Awarded ${finalCreatorPoints} raised points (${creatorPoints} base + ${creatorBonusPoints} bonus, ${creatorMultiplier}x multiplier) to creator ${poolData.creator_id} for receiving commitment`
         );
       } else {
         console.error(
@@ -591,11 +764,20 @@ export async function awardPointsForPoolExecuting({
       };
     }
 
-    // Award bonus points for pool reaching executing status directly to creator
+    // Award bonus points for pool reaching executing status directly to creator with multiplier
+    const creatorMultiplier = await getUserTotalMultiplier(
+      poolData.creator_id,
+      supabase
+    );
+    const finalExecutingPoints = Math.floor(
+      executingPoints * creatorMultiplier
+    );
+    const bonusPoints = finalExecutingPoints - executingPoints;
+
     const pointsResult = await awardPoints({
       userId: poolData.creator_id,
       type: PointType.RAISED,
-      amount: executingPoints,
+      amount: finalExecutingPoints,
       description: "pool_executing",
       metadata: {
         poolAddress,
@@ -603,13 +785,17 @@ export async function awardPointsForPoolExecuting({
         statusString,
         raisedAmount: poolData.raised_amount.toString(),
         txHash,
+        base_amount: executingPoints,
+        bonus_amount: bonusPoints,
+        multiplier_applied: creatorMultiplier,
+        multiplier_eligible: true,
       },
       supabase,
     });
 
     if (pointsResult.success) {
       console.log(
-        `Awarded ${executingPoints} bonus raised points to user ${poolData.creator_id} for pool reaching EXECUTING status`
+        `Awarded ${finalExecutingPoints} bonus raised points (${executingPoints} base + ${bonusPoints} bonus, ${creatorMultiplier}x multiplier) to user ${poolData.creator_id} for pool reaching EXECUTING status`
       );
     }
 

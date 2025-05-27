@@ -109,7 +109,7 @@ const MyLevel = () => {
             <div className="flex items-center gap-1 text-xs text-gray-400 mt-2">
               <FiArrowUp className="text-[#836EF9]" size={12} />
               <span>
-                Next Level: increase Rewards multiplier{" "}
+                Next Level: increase multiplier{" "}
                 <span className="text-[#FFDD50]">
                   {nextLevelBenefits.multiplier.toFixed(2)}x
                 </span>{" "}

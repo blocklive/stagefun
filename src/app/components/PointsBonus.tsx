@@ -220,16 +220,6 @@ const PointsBonus = () => {
           </div>
         </div>
       </div>
-
-      {/* Bonus Points Display */}
-      <div className="text-center p-3 bg-[#FFFFFF08] rounded-lg border border-[#FFFFFF14]">
-        <div className="text-sm text-gray-400 mb-1">Bonus Points Generated</div>
-        <div
-          className={`text-xl font-bold text-[${colors.points.DEFAULT}] font-mono`}
-        >
-          +{formatPoints(bonusInfo.bonusPoints)}
-        </div>
-      </div>
     </div>
   );
 };
