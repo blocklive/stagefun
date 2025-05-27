@@ -90,7 +90,7 @@ export default function AccessCodeEntry() {
     console.log("Referral code from URL:", refCode); // Debug log
 
     if (refCode) {
-      let processedCode = refCode.toUpperCase();
+      const processedCode = refCode.toUpperCase();
 
       // The referral code should be exactly 6 characters (without SF- prefix)
       if (processedCode.length === 6) {

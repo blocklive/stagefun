@@ -42,11 +42,11 @@ export async function GET(request: NextRequest) {
     });
 
     // Fetch all pool names using case-insensitive queries
-    let poolsMap = new Map<string, { name: string; slug: string }>();
+    const poolsMap = new Map<string, { name: string; slug: string }>();
     if (poolAddresses.size > 0) {
       // Use case-insensitive search for all addresses
       const addressArray = Array.from(poolAddresses);
-      let allPools: any[] = [];
+      const allPools: any[] = [];
 
       // Query each address with ilike (case-insensitive)
       for (const address of addressArray) {
