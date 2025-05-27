@@ -21,8 +21,9 @@ const MyPoints = () => {
     <div className="w-full p-4 bg-[#FFFFFF0A] rounded-xl border border-[#FFFFFF14]">
       {/* Main Points Display */}
       <div className="flex items-center justify-between mb-3">
-        <div className="text-sm text-gray-400 uppercase tracking-wider">
-          TOTAL POINTS
+        <div>
+          <h3 className="font-bold text-white text-base">My Points</h3>
+          <div className="text-sm text-gray-500">Total points earned</div>
         </div>
         <div className="text-right">
           {isLoading ? (

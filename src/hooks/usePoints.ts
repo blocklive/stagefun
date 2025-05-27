@@ -237,20 +237,8 @@ export function usePoints(
       const result = await response.json();
 
       if (response.ok && result.success) {
-        // Create a more detailed success message based on multiplier
-        let successMessage = `You earned ${result.points} points!`;
-
-        if (result.multiplier && result.multiplier > 1) {
-          successMessage = `You earned ${result.points} points (${result.multiplier}x ${result.streakTier})!`;
-        }
-
-        successMessage += ` Streak: ${result.newStreak} days`;
-
-        // Add info about next tier if available
-        if (result.nextTierAt && result.nextTierMultiplier) {
-          const daysToNext = result.nextTierAt - result.newStreak;
-          successMessage += ` • ${daysToNext} more days for ${result.nextTierMultiplier}x bonus!`;
-        }
+        // Simple success message with points and streak number
+        const successMessage = `+${result.points} pts • ${result.newStreak} day streak 🔥`;
 
         showToast.success(successMessage, { id: loadingId });
 

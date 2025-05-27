@@ -32,6 +32,65 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Get unique pool addresses from metadata
+    const poolAddresses = new Set<string>();
+    transactions?.forEach((transaction) => {
+      const metadata = (transaction.metadata as any) || {};
+      if (metadata.poolAddress) {
+        poolAddresses.add(metadata.poolAddress);
+      }
+    });
+
+    // Fetch all pool names using case-insensitive queries
+    let poolsMap = new Map<string, { name: string; slug: string }>();
+    if (poolAddresses.size > 0) {
+      // Use case-insensitive search for all addresses
+      const addressArray = Array.from(poolAddresses);
+      let allPools: any[] = [];
+
+      // Query each address with ilike (case-insensitive)
+      for (const address of addressArray) {
+        const { data: pools } = await supabase
+          .from("pools")
+          .select("contract_address, name, slug")
+          .ilike("contract_address", address);
+
+        if (pools && pools.length > 0) {
+          allPools.push(...pools);
+        }
+      }
+
+      allPools.forEach((pool: any) => {
+        if (pool.contract_address) {
+          // Map using the original metadata address (lowercase) as key
+          const matchingAddress = addressArray.find(
+            (addr) => addr.toLowerCase() === pool.contract_address.toLowerCase()
+          );
+          if (matchingAddress) {
+            poolsMap.set(matchingAddress.toLowerCase(), {
+              name: pool.name,
+              slug: pool.slug,
+            });
+          }
+        }
+      });
+    }
+
+    // Attach pool data to transactions
+    const processedTransactions = transactions?.map((transaction) => {
+      const metadata = (transaction.metadata as any) || {};
+      if (metadata.poolAddress) {
+        const poolData = poolsMap.get(metadata.poolAddress.toLowerCase());
+        if (poolData) {
+          return {
+            ...transaction,
+            pool: poolData,
+          };
+        }
+      }
+      return transaction;
+    });
+
     // Check if there are more transactions
     const { count } = await supabase
       .from("point_transactions")
@@ -41,7 +100,7 @@ export async function GET(request: NextRequest) {
     const hasMore = offset + limit < (count || 0);
 
     return NextResponse.json({
-      transactions: transactions || [],
+      transactions: processedTransactions || [],
       hasMore,
       total: count || 0,
     });

@@ -97,7 +97,7 @@ const PointsBonus = () => {
       {/* Header */}
       <div className="mb-4">
         <h3 className="font-bold text-white text-base mb-1">Bonus Rewards</h3>
-        <div className="text-sm text-gray-400">Active protocols stacking</div>
+        <div className="text-sm text-gray-400">Active multipliers stacking</div>
       </div>
 
       {/* Mobile Layout - 2x2 Grid + Total */}

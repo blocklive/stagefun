@@ -10,6 +10,10 @@ export interface Transaction {
   metadata?: {
     [key: string]: any;
   };
+  pool?: {
+    name: string;
+    slug: string;
+  } | null;
 }
 
 interface TransactionsResponse {

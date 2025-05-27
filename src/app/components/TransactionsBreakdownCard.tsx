@@ -42,9 +42,9 @@ const TransactionsBreakdownCard = () => {
     const [type, action] = actionType.split(":");
     switch (type) {
       case "funded":
-        return "POOL FUNDING";
+        return "ROUND FUNDING";
       case "raised":
-        return "POOL CREATION";
+        return "ROUND CREATION";
       case "onboarding":
         return action?.toUpperCase() || "MISSION";
       case "checkin":
@@ -68,6 +68,88 @@ const TransactionsBreakdownCard = () => {
       default:
         return "text-gray-400";
     }
+  };
+
+  const getTransactionDetail = (transaction: any): string => {
+    const metadata = transaction.metadata || {};
+    const actionType = transaction.action_type || "";
+
+    // Extract action from action_type (format: "type:action")
+    const [type, action] = actionType.split(":");
+
+    switch (type) {
+      case "funded":
+        if (action === "pool_commitment") {
+          // Show round name if available from join, otherwise show address
+          if (transaction.pool?.name) {
+            return `Round: ${transaction.pool.name}`;
+          } else if (metadata.poolAddress) {
+            return `Round: ${metadata.poolAddress.slice(
+              0,
+              6
+            )}...${metadata.poolAddress.slice(-4)}`;
+          }
+          return "Round commitment";
+        }
+        break;
+
+      case "raised":
+        if (action === "created_pool") {
+          if (transaction.pool?.name) {
+            return `Created: ${transaction.pool.name}`;
+          } else if (metadata.poolName) {
+            return `Created: ${metadata.poolName}`;
+          }
+          return "Round creation";
+        } else if (action === "received_commitment") {
+          if (metadata.funderAddress) {
+            return `From: ${metadata.funderAddress.slice(
+              0,
+              6
+            )}...${metadata.funderAddress.slice(-4)}`;
+          }
+          return "Received commitment";
+        } else if (action === "pool_executing") {
+          if (metadata.raisedAmount) {
+            const raisedUSDC = (
+              parseInt(metadata.raisedAmount) / 1e6
+            ).toLocaleString();
+            return `Round executed: $${raisedUSDC}`;
+          }
+          return "Round executed";
+        }
+        break;
+
+      case "onboarding":
+        if (metadata.missionId) {
+          const missionNames: Record<string, string> = {
+            link_x: "Linked X account",
+            follow_x: "Followed on X",
+            create_pool: "Created first round",
+            swap_mon_usdc: "Swapped MON/USDC",
+            swap_shmon: "Swapped SHMON",
+            swap_aprmon: "Swapped APRMON",
+            swap_gmon: "Swapped GMON",
+            add_liquidity: "Added liquidity",
+          };
+          return (
+            missionNames[metadata.missionId] || `Mission: ${metadata.missionId}`
+          );
+        }
+        return "Mission completed";
+
+      case "checkin":
+        if (metadata.streak_count) {
+          return `Day ${metadata.streak_count} streak`;
+        }
+        return "Daily check-in";
+
+      default:
+        // Fallback to reason or generic message
+        return metadata.reason || "Activity reward";
+    }
+
+    return metadata.reason || "Activity reward";
   };
 
   if (isLoading) {
@@ -98,16 +180,14 @@ const TransactionsBreakdownCard = () => {
         className="w-full flex items-center justify-between hover:bg-[#FFFFFF05] transition-colors rounded p-2 -m-2"
       >
         <div className="text-left">
-          <div className="text-sm text-gray-400 uppercase tracking-wider">
-            TRANSACTION HISTORY
-          </div>
-          <div className="text-xs text-gray-500 uppercase tracking-wider">
-            ALL POINT TRANSACTIONS
-          </div>
+          <h3 className="font-bold text-white text-base">
+            Transaction History
+          </h3>
+          <div className="text-sm text-gray-500">All point transactions</div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-sm text-gray-400 font-mono">
-            {transactions.length} ENTRIES
+            {transactions.length} entries
           </div>
           <div className="text-gray-400 text-sm">{isExpanded ? "−" : "+"}</div>
         </div>
@@ -146,7 +226,7 @@ const TransactionsBreakdownCard = () => {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-400">
-                            {transaction.metadata?.reason || "Points earned"}
+                            {getTransactionDetail(transaction)}
                           </span>
                           <span
                             className={`text-sm font-mono font-bold ${
