@@ -14,7 +14,8 @@ export const NFT_COLLECTIONS: NFTCollection[] = [
     name: "Stage NFT",
     contractAddress: "0x39fa705f2441c1265cf3c0f677144edc61a53ac4",
     multiplier: 1.1,
-    buyUrl: "https://magiceden.us/collections/stage-nft",
+    buyUrl:
+      "https://magiceden.us/collections/monad-testnet/0x39fa705f2441c1265cf3c0f677144edc61a53ac4",
   },
   {
     id: "jerry",
