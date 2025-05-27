@@ -30,9 +30,50 @@ export default function ReferralSection() {
 
   return (
     <div className="space-y-4">
-      {/* Single Line Header */}
-      <div className="flex items-center justify-between py-3 px-4 bg-[#FFFFFF0A] rounded-lg border border-gray-800">
-        <div className="flex items-center gap-6">
+      {/* Responsive Header */}
+      <div className="py-3 px-4 bg-[#FFFFFF0A] rounded-lg border border-gray-800">
+        {/* Desktop layout: single line */}
+        <div className="hidden md:flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <FiUsers className="text-[#836EF9]" size={16} />
+              <span className="text-white font-medium">Referrals</span>
+            </div>
+
+            <div className="flex items-center gap-4 text-sm text-gray-400">
+              <span>
+                <span className="text-white">{currentCodeCount}</span>/
+                {maxCodes} Generated
+              </span>
+              <span>
+                <span className="text-white">{usedCodes}</span> Used
+              </span>
+              <span>
+                <span className="text-[#FFDD50]">3000</span> pts/referral
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleGenerateCode}
+            disabled={!canGenerateMore || isGenerating}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-all ${
+              canGenerateMore && !isGenerating
+                ? "bg-[#836EF9] hover:bg-[#7C5CE8] text-white"
+                : "bg-gray-700 text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            {isGenerating ? (
+              <LoadingSpinner size={14} color="currentColor" />
+            ) : (
+              <FiPlus size={14} />
+            )}
+            Generate
+          </button>
+        </div>
+
+        {/* Mobile layout: stacked */}
+        <div className="md:hidden space-y-3">
           <div className="flex items-center gap-2">
             <FiUsers className="text-[#836EF9]" size={16} />
             <span className="text-white font-medium">Referrals</span>
@@ -50,24 +91,24 @@ export default function ReferralSection() {
               <span className="text-[#FFDD50]">3000</span> pts/referral
             </span>
           </div>
-        </div>
 
-        <button
-          onClick={handleGenerateCode}
-          disabled={!canGenerateMore || isGenerating}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-all ${
-            canGenerateMore && !isGenerating
-              ? "bg-[#836EF9] hover:bg-[#7C5CE8] text-white"
-              : "bg-gray-700 text-gray-400 cursor-not-allowed"
-          }`}
-        >
-          {isGenerating ? (
-            <LoadingSpinner size={14} color="currentColor" />
-          ) : (
-            <FiPlus size={14} />
-          )}
-          Generate
-        </button>
+          <button
+            onClick={handleGenerateCode}
+            disabled={!canGenerateMore || isGenerating}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-all w-full justify-center ${
+              canGenerateMore && !isGenerating
+                ? "bg-[#836EF9] hover:bg-[#7C5CE8] text-white"
+                : "bg-gray-700 text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            {isGenerating ? (
+              <LoadingSpinner size={14} color="currentColor" />
+            ) : (
+              <FiPlus size={14} />
+            )}
+            Generate
+          </button>
+        </div>
       </div>
 
       {/* Table */}
