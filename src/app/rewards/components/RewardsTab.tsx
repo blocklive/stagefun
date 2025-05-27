@@ -6,6 +6,7 @@ import MyLevel from "@/app/components/MyLevel";
 import PointsBonus from "@/app/components/PointsBonus";
 import MissionsCompleted from "@/app/components/MissionsCompleted";
 import NFTPartnerList from "@/app/components/NFTPartnerList";
+import TransactionsBreakdownCard from "@/app/components/TransactionsBreakdownCard";
 import ReferralSection from "./ReferralSection";
 
 export default function RewardsTab() {
@@ -24,6 +25,9 @@ export default function RewardsTab() {
 
       {/* Referral Section */}
       <ReferralSection />
+
+      {/* Transactions Breakdown */}
+      <TransactionsBreakdownCard />
     </div>
   );
 }
