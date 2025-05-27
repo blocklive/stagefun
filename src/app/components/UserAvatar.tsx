@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { User } from "@/lib/supabase";
 
@@ -45,6 +45,21 @@ export function getInitials(name: string): string {
   return name.charAt(0).toUpperCase();
 }
 
+// Function to sanitize image URL to work around Cloudflare issues
+function sanitizeImageUrl(url: string): string {
+  if (!url) return url;
+
+  // Add cache busting and referrer headers to help with Cloudflare issues
+  const urlObj = new URL(url);
+
+  // Add a timestamp parameter to help with caching issues
+  if (!urlObj.searchParams.has("t")) {
+    urlObj.searchParams.set("t", Date.now().toString());
+  }
+
+  return urlObj.toString();
+}
+
 interface UserAvatarProps {
   user?: User | null;
   name?: string; // Fallback if user is not provided
@@ -60,9 +75,12 @@ export default function UserAvatar({
   size = 40,
   className = "",
 }: UserAvatarProps) {
+  const [imageError, setImageError] = useState(false);
+
   // Determine the avatar URL and display name
   const displayName = user?.name || name || "Anonymous";
-  const imageUrl = user?.avatar_url || avatarUrl;
+  const rawImageUrl = user?.avatar_url || avatarUrl;
+  const imageUrl = rawImageUrl ? sanitizeImageUrl(rawImageUrl) : null;
 
   // Determine background color based on the name
   const backgroundColor = getAvatarColor(displayName);
@@ -73,6 +91,11 @@ export default function UserAvatar({
   // Font size should be proportional to the size of the avatar
   const fontSize = Math.max(Math.floor(size / 2.5), 10);
 
+  // Reset image error when imageUrl changes
+  useEffect(() => {
+    setImageError(false);
+  }, [imageUrl]);
+
   return (
     <div
       className={`relative rounded-full overflow-hidden flex items-center justify-center ${className}`}
@@ -82,7 +105,7 @@ export default function UserAvatar({
         backgroundColor: !imageUrl ? backgroundColor : undefined,
       }}
     >
-      {imageUrl ? (
+      {imageUrl && !imageError ? (
         <Image
           src={imageUrl}
           alt={displayName}
@@ -90,6 +113,16 @@ export default function UserAvatar({
           height={size}
           className="object-cover w-full h-full"
           unoptimized={true}
+          referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
+          onError={(e) => {
+            console.warn("Failed to load avatar image:", imageUrl);
+            setImageError(true);
+          }}
+          onLoad={() => {
+            // Reset error state on successful load
+            setImageError(false);
+          }}
         />
       ) : (
         <span
