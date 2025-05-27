@@ -157,18 +157,6 @@ export default function NFTList({
   isOwnProfile = true,
   onSendClick,
 }: NFTListProps) {
-  // Filter for our specific StageDotFunNFT tokens
-  const stageNFTs = nfts.filter(
-    (nft) =>
-      nft.collectionName.includes("Patron") ||
-      nft.collectionName.includes("Stage") ||
-      nft.contractAddress.toLowerCase() ===
-        process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS?.toLowerCase()
-  );
-
-  // Other NFTs
-  const otherNFTs = nfts.filter((nft) => !stageNFTs.includes(nft));
-
   // Sort all NFTs alphabetically by name
   const sortedNFTs = [...nfts].sort((a, b) => {
     // Sort alphabetically by name

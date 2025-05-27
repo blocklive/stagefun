@@ -6,7 +6,7 @@ import PoolListSkeleton from "./PoolListSkeleton";
 import NFTSkeleton from "./NFTSkeleton";
 
 // Define the tab types for proper typing
-type TabType = "assets" | "hosted" | "funded" | "passes";
+type TabType = "assets" | "nfts" | "passes" | "hosted" | "funded";
 
 export default function ProfileSkeleton() {
   // Use useState to properly handle the active tab type
@@ -56,10 +56,11 @@ export default function ProfileSkeleton() {
       <div className="mt-4">
         <div className="flex border-b border-gray-800">
           {[
-            { id: "assets", label: "Assets" },
+            { id: "assets", label: "Tokens" },
+            { id: "nfts", label: "NFTs" },
+            { id: "passes", label: "Passes" },
             { id: "hosted", label: "Hosted" },
             { id: "funded", label: "Committed" },
-            { id: "passes", label: "Passes" },
           ].map((tab, idx) => (
             <div key={idx} className="py-2 px-4">
               <div
@@ -74,9 +75,10 @@ export default function ProfileSkeleton() {
         {/* Tab Content Skeleton */}
         <div className="mt-6 pb-32">
           {activeTab === "assets" && <AssetsSkeleton />}
+          {activeTab === "nfts" && <NFTSkeleton />}
+          {activeTab === "passes" && <NFTSkeleton />}
           {activeTab === "hosted" && <PoolListSkeleton />}
           {activeTab === "funded" && <PoolListSkeleton />}
-          {activeTab === "passes" && <NFTSkeleton />}
         </div>
       </div>
     </div>

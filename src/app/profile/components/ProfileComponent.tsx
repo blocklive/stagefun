@@ -70,7 +70,7 @@ export default function ProfileComponent({
   const { dbUser, isLoadingUser, refreshUser } = useSupabase();
   const [viewportHeight, setViewportHeight] = useState("100vh");
   const [activeTab, setActiveTab] = useState<
-    "assets" | "passes" | "hosted" | "funded"
+    "assets" | "nfts" | "passes" | "hosted" | "funded"
   >("assets");
   const { smartWalletAddress } = useSmartWallet();
 
@@ -703,13 +703,16 @@ export default function ProfileComponent({
             <TabComponent
               tabs={[
                 { id: "assets", label: "Tokens" },
-                { id: "passes", label: "NFTs" },
+                { id: "nfts", label: "NFTs" },
+                { id: "passes", label: "Passes" },
                 { id: "hosted", label: "Hosted" },
                 { id: "funded", label: "Committed" },
               ]}
               activeTab={activeTab}
               onTabChange={(tabId) =>
-                setActiveTab(tabId as "assets" | "passes" | "hosted" | "funded")
+                setActiveTab(
+                  tabId as "assets" | "nfts" | "passes" | "hosted" | "funded"
+                )
               }
             />
 
@@ -723,8 +726,16 @@ export default function ProfileComponent({
                   chainId="monad-test-v2"
                   isOwnProfile={Boolean(isOwnProfile)}
                 />
+              ) : activeTab === "nfts" ? (
+                // Regular NFTs tab content
+                <NFTsContent
+                  walletAddress={user.smart_wallet_address || null}
+                  isOwnProfile={Boolean(isOwnProfile)}
+                  displayName={displayName}
+                  onSendNFTClick={handleSendNFTClick}
+                />
               ) : activeTab === "passes" ? (
-                // NFTs tab content
+                // Passes (StageDotFun NFTs) tab content
                 <PassesContent
                   walletAddress={user.smart_wallet_address || null}
                   isOwnProfile={Boolean(isOwnProfile)}
@@ -816,7 +827,71 @@ export default function ProfileComponent({
   );
 }
 
-// Passes tab content component
+// Helper function to identify StageDotFun NFTs (Passes)
+function isStageDotFunNFT(nft: any): boolean {
+  // Check if collection name includes "Patron" (our naming convention)
+  if (nft.collectionName && nft.collectionName.includes("Patron")) {
+    return true;
+  }
+
+  // Check if collection name includes "Stage"
+  if (nft.collectionName && nft.collectionName.includes("Stage")) {
+    return true;
+  }
+
+  // Additional check: if the NFT name suggests it's a tier/pass
+  if (nft.name && (nft.name.includes("Tier") || nft.name.includes("Pass"))) {
+    return true;
+  }
+
+  return false;
+}
+
+// Regular NFTs tab content component
+function NFTsContent({
+  walletAddress,
+  isOwnProfile,
+  displayName,
+  onSendNFTClick,
+}: {
+  walletAddress: string | null;
+  isOwnProfile: boolean;
+  displayName: string;
+  onSendNFTClick?: (nft: any, e: React.MouseEvent) => void;
+}) {
+  // Only fetch NFTs from Monad testnet where our contract is deployed
+  const { nfts, isLoading, error } = useWalletNFTs(
+    walletAddress,
+    "monad-test-v2"
+  );
+
+  // Filter out StageDotFun NFTs to show only regular NFTs
+  const regularNFTs = nfts.filter((nft) => !isStageDotFunNFT(nft));
+
+  const emptyMessage = isOwnProfile
+    ? "You don't have any NFTs yet."
+    : `${displayName} doesn't have any NFTs yet.`;
+
+  // Show skeleton loader when loading
+  if (isLoading) {
+    return <NFTSkeleton />;
+  }
+
+  return (
+    <div className="mt-6">
+      <NFTList
+        nfts={regularNFTs}
+        isLoading={false} // We're handling loading state with the skeleton above
+        error={error}
+        emptyMessage={emptyMessage}
+        isOwnProfile={isOwnProfile}
+        onSendClick={onSendNFTClick}
+      />
+    </div>
+  );
+}
+
+// Passes tab content component (StageDotFun NFTs only)
 function PassesContent({
   walletAddress,
   isOwnProfile,
@@ -834,9 +909,12 @@ function PassesContent({
     "monad-test-v2"
   );
 
+  // Filter for StageDotFun NFTs only
+  const stageNFTs = nfts.filter((nft) => isStageDotFunNFT(nft));
+
   const emptyMessage = isOwnProfile
-    ? "You don't have any NFTs yet."
-    : `${displayName} doesn't have any NFTs yet.`;
+    ? "You don't have any passes yet."
+    : `${displayName} doesn't have any passes yet.`;
 
   // Show skeleton loader when loading
   if (isLoading) {
@@ -846,7 +924,7 @@ function PassesContent({
   return (
     <div className="mt-6">
       <NFTList
-        nfts={nfts}
+        nfts={stageNFTs}
         isLoading={false} // We're handling loading state with the skeleton above
         error={error}
         emptyMessage={emptyMessage}
