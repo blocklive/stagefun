@@ -154,6 +154,16 @@ export const CORE_TOKENS: Token[] = [
     hasLiquidity: true,
     isVerified: true,
   },
+  {
+    address: CONTRACT_ADDRESSES.monadTestnet.jerry,
+    symbol: "JERRY",
+    name: "JERRY",
+    decimals: 18,
+    logoURI: "/icons/jerry-logo.png",
+    source: "core",
+    hasLiquidity: true,
+    isVerified: true,
+  },
 ];
 
 // Export helper function to get the swappable subset of core tokens

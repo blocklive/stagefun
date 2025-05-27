@@ -27,6 +27,7 @@ export const CONTRACT_ADDRESSES = {
     usdt: "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D", // USDT token
     wbtc: "0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d", // WBTC token
     fmon: "0x89e4a70de5F2Ae468B18B6B6300B249387f9Adf0", // FMON token
+    jerry: "0xda054a96254776346386060c480b42a10c870cd2",
   },
 } as const;
 
