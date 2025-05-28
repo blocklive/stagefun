@@ -7,39 +7,7 @@ import { ContractInteractionProvider } from "../contexts/ContractInteractionCont
 import SmartWalletInitializer from "../components/SmartWalletInitializer";
 import PrivyAuthInitializer from "../components/PrivyAuthInitializer";
 
-// Define the chain configuration once to ensure consistency
-const MONAD_TESTNET = {
-  id: 10143,
-  name: "Monad Testnet",
-  network: "monad-testnet",
-  rpcUrls: {
-    default: {
-      http: [
-        process.env.NEXT_PUBLIC_RPC_URL || "https://testnet-rpc.monad.xyz",
-      ],
-    },
-    public: {
-      http: [
-        process.env.NEXT_PUBLIC_RPC_URL || "https://testnet-rpc.monad.xyz",
-      ],
-    },
-  },
-  nativeCurrency: {
-    name: "MON",
-    symbol: "MON",
-    decimals: 18,
-  },
-  blockExplorers: {
-    default: {
-      name: "Monad Explorer",
-      url: "https://testnet.monadexplorer.com",
-    },
-  },
-  testnet: true,
-  chainId: 10143,
-  networkId: 10143,
-  chainName: "Monad Testnet",
-};
+import { monadTestnet } from "viem/chains";
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -52,8 +20,8 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
           accentColor: "#8364FF",
           logo: "/logo.svg",
         },
-        defaultChain: MONAD_TESTNET,
-        supportedChains: [MONAD_TESTNET],
+        defaultChain: monadTestnet,
+        supportedChains: [monadTestnet],
         externalWallets: {
           walletConnect: {
             enabled: false,
