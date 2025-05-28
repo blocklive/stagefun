@@ -11,6 +11,10 @@ export const formatTokenAmount = (
   quantity: number,
   decimals: number = 4
 ): string => {
+  // Safely convert decimals to number if it's a BigInt
+  const safeDecimals =
+    typeof decimals === "bigint" ? Number(decimals) : decimals;
+
   // For very small numbers, use scientific notation below a certain threshold
   if (quantity > 0 && quantity < 0.000001) {
     return quantity.toExponential(2); // Reduce from 6 to 2 significant digits for readability
@@ -18,7 +22,7 @@ export const formatTokenAmount = (
 
   // Otherwise use regular formatting with appropriate decimals
   // Cap at 6 decimals max as requested, or fewer based on token decimals
-  const maxDecimals = Math.min(decimals, 6);
+  const maxDecimals = Math.min(safeDecimals, 6);
 
   // For larger numbers (>=0.01), use fewer decimal places for better readability
   const effectiveDecimals =
