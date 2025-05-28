@@ -173,12 +173,24 @@ export async function GET(request: NextRequest) {
  */
 function formatNFT(nft: NFT): ProcessedNFT {
   // Extract tokenId from the correct location in the Alchemy response structure
-  const tokenId = nft.id?.tokenId
-    ? // Convert from hex to decimal if it's in hex format (0x...)
-      nft.id.tokenId.startsWith("0x")
-      ? parseInt(nft.id.tokenId, 16).toString()
-      : nft.id.tokenId
-    : undefined;
+  let tokenId: string | undefined;
+
+  // Try multiple sources for tokenId
+  if (nft.id?.tokenId) {
+    const rawTokenId = nft.id.tokenId;
+
+    // Convert from hex to decimal if it's in hex format (0x...)
+    if (rawTokenId.startsWith("0x")) {
+      tokenId = parseInt(rawTokenId, 16).toString();
+    } else {
+      tokenId = rawTokenId;
+    }
+  } else if (nft.tokenId) {
+    // Fallback to direct tokenId field
+    tokenId = nft.tokenId;
+  } else {
+    tokenId = undefined;
+  }
 
   const imageUrl = getImageUrl(nft);
 
@@ -191,7 +203,12 @@ function formatNFT(nft: NFT): ProcessedNFT {
     collectionName:
       nft.contractMetadata?.name || nft.contract.name || "Unknown Collection",
     contractSymbol: nft.contractMetadata?.symbol || nft.contract.symbol || "",
-    tokenType: nft.tokenType || nft.contract.tokenType || "ERC721",
+    tokenType:
+      nft.id?.tokenMetadata?.tokenType ||
+      nft.contractMetadata?.tokenType ||
+      nft.tokenType ||
+      nft.contract.tokenType ||
+      "ERC721",
     timeLastUpdated: nft.timeLastUpdated,
     metadata: nft.metadata,
   };
