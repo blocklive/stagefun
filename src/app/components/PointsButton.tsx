@@ -77,15 +77,12 @@ const PointsButton: React.FC<PointsButtonProps> = ({ onClick }) => {
       )}
 
       {/* Red dot for incomplete missions or daily check-in */}
-      {!isLoading &&
-        !missionsLoading &&
-        showRedDot &&
-        completedCount < totalCount && (
-          <div
-            className="absolute rounded-full bg-[#FFDD50]"
-            style={{ width: "10px", height: "10px", right: "-2px", top: "3px" }}
-          />
-        )}
+      {!isLoading && !missionsLoading && showRedDot && (
+        <div
+          className="absolute rounded-full bg-[#FFDD50]"
+          style={{ width: "10px", height: "10px", right: "-2px", top: "3px" }}
+        />
+      )}
     </div>
   );
 };

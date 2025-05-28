@@ -39,6 +39,15 @@ export default function OnboardingPage() {
     refreshMissionStatus,
   } = useOnboardingMissions();
 
+  // Calculate mission counts excluding daily check-in (matches MissionsTab logic)
+  const onboardingMissions = !isLoading
+    ? missions.filter((m) => m.id !== "daily_checkin")
+    : [];
+  const onboardingCompletedCount = onboardingMissions.filter(
+    (m) => m.completed
+  ).length;
+  const onboardingTotalCount = onboardingMissions.length;
+
   const {
     points,
     canClaim,
@@ -123,7 +132,8 @@ export default function OnboardingPage() {
               {
                 id: "missions",
                 label: "Missions",
-                hasNotification: !isLoading && completedCount < totalCount,
+                hasNotification:
+                  !isLoading && onboardingCompletedCount < onboardingTotalCount,
               },
               { id: "leaderboard", label: "Leaderboard" },
             ]}
