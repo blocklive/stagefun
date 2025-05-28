@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
   console.log(`Fetching NFTs for address: ${address} on chain: ${chainId}`);
 
   try {
-    let allNFTs: any[] = [];
+    const allNFTs: any[] = [];
     let pageKey: string | undefined;
     let pageCount = 0;
     const maxPages = 10; // Safety limit
