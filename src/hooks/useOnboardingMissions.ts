@@ -419,6 +419,7 @@ export const useOnboardingMissions = () => {
         missionId === "swap_shmon" ||
         missionId === "swap_aprmon" ||
         missionId === "swap_gmon" ||
+        missionId === "swap_jerry" ||
         missionId === "add_liquidity"
       ) {
         showToast.loading(`Verifying ${missionId.replace("_", " ")}...`);

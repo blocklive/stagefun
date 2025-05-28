@@ -11,6 +11,7 @@ const MISSION_TOKEN_MAP: Record<string, string> = {
   swap_shmon: CONTRACT_ADDRESSES.monadTestnet.shmon,
   swap_aprmon: CONTRACT_ADDRESSES.monadTestnet.aprmon,
   swap_gmon: CONTRACT_ADDRESSES.monadTestnet.gmon,
+  swap_jerry: CONTRACT_ADDRESSES.monadTestnet.jerry,
 };
 
 // Mission points (matching what's in award-mission route)
@@ -19,6 +20,7 @@ const MISSION_POINTS: Record<string, number> = {
   swap_shmon: 1000,
   swap_aprmon: 1000,
   swap_gmon: 1000,
+  swap_jerry: 1000,
   add_liquidity: 2000,
 };
 

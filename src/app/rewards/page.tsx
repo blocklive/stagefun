@@ -16,6 +16,40 @@ import TabComponent from "@/app/profile/components/TabComponent";
 import RewardsTab from "./components/RewardsTab";
 import MissionsTab from "./components/MissionsTab";
 import LeaderboardTab from "./components/LeaderboardTab";
+import { CONTRACT_ADDRESSES } from "@/lib/contracts/addresses";
+import AppHeader from "../components/AppHeader";
+import SideNavbar from "../components/SideNavbar";
+import BottomNavbar from "../components/BottomNavbar";
+
+// Helper function to generate swap URLs with specific token parameters
+const getSwapUrlForMission = (missionId: string): string => {
+  const baseUrl = "/swap";
+
+  switch (missionId) {
+    case "swap_mon_usdc":
+      // MON to USDC swap
+      return `${baseUrl}?inputToken=NATIVE&outputToken=${CONTRACT_ADDRESSES.monadTestnet.usdc}`;
+
+    case "swap_shmon":
+      // shMON to USDC swap (most common pairing)
+      return `${baseUrl}?inputToken=${CONTRACT_ADDRESSES.monadTestnet.shmon}&outputToken=${CONTRACT_ADDRESSES.monadTestnet.usdc}`;
+
+    case "swap_aprmon":
+      // aprMON to USDC swap (most common pairing)
+      return `${baseUrl}?inputToken=${CONTRACT_ADDRESSES.monadTestnet.aprmon}&outputToken=${CONTRACT_ADDRESSES.monadTestnet.usdc}`;
+
+    case "swap_gmon":
+      // gMON to USDC swap (most common pairing)
+      return `${baseUrl}?inputToken=${CONTRACT_ADDRESSES.monadTestnet.gmon}&outputToken=${CONTRACT_ADDRESSES.monadTestnet.usdc}`;
+
+    case "swap_jerry":
+      // JERRY to USDC swap (most common pairing)
+      return `${baseUrl}?inputToken=${CONTRACT_ADDRESSES.monadTestnet.jerry}&outputToken=${CONTRACT_ADDRESSES.monadTestnet.usdc}`;
+
+    default:
+      return baseUrl;
+  }
+};
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -70,6 +104,13 @@ export default function OnboardingPage() {
 
   // Handle mission actions
   const handleMissionAction = async (mission: Mission) => {
+    // Special handling for swap missions - use specific token parameters
+    if (mission.id.startsWith("swap_")) {
+      const swapUrl = getSwapUrlForMission(mission.id);
+      router.push(swapUrl);
+      return;
+    }
+
     // If mission has an actionUrl, navigate to that URL instead of completing the mission
     if (mission.actionUrl) {
       router.push(mission.actionUrl);

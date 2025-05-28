@@ -44,6 +44,7 @@ export default function MissionsTab({ onMissionAction }: MissionsTabProps) {
     "swap_shmon",
     "swap_aprmon",
     "swap_gmon",
+    "swap_jerry",
     "add_liquidity",
   ];
 

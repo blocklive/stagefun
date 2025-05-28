@@ -12,6 +12,7 @@ const MISSION_POINTS: Record<string, number> = {
   swap_shmon: 1000,
   swap_aprmon: 1000,
   swap_gmon: 1000,
+  swap_jerry: 1000,
   add_liquidity: 2000,
 };
 

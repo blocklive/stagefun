@@ -76,6 +76,15 @@ export const onboardingMissions: Mission[] = [
     category: "swap",
   },
   {
+    id: "swap_jerry",
+    title: "Swap JERRY",
+    description: "Swap JERRY",
+    points: 1000,
+    actionUrl: "/swap",
+    actionLabel: "Swap",
+    category: "swap",
+  },
+  {
     id: "add_liquidity",
     title: "Add liquidity to any pool",
     description: "Add liquidity to any pool",

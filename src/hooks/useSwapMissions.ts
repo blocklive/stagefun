@@ -193,6 +193,7 @@ export function useSwapMissions({
       const aprmonAddress =
         CONTRACT_ADDRESSES.monadTestnet.aprmon.toLowerCase();
       const gmonAddress = CONTRACT_ADDRESSES.monadTestnet.gmon.toLowerCase();
+      const jerryAddress = CONTRACT_ADDRESSES.monadTestnet.jerry.toLowerCase();
 
       // Track mission verification
       let verifiedAnyMission = false;
@@ -238,6 +239,16 @@ export function useSwapMissions({
       ) {
         console.log("Detected gMON swap, verifying mission...");
         const result = await verifySwapMission("swap_gmon", txHash);
+        verifiedAnyMission = verifiedAnyMission || result;
+      }
+
+      // Check for JERRY swap
+      if (
+        normalizedInputAddress === jerryAddress ||
+        normalizedOutputAddress === jerryAddress
+      ) {
+        console.log("Detected JERRY swap, verifying mission...");
+        const result = await verifySwapMission("swap_jerry", txHash);
         verifiedAnyMission = verifiedAnyMission || result;
       }
 
