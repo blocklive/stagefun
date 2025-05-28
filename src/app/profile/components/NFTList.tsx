@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { NFT } from "../../../hooks/useWalletNFTs";
 import { FaExternalLinkAlt, FaPaperPlane } from "react-icons/fa";
 import Tooltip from "../../../components/Tooltip";
+import { useInView } from "react-intersection-observer";
 
 interface NFTListProps {
   nfts: NFT[];
@@ -13,7 +14,11 @@ interface NFTListProps {
   emptyMessage?: string;
   isOwnProfile?: boolean;
   onSendClick?: (nft: NFT, e: React.MouseEvent) => void;
+  isPassNFTList?: boolean;
 }
+
+// Constants for pagination
+const NFTS_PER_PAGE = 40;
 
 // Helper function to get Magic Eden URL for an NFT
 const getMagicEdenUrl = (nft: NFT) => {
@@ -29,7 +34,18 @@ const getMagicEdenUrl = (nft: NFT) => {
   return "https://magiceden.us/collections/monad-testnet";
 };
 
-// Helper to get the tier name from NFT metadata or name
+// Helper to get the display name for an NFT
+const getDisplayName = (nft: NFT, isPassNFT: boolean = false) => {
+  if (isPassNFT) {
+    // For pass NFTs, use the tier logic
+    return getTierName(nft);
+  }
+
+  // For regular NFTs, just use the actual name
+  return nft.name || "Unnamed NFT";
+};
+
+// Helper to get the tier name from NFT metadata or name (for passes only)
 const getTierName = (nft: NFT) => {
   // First try to find tier in metadata
   if (nft.metadata) {
@@ -64,7 +80,7 @@ const getTierName = (nft: NFT) => {
     return "Patron Pass";
   }
 
-  // Default
+  // Default for passes
   return "Pass";
 };
 
@@ -77,20 +93,20 @@ const NFTCard: React.FC<{
   nft: NFT;
   isOwnProfile?: boolean;
   onSendClick?: (nft: NFT, e: React.MouseEvent) => void;
-}> = ({ nft, isOwnProfile, onSendClick }) => {
+  isPassNFT?: boolean;
+}> = ({ nft, isOwnProfile, onSendClick, isPassNFT = false }) => {
   const [imageError, setImageError] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
   // Get Magic Eden link for this NFT
   const magicEdenUrl = getMagicEdenUrl(nft);
 
-  // Get tier name
-  const tierName = getTierName(nft);
+  // Get display name based on NFT type
+  const displayName = getDisplayName(nft, isPassNFT);
 
   // Check if NFT might have viewing issues
   const mightHaveViewingIssues = !nft.tokenId;
 
-  // Alternative implementation without Image component for better compatibility
   return (
     <div className="bg-[#1E1F23] rounded-xl overflow-hidden flex flex-row items-center mb-3">
       <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 m-3">
@@ -108,7 +124,11 @@ const NFTCard: React.FC<{
       </div>
       <div className="p-4 flex-1">
         <p className="text-gray-400 text-sm">{nft.collectionName}</p>
-        <h3 className="text-white font-medium truncate">{tierName}</h3>
+        <h3 className="text-white font-medium truncate">{displayName}</h3>
+        {/* Show token ID for regular NFTs if available */}
+        {!isPassNFT && nft.tokenId && (
+          <p className="text-gray-500 text-xs">#{nft.tokenId}</p>
+        )}
       </div>
       <div className="relative mr-4 flex space-x-2">
         {/* View on Magic Eden Button */}
@@ -156,12 +176,45 @@ export default function NFTList({
   emptyMessage = "No NFTs found in this wallet.",
   isOwnProfile = true,
   onSendClick,
+  isPassNFTList = false,
 }: NFTListProps) {
-  // Sort all NFTs alphabetically by name
-  const sortedNFTs = [...nfts].sort((a, b) => {
-    // Sort alphabetically by name
-    return a.name.localeCompare(b.name);
+  // State for pagination
+  const [displayedCount, setDisplayedCount] = useState(NFTS_PER_PAGE);
+
+  // Set up observer for infinite scroll
+  const { ref, inView } = useInView({
+    threshold: 0,
   });
+
+  // Sort all NFTs alphabetically by name (memoized for performance)
+  const sortedNFTs = useMemo(() => {
+    return [...nfts].sort((a, b) => {
+      // Sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+  }, [nfts]);
+
+  // Get the NFTs to display (limited by displayedCount)
+  const displayedNFTs = useMemo(() => {
+    return sortedNFTs.slice(0, displayedCount);
+  }, [sortedNFTs, displayedCount]);
+
+  // Check if there are more NFTs to load
+  const hasMore = displayedCount < sortedNFTs.length;
+
+  // Load more NFTs when the bottom is reached
+  useEffect(() => {
+    if (inView && hasMore && !isLoading) {
+      setDisplayedCount((prev) =>
+        Math.min(prev + NFTS_PER_PAGE, sortedNFTs.length)
+      );
+    }
+  }, [inView, hasMore, isLoading, sortedNFTs.length]);
+
+  // Reset displayed count when NFTs change (e.g., when switching between tabs)
+  useEffect(() => {
+    setDisplayedCount(NFTS_PER_PAGE);
+  }, [nfts.length]);
 
   if (error) {
     const errorMessage = error?.message?.includes("is not enabled")
@@ -179,7 +232,7 @@ export default function NFTList({
     <div className="mt-6">
       {sortedNFTs.length > 0 ? (
         <div className="space-y-2">
-          {sortedNFTs.map((nft, index) => (
+          {displayedNFTs.map((nft, index) => (
             <NFTCard
               key={
                 nft.tokenId
@@ -189,8 +242,23 @@ export default function NFTList({
               nft={nft}
               isOwnProfile={isOwnProfile}
               onSendClick={onSendClick}
+              isPassNFT={isPassNFTList}
             />
           ))}
+
+          {/* Infinite scroll trigger */}
+          {hasMore && (
+            <div ref={ref} className="flex justify-center py-4">
+              <div className="text-gray-400 text-sm">Loading more NFTs...</div>
+            </div>
+          )}
+
+          {/* Show count indicator */}
+          {sortedNFTs.length > NFTS_PER_PAGE && (
+            <div className="text-center py-4 text-gray-400 text-sm">
+              Showing {displayedNFTs.length} of {sortedNFTs.length} NFTs
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-center py-8 text-gray-400">{emptyMessage}</div>

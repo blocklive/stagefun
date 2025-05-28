@@ -426,7 +426,6 @@ export default function ProfileComponent({
   const handleSendNFTClick = (nft: any, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent click event from bubbling up
 
-    console.log("Send NFT clicked:", nft);
     setSelectedNFT(nft);
     setShowSendNFTModal(true);
   };
@@ -830,19 +829,62 @@ export default function ProfileComponent({
 // Helper function to identify StageDotFun NFTs (Passes)
 function isStageDotFunNFT(nft: any): boolean {
   // Check if collection name includes "Patron" (our naming convention)
-  if (nft.collectionName && nft.collectionName.includes("Patron")) {
+  if (
+    nft.collectionName &&
+    nft.collectionName.toLowerCase().includes("patron")
+  ) {
     return true;
   }
 
   // Check if collection name includes "Stage"
-  if (nft.collectionName && nft.collectionName.includes("Stage")) {
+  if (
+    nft.collectionName &&
+    nft.collectionName.toLowerCase().includes("stage")
+  ) {
     return true;
   }
 
   // Additional check: if the NFT name suggests it's a tier/pass
-  if (nft.name && (nft.name.includes("Tier") || nft.name.includes("Pass"))) {
+  if (
+    nft.name &&
+    (nft.name.toLowerCase().includes("tier") ||
+      nft.name.toLowerCase().includes("pass"))
+  ) {
     return true;
   }
+
+  // Check metadata for tier/pass indicators
+  if (nft.metadata) {
+    // Check if metadata has tier information
+    if (nft.metadata.tier || nft.metadata.level || nft.metadata.rank) {
+      return true;
+    }
+
+    // Check attributes for tier/pass indicators
+    if (nft.metadata.attributes && Array.isArray(nft.metadata.attributes)) {
+      const hasPassAttribute = nft.metadata.attributes.some((attr: any) => {
+        const traitType = attr.trait_type?.toLowerCase() || "";
+        const value = attr.value?.toString().toLowerCase() || "";
+        return (
+          traitType.includes("tier") ||
+          traitType.includes("level") ||
+          traitType.includes("rank") ||
+          traitType.includes("pass") ||
+          value.includes("tier") ||
+          value.includes("pass")
+        );
+      });
+      if (hasPassAttribute) {
+        return true;
+      }
+    }
+  }
+
+  // Check if it's from a known contract address (if you have specific contract addresses for passes)
+  // You can add specific contract addresses here if needed
+  // if (nft.contractAddress && KNOWN_PASS_CONTRACT_ADDRESSES.includes(nft.contractAddress.toLowerCase())) {
+  //   return true;
+  // }
 
   return false;
 }
@@ -860,7 +902,7 @@ function NFTsContent({
   onSendNFTClick?: (nft: any, e: React.MouseEvent) => void;
 }) {
   // Only fetch NFTs from Monad testnet where our contract is deployed
-  const { nfts, isLoading, error } = useWalletNFTs(
+  const { nfts, isLoading, error, refresh } = useWalletNFTs(
     walletAddress,
     "monad-test-v2"
   );
@@ -886,6 +928,7 @@ function NFTsContent({
         emptyMessage={emptyMessage}
         isOwnProfile={isOwnProfile}
         onSendClick={onSendNFTClick}
+        isPassNFTList={false} // This is for regular NFTs
       />
     </div>
   );
@@ -904,7 +947,7 @@ function PassesContent({
   onSendNFTClick?: (nft: any, e: React.MouseEvent) => void;
 }) {
   // Only fetch NFTs from Monad testnet where our contract is deployed
-  const { nfts, isLoading, error } = useWalletNFTs(
+  const { nfts, isLoading, error, refresh } = useWalletNFTs(
     walletAddress,
     "monad-test-v2"
   );
@@ -930,6 +973,7 @@ function PassesContent({
         emptyMessage={emptyMessage}
         isOwnProfile={isOwnProfile}
         onSendClick={onSendNFTClick}
+        isPassNFTList={true} // This is for passes
       />
     </div>
   );

@@ -39,6 +39,91 @@ const nextConfig = {
         hostname: "challenges.cloudflare.com",
         pathname: "**",
       },
+      // IPFS Gateways
+      {
+        protocol: "https",
+        hostname: "ipfs.io",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "gateway.ipfs.io",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "cloudflare-ipfs.com",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "gateway.pinata.cloud",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.mypinata.cloud",
+        pathname: "**",
+      },
+      // Alchemy NFT CDN
+      {
+        protocol: "https",
+        hostname: "nft-cdn.alchemy.com",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: "**",
+      },
+      // Common NFT image hosts
+      {
+        protocol: "https",
+        hostname: "*.arweave.net",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "arweave.net",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.opensea.io",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "opensea.io",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.magiceden.io",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "magiceden.io",
+        pathname: "**",
+      },
+      // Generic patterns for NFT metadata
+      {
+        protocol: "https",
+        hostname: "*.amazonaws.com",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.googleusercontent.com",
+        pathname: "**",
+      },
+      // Allow any HTTPS domain for NFT images (be careful with this in production)
+      {
+        protocol: "https",
+        hostname: "**",
+        pathname: "**",
+      },
     ],
   },
   typescript: {
@@ -69,7 +154,7 @@ const nextConfig = {
               script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io https://privy.io https://*.privy.io https://challenges.cloudflare.com https://telegram.org;
               script-src-elem 'self' 'unsafe-inline' https://auth.privy.io https://privy.io https://*.privy.io https://challenges.cloudflare.com https://telegram.org;
               style-src 'self' 'unsafe-inline' https://privy.io https://*.privy.io;
-              img-src 'self' data: blob: https://privy.io https://*.privy.io https://*.supabase.co https://explorer-api.walletconnect.com https://*.twimg.com https://*.cloudflare.com https://challenges.cloudflare.com;
+              img-src 'self' data: blob: https: http:;
               font-src 'self' data:;
               object-src 'none';
               base-uri 'self';

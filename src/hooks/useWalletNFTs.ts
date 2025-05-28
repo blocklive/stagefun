@@ -20,6 +20,11 @@ export interface NFT {
 interface NFTResponse {
   nfts: NFT[];
   totalCount: number;
+  metadata?: {
+    totalNFTs: number;
+    pagesRetrieved: number;
+    hasMorePages: boolean;
+  };
 }
 
 // Constants for retry mechanism
@@ -74,8 +79,8 @@ export function useWalletNFTs(
     fetcher,
     {
       revalidateOnFocus: false,
-      refreshInterval: 3600000, // Refresh every hour (NFTs don't change as frequently)
-      dedupingInterval: 60000, // Dedupe calls within 1 minute
+      refreshInterval: 300000, // Refresh every 5 minutes instead of 1 hour (NFTs can change more frequently than expected)
+      dedupingInterval: 30000, // Reduce deduping to 30 seconds instead of 1 minute
       errorRetryCount: MAX_RETRIES, // Max number of retries
       // Let SWR handle the retry timing with its built-in exponential backoff
       onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
@@ -105,6 +110,7 @@ export function useWalletNFTs(
   return {
     nfts: data?.nfts || [],
     totalCount: data?.totalCount || 0,
+    metadata: data?.metadata,
     isLoading,
     error,
     refresh: mutate,

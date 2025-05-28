@@ -90,6 +90,77 @@ export function useSendNFT() {
         isERC1155,
       });
 
+      // First, let's verify ownership before attempting transfer
+      console.log("Verifying NFT ownership...");
+      try {
+        // Create a provider for reading contract data
+        const provider = new ethers.JsonRpcProvider(
+          process.env.NEXT_PUBLIC_RPC_URL
+        );
+
+        if (isERC1155) {
+          // For ERC1155, check balance
+          const contract = new ethers.Contract(
+            contractAddress,
+            ERC1155_INTERFACE,
+            provider
+          );
+          const balance = await contract.balanceOf(
+            smartWalletAddress,
+            nft.tokenId
+          );
+
+          console.log(
+            `ERC1155 balance for token ${nft.tokenId}:`,
+            balance.toString()
+          );
+
+          if (!balance || balance.toString() === "0") {
+            throw new Error(
+              `Smart wallet does not own this ERC1155 token (balance: ${balance.toString()})`
+            );
+          }
+        } else {
+          // For ERC721, check owner
+          const contract = new ethers.Contract(
+            contractAddress,
+            ERC721_INTERFACE,
+            provider
+          );
+          const owner = await contract.ownerOf(nft.tokenId);
+
+          console.log(`ERC721 owner for token ${nft.tokenId}:`, owner);
+          console.log(`Smart wallet address:`, smartWalletAddress);
+
+          if (
+            !owner ||
+            owner.toLowerCase() !== smartWalletAddress.toLowerCase()
+          ) {
+            throw new Error(
+              `Smart wallet does not own this ERC721 token. Owner: ${owner}, Smart Wallet: ${smartWalletAddress}`
+            );
+          }
+        }
+
+        console.log("✅ Ownership verified successfully");
+      } catch (ownershipError) {
+        console.error("❌ Ownership verification failed:", ownershipError);
+
+        // Check if this is a "token doesn't exist" error
+        if (
+          ownershipError instanceof Error &&
+          (ownershipError.message.includes("execution reverted") ||
+            ownershipError.message.includes("require(false)") ||
+            ownershipError.message.includes("CALL_EXCEPTION"))
+        ) {
+          throw new Error(
+            `This NFT (Token ID: ${nft.tokenId}) does not exist or has been burned. It may be showing in your wallet due to outdated data.`
+          );
+        }
+
+        throw ownershipError;
+      }
+
       let result;
 
       if (isERC1155) {
