@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { usePointsBreakdown } from "../../hooks/usePointsBreakdown";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { colors } from "@/lib/theme";
 
 const PointsBreakdownCard = () => {
   const { breakdown, isLoading, error } = usePointsBreakdown();
@@ -65,7 +67,10 @@ const PointsBreakdownCard = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-xl font-bold text-[#FFDD50] font-mono">
+          <div
+            className="text-xl font-bold font-mono"
+            style={{ color: colors.purple.DEFAULT }}
+          >
             {formatPoints(breakdown.totalPoints)}
           </div>
           <div className="text-gray-400 text-sm">{isExpanded ? "−" : "+"}</div>
@@ -81,7 +86,10 @@ const PointsBreakdownCard = () => {
               <div className="text-xs text-gray-400 uppercase tracking-wider">
                 TOTAL
               </div>
-              <div className="text-xl font-bold text-[#FFDD50] font-mono">
+              <div
+                className="text-xl font-bold font-mono"
+                style={{ color: colors.purple.DEFAULT }}
+              >
                 {formatPoints(breakdown.totalPoints)}
               </div>
             </div>

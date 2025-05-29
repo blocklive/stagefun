@@ -145,7 +145,10 @@ const NFTPartnerList = () => {
 
         <div className="flex items-center gap-2">
           {activeCollection && (
-            <span className="text-[#FFDD50] text-sm font-medium">
+            <span
+              style={{ color: colors.purple.DEFAULT }}
+              className="text-sm font-medium"
+            >
               {formatMultiplier(activeCollection.multiplier)}
             </span>
           )}
@@ -179,7 +182,10 @@ const NFTPartnerList = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-[#FFDD50] text-sm font-medium">
+                <span
+                  style={{ color: colors.purple.DEFAULT }}
+                  className="text-sm font-medium"
+                >
                   {formatMultiplier(collection.multiplier)}
                 </span>
               </div>
@@ -205,7 +211,10 @@ const NFTPartnerList = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-[#FFDD50] text-sm font-medium">
+                <span
+                  style={{ color: colors.purple.DEFAULT }}
+                  className="text-sm font-medium"
+                >
                   {formatMultiplier(collection.multiplier)}
                 </span>
 

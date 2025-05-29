@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { usePoints } from "../../hooks/usePoints";
 import { usePointsBreakdown } from "../../hooks/usePointsBreakdown";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { colors } from "@/lib/theme";
 
 const MyPoints = () => {
   const { points, isLoading } = usePoints();
@@ -27,9 +28,12 @@ const MyPoints = () => {
         </div>
         <div className="text-right">
           {isLoading ? (
-            <LoadingSpinner color="#FFDD50" size={20} />
+            <LoadingSpinner color={colors.purple.DEFAULT} size={20} />
           ) : (
-            <div className="text-2xl font-bold text-[#FFDD50] font-mono">
+            <div
+              className="text-2xl font-bold font-mono"
+              style={{ color: colors.purple.DEFAULT }}
+            >
               {formatPoints(points)}
             </div>
           )}
@@ -45,7 +49,10 @@ const MyPoints = () => {
             className="w-full flex items-center justify-between text-xs text-gray-400 hover:text-gray-300 transition-colors uppercase tracking-wider"
           >
             <span>BASE + BONUS</span>
-            <span className="text-[#FFDD50] font-mono">
+            <span
+              style={{ color: colors.purple.DEFAULT }}
+              className="font-mono"
+            >
               {formatPoints(breakdown.basePoints)} +{" "}
               {formatPoints(breakdown.bonusPoints)}
             </span>
@@ -80,7 +87,10 @@ const MyPoints = () => {
                             {formatPoints(data.base)}
                           </span>
                           <span className="text-gray-500 mx-1">+</span>
-                          <span className="text-[#8B5CF6]">
+                          <span
+                            style={{ color: colors.purple.DEFAULT }}
+                            className="font-mono"
+                          >
                             {formatPoints(data.bonus)}
                           </span>
                         </div>

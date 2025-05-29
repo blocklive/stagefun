@@ -1,12 +1,16 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useReferrals } from "@/hooks/useReferrals";
 import { useUserLevel } from "@/hooks/useUserLevel";
 import { usePoints } from "@/hooks/usePoints";
 import ReferralTable from "./ReferralTable";
 import { FiPlus, FiUsers } from "react-icons/fi";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { FaUsers, FaCopy, FaCheck } from "react-icons/fa";
+import { useSupabase } from "@/contexts/SupabaseContext";
+import showToast from "@/utils/toast";
+import { colors } from "@/lib/theme";
 
 // Function to calculate max codes based on user level
 function getMaxCodesForLevel(level: number): number {
@@ -48,9 +52,11 @@ export default function ReferralSection() {
               <span>
                 <span className="text-white">{usedCodes}</span> Used
               </span>
-              <span>
-                <span className="text-[#FFDD50]">3000</span> pts/referral
-              </span>
+              <p className="text-gray-400 text-sm">
+                Invite friends and earn{" "}
+                <span style={{ color: colors.purple.DEFAULT }}>3000</span>{" "}
+                pts/referral
+              </p>
             </div>
           </div>
 
@@ -87,9 +93,10 @@ export default function ReferralSection() {
             <span>
               <span className="text-white">{usedCodes}</span> Used
             </span>
-            <span>
-              <span className="text-[#FFDD50]">3000</span> pts/referral
-            </span>
+            <p className="text-gray-400 text-sm">
+              Earn <span style={{ color: colors.purple.DEFAULT }}>3000</span>{" "}
+              pts/referral
+            </p>
           </div>
 
           <button

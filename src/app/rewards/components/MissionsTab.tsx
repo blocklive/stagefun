@@ -188,7 +188,7 @@ export default function MissionsTab({ onMissionAction }: MissionsTabProps) {
             <div className="text-center p-3 bg-[#FFFFFF0A] border border-[#FFFFFF14] rounded-xl">
               <h4 className="text-lg font-bold mb-1 flex items-center justify-center gap-2">
                 <FaCheck color={colors.purple.DEFAULT} size={16} />
-                <span style={{ color: colors.points.DEFAULT }}>
+                <span style={{ color: colors.purple.DEFAULT }}>
                   Account Setup Complete!
                 </span>
               </h4>
@@ -236,7 +236,7 @@ export default function MissionsTab({ onMissionAction }: MissionsTabProps) {
             <div className="text-center p-3 bg-[#FFFFFF0A] border border-[#FFFFFF14] rounded-xl">
               <h4 className="text-lg font-bold mb-1 flex items-center justify-center gap-2">
                 <FaCheck color={colors.purple.DEFAULT} size={16} />
-                <span style={{ color: colors.points.DEFAULT }}>
+                <span style={{ color: colors.purple.DEFAULT }}>
                   Trading Master!
                 </span>
               </h4>
@@ -254,7 +254,7 @@ export default function MissionsTab({ onMissionAction }: MissionsTabProps) {
           <div className="lg:col-span-2 text-center p-4 bg-[#FFFFFF0A] border border-[#FFFFFF14] rounded-xl">
             <h3 className="text-xl font-bold mb-2 flex items-center justify-center gap-2">
               <FaCheck color={colors.purple.DEFAULT} size={20} />
-              <span style={{ color: colors.points.DEFAULT }}>
+              <span style={{ color: colors.purple.DEFAULT }}>
                 All missions completed!
               </span>
             </h3>

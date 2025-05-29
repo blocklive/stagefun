@@ -7,6 +7,7 @@ import { Mission } from "@/app/data/onboarding-missions";
 import TwitterLinkButton from "@/app/components/TwitterLinkButton";
 import TwitterFollowButton from "@/app/components/TwitterFollowButton";
 import { useSupabase } from "@/contexts/SupabaseContext";
+import { colors } from "@/lib/theme";
 
 interface TwitterMissionModalProps {
   mission: Mission;
@@ -114,7 +115,7 @@ export default function TwitterMissionModal({
 
         {/* Footer with points */}
         <div className="mt-8 pt-4 border-t border-gray-700 text-center">
-          <span className="text-[#FFDD50]">
+          <span style={{ color: colors.purple.DEFAULT }}>
             +{mission.points.toLocaleString()} points
           </span>
         </div>

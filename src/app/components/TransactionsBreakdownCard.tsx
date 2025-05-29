@@ -3,12 +3,14 @@
 import React, { useState, useRef, useCallback } from "react";
 import { useTransactions } from "../../hooks/useTransactions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { colors } from "@/lib/theme";
 
 const TransactionsBreakdownCard = () => {
   const { transactions, isLoading, isLoadingMore, hasMore, error, loadMore } =
     useTransactions();
   const [isExpanded, setIsExpanded] = useState(false);
-  const observer = useRef<IntersectionObserver>();
+  const observer = useRef<IntersectionObserver | null>(null);
 
   const lastTransactionElementRef = useCallback(
     (node: HTMLDivElement) => {
@@ -54,8 +56,7 @@ const TransactionsBreakdownCard = () => {
     }
   };
 
-  const getActionColor = (actionType: string): string => {
-    const [type] = actionType.split(":");
+  const getTypeColor = (type: string) => {
     switch (type) {
       case "funded":
         return "text-blue-400";
@@ -64,7 +65,7 @@ const TransactionsBreakdownCard = () => {
       case "onboarding":
         return "text-purple-400";
       case "checkin":
-        return "text-[#FFDD50]";
+        return `text-[${colors.purple.DEFAULT}]`;
       default:
         return "text-gray-400";
     }
@@ -214,7 +215,7 @@ const TransactionsBreakdownCard = () => {
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                           <span
-                            className={`text-xs uppercase tracking-wider ${getActionColor(
+                            className={`text-xs uppercase tracking-wider ${getTypeColor(
                               transaction.action_type
                             )}`}
                           >

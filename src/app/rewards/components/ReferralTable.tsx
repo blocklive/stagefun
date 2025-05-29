@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import UserAvatar from "@/app/components/UserAvatar";
 import {
   Table,
@@ -13,6 +13,8 @@ import {
 import { ReferralCode } from "@/hooks/useReferrals";
 import { FiCopy } from "react-icons/fi";
 import showToast from "@/utils/toast";
+import { FaCheck } from "react-icons/fa";
+import { colors } from "@/lib/theme";
 
 interface ReferralTableProps {
   codes: ReferralCode[];
@@ -136,7 +138,7 @@ export default function ReferralTable({
 
               <TableCell className="py-3">
                 {code.used_by_user_id ? (
-                  <span className="text-[#FFDD50]">Used</span>
+                  <span style={{ color: colors.purple.DEFAULT }}>Used</span>
                 ) : (
                   <span className="text-gray-400">Unused</span>
                 )}
@@ -165,7 +167,7 @@ export default function ReferralTable({
 
               <TableCell className="py-3">
                 {code.used_by_user_id ? (
-                  <span className="text-[#FFDD50]">3000</span>
+                  <span style={{ color: colors.purple.DEFAULT }}>3000</span>
                 ) : (
                   <span className="text-gray-400">0</span>
                 )}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { usePoints } from "../../hooks/usePoints";
-import { FaClock, FaFire } from "react-icons/fa";
+import { FaClock, FaFire, FaCheck } from "react-icons/fa";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { colors } from "../../lib/theme";
 
@@ -74,11 +74,19 @@ const DailyCheckin = () => {
           {/* Main streak display with fire and multiplier on same line */}
           <div className="flex items-center gap-2 mb-1">
             <h3 className="font-bold text-white text-base flex items-center gap-2">
-              <span>{streakCount} day streak</span>
+              <span
+                style={{ color: colors.purple.DEFAULT }}
+                className="text-sm font-bold"
+              >
+                {streakCount} day{streakCount === 1 ? "" : "s"} streak
+              </span>
               <FaFire color={colors.purple.DEFAULT} size={16} />
             </h3>
             {multiplierInfo.multiplier > 1 && (
-              <span className="text-[#FFDD50] text-sm font-bold">
+              <span
+                style={{ color: colors.purple.DEFAULT }}
+                className="text-sm font-bold"
+              >
                 {multiplierInfo.multiplier}x
               </span>
             )}
@@ -88,11 +96,18 @@ const DailyCheckin = () => {
           <div className="text-sm text-gray-500 flex items-center gap-3">
             {multiplierInfo.nextTierAt && multiplierInfo.nextTierMultiplier && (
               <span className="text-xs">
-                <span className="text-[#FFDD50] font-medium">
-                  {multiplierInfo.nextTierAt - streakCount} days
+                <span
+                  style={{ color: colors.purple.DEFAULT }}
+                  className="text-xs font-medium"
+                >
+                  {multiplierInfo.nextTierAt - streakCount}
                 </span>{" "}
+                day{multiplierInfo.nextTierAt - streakCount === 1 ? "" : "s"}{" "}
                 until{" "}
-                <span className="text-[#FFDD50] font-medium">
+                <span
+                  style={{ color: colors.purple.DEFAULT }}
+                  className="text-xs font-medium"
+                >
                   {multiplierInfo.nextTierMultiplier}x
                 </span>
               </span>
@@ -116,7 +131,9 @@ const DailyCheckin = () => {
                   <span className="ml-2">Processing...</span>
                 </div>
               ) : (
-                <span>Claim +{multiplierInfo.points} pts</span>
+                <span className="font-medium text-[#15161A]">
+                  Claim +{multiplierInfo.points} pts
+                </span>
               )}
             </button>
           ) : (

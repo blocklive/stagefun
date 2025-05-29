@@ -3,6 +3,7 @@
 import React from "react";
 import useOnboardingMissions from "../../hooks/useOnboardingMissions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { colors } from "@/lib/theme";
 
 const MissionsCompleted = () => {
   const { missions, isLoading } = useOnboardingMissions();
@@ -23,10 +24,13 @@ const MissionsCompleted = () => {
         </div>
         <div className="text-right">
           {isLoading ? (
-            <LoadingSpinner color="#FFDD50" size={20} />
+            <LoadingSpinner color={colors.purple.DEFAULT} size={20} />
           ) : (
             <>
-              <div className="text-2xl font-bold text-[#FFDD50]">
+              <div
+                className="text-2xl font-bold"
+                style={{ color: colors.purple.DEFAULT }}
+              >
                 {onboardingCompleted}
               </div>
               <div className="text-sm text-gray-400">of {onboardingTotal}</div>

@@ -75,8 +75,11 @@ const PointsBonus = () => {
         </div>
         <div
           className={`text-sm font-bold font-mono ${
-            isActive ? `text-[${colors.points.DEFAULT}]` : "text-gray-400"
+            isActive ? "text-gray-300" : "text-gray-400"
           }`}
+          style={{
+            color: isActive ? colors.purple.DEFAULT : "#9CA3AF",
+          }}
         >
           {formatMultiplier(multiplier)}
         </div>
@@ -210,7 +213,8 @@ const PointsBonus = () => {
         <div className="w-20 h-20">
           <div className="relative p-3 md:p-4 rounded-xl border border-[#FFFFFF14] bg-[#FFFFFF0A] shadow-sm w-full h-full min-h-[95px] flex items-center justify-center">
             <div
-              className={`text-lg font-bold text-[${colors.points.DEFAULT}] font-mono`}
+              className="text-lg font-bold font-mono"
+              style={{ color: colors.purple.DEFAULT }}
             >
               {formatMultiplier(bonusInfo.totalMultiplier)}
             </div>

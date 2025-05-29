@@ -4,6 +4,7 @@ import React from "react";
 import { FaTimes } from "react-icons/fa";
 import { Mission } from "@/app/data/onboarding-missions";
 import TwitterAuthButton from "@/app/components/TwitterAuthButton";
+import { colors } from "@/lib/theme";
 
 interface MissionModalProps {
   mission: Mission;
@@ -72,7 +73,7 @@ export default function MissionModal({
 
         {/* Footer with points */}
         <div className="mt-8 pt-4 border-t border-gray-700 text-center">
-          <span className="text-[#FFDD50]">
+          <span style={{ color: colors.purple.DEFAULT }}>
             +{mission.points.toLocaleString()} points
           </span>
         </div>

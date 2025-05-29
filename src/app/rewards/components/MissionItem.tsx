@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Mission } from "@/app/data/onboarding-missions";
 import { FaCheck } from "react-icons/fa";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { colors } from "@/lib/theme";
 
 interface MissionItemProps {
   mission: Mission;
@@ -78,7 +79,10 @@ const MissionItem: React.FC<MissionItemProps> = ({ mission, onAction }) => {
       {/* Right Side - Points & Action Button */}
       <div className="flex flex-col items-end gap-2 min-w-[120px]">
         {/* Points */}
-        <div className="text-[#FFDD50] font-medium whitespace-nowrap">
+        <div
+          className="font-medium whitespace-nowrap"
+          style={{ color: colors.purple.DEFAULT }}
+        >
           {points.toLocaleString()} points
         </div>
 

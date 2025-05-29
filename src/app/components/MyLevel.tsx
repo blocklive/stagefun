@@ -5,6 +5,7 @@ import { usePoints } from "../../hooks/usePoints";
 import { useUserLevel } from "../../hooks/useUserLevel";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { FiArrowUp } from "react-icons/fi";
+import { colors } from "@/lib/theme";
 
 // Helper function to get level multiplier (from usePointsBonus.ts logic)
 const getLevelMultiplier = (points: number): number => {
@@ -68,15 +69,18 @@ const MyLevel = () => {
         </div>
         <div className="text-right">
           {isLoading ? (
-            <LoadingSpinner color="#FFDD50" size={20} />
+            <LoadingSpinner color={colors.purple.DEFAULT} size={20} />
           ) : (
             <div className="flex items-center gap-2">
               <span className="text-2xl">{levelInfo.emoji}</span>
               <div>
-                <div className="text-lg font-bold text-[#FFDD50]">
+                <div
+                  className="text-lg font-bold"
+                  style={{ color: colors.purple.DEFAULT }}
+                >
                   Level {levelInfo.level}
                 </div>
-                <div className="text-sm text-[#FFDD50] font-medium">
+                <div className="text-sm font-medium text-gray-400">
                   {levelInfo.name}
                 </div>
               </div>
@@ -90,17 +94,31 @@ const MyLevel = () => {
           {/* Progress bar */}
           <div className="w-full bg-gray-700 rounded-full h-2">
             <div
-              className="bg-[#FFDD50] h-2 rounded-full transition-all duration-300"
-              style={{ width: `${levelInfo.progress}%` }}
-            />
+              className="h-2 rounded-full transition-all duration-300"
+              style={{
+                width: `${levelInfo.progress}%`,
+                backgroundColor: colors.purple.DEFAULT,
+              }}
+            ></div>
           </div>
 
           {/* Progress text */}
           <div className="flex justify-between text-xs text-gray-400">
             <span>{formatPoints(levelInfo.pointsInCurrentLevel)} points</span>
             <span>
-              {formatPoints(levelInfo.pointsNeededForNext)} more for Level{" "}
-              {levelInfo.level + 1}
+              <span
+                style={{ color: colors.purple.DEFAULT }}
+                className="font-medium"
+              >
+                {formatPoints(levelInfo.pointsNeededForNext)}
+              </span>{" "}
+              more for Level{" "}
+              <span
+                style={{ color: colors.purple.DEFAULT }}
+                className="font-medium"
+              >
+                {levelInfo.level + 1}
+              </span>
             </span>
           </div>
 
@@ -108,13 +126,19 @@ const MyLevel = () => {
           {nextLevelBenefits && (
             <div className="flex items-center gap-1 text-xs text-gray-400 mt-2">
               <FiArrowUp className="text-[#836EF9]" size={12} />
-              <span>
+              <span className="text-xs">
                 Next Level: increase multiplier{" "}
-                <span className="text-[#FFDD50]">
+                <span
+                  style={{ color: colors.purple.DEFAULT }}
+                  className="font-medium"
+                >
                   {nextLevelBenefits.multiplier.toFixed(2)}x
                 </span>{" "}
                 and referral codes{" "}
-                <span className="text-[#FFDD50]">
+                <span
+                  style={{ color: colors.purple.DEFAULT }}
+                  className="font-medium"
+                >
                   {nextLevelBenefits.codes}
                 </span>
               </span>
@@ -125,7 +149,10 @@ const MyLevel = () => {
 
       {!isLoading && levelInfo.isMaxLevel && (
         <div className="text-center py-2">
-          <div className="text-sm text-[#FFDD50] font-medium">
+          <div
+            className="text-sm font-medium"
+            style={{ color: colors.purple.DEFAULT }}
+          >
             🎉 Maximum Level Achieved! 🎉
           </div>
         </div>
