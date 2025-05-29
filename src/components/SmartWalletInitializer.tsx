@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   usePrivy,
   useWallets,
@@ -22,30 +22,37 @@ export default function SmartWalletInitializer() {
   const { smartWalletClient } = useInitializeSmartWallet();
   const [isCheckingWallets, setIsCheckingWallets] = useState(false);
 
+  // Add a ref to track if we're currently creating a wallet to prevent re-entry
+  const isCreatingWallet = useRef(false);
+
   useEffect(() => {
     // Function to check and create wallets if needed
     const checkAndCreateWallets = async () => {
       // Only run if all dependencies are ready and user is logged in
+      // Ensure walletsReady is true before checking wallets and user.linkedAccounts
       if (
         !authenticated ||
         !user ||
         !privyReady ||
         !walletsReady ||
         isCheckingWallets ||
-        !createWallet
+        !createWallet ||
+        isCreatingWallet.current
       ) {
         return;
       }
 
+      // Set both flags to prevent re-entry
       setIsCheckingWallets(true);
+      isCreatingWallet.current = true;
 
       try {
-        // 1. Check for embedded wallet
+        // 1. Check for embedded wallet - only after walletsReady is true
         const hasEmbeddedWallet =
           wallets &&
           wallets.some((wallet) => wallet.walletClientType === "privy");
 
-        // 2. Check for smart wallet
+        // 2. Check for smart wallet - only after walletsReady is true
         const hasSmartWallet = user.linkedAccounts.some(
           (account) => account.type === "smart_wallet"
         );
@@ -54,6 +61,7 @@ export default function SmartWalletInitializer() {
           hasEmbeddedWallet,
           hasSmartWallet,
           walletCount: wallets?.length || 0,
+          walletsReady,
         });
 
         // If user has either wallet type, we're done
@@ -101,12 +109,18 @@ export default function SmartWalletInitializer() {
               ? error.message
               : "Unknown error creating wallet";
 
-          // Check if it's the specific "already has an embedded wallet" error
-          if (errorMessage.includes("User already has an embedded wallet")) {
+          // Check for the specific errors that should be treated as no-ops
+          if (
+            errorMessage.includes("User already has an embedded wallet") ||
+            errorMessage.includes("cannot have more than one ethereum embedded")
+          ) {
             // This is actually not an error - wallet exists but wasn't detected initially
+            // or there was a race condition. Treat as success.
             console.log(
-              "Embedded wallet already exists (not detected initially)"
+              "Wallet already exists (race condition or not detected initially):",
+              errorMessage
             );
+            // Don't show error toast - this is expected behavior
           } else {
             // For any other error, show a toast
             console.error("Error creating wallet:", errorMessage);
@@ -117,6 +131,7 @@ export default function SmartWalletInitializer() {
         console.error("Error in wallet initialization:", error);
       } finally {
         setIsCheckingWallets(false);
+        isCreatingWallet.current = false;
       }
     };
 
@@ -130,7 +145,6 @@ export default function SmartWalletInitializer() {
     wallets,
     createWallet,
     smartWalletClient,
-    isCheckingWallets,
   ]);
 
   return null; // This is a non-visual component
