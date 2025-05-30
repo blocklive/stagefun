@@ -1,6 +1,7 @@
 export type ReturnType =
   | "fixed_yield"
   | "revenue_share"
+  | "royalty"
   | "appreciation"
   | "hybrid";
 
@@ -50,6 +51,12 @@ export interface InvestmentTerms {
   // Revenue Share Details
   revenueSharePercentage?: number;
   revenueDistributionFrequency?: DistributionFrequency;
+
+  // Royalty Details
+  royaltyPercentage?: number;
+  royaltyType?: "net_profits" | "gross_after_costs" | "licensing_only";
+  recoupmentThreshold?: number; // Amount to recoup before royalties start
+  royaltyDistributionFrequency?: DistributionFrequency;
 
   // Asset Appreciation
   projectedAppreciationPercentage?: number;

@@ -13,6 +13,8 @@ import {
   CurrencyDollarIcon,
   CpuChipIcon,
   RocketLaunchIcon,
+  DevicePhoneMobileIcon,
+  BriefcaseIcon,
 } from "@heroicons/react/24/outline";
 
 export const REGULATORY_FRAMEWORKS: Record<
@@ -167,11 +169,11 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
     id: "project",
     name: "Project",
     description: "General projects with hybrid returns",
-    icon: RocketLaunchIcon,
+    icon: BriefcaseIcon,
     terms: {
-      returnType: "hybrid",
+      returnType: "appreciation",
       expectedAnnualYield: 8,
-      projectedAppreciationPercentage: 15,
+      projectedAppreciationPercentage: 200,
       appreciationTimeframeMonths: 24,
       riskLevel: "medium",
       investmentHorizonMonths: 24,
@@ -218,5 +220,9 @@ export const RETURN_TYPE_INFO = {
   hybrid: {
     label: "Hybrid Returns",
     description: "Combination of yield and appreciation",
+  },
+  royalty: {
+    label: "Royalty Returns",
+    description: "Percentage of net profits or post-recoupment revenue",
   },
 };
