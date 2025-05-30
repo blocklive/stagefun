@@ -50,7 +50,9 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
       )}
 
       <div className="flex items-center gap-3 mb-3">
-        <div className="text-2xl">{template.icon}</div>
+        <div className="w-8 h-8 flex items-center justify-center">
+          <template.icon className="w-6 h-6 text-[#836EF9]" />
+        </div>
         <div>
           <h3 className="font-semibold text-white text-sm">{template.name}</h3>
           <p className="text-xs text-gray-400 mt-0.5">{template.description}</p>
@@ -89,8 +91,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
               )}
             {template.terms.returnType === "hybrid" && (
               <div className="text-xs text-gray-300 font-medium">
-                {template.terms.expectedAnnualYield}% +{" "}
-                {template.terms.projectedAppreciationPercentage}%
+                <span className="text-gray-500">hybrid</span>
               </div>
             )}
           </div>

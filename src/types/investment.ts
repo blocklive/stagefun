@@ -102,7 +102,7 @@ export interface InvestmentTemplate {
   id: string;
   name: string;
   description: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   terms: Partial<InvestmentTerms>;
 }
 

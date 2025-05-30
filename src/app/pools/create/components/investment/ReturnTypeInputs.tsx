@@ -194,68 +194,93 @@ export const ReturnTypeInputs: React.FC<ReturnTypeInputsProps> = ({
   );
 
   const renderAppreciationInputs = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <NumericInputWithButtons
-        label="Projected Appreciation (%)"
-        value={terms.projectedAppreciationPercentage}
-        onChange={(value) =>
-          onTermUpdate(
-            "projectedAppreciationPercentage",
-            parseFloat(value) || undefined
-          )
-        }
-        placeholder="e.g. 25"
-        min={0}
-        step={0.1}
-        suffix="%"
-      />
-
-      <NumericInputWithButtons
-        label="Appreciation Timeframe (months)"
-        value={terms.appreciationTimeframeMonths}
-        onChange={(value) =>
-          onTermUpdate(
-            "appreciationTimeframeMonths",
-            parseInt(value) || undefined
-          )
-        }
-        placeholder="e.g. 36"
-        min={1}
-        step={1}
-      />
+    <div className="space-y-4">
+      <div className="bg-[#FFFFFF0A] rounded-lg p-4 border border-gray-600/30">
+        <h4 className="text-white font-medium mb-2">
+          Asset Appreciation Investment
+        </h4>
+        <p className="text-sm text-gray-400">
+          Investors will participate in the potential appreciation of the
+          underlying asset or business. Returns are based on future value growth
+          rather than fixed yields or revenue sharing.
+        </p>
+      </div>
+      <div className="text-xs text-gray-500">
+        <strong>Note:</strong> Appreciation investments do not guarantee
+        specific returns. Value may increase, decrease, or remain unchanged
+        based on market conditions and business performance.
+      </div>
     </div>
   );
 
   const renderHybridInputs = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <NumericInputWithButtons
-          label="Annual Yield (%)"
-          value={terms.expectedAnnualYield}
-          onChange={(value) =>
-            onTermUpdate("expectedAnnualYield", parseFloat(value) || undefined)
-          }
-          placeholder="e.g. 8"
-          min={0}
-          max={100}
-          step={0.1}
-          suffix="%"
-        />
+      {/* Yield Component */}
+      <div>
+        <h4 className="text-white font-medium mb-4">Fixed Yield Component</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <NumericInputWithButtons
+            label="Expected Annual Yield (%)"
+            value={terms.expectedAnnualYield}
+            onChange={(value) =>
+              onTermUpdate(
+                "expectedAnnualYield",
+                parseFloat(value) || undefined
+              )
+            }
+            placeholder="e.g. 8"
+            min={0}
+            max={100}
+            step={0.1}
+          />
 
-        <NumericInputWithButtons
-          label="Appreciation (%)"
-          value={terms.projectedAppreciationPercentage}
-          onChange={(value) =>
-            onTermUpdate(
-              "projectedAppreciationPercentage",
-              parseFloat(value) || undefined
-            )
-          }
-          placeholder="e.g. 5"
-          min={0}
-          step={0.1}
-          suffix="%"
-        />
+          <CustomDropdown
+            label="Calculation Method"
+            value={terms.yieldCalculationMethod || ""}
+            options={yieldMethodOptions}
+            onChange={(value) =>
+              onTermUpdate(
+                "yieldCalculationMethod",
+                value as YieldCalculationMethod
+              )
+            }
+            placeholder="Select method"
+          />
+        </div>
+      </div>
+
+      {/* Revenue Share Component */}
+      <div>
+        <h4 className="text-white font-medium mb-4">Revenue Share Component</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <NumericInputWithButtons
+            label="Revenue Share (%)"
+            value={terms.revenueSharePercentage}
+            onChange={(value) =>
+              onTermUpdate(
+                "revenueSharePercentage",
+                parseFloat(value) || undefined
+              )
+            }
+            placeholder="e.g. 15"
+            min={0}
+            max={100}
+            step={0.1}
+          />
+
+          <CustomDropdown
+            label="Distribution Frequency"
+            value={terms.revenueDistributionFrequency || ""}
+            options={frequencyOptions}
+            onChange={(value) =>
+              onTermUpdate(
+                "revenueDistributionFrequency",
+                value as DistributionFrequency
+              )
+            }
+            placeholder="Select frequency"
+          />
+        </div>
       </div>
     </div>
   );

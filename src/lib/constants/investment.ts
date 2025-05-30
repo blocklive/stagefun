@@ -7,6 +7,13 @@ import {
   RiskLevel,
   ReturnType,
 } from "@/types/investment";
+import {
+  MusicalNoteIcon,
+  BuildingOfficeIcon,
+  CurrencyDollarIcon,
+  CpuChipIcon,
+  RocketLaunchIcon,
+} from "@heroicons/react/24/outline";
 
 export const REGULATORY_FRAMEWORKS: Record<
   RegulatoryFramework,
@@ -88,7 +95,7 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
     id: "event",
     name: "Event",
     description: "Concerts, festivals, conferences with fixed returns",
-    icon: "🎪",
+    icon: MusicalNoteIcon,
     terms: {
       returnType: "fixed_yield",
       expectedAnnualYield: 12,
@@ -96,7 +103,7 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
       investmentHorizonMonths: 6,
       regulatoryFramework: "reg_cf",
       securityType: "revenue_participation",
-      managementFeePercentage: 2.5,
+      managementFeePercentage: 0,
       performanceFeePercentage: 0,
       minimumHoldPeriodMonths: 3,
       yieldCalculationMethod: "simple",
@@ -106,7 +113,7 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
     id: "venue",
     name: "Venue",
     description: "Restaurants, bars, clubs with revenue sharing",
-    icon: "🏢",
+    icon: BuildingOfficeIcon,
     terms: {
       returnType: "revenue_share",
       revenueSharePercentage: 8,
@@ -115,7 +122,7 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
       investmentHorizonMonths: 24,
       regulatoryFramework: "reg_d_506c",
       securityType: "revenue_participation",
-      managementFeePercentage: 3,
+      managementFeePercentage: 0,
       performanceFeePercentage: 0,
       minimumHoldPeriodMonths: 12,
     },
@@ -123,8 +130,8 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
   {
     id: "fund",
     name: "Fund",
-    description: "Crypto/NFT funds with asset appreciation",
-    icon: "💎",
+    description: "Crypto/NFT funds with distribution",
+    icon: CurrencyDollarIcon,
     terms: {
       returnType: "appreciation",
       projectedAppreciationPercentage: 25,
@@ -133,16 +140,16 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
       investmentHorizonMonths: 18,
       regulatoryFramework: "reg_d_506c",
       securityType: "equity",
-      managementFeePercentage: 2,
-      performanceFeePercentage: 20,
+      managementFeePercentage: 0,
+      performanceFeePercentage: 0,
       minimumHoldPeriodMonths: 12,
     },
   },
   {
     id: "token",
     name: "Token",
-    description: "Token launches with potential appreciation",
-    icon: "🪙",
+    description: "Raise for a pure ICO",
+    icon: CpuChipIcon,
     terms: {
       returnType: "appreciation",
       projectedAppreciationPercentage: 50,
@@ -151,7 +158,7 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
       investmentHorizonMonths: 12,
       regulatoryFramework: "other",
       securityType: "token",
-      managementFeePercentage: 1,
+      managementFeePercentage: 0,
       performanceFeePercentage: 0,
       minimumHoldPeriodMonths: 6,
     },
@@ -160,7 +167,7 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
     id: "project",
     name: "Project",
     description: "General projects with hybrid returns",
-    icon: "🚀",
+    icon: RocketLaunchIcon,
     terms: {
       returnType: "hybrid",
       expectedAnnualYield: 8,
@@ -170,8 +177,8 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
       investmentHorizonMonths: 24,
       regulatoryFramework: "reg_cf",
       securityType: "equity",
-      managementFeePercentage: 2.5,
-      performanceFeePercentage: 15,
+      managementFeePercentage: 0,
+      performanceFeePercentage: 0,
       minimumHoldPeriodMonths: 12,
     },
   },

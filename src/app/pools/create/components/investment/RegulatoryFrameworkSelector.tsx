@@ -8,18 +8,21 @@ import {
 
 interface RegulatoryFrameworkSelectorProps {
   selectedFramework?: RegulatoryFramework;
+  selectedSecurityType?: SecurityType;
   onFrameworkChange: (framework: RegulatoryFramework) => void;
   onSecurityTypeChange: (securityType: SecurityType) => void;
 }
 
 export const RegulatoryFrameworkSelector: React.FC<
   RegulatoryFrameworkSelectorProps
-> = ({ selectedFramework, onFrameworkChange, onSecurityTypeChange }) => {
+> = ({
+  selectedFramework,
+  selectedSecurityType,
+  onFrameworkChange,
+  onSecurityTypeChange,
+}) => {
   const [showFrameworkDropdown, setShowFrameworkDropdown] = useState(false);
   const [showSecurityDropdown, setShowSecurityDropdown] = useState(false);
-  const [selectedSecurity, setSelectedSecurity] = useState<
-    SecurityType | undefined
-  >();
 
   const frameworkDropdownRef = useRef<HTMLDivElement>(null);
   const securityDropdownRef = useRef<HTMLDivElement>(null);
@@ -47,8 +50,8 @@ export const RegulatoryFrameworkSelector: React.FC<
   const selectedFrameworkInfo = selectedFramework
     ? REGULATORY_FRAMEWORKS[selectedFramework]
     : null;
-  const selectedSecurityInfo = selectedSecurity
-    ? SECURITY_TYPES[selectedSecurity]
+  const selectedSecurityInfo = selectedSecurityType
+    ? SECURITY_TYPES[selectedSecurityType]
     : null;
 
   const handleFrameworkSelect = (framework: RegulatoryFramework) => {
@@ -57,7 +60,6 @@ export const RegulatoryFrameworkSelector: React.FC<
   };
 
   const handleSecuritySelect = (security: SecurityType) => {
-    setSelectedSecurity(security);
     onSecurityTypeChange(security);
     setShowSecurityDropdown(false);
   };
@@ -153,7 +155,7 @@ export const RegulatoryFrameworkSelector: React.FC<
                     type="button"
                     onClick={() => handleSecuritySelect(key as SecurityType)}
                     className={`w-full p-4 text-left hover:bg-[#FFFFFF0A] transition-colors border-b border-[#FFFFFF1A] last:border-b-0 ${
-                      selectedSecurity === key
+                      selectedSecurityType === key
                         ? "bg-[#836EF9]/10 text-[#836EF9]"
                         : "text-white"
                     }`}

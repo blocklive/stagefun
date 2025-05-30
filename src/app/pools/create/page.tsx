@@ -408,6 +408,15 @@ export default function CreatePoolPage() {
 
         {/* Form */}
         <form id="createPoolForm" onSubmit={onSubmit} className="mt-8">
+          {/* Investment Terms */}
+          <div className="mb-6">
+            <InvestmentTermsSection
+              onTermsChange={(terms: InvestmentTerms) =>
+                setInvestmentTerms(terms)
+              }
+            />
+          </div>
+
           {/* Description */}
           <div className="mb-6">
             <h2 className="text-2xl font-bold mb-4">Pool Description</h2>
@@ -415,15 +424,6 @@ export default function CreatePoolPage() {
               content={description}
               onChange={(value) => setDescription(value)}
               placeholder="Write your story..."
-            />
-          </div>
-
-          {/* Investment Terms */}
-          <div className="mb-6">
-            <InvestmentTermsSection
-              onTermsChange={(terms: InvestmentTerms) =>
-                setInvestmentTerms(terms)
-              }
             />
           </div>
 
