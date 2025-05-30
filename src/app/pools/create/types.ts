@@ -22,4 +22,8 @@ export interface Tier {
   pricingMode?: "fixed" | "range" | "uncapped";
   patronsMode?: "limited" | "uncapped";
   onchain_index?: number;
+
+  // Investment enhancement fields (simplified to just the essentials)
+  yieldBonusPercentage?: number;
+  feeDiscountPercentage?: number;
 }

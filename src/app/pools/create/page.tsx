@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy, useFundWallet } from "@privy-io/react-auth";
 import { FaMapMarkerAlt, FaExclamationTriangle } from "react-icons/fa";
@@ -23,6 +23,7 @@ import EndTimeSection from "./components/EndTimeSection";
 import { TiersSection } from "./components/TiersSection";
 import { Tier, RewardItem } from "./types";
 import FundingSummary from "./components/FundingSummary";
+import { InvestmentTermsSection } from "./components/investment/InvestmentTermsSection";
 
 // Import our new hooks
 import usePoolImage from "./hooks/usePoolImage";
@@ -33,6 +34,7 @@ import usePoolCreation from "./hooks/usePoolCreation";
 import { supabase } from "@/lib/supabase";
 import { calculateMaxPossibleFunding } from "./hooks/calculateMaxFunding";
 import CustomButton from "@/app/components/CustomButton";
+import { InvestmentTerms } from "@/types/investment";
 
 // Helper function to format a date for datetime-local input
 function formatDateForInput(date: Date): string {
@@ -45,6 +47,8 @@ function formatDateForInput(date: Date): string {
 
   return localISOString;
 }
+
+const poolPriceUSDC = 0.01; // 1 cent per token
 
 export default function CreatePoolPage() {
   const { user: privyUser } = usePrivy();
@@ -60,6 +64,8 @@ export default function CreatePoolPage() {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [rewardItems, setRewardItems] = useState<RewardItem[]>([]);
+  const [investmentTerms, setInvestmentTerms] =
+    useState<InvestmentTerms | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { completeMission } = useOnboardingMissions();
@@ -409,6 +415,15 @@ export default function CreatePoolPage() {
               content={description}
               onChange={(value) => setDescription(value)}
               placeholder="Write your story..."
+            />
+          </div>
+
+          {/* Investment Terms */}
+          <div className="mb-6">
+            <InvestmentTermsSection
+              onTermsChange={(terms: InvestmentTerms) =>
+                setInvestmentTerms(terms)
+              }
             />
           </div>
 
