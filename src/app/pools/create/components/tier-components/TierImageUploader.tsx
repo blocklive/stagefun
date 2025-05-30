@@ -113,22 +113,27 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
           </div>
         )}
         {!disabled && (
-          <label
-            htmlFor={`tier-image-${id}`}
-            className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-          >
-            <input
-              id={`tier-image-${id}`}
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
-              disabled={disabled}
-            />
-            <div className="flex flex-col items-center gap-2">
+          <>
+            {/* Full clickable area */}
+            <label
+              htmlFor={`tier-image-${id}`}
+              className="absolute inset-0 cursor-pointer"
+            >
+              <input
+                id={`tier-image-${id}`}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                disabled={disabled}
+              />
+            </label>
+
+            {/* Visual edit indicator - circle with pencil icon */}
+            <div className="absolute bottom-4 right-4 w-12 h-12 bg-black bg-opacity-30 rounded-full flex items-center justify-center group-hover:bg-[#836EF9] group-hover:bg-opacity-100 transition-all duration-200 pointer-events-none">
               <svg
-                width="24"
-                height="24"
+                width="20"
+                height="20"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="white"
@@ -138,11 +143,8 @@ export const TierImageUploader: React.FC<TierImageUploaderProps> = ({
               >
                 <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
               </svg>
-              <span className="text-white">
-                {isUploading ? "Uploading..." : "Upload Image"}
-              </span>
             </div>
-          </label>
+          </>
         )}
       </div>
     </div>

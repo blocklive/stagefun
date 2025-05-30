@@ -69,10 +69,11 @@ export default function PoolImageUpload({
           </div>
         )}
 
-        {/* Hover overlay with upload/change button */}
+        {/* Edit button - pencil icon in circle at bottom right */}
+        {/* Full clickable area */}
         <label
           htmlFor="pool-image-upload"
-          className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+          className="absolute inset-0 cursor-pointer"
         >
           <input
             id="pool-image-upload"
@@ -81,24 +82,23 @@ export default function PoolImageUpload({
             onChange={onImageSelect}
             className="hidden"
           />
-          <div className="flex flex-col items-center gap-2">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-            </svg>
-            <span className="text-white text-lg">
-              {isUploadingImage ? "Uploading..." : "Upload Image"}
-            </span>
-          </div>
         </label>
+
+        {/* Visual edit indicator - circle with pencil icon */}
+        <div className="absolute bottom-4 right-4 w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center group-hover:bg-white group-hover:bg-opacity-40 transition-all duration-200 pointer-events-none">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={imagePreview ? "white" : "#1E1B2E"}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+          </svg>
+        </div>
 
         {/* Remove button */}
         {imagePreview && (

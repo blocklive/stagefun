@@ -174,14 +174,14 @@ export const TierCard: React.FC<TierCardProps> = ({
         />
       </div>
 
-      {/* Investment Enhancement section */}
-      <div className={disabled ? "opacity-70 pointer-events-none" : ""}>
+      {/* Investment Enhancement section - Hidden for now */}
+      {/* <div className={disabled ? "opacity-70 pointer-events-none" : ""}>
         <TierEnhancements
           tier={tier}
           onUpdateTier={handleTierUpdate}
           disabled={disabled}
         />
-      </div>
+      </div> */}
     </div>
   );
 };
