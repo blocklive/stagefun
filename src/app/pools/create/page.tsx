@@ -325,7 +325,8 @@ export default function CreatePoolPage() {
         location,
         socialLinks,
         Math.floor(endDate.getTime() / 1000),
-        rewardItems
+        rewardItems,
+        investmentTerms // Add investment terms parameter
       );
     } catch (error: any) {
       console.error("Error creating pool:", error);

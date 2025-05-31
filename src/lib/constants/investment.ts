@@ -113,8 +113,9 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
   },
   {
     id: "venue",
-    name: "Venue",
-    description: "Restaurants, bars, clubs with revenue sharing",
+    name: "Venue / Series",
+    description:
+      "Restaurants, bars, clubs, virtual series with revenue sharing",
     icon: BuildingOfficeIcon,
     terms: {
       returnType: "revenue_share",
@@ -214,8 +215,8 @@ export const RETURN_TYPE_INFO = {
     description: "Percentage of ongoing revenue",
   },
   appreciation: {
-    label: "Asset Appreciation",
-    description: "Value growth over time",
+    label: "Token Allocation",
+    description: "Returns based on token performance",
   },
   hybrid: {
     label: "Hybrid Returns",

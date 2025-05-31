@@ -6,6 +6,7 @@ import { formatCurrency } from "../../../../lib/utils";
 import TabsAndSocial from "./TabsAndSocial";
 import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
 import CountdownTimer from "../../../components/CountdownTimer";
+import InvestmentTermsDisplay from "./investment-terms/InvestmentTermsDisplay";
 import React from "react";
 
 type TabType = "overview" | "patrons" | "updates";
@@ -125,6 +126,9 @@ export default function OpenPoolView({
             seconds={seconds}
             className="mb-6"
           />
+
+          {/* Investment Terms Display */}
+          <InvestmentTermsDisplay poolId={pool.id} />
 
           {/* User's Commitment */}
           {renderUserCommitment()}

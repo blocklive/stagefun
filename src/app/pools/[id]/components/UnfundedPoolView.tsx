@@ -5,6 +5,7 @@ import TabsAndSocial from "./TabsAndSocial";
 import { formatCurrency } from "../../../../lib/utils";
 import { useMemo } from "react";
 import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
+import InvestmentTermsDisplay from "./investment-terms/InvestmentTermsDisplay";
 
 type TabType = "overview" | "patrons" | "updates";
 
@@ -127,6 +128,9 @@ export default function UnfundedPoolView({
               }}
             ></div>
           </div>
+
+          {/* Investment Terms Display */}
+          <InvestmentTermsDisplay poolId={pool.id} />
 
           {/* User's Commitment - with refund option */}
           {renderUserCommitment()}

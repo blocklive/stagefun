@@ -13,6 +13,7 @@ import {
 } from "../../../../lib/contracts/types";
 import { useMemo } from "react";
 import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
+import InvestmentTermsDisplay from "./investment-terms/InvestmentTermsDisplay";
 
 type TabType = "overview" | "patrons" | "updates";
 
@@ -194,6 +195,9 @@ export default function FundedPoolView({
                 </div>
               )}
           </div>
+
+          {/* Investment Terms Display */}
+          <InvestmentTermsDisplay poolId={pool.id} />
 
           {/* Pool Funds Section */}
           {renderPoolFunds()}
