@@ -9,7 +9,7 @@ interface InvestmentTermsDB {
   return_type: string;
   expected_annual_yield?: number;
   revenue_share_percentage?: number;
-  royalty_percentage?: number;
+  profit_share_percentage?: number;
   projected_appreciation_percentage?: number;
   risk_level: string;
   investment_horizon_months: number;
@@ -78,18 +78,25 @@ export function useInvestmentTermsDisplay(
         return `${terms.expected_annual_yield || 0}%`;
       case "revenue_share":
         return `${terms.revenue_share_percentage || 0}% revenue`;
-      case "royalty":
-        return `${terms.royalty_percentage || 0}% royalty`;
+      case "profit_share":
+        return `${terms.profit_share_percentage || 0}% profit share`;
       case "appreciation":
         return `${terms.projected_appreciation_percentage || 0}% target`;
       case "hybrid":
-        // Show the most prominent return component
+        // Show all components that have values
+        const components = [];
         if (terms.expected_annual_yield) {
-          return `${terms.expected_annual_yield}% + upside`;
-        } else if (terms.revenue_share_percentage) {
-          return `${terms.revenue_share_percentage}% revenue + equity`;
+          components.push(`${terms.expected_annual_yield}% yield`);
         }
-        return "Hybrid returns";
+        if (terms.revenue_share_percentage) {
+          components.push(`${terms.revenue_share_percentage}% revenue`);
+        }
+        if (terms.profit_share_percentage) {
+          components.push(`${terms.profit_share_percentage}% profit`);
+        }
+        return components.length > 0
+          ? components.join(" + ")
+          : "Hybrid returns";
       default:
         return "";
     }

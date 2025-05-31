@@ -101,6 +101,7 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
     terms: {
       returnType: "fixed_yield",
       expectedAnnualYield: 12,
+      yieldDistributionFrequency: "event_based",
       riskLevel: "medium",
       investmentHorizonMonths: 6,
       regulatoryFramework: "reg_cf",
@@ -108,14 +109,12 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
       managementFeePercentage: 0,
       performanceFeePercentage: 0,
       minimumHoldPeriodMonths: 3,
-      yieldCalculationMethod: "simple",
     },
   },
   {
     id: "venue",
-    name: "Venue / Series",
-    description:
-      "Restaurants, bars, clubs, virtual series with revenue sharing",
+    name: "Venue",
+    description: "Recurring events, virtual series, with revenue sharing",
     icon: BuildingOfficeIcon,
     terms: {
       returnType: "revenue_share",
@@ -132,7 +131,7 @@ export const INVESTMENT_TEMPLATES: InvestmentTemplate[] = [
   },
   {
     id: "fund",
-    name: "Fund",
+    name: "Memecoin Fund",
     description: "Crypto/NFT funds with distribution",
     icon: CurrencyDollarIcon,
     terms: {
@@ -222,8 +221,8 @@ export const RETURN_TYPE_INFO = {
     label: "Hybrid Returns",
     description: "Combination of yield and appreciation",
   },
-  royalty: {
-    label: "Royalty Returns",
-    description: "Percentage of net profits or post-recoupment revenue",
+  profit_share: {
+    label: "Profit Share",
+    description: "Percentage of net profits after costs",
   },
 };

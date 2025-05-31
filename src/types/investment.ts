@@ -1,7 +1,7 @@
 export type ReturnType =
   | "fixed_yield"
   | "revenue_share"
-  | "royalty"
+  | "profit_share"
   | "appreciation"
   | "hybrid";
 
@@ -46,17 +46,15 @@ export interface InvestmentTerms {
 
   // Yield Information
   expectedAnnualYield?: number;
-  yieldCalculationMethod?: YieldCalculationMethod;
+  yieldDistributionFrequency?: DistributionFrequency;
 
   // Revenue Share Details
   revenueSharePercentage?: number;
   revenueDistributionFrequency?: DistributionFrequency;
 
-  // Royalty Details
-  royaltyPercentage?: number;
-  royaltyType?: "net_profits" | "gross_after_costs" | "licensing_only";
-  recoupmentThreshold?: number; // Amount to recoup before royalties start
-  royaltyDistributionFrequency?: DistributionFrequency;
+  // Profit Share Details
+  profitSharePercentage?: number;
+  profitShareDistributionFrequency?: DistributionFrequency;
 
   // Asset Appreciation
   projectedAppreciationPercentage?: number;
@@ -124,4 +122,59 @@ export interface RegulatoryFrameworkInfo {
 export interface SecurityTypeInfo {
   label: string;
   description: string;
+}
+
+export interface InvestmentTermsDB {
+  id?: string;
+  pool_id?: string;
+  return_type: ReturnType;
+
+  // Yield Information
+  expected_annual_yield?: number;
+  yield_distribution_frequency?: DistributionFrequency;
+
+  // Revenue Share Details
+  revenue_share_percentage?: number;
+  revenue_distribution_frequency?: DistributionFrequency;
+
+  // Profit Share Details
+  profit_share_percentage?: number;
+  profit_share_distribution_frequency?: DistributionFrequency;
+
+  // Asset Appreciation
+  projected_appreciation_percentage?: number;
+  appreciation_timeframe_months?: number;
+
+  // Risk & Terms
+  risk_level: RiskLevel;
+  investment_horizon_months: number;
+  minimum_hold_period_months?: number;
+
+  // Regulatory Compliance
+  regulatory_framework?: RegulatoryFramework;
+  security_type?: SecurityType;
+  accredited_only?: boolean;
+
+  // Fees
+  management_fee_percentage?: number;
+  performance_fee_percentage?: number;
+
+  // Historical Performance
+  track_record?: TrackRecord;
+  similar_projects_count?: number;
+  average_returns_description?: string;
+  notable_successes?: string;
+  benchmark_comparison?: BenchmarkComparison;
+
+  // Legal & Disclaimers
+  terms_and_conditions?: string;
+  risk_disclosure?: string;
+  regulatory_notes?: string;
+
+  // Template tracking
+  template_used?: string;
+
+  // Timestamps
+  created_at?: string;
+  updated_at?: string;
 }

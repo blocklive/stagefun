@@ -17,7 +17,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({
     <div className="space-y-4">
       <div>
         <h3 className="text-lg font-semibold text-white mb-2">
-          Choose Investment Type
+          Start with an Investment Template
         </h3>
         <p className="text-sm text-gray-400 mb-4">
           Select a template to get started, then customize as needed

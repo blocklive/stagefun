@@ -300,11 +300,16 @@ export async function POST(request: NextRequest) {
         pool_id: createdPool.id,
         return_type: poolData.investment_terms.returnType,
         expected_annual_yield: poolData.investment_terms.expectedAnnualYield,
+        yield_distribution_frequency:
+          poolData.investment_terms.yieldDistributionFrequency,
         revenue_share_percentage:
           poolData.investment_terms.revenueSharePercentage,
-        royalty_percentage: poolData.investment_terms.royaltyPercentage,
-        royalty_type: poolData.investment_terms.royaltyType,
-        recoupment_threshold: poolData.investment_terms.recoupmentThreshold,
+        revenue_distribution_frequency:
+          poolData.investment_terms.revenueDistributionFrequency,
+        profit_share_percentage:
+          poolData.investment_terms.profitSharePercentage,
+        profit_share_distribution_frequency:
+          poolData.investment_terms.profitShareDistributionFrequency,
         projected_appreciation_percentage:
           poolData.investment_terms.projectedAppreciationPercentage,
         appreciation_timeframe_months:

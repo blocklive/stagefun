@@ -138,7 +138,7 @@ export default function AppHeader({
                   />
                 </svg>
               }
-              label="Create pool"
+              label="Create round"
               onClick={() =>
                 isAuthenticated
                   ? router.push("/pools/create")

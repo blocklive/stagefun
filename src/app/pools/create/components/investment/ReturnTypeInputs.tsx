@@ -3,7 +3,6 @@ import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import {
   InvestmentTerms,
   ReturnType,
-  YieldCalculationMethod,
   DistributionFrequency,
 } from "@/types/investment";
 import { NumericInputWithButtons } from "@/app/components/NumericInputWithButtons";
@@ -136,7 +135,7 @@ export const ReturnTypeInputs: React.FC<ReturnTypeInputsProps> = ({
   const renderFixedYieldInputs = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <NumericInputWithButtons
-        label="Expected Annual Yield (%)"
+        label="Fixed Yield (%)"
         value={terms.expectedAnnualYield}
         onChange={(value) =>
           onTermUpdate("expectedAnnualYield", parseFloat(value) || undefined)
@@ -149,16 +148,16 @@ export const ReturnTypeInputs: React.FC<ReturnTypeInputsProps> = ({
       />
 
       <CustomDropdown
-        label="Calculation Method"
-        value={terms.yieldCalculationMethod || ""}
-        options={yieldMethodOptions}
+        label="Distribution Frequency"
+        value={terms.yieldDistributionFrequency || ""}
+        options={frequencyOptions}
         onChange={(value) =>
           onTermUpdate(
-            "yieldCalculationMethod",
-            value as YieldCalculationMethod
+            "yieldDistributionFrequency",
+            value as DistributionFrequency
           )
         }
-        placeholder="Select method"
+        placeholder="Select frequency"
       />
     </div>
   );
@@ -185,6 +184,36 @@ export const ReturnTypeInputs: React.FC<ReturnTypeInputsProps> = ({
         onChange={(value) =>
           onTermUpdate(
             "revenueDistributionFrequency",
+            value as DistributionFrequency
+          )
+        }
+        placeholder="Select frequency"
+      />
+    </div>
+  );
+
+  const renderProfitShareInputs = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <NumericInputWithButtons
+        label="Profit Share (%)"
+        value={terms.profitSharePercentage}
+        onChange={(value) =>
+          onTermUpdate("profitSharePercentage", parseFloat(value) || undefined)
+        }
+        placeholder="e.g. 20"
+        min={0}
+        max={100}
+        step={0.1}
+        suffix="%"
+      />
+
+      <CustomDropdown
+        label="Distribution Frequency"
+        value={terms.profitShareDistributionFrequency || ""}
+        options={frequencyOptions}
+        onChange={(value) =>
+          onTermUpdate(
+            "profitShareDistributionFrequency",
             value as DistributionFrequency
           )
         }
@@ -220,7 +249,7 @@ export const ReturnTypeInputs: React.FC<ReturnTypeInputsProps> = ({
         <h4 className="text-white font-medium mb-4">Fixed Yield Component</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <NumericInputWithButtons
-            label="Expected Annual Yield (%)"
+            label="Fixed Yield (%)"
             value={terms.expectedAnnualYield}
             onChange={(value) =>
               onTermUpdate(
@@ -235,16 +264,16 @@ export const ReturnTypeInputs: React.FC<ReturnTypeInputsProps> = ({
           />
 
           <CustomDropdown
-            label="Calculation Method"
-            value={terms.yieldCalculationMethod || ""}
-            options={yieldMethodOptions}
+            label="Distribution Frequency"
+            value={terms.yieldDistributionFrequency || ""}
+            options={frequencyOptions}
             onChange={(value) =>
               onTermUpdate(
-                "yieldCalculationMethod",
-                value as YieldCalculationMethod
+                "yieldDistributionFrequency",
+                value as DistributionFrequency
               )
             }
-            placeholder="Select method"
+            placeholder="Select frequency"
           />
         </div>
       </div>
@@ -282,6 +311,40 @@ export const ReturnTypeInputs: React.FC<ReturnTypeInputsProps> = ({
           />
         </div>
       </div>
+
+      {/* Profit Share Component */}
+      <div>
+        <h4 className="text-white font-medium mb-4">Profit Share Component</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <NumericInputWithButtons
+            label="Profit Share (%)"
+            value={terms.profitSharePercentage}
+            onChange={(value) =>
+              onTermUpdate(
+                "profitSharePercentage",
+                parseFloat(value) || undefined
+              )
+            }
+            placeholder="e.g. 20"
+            min={0}
+            max={100}
+            step={0.1}
+          />
+
+          <CustomDropdown
+            label="Distribution Frequency"
+            value={terms.profitShareDistributionFrequency || ""}
+            options={frequencyOptions}
+            onChange={(value) =>
+              onTermUpdate(
+                "profitShareDistributionFrequency",
+                value as DistributionFrequency
+              )
+            }
+            placeholder="Select frequency"
+          />
+        </div>
+      </div>
     </div>
   );
 
@@ -290,6 +353,8 @@ export const ReturnTypeInputs: React.FC<ReturnTypeInputsProps> = ({
       return renderFixedYieldInputs();
     case "revenue_share":
       return renderRevenueShareInputs();
+    case "profit_share":
+      return renderProfitShareInputs();
     case "appreciation":
       return renderAppreciationInputs();
     case "hybrid":

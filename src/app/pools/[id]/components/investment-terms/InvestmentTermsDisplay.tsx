@@ -40,8 +40,8 @@ export default function InvestmentTermsDisplay({
           return "Fixed Yield";
         case "revenue_share":
           return "Revenue Share";
-        case "royalty":
-          return "Royalty";
+        case "profit_share":
+          return "Profit Share";
         case "appreciation":
           return "Token Allocation";
         case "hybrid":
@@ -59,8 +59,8 @@ export default function InvestmentTermsDisplay({
     });
   }
 
-  // Concrete percentage returns - only show real percentages, not guesses
-  if (terms.return_type === "fixed_yield" && terms.expected_annual_yield) {
+  // Concrete percentage returns - show all that have values set
+  if (terms.expected_annual_yield) {
     infoBoxes.push({
       id: "yield",
       icon: <FiBarChart className="w-6 h-6 text-[#836EF9]" />,
@@ -69,7 +69,7 @@ export default function InvestmentTermsDisplay({
     });
   }
 
-  if (terms.return_type === "revenue_share" && terms.revenue_share_percentage) {
+  if (terms.revenue_share_percentage) {
     infoBoxes.push({
       id: "revenue",
       icon: <FiBarChart className="w-6 h-6 text-[#836EF9]" />,
@@ -78,12 +78,12 @@ export default function InvestmentTermsDisplay({
     });
   }
 
-  if (terms.return_type === "royalty" && terms.royalty_percentage) {
+  if (terms.profit_share_percentage) {
     infoBoxes.push({
-      id: "royalty",
+      id: "profit-share",
       icon: <FiBarChart className="w-6 h-6 text-[#836EF9]" />,
-      label: "Royalty",
-      value: `${terms.royalty_percentage}%`,
+      label: "Profit share",
+      value: `${terms.profit_share_percentage}%`,
     });
   }
 
