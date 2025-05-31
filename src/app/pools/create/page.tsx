@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy, useFundWallet } from "@privy-io/react-auth";
 import { FaMapMarkerAlt, FaExclamationTriangle } from "react-icons/fa";
@@ -14,6 +14,8 @@ import showToast from "@/utils/toast";
 import useOnboardingMissions from "@/hooks/useOnboardingMissions";
 import { useAuthJwt } from "@/hooks/useAuthJwt";
 import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
+import { InvestmentTerms } from "@/types/investment";
+import { useAlphaMode } from "@/hooks/useAlphaMode";
 
 // Import our new components
 import PoolImageSection from "./components/PoolImageSection";
@@ -23,6 +25,7 @@ import EndTimeSection from "./components/EndTimeSection";
 import { TiersSection } from "./components/TiersSection";
 import { Tier, RewardItem } from "./types";
 import FundingSummary from "./components/FundingSummary";
+import { InvestmentTermsSection } from "./components/investment/InvestmentTermsSection";
 
 // Import our new hooks
 import usePoolImage from "./hooks/usePoolImage";
@@ -46,6 +49,8 @@ function formatDateForInput(date: Date): string {
   return localISOString;
 }
 
+const poolPriceUSDC = 0.01; // 1 cent per token
+
 export default function CreatePoolPage() {
   const { user: privyUser } = usePrivy();
   const { dbUser } = useSupabase();
@@ -60,10 +65,13 @@ export default function CreatePoolPage() {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [rewardItems, setRewardItems] = useState<RewardItem[]>([]);
+  const [investmentTerms, setInvestmentTerms] =
+    useState<InvestmentTerms | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { completeMission } = useOnboardingMissions();
   const { token: authToken } = useAuthJwt();
+  const { isAlphaMode } = useAlphaMode();
 
   // Use our custom hooks
   const {
@@ -319,7 +327,8 @@ export default function CreatePoolPage() {
         location,
         socialLinks,
         Math.floor(endDate.getTime() / 1000),
-        rewardItems
+        rewardItems,
+        investmentTerms // Add investment terms parameter
       );
     } catch (error: any) {
       console.error("Error creating pool:", error);
@@ -402,6 +411,17 @@ export default function CreatePoolPage() {
 
         {/* Form */}
         <form id="createPoolForm" onSubmit={onSubmit} className="mt-8">
+          {/* Investment Terms - only show in alpha mode */}
+          {isAlphaMode && (
+            <div className="mb-6">
+              <InvestmentTermsSection
+                onTermsChange={(terms: InvestmentTerms) =>
+                  setInvestmentTerms(terms)
+                }
+              />
+            </div>
+          )}
+
           {/* Description */}
           <div className="mb-6">
             <h2 className="text-2xl font-bold mb-4">Pool Description</h2>

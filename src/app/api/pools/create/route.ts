@@ -45,6 +45,7 @@ interface CreatePoolRequestBody {
     raised_amount: number;
     image_url: string | null;
     social_links: any;
+    investment_terms?: any; // Add investment terms
     tiers?: any[]; // Contains tier details including rewardItems linked by frontend ID
   };
   endTimeUnix: number;
@@ -291,7 +292,71 @@ export async function POST(request: NextRequest) {
     }
     console.log("Successfully inserted pool:", createdPool.id);
 
-    // 5. Insert Tiers
+    // 5. Insert Investment Terms (if provided)
+    if (poolData.investment_terms) {
+      console.log("Inserting investment terms for pool:", createdPool.id);
+
+      const investmentTermsData = {
+        pool_id: createdPool.id,
+        return_type: poolData.investment_terms.returnType,
+        expected_annual_yield: poolData.investment_terms.expectedAnnualYield,
+        yield_distribution_frequency:
+          poolData.investment_terms.yieldDistributionFrequency,
+        revenue_share_percentage:
+          poolData.investment_terms.revenueSharePercentage,
+        revenue_distribution_frequency:
+          poolData.investment_terms.revenueDistributionFrequency,
+        profit_share_percentage:
+          poolData.investment_terms.profitSharePercentage,
+        profit_share_distribution_frequency:
+          poolData.investment_terms.profitShareDistributionFrequency,
+        projected_appreciation_percentage:
+          poolData.investment_terms.projectedAppreciationPercentage,
+        appreciation_timeframe_months:
+          poolData.investment_terms.appreciationTimeframeMonths,
+        risk_level: poolData.investment_terms.riskLevel,
+        investment_horizon_months:
+          poolData.investment_terms.investmentHorizonMonths,
+        minimum_hold_period_months:
+          poolData.investment_terms.minimumHoldPeriodMonths,
+        regulatory_framework: poolData.investment_terms.regulatoryFramework,
+        security_type: poolData.investment_terms.securityType,
+        accredited_only: poolData.investment_terms.accreditedOnly,
+        management_fee_percentage:
+          poolData.investment_terms.managementFeePercentage,
+        performance_fee_percentage:
+          poolData.investment_terms.performanceFeePercentage,
+        track_record: poolData.investment_terms.trackRecord,
+        similar_projects_count: poolData.investment_terms.similarProjectsCount,
+        average_returns_description:
+          poolData.investment_terms.averageReturnsDescription,
+        notable_successes: poolData.investment_terms.notableSuccesses,
+        benchmark_comparison: poolData.investment_terms.benchmarkComparison,
+        terms_and_conditions: poolData.investment_terms.termsAndConditions,
+        risk_disclosure: poolData.investment_terms.riskDisclosure,
+        regulatory_notes: poolData.investment_terms.regulatoryNotes,
+        template_used: poolData.investment_terms.templateUsed,
+      };
+
+      const { error: investmentTermsError } = await adminClient
+        .from("pool_investment_terms")
+        .insert(investmentTermsData);
+
+      if (investmentTermsError) {
+        console.error(
+          "Error inserting investment terms:",
+          investmentTermsError
+        );
+        // Don't fail the whole request if investment terms fail
+        console.log(
+          "Pool created successfully but investment terms failed to save"
+        );
+      } else {
+        console.log("Successfully inserted investment terms");
+      }
+    }
+
+    // 6. Insert Tiers
     let insertedTiers: any[] = [];
     if (poolData.tiers && poolData.tiers.length > 0) {
       console.log(`Preparing ${poolData.tiers.length} tiers for insertion`);
@@ -347,7 +412,7 @@ export async function POST(request: NextRequest) {
       insertedTiers = dbTiers || [];
       console.log(`Successfully inserted ${insertedTiers.length} tiers`);
 
-      // 6. Create and Link Reward Items
+      // 7. Create and Link Reward Items
       if (insertedTiers.length > 0) {
         console.log("Processing reward items for tiers");
         const rewardResult = await createAndLinkRewardItemsBackend(
@@ -369,7 +434,7 @@ export async function POST(request: NextRequest) {
       console.log("No tiers provided in the request");
     }
 
-    // 7. Success Response
+    // 8. Success Response
     console.log("Pool creation process completed successfully via API");
     return NextResponse.json({
       success: true,

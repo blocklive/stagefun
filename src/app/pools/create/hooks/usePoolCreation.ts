@@ -47,7 +47,8 @@ export const usePoolCreation = () => {
       name: string;
       description: string;
       type: string;
-    }>
+    }>,
+    investmentTerms?: any
   ) => {
     // Validate required fields
     if (!poolName || !poolName.trim()) {
@@ -189,6 +190,7 @@ export const usePoolCreation = () => {
         raised_amount: 0,
         image_url: imagePreview,
         social_links: socialLinks,
+        investment_terms: investmentTerms,
         tiers: tiers.map((tier) => {
           // Basic validation for required fields
           const price = parseFloat(tier.price);

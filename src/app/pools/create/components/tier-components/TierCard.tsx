@@ -7,6 +7,7 @@ import { uploadTierImage } from "@/lib/utils/imageUpload";
 import { TierImageUploader } from "./TierImageUploader";
 import { TierDetailsForm } from "./TierDetailsForm";
 import { TierRewardsList } from "./TierRewardsList";
+import { TierEnhancements } from "./TierEnhancements";
 import RichTextEditor from "@/app/components/RichTextEditor";
 import {
   getTierPriceDisplay,
@@ -172,6 +173,15 @@ export const TierCard: React.FC<TierCardProps> = ({
           onCreateNewReward={handleCreateReward}
         />
       </div>
+
+      {/* Investment Enhancement section - Hidden for now */}
+      {/* <div className={disabled ? "opacity-70 pointer-events-none" : ""}>
+        <TierEnhancements
+          tier={tier}
+          onUpdateTier={handleTierUpdate}
+          disabled={disabled}
+        />
+      </div> */}
     </div>
   );
 };
