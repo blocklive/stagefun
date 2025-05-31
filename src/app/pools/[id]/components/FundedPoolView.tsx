@@ -14,6 +14,7 @@ import {
 import { useMemo } from "react";
 import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
 import InvestmentTermsDisplay from "./investment-terms/InvestmentTermsDisplay";
+import { useAlphaMode } from "@/hooks/useAlphaMode";
 
 type TabType = "overview" | "patrons" | "updates";
 
@@ -42,6 +43,8 @@ export default function FundedPoolView({
   onManageClick,
   patronCount: externalPatronCount,
 }: FundedPoolViewProps) {
+  const { isAlphaMode } = useAlphaMode();
+
   const fundedDate = targetReachedTimestamp
     ? new Date(targetReachedTimestamp * 1000).toLocaleDateString()
     : new Date(pool.ends_at).toLocaleDateString();
@@ -196,8 +199,8 @@ export default function FundedPoolView({
               )}
           </div>
 
-          {/* Investment Terms Display */}
-          <InvestmentTermsDisplay poolId={pool.id} />
+          {/* Investment Terms Display - only show in alpha mode */}
+          {isAlphaMode && <InvestmentTermsDisplay poolId={pool.id} />}
 
           {/* Pool Funds Section */}
           {renderPoolFunds()}

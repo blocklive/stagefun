@@ -213,6 +213,10 @@ export const RETURN_TYPE_INFO = {
     label: "Revenue Share",
     description: "Percentage of ongoing revenue",
   },
+  profit_share: {
+    label: "Profit Share",
+    description: "Percentage of net profits after costs",
+  },
   appreciation: {
     label: "Token Allocation",
     description: "Returns based on token performance",
@@ -220,9 +224,5 @@ export const RETURN_TYPE_INFO = {
   hybrid: {
     label: "Hybrid Returns",
     description: "Combination of yield and appreciation",
-  },
-  profit_share: {
-    label: "Profit Share",
-    description: "Percentage of net profits after costs",
   },
 };

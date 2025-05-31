@@ -14,6 +14,8 @@ import showToast from "@/utils/toast";
 import useOnboardingMissions from "@/hooks/useOnboardingMissions";
 import { useAuthJwt } from "@/hooks/useAuthJwt";
 import { MAX_SAFE_VALUE } from "@/lib/utils/contractValues";
+import { InvestmentTerms } from "@/types/investment";
+import { useAlphaMode } from "@/hooks/useAlphaMode";
 
 // Import our new components
 import PoolImageSection from "./components/PoolImageSection";
@@ -34,7 +36,6 @@ import usePoolCreation from "./hooks/usePoolCreation";
 import { supabase } from "@/lib/supabase";
 import { calculateMaxPossibleFunding } from "./hooks/calculateMaxFunding";
 import CustomButton from "@/app/components/CustomButton";
-import { InvestmentTerms } from "@/types/investment";
 
 // Helper function to format a date for datetime-local input
 function formatDateForInput(date: Date): string {
@@ -70,6 +71,7 @@ export default function CreatePoolPage() {
   const [error, setError] = useState<string | null>(null);
   const { completeMission } = useOnboardingMissions();
   const { token: authToken } = useAuthJwt();
+  const { isAlphaMode } = useAlphaMode();
 
   // Use our custom hooks
   const {
@@ -409,14 +411,16 @@ export default function CreatePoolPage() {
 
         {/* Form */}
         <form id="createPoolForm" onSubmit={onSubmit} className="mt-8">
-          {/* Investment Terms */}
-          <div className="mb-6">
-            <InvestmentTermsSection
-              onTermsChange={(terms: InvestmentTerms) =>
-                setInvestmentTerms(terms)
-              }
-            />
-          </div>
+          {/* Investment Terms - only show in alpha mode */}
+          {isAlphaMode && (
+            <div className="mb-6">
+              <InvestmentTermsSection
+                onTermsChange={(terms: InvestmentTerms) =>
+                  setInvestmentTerms(terms)
+                }
+              />
+            </div>
+          )}
 
           {/* Description */}
           <div className="mb-6">

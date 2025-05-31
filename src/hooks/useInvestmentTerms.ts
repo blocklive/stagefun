@@ -30,7 +30,7 @@ const defaultTerms: InvestmentTerms = {
   returnType: "fixed_yield",
   riskLevel: "medium",
   investmentHorizonMonths: 12,
-  managementFeePercentage: 2.0,
+  managementFeePercentage: 0,
 };
 
 const defaultEnhancements: TierInvestmentEnhancement = {
