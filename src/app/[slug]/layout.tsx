@@ -55,7 +55,9 @@ export async function generateMetadata({
       pool.image_url ||
       `${baseUrl}/api/og?title=${encodeURIComponent(
         pool.name || pool.title
-      )}&raised=${raisedFormatted}&target=${targetFormatted}&percentage=${percentage}`;
+      )}&raised=${raisedFormatted}&target=${targetFormatted}&percentage=${percentage}${
+        pool.image_url ? `&imageUrl=${encodeURIComponent(pool.image_url)}` : ""
+      }`;
 
     return {
       title,
