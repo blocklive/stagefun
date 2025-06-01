@@ -233,8 +233,10 @@ const fetcher = async (params: { id?: string; slug?: string }) => {
 };
 
 // For backward compatibility - accepts either a pool ID string directly or params object
+// Added optional initialData parameter to prevent double fetch
 export function usePoolDetailsV2(
-  poolIdentifier: string | { id?: string; slug?: string }
+  poolIdentifier: string | { id?: string; slug?: string },
+  options?: { initialData?: any }
 ): PoolDetailsV2 {
   // Handle the case where we're passed a string (existing usage) or an object (new usage)
   const params =
@@ -250,7 +252,8 @@ export function usePoolDetailsV2(
     params.id || params.slug ? cacheKey : null,
     () => fetcher(params),
     {
-      refreshInterval: 5000, // Refresh every 5 seconds
+      fallbackData: options?.initialData, // Use provided initial data
+      refreshInterval: 20000, // Refresh every 20 seconds
       revalidateOnFocus: true,
     }
   );

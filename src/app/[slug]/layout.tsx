@@ -1,6 +1,10 @@
 import { Metadata } from "next";
-import { supabase } from "../../lib/supabase";
 import ClientLayout from "./client-layout";
+import {
+  getPoolMetadataBySlug,
+  formatCurrency,
+  calculateFundingPercentage,
+} from "../../lib/services/pool-metadata-service";
 
 interface SlugLayoutProps {
   children: React.ReactNode;
@@ -14,23 +18,10 @@ export async function generateMetadata({
   const { slug } = params;
 
   try {
-    // Fetch pool data by slug
-    const { data: pool, error } = await supabase
-      .from("pools")
-      .select(
-        `
-        *,
-        creator:users!creator_id (
-          id,
-          name,
-          avatar_url
-        )
-      `
-      )
-      .eq("slug", slug)
-      .single();
+    // Use service to fetch pool data
+    const pool = await getPoolMetadataBySlug(slug);
 
-    if (error || !pool) {
+    if (!pool) {
       // Return basic metadata if pool not found
       return {
         title: "Pool Not Found - StageFun",
@@ -38,25 +29,11 @@ export async function generateMetadata({
       };
     }
 
-    // Calculate percentage funded
-    const percentage =
-      pool.target_amount > 0
-        ? Math.min(
-            Math.round((pool.raised_amount / pool.target_amount) * 100),
-            100
-          )
-        : 0;
-
-    // Format raised amount for display
-    const formatCurrency = (amount: number) => {
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(amount);
-    };
-
+    // Use service functions for calculations
+    const percentage = calculateFundingPercentage(
+      pool.raised_amount || 0,
+      pool.target_amount || 0
+    );
     const raisedFormatted = formatCurrency(pool.raised_amount || 0);
     const targetFormatted = formatCurrency(pool.target_amount || 0);
 
