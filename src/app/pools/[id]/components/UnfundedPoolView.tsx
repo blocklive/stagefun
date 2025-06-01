@@ -5,6 +5,8 @@ import TabsAndSocial from "./TabsAndSocial";
 import { formatCurrency } from "../../../../lib/utils";
 import { useMemo } from "react";
 import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
+import InvestmentTermsDisplay from "./investment-terms/InvestmentTermsDisplay";
+import { useAlphaMode } from "@/hooks/useAlphaMode";
 
 type TabType = "overview" | "patrons" | "updates";
 
@@ -31,6 +33,8 @@ export default function UnfundedPoolView({
   onManageClick,
   patronCount: externalPatronCount,
 }: UnfundedPoolViewProps) {
+  const { isAlphaMode } = useAlphaMode();
+
   // Format raised and target amounts
   const displayRaisedAmount = useMemo(() => {
     if (!raisedAmount) return "0";
@@ -127,6 +131,9 @@ export default function UnfundedPoolView({
               }}
             ></div>
           </div>
+
+          {/* Investment Terms Display - only show in alpha mode */}
+          {isAlphaMode && <InvestmentTermsDisplay poolId={pool.id} />}
 
           {/* User's Commitment - with refund option */}
           {renderUserCommitment()}

@@ -6,6 +6,8 @@ import { formatCurrency } from "../../../../lib/utils";
 import TabsAndSocial from "./TabsAndSocial";
 import { fromUSDCBaseUnits } from "../../../../lib/contracts/StageDotFunPool";
 import CountdownTimer from "../../../components/CountdownTimer";
+import InvestmentTermsDisplay from "./investment-terms/InvestmentTermsDisplay";
+import { useAlphaMode } from "@/hooks/useAlphaMode";
 import React from "react";
 
 type TabType = "overview" | "patrons" | "updates";
@@ -47,6 +49,8 @@ export default function OpenPoolView({
   hasEnded,
   rawDays,
 }: OpenPoolViewProps) {
+  const { isAlphaMode } = useAlphaMode();
+
   // Calculate the number of patrons
   const patronCount = React.useMemo(() => {
     if (externalPatronCount !== undefined) {
@@ -125,6 +129,9 @@ export default function OpenPoolView({
             seconds={seconds}
             className="mb-6"
           />
+
+          {/* Investment Terms Display - only show in alpha mode */}
+          {isAlphaMode && <InvestmentTermsDisplay poolId={pool.id} />}
 
           {/* User's Commitment */}
           {renderUserCommitment()}

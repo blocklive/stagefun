@@ -191,16 +191,77 @@ export async function createPoolWithSmartWallet(
     name,
     uniqueId,
     symbol,
-    endTime,
-    smartWalletAddress, // owner
-    smartWalletAddress, // creator
-    targetAmount,
-    capAmount,
-    tiers,
+    Number(endTime),
+    smartWalletAddress,
+    smartWalletAddress,
+    Number(targetAmount),
+    Number(capAmount),
+    tiers.map((tier) => ({
+      name: tier.name,
+      price: Number(tier.price),
+      nftMetadata: tier.nftMetadata,
+      isVariablePrice: tier.isVariablePrice,
+      minPrice: Number(tier.minPrice),
+      maxPrice: Number(tier.maxPrice),
+      maxPatrons: Number(tier.maxPatrons),
+    })),
     feeRecipient,
     Number(fundingFeeBps),
     Number(revenueFeeBps),
   ];
+
+  // DETAILED LOGGING RIGHT BEFORE CONTRACT CALL
+  console.log("🔥 ABOUT TO CALL CONTRACT - FULL PARAMETER DUMP:");
+  console.log("Factory Address:", factoryAddress);
+  console.log("Function Name: createPool");
+  console.log("Parameter 0 - name:", name, typeof name);
+  console.log("Parameter 1 - uniqueId:", uniqueId, typeof uniqueId);
+  console.log("Parameter 2 - symbol:", symbol, typeof symbol);
+  console.log("Parameter 3 - endTime:", endTime, typeof endTime);
+  console.log(
+    "Parameter 4 - owner (smartWalletAddress):",
+    smartWalletAddress,
+    typeof smartWalletAddress
+  );
+  console.log(
+    "Parameter 5 - creator (smartWalletAddress):",
+    smartWalletAddress,
+    typeof smartWalletAddress
+  );
+  console.log("Parameter 6 - targetAmount:", targetAmount, typeof targetAmount);
+  console.log("Parameter 7 - capAmount:", capAmount, typeof capAmount);
+  console.log("Parameter 8 - tiers:");
+  tiers.forEach((tier, index) => {
+    console.log(`  Tier ${index}:`, {
+      name: tier.name,
+      nameType: typeof tier.name,
+      price: tier.price,
+      priceType: typeof tier.price,
+      nftMetadata: tier.nftMetadata,
+      nftMetadataType: typeof tier.nftMetadata,
+      isVariablePrice: tier.isVariablePrice,
+      isVariablePriceType: typeof tier.isVariablePrice,
+      minPrice: tier.minPrice,
+      minPriceType: typeof tier.minPrice,
+      maxPrice: tier.maxPrice,
+      maxPriceType: typeof tier.maxPrice,
+      maxPatrons: tier.maxPatrons,
+      maxPatronsType: typeof tier.maxPatrons,
+    });
+  });
+  console.log("Parameter 9 - feeRecipient:", feeRecipient, typeof feeRecipient);
+  console.log(
+    "Parameter 10 - fundingFeeBps:",
+    Number(fundingFeeBps),
+    typeof Number(fundingFeeBps)
+  );
+  console.log(
+    "Parameter 11 - revenueFeeBps:",
+    Number(revenueFeeBps),
+    typeof Number(revenueFeeBps)
+  );
+  console.log("Complete args array:", args);
+  console.log("🔥 END PARAMETER DUMP");
 
   // Call createPool on the factory contract using smart wallet
   const result = await callContractFunction(
