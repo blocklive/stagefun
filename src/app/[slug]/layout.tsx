@@ -15,7 +15,7 @@ interface SlugLayoutProps {
 export async function generateMetadata({
   params,
 }: SlugLayoutProps): Promise<Metadata> {
-  const { slug } = params;
+  const { slug } = await params;
 
   try {
     // Use service to fetch pool data
@@ -50,14 +50,12 @@ export async function generateMetadata({
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://app.stage.fun";
     const poolUrl = `${baseUrl}/${slug}`;
 
-    // Use pool image or fallback to a default image
-    const imageUrl =
-      pool.image_url ||
-      `${baseUrl}/api/og?title=${encodeURIComponent(
-        pool.name || pool.title
-      )}&raised=${raisedFormatted}&target=${targetFormatted}&percentage=${percentage}${
-        pool.image_url ? `&imageUrl=${encodeURIComponent(pool.image_url)}` : ""
-      }`;
+    // Always use our OG image generator, but pass pool image as parameter
+    const imageUrl = `${baseUrl}/api/og?title=${encodeURIComponent(
+      pool.name || pool.title
+    )}&raised=${raisedFormatted}&target=${targetFormatted}&percentage=${percentage}${
+      pool.image_url ? `&imageUrl=${encodeURIComponent(pool.image_url)}` : ""
+    }`;
 
     return {
       title,

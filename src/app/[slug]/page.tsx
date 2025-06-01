@@ -9,7 +9,7 @@ interface PoolDetailsPageProps {
 export default async function PoolDetailsPage({
   params,
 }: PoolDetailsPageProps) {
-  const { slug } = params;
+  const { slug } = await params;
 
   try {
     // Use service to fetch pool data
