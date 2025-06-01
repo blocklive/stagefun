@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
             style={{
               display: "flex",
               flexDirection: "row",
-              backgroundColor: "#0000008C",
+              background: "linear-gradient(180deg, #0b0123 0%, #190241 100%)",
               borderRadius: "24px",
               padding: "60px",
               width: "100%",
