@@ -1,5 +1,26 @@
 import { supabase } from "../supabase";
 
+/**
+ * Strip HTML tags from a string
+ */
+function stripHtmlTags(html: string): string {
+  if (!html) return "";
+
+  // Remove HTML tags
+  const withoutTags = html.replace(/<[^>]*>/g, "");
+
+  // Decode common HTML entities
+  return withoutTags
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&hellip;/g, "...")
+    .trim();
+}
+
 export interface PoolMetadata {
   id: string;
   name: string;
@@ -8,6 +29,7 @@ export interface PoolMetadata {
   image_url?: string;
   raised_amount: number;
   target_amount: number;
+  token_symbol?: string;
   creator?: {
     id: string;
     name: string;
@@ -53,7 +75,13 @@ export async function getPoolMetadataBySlug(
       return null;
     }
 
-    return pool as PoolMetadata;
+    // Strip HTML from description
+    const cleanedPool = {
+      ...pool,
+      description: stripHtmlTags(pool.description || ""),
+    };
+
+    return cleanedPool as PoolMetadata;
   } catch (error) {
     console.error("Error fetching pool metadata:", error);
     return null;

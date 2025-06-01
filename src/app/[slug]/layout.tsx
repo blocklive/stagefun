@@ -53,8 +53,12 @@ export async function generateMetadata({
     // Always use our OG image generator, but pass pool image as parameter
     const imageUrl = `${baseUrl}/api/og?title=${encodeURIComponent(
       pool.name || pool.title
-    )}&raised=${raisedFormatted}&target=${targetFormatted}&percentage=${percentage}${
+    )}${
       pool.image_url ? `&imageUrl=${encodeURIComponent(pool.image_url)}` : ""
+    }${
+      pool.token_symbol
+        ? `&tokenSymbol=${encodeURIComponent(pool.token_symbol)}`
+        : ""
     }`;
 
     return {

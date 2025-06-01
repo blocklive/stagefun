@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const target = searchParams.get("target") || "$0";
     const percentage = searchParams.get("percentage") || "0";
     const poolImageUrl = searchParams.get("imageUrl");
+    const tokenSymbol = searchParams.get("tokenSymbol") || "";
 
     return new ImageResponse(
       (
@@ -47,61 +48,68 @@ export async function GET(request: NextRequest) {
               }}
             >
               {/* Thumbnail */}
-              <div
-                style={{
-                  width: "300px",
-                  height: "250px",
-                  borderRadius: "16px",
-                  backgroundColor: "#1a1b23",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "64px",
-                  background:
-                    "linear-gradient(135deg, #7877c6 0%, #ff6384 100%)",
-                  color: "white",
-                }}
-              >
-                🎉
-              </div>
+              {poolImageUrl ? (
+                <div
+                  style={{
+                    width: "300px",
+                    height: "250px",
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    backgroundColor: "#1a1b23",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <img
+                    src={poolImageUrl}
+                    alt="Pool image"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    width: "300px",
+                    height: "250px",
+                    borderRadius: "16px",
+                    backgroundColor: "#1a1b23",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "64px",
+                    background:
+                      "linear-gradient(135deg, #7877c6 0%, #ff6384 100%)",
+                    color: "white",
+                  }}
+                >
+                  🎉
+                </div>
+              )}
 
-              {/* Stats */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: "20px",
-                  marginTop: "20px",
-                }}
-              >
+              {/* Token Symbol */}
+              {tokenSymbol && (
                 <div
                   style={{
                     display: "flex",
-                    flexDirection: "column",
                     alignItems: "center",
+                    justifyContent: "center",
+                    marginTop: "30px",
+                    fontSize: "24px",
+                    fontWeight: "700",
+                    color: "#7877c6",
+                    backgroundColor: "#FFFFFF10",
+                    padding: "12px 24px",
+                    borderRadius: "12px",
                   }}
                 >
-                  <div style={{ fontSize: "20px", color: "#7877c6" }}>
-                    {raised}
-                  </div>
-                  <div style={{ fontSize: "12px", color: "#a1a1aa" }}>
-                    Raised
-                  </div>
+                  ${tokenSymbol}
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                  }}
-                >
-                  <div style={{ fontSize: "20px", color: "#ff6384" }}>
-                    {target}
-                  </div>
-                  <div style={{ fontSize: "12px", color: "#a1a1aa" }}>
-                    Target
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Right Column */}
@@ -129,28 +137,23 @@ export async function GET(request: NextRequest) {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "10px",
-                  marginTop: "40px",
-                  fontSize: "24px",
-                  color: "#7877c6",
+                  justifyContent: "center",
+                  marginTop: "80px",
                 }}
               >
-                <div
+                <img
+                  src={`${
+                    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3066"
+                  }/stagefunheader.png`}
+                  alt="StageFun Logo"
+                  width="48"
+                  height="48"
                   style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "8px",
-                    background:
-                      "linear-gradient(135deg, #7877c6 0%, #ff6384 100%)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "16px",
+                    width: "48px",
+                    height: "48px",
+                    imageRendering: "crisp-edges",
                   }}
-                >
-                  🎭
-                </div>
-                StageFun
+                />
               </div>
             </div>
           </div>
