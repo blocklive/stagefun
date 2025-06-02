@@ -6,12 +6,33 @@ export const runtime = "edge";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const title = searchParams.get("title") || "Pool";
+    const title = searchParams.get("title");
+
+    // Health check - if no title provided, return a simple response
+    if (!title) {
+      return new Response(
+        "OG Image API is working. Add ?title=YourTitle to generate an image.",
+        {
+          status: 200,
+          headers: { "Content-Type": "text/plain" },
+        }
+      );
+    }
+
     const raised = searchParams.get("raised") || "$0";
     const target = searchParams.get("target") || "$0";
     const percentage = searchParams.get("percentage") || "0";
     const poolImageUrl = searchParams.get("imageUrl");
     const tokenSymbol = searchParams.get("tokenSymbol") || "";
+
+    // Log for debugging
+    console.log("OG Image generation:", { title, poolImageUrl, tokenSymbol });
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://app.stage.fun";
+    const logoUrl = `${baseUrl}/stagefunheader.png`;
+
+    // Ensure title has a value
+    const displayTitle = title || "Pool";
 
     return new ImageResponse(
       (
@@ -130,7 +151,7 @@ export async function GET(request: NextRequest) {
                   textAlign: "center",
                 }}
               >
-                {title}
+                {displayTitle}
               </div>
 
               <div
@@ -139,21 +160,12 @@ export async function GET(request: NextRequest) {
                   alignItems: "center",
                   justifyContent: "center",
                   marginTop: "80px",
+                  fontSize: "32px",
+                  fontWeight: "700",
+                  color: "#7877c6",
                 }}
               >
-                <img
-                  src={`${
-                    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3066"
-                  }/stagefunheader.png`}
-                  alt="StageFun Logo"
-                  width="48"
-                  height="48"
-                  style={{
-                    width: "48px",
-                    height: "48px",
-                    imageRendering: "crisp-edges",
-                  }}
-                />
+                StageFun
               </div>
             </div>
           </div>
@@ -165,8 +177,8 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (e: any) {
-    console.log(`${e.message}`);
-    return new Response(`Failed to generate the image`, {
+    console.error("OG Image generation error:", e.message);
+    return new Response(`Failed to generate the image: ${e.message}`, {
       status: 500,
     });
   }
