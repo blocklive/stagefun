@@ -28,7 +28,9 @@ export async function GET(request: NextRequest) {
     // Log for debugging
     console.log("OG Image generation:", { title, poolImageUrl, tokenSymbol });
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://app.stage.fun";
+    // Get dynamic base URL from the request
+    const url = new URL(request.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
     const logoUrl = `${baseUrl}/stagefunheader.png`;
 
     // Ensure title has a value
@@ -160,12 +162,19 @@ export async function GET(request: NextRequest) {
                   alignItems: "center",
                   justifyContent: "center",
                   marginTop: "80px",
-                  fontSize: "32px",
-                  fontWeight: "700",
-                  color: "#7877c6",
                 }}
               >
-                StageFun
+                <img
+                  src={logoUrl}
+                  alt="StageFun Logo"
+                  width="48"
+                  height="48"
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    imageRendering: "crisp-edges",
+                  }}
+                />
               </div>
             </div>
           </div>
