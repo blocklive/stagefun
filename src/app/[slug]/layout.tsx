@@ -52,7 +52,9 @@ export async function generateMetadata({
     const headersList = await headers();
     const host = headersList.get("host");
     const protocol = headersList.get("x-forwarded-proto") || "https";
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+    const baseUrl = host
+      ? `${protocol}://${host}`
+      : process.env.NEXT_PUBLIC_BASE_URL || "https://app.stage.fun";
     const poolUrl = `${baseUrl}/${slug}`;
 
     // Always use our OG image generator, but pass pool image as parameter
