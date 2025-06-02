@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { headers } from "next/headers";
 import ClientLayout from "./client-layout";
 import {
   getPoolMetadataBySlug,
@@ -47,7 +48,11 @@ export async function generateMetadata({
           pool.creator?.name || "this creator"
         }'s pool on StageFun. ${raisedFormatted} raised of ${targetFormatted} target (${percentage}% funded).`;
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://app.stage.fun";
+    // Get the current host from headers for dynamic base URL
+    const headersList = await headers();
+    const host = headersList.get("host");
+    const protocol = headersList.get("x-forwarded-proto") || "https";
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
     const poolUrl = `${baseUrl}/${slug}`;
 
     // Always use our OG image generator, but pass pool image as parameter
