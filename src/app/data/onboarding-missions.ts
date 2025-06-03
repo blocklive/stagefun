@@ -22,9 +22,9 @@ export const onboardingMissions: Mission[] = [
   },
   {
     id: "follow_x",
-    title: "Follow us on X (Twitter)",
+    title: "Follow us on X",
     description:
-      "Connect with us on Twitter for the latest updates and join our growing community.",
+      "Connect with us on X for the latest updates and join our growing community.",
     points: 1000,
     icon: "/images/x-logo.png",
     actionLabel: "Follow",

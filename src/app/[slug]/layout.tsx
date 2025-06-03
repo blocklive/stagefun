@@ -1,70 +1,115 @@
-"use client";
-
-import { useRouter, usePathname } from "next/navigation";
-import { useState } from "react";
-import SideNavbar from "../components/SideNavbar";
-import BottomNavbar from "../components/BottomNavbar";
-import AppHeader from "../components/AppHeader";
-import { usePrivy } from "@privy-io/react-auth";
-import GetTokensModal from "../components/GetTokensModal";
-import InfoModal from "../components/InfoModal";
+import { Metadata } from "next";
+import { headers } from "next/headers";
+import ClientLayout from "./client-layout";
+import {
+  getPoolMetadataBySlug,
+  formatCurrency,
+  calculateFundingPercentage,
+} from "../../lib/services/pool-metadata-service";
 
 interface SlugLayoutProps {
   children: React.ReactNode;
+  params: { slug: string };
+}
+
+// Server-side metadata generation for Open Graph and Twitter Cards
+export async function generateMetadata({
+  params,
+}: SlugLayoutProps): Promise<Metadata> {
+  const { slug } = await params;
+
+  try {
+    // Use service to fetch pool data
+    const pool = await getPoolMetadataBySlug(slug);
+
+    if (!pool) {
+      // Return basic metadata if pool not found
+      return {
+        title: "Pool Not Found - StageFun",
+        description: "This pool could not be found.",
+      };
+    }
+
+    // Use service functions for calculations
+    const percentage = calculateFundingPercentage(
+      pool.raised_amount || 0,
+      pool.target_amount || 0
+    );
+    const raisedFormatted = formatCurrency(pool.raised_amount || 0);
+    const targetFormatted = formatCurrency(pool.target_amount || 0);
+
+    // Construct title and description
+    const title = `${pool.name || pool.title} - StageFun`;
+    const description = pool.description
+      ? `${pool.description.slice(0, 150)}${
+          pool.description.length > 150 ? "..." : ""
+        }`
+      : `Join ${
+          pool.creator?.name || "this creator"
+        }'s pool on StageFun. ${raisedFormatted} raised of ${targetFormatted} target (${percentage}% funded).`;
+
+    // Get the current host from headers for dynamic base URL
+    const headersList = await headers();
+    const host = headersList.get("host");
+    const protocol = headersList.get("x-forwarded-proto") || "https";
+    const baseUrl = host
+      ? `${protocol}://${host}`
+      : process.env.NEXT_PUBLIC_BASE_URL || "https://app.stage.fun";
+    const poolUrl = `${baseUrl}/${slug}`;
+
+    // Always use our OG image generator, but pass pool image as parameter
+    const imageUrl = `${baseUrl}/api/og?title=${encodeURIComponent(
+      pool.name || pool.title
+    )}${
+      pool.image_url ? `&imageUrl=${encodeURIComponent(pool.image_url)}` : ""
+    }${
+      pool.token_symbol
+        ? `&tokenSymbol=${encodeURIComponent(pool.token_symbol)}`
+        : ""
+    }`;
+
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        url: poolUrl,
+        siteName: "StageFun",
+        images: [
+          {
+            url: imageUrl,
+            width: 1200,
+            height: 630,
+            alt: pool.name || pool.title,
+          },
+        ],
+        type: "website",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [imageUrl],
+        creator: "@stagefunapp",
+        site: "@stagefunapp",
+      },
+      alternates: {
+        canonical: poolUrl,
+      },
+    };
+  } catch (error) {
+    console.error("Error generating metadata for slug:", slug, error);
+
+    // Return fallback metadata
+    return {
+      title: "StageFun - Party Rounds",
+      description:
+        "Create and join funding pools for parties, events, and more on StageFun.",
+    };
+  }
 }
 
 export default function SlugLayout({ children }: SlugLayoutProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { authenticated } = usePrivy();
-  const [showTokensModal, setShowTokensModal] = useState(false);
-  const [showInfoModal, setShowInfoModal] = useState(false);
-
-  // Always show back button for slug pages
-  const showBackButton = true;
-
-  // Handle points button click
-  const handlePointsClick = () => {
-    router.push("/rewards");
-  };
-
-  // Handle back button click
-  const handleBackClick = () => {
-    // Go back to the home page
-    router.push("/");
-  };
-
-  return (
-    <div className="min-h-screen bg-[#15161a] text-white">
-      <AppHeader
-        showBackButton={showBackButton}
-        showCreateButton={true}
-        showGetTokensButton={true}
-        showPointsButton={true}
-        onGetTokensClick={() => setShowTokensModal(true)}
-        onInfoClick={() => setShowInfoModal(true)}
-        onPointsClick={handlePointsClick}
-        onBackClick={handleBackClick}
-        isAuthenticated={authenticated}
-        showTitle={false}
-        title=""
-      />
-      <SideNavbar activeTab="party" isAuthenticated={authenticated} />
-      <div className="md:pl-64 flex-1 flex flex-col">
-        <div className="h-full">{children}</div>
-      </div>
-      <BottomNavbar activeTab="party" isAuthenticated={authenticated} />
-
-      {/* Modals */}
-      <GetTokensModal
-        isOpen={showTokensModal}
-        onClose={() => setShowTokensModal(false)}
-        isAuthenticated={authenticated}
-      />
-      <InfoModal
-        isOpen={showInfoModal}
-        onClose={() => setShowInfoModal(false)}
-      />
-    </div>
-  );
+  return <ClientLayout>{children}</ClientLayout>;
 }

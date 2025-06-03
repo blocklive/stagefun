@@ -45,19 +45,12 @@ export function getInitials(name: string): string {
   return name.charAt(0).toUpperCase();
 }
 
-// Function to sanitize image URL to work around Cloudflare issues
+// Function to sanitize image URL - simplified without cache busting
 function sanitizeImageUrl(url: string): string {
   if (!url) return url;
 
-  // Add cache busting and referrer headers to help with Cloudflare issues
-  const urlObj = new URL(url);
-
-  // Add a timestamp parameter to help with caching issues
-  if (!urlObj.searchParams.has("t")) {
-    urlObj.searchParams.set("t", Date.now().toString());
-  }
-
-  return urlObj.toString();
+  // Just return the original URL to allow proper caching
+  return url;
 }
 
 interface UserAvatarProps {
