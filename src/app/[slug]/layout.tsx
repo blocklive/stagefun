@@ -68,18 +68,6 @@ export async function generateMetadata({
         : ""
     }`;
 
-    // Fallback image in case OG route is not accessible
-    const fallbackImageUrl = `${baseUrl}/stagefun-og-default.png`;
-
-    // Debug logging
-    console.log("Generated OG image URL:", imageUrl);
-    console.log("Base URL:", baseUrl);
-    console.log("Pool data:", {
-      name: pool.name,
-      title: pool.title,
-      token_symbol: pool.token_symbol,
-    });
-
     return {
       title,
       description,
@@ -95,13 +83,6 @@ export async function generateMetadata({
             height: 630,
             alt: pool.name || pool.title,
           },
-          // Fallback image
-          {
-            url: fallbackImageUrl,
-            width: 1200,
-            height: 630,
-            alt: pool.name || pool.title,
-          },
         ],
         type: "website",
       },
@@ -109,7 +90,7 @@ export async function generateMetadata({
         card: "summary_large_image",
         title,
         description,
-        images: [imageUrl, fallbackImageUrl],
+        images: [imageUrl],
         creator: "@stagefunapp",
         site: "@stagefunapp",
       },
