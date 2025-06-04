@@ -66,7 +66,25 @@ export async function generateMetadata({
       pool.token_symbol
         ? `&tokenSymbol=${encodeURIComponent(pool.token_symbol)}`
         : ""
+    }${
+      pool.creator?.twitter_username
+        ? `&twitterHandle=${encodeURIComponent(pool.creator.twitter_username)}`
+        : pool.creator?.username
+        ? `&twitterHandle=${encodeURIComponent(pool.creator.username)}`
+        : pool.creator?.name
+        ? `&twitterHandle=${encodeURIComponent(pool.creator.name)}`
+        : ""
     }`;
+
+    // Debug logging to check creator data
+    console.log("Creator data:", pool.creator);
+    console.log(
+      "Twitter username from creator:",
+      pool.creator?.twitter_username
+    );
+    console.log("Username from creator:", pool.creator?.username);
+    console.log("Name from creator:", pool.creator?.name);
+    console.log("Generated OG image URL:", imageUrl);
 
     return {
       title,

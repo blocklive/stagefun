@@ -15,6 +15,8 @@ interface PoolData {
     id: string;
     name: string;
     avatar_url: string;
+    twitter_username?: string;
+    username?: string;
   };
 }
 
@@ -76,6 +78,14 @@ export default function TestOGPage() {
     }
     if (poolData.image_url) {
       params.set("imageUrl", poolData.image_url);
+    }
+    // Add Twitter handle using the same logic as layout metadata
+    if (poolData.creator?.twitter_username) {
+      params.set("twitterHandle", poolData.creator.twitter_username);
+    } else if (poolData.creator?.username) {
+      params.set("twitterHandle", poolData.creator.username);
+    } else if (poolData.creator?.name) {
+      params.set("twitterHandle", poolData.creator.name);
     }
     return `/api/og?${params.toString()}`;
   };

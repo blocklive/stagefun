@@ -24,9 +24,16 @@ export async function GET(request: NextRequest) {
     const percentage = searchParams.get("percentage") || "0";
     const poolImageUrl = searchParams.get("imageUrl");
     const tokenSymbol = searchParams.get("tokenSymbol") || "";
+    const twitterHandle = searchParams.get("twitterHandle") || "";
 
     // Log for debugging
-    console.log("OG Image generation:", { title, poolImageUrl, tokenSymbol });
+    console.log("OG Image generation:", {
+      title,
+      poolImageUrl,
+      tokenSymbol,
+      twitterHandle,
+      allSearchParams: Object.fromEntries(searchParams.entries()),
+    });
 
     // Get dynamic base URL from the request
     const url = new URL(request.url);
@@ -68,14 +75,15 @@ export async function GET(request: NextRequest) {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
+                justifyContent: "center",
               }}
             >
               {/* Thumbnail */}
               {poolImageUrl ? (
                 <div
                   style={{
-                    width: "300px",
-                    height: "250px",
+                    width: "400px",
+                    height: "320px",
                     borderRadius: "16px",
                     overflow: "hidden",
                     backgroundColor: "#1a1b23",
@@ -97,8 +105,8 @@ export async function GET(request: NextRequest) {
               ) : (
                 <div
                   style={{
-                    width: "300px",
-                    height: "250px",
+                    width: "400px",
+                    height: "320px",
                     borderRadius: "16px",
                     backgroundColor: "#1a1b23",
                     display: "flex",
@@ -113,26 +121,6 @@ export async function GET(request: NextRequest) {
                   🎉
                 </div>
               )}
-
-              {/* Token Symbol */}
-              {tokenSymbol && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginTop: "30px",
-                    fontSize: "24px",
-                    fontWeight: "700",
-                    color: "#7877c6",
-                    backgroundColor: "#FFFFFF10",
-                    padding: "12px 24px",
-                    borderRadius: "12px",
-                  }}
-                >
-                  ${tokenSymbol}
-                </div>
-              )}
             </div>
 
             {/* Right Column */}
@@ -140,41 +128,72 @@ export async function GET(request: NextRequest) {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                justifyContent: "center",
+                justifyContent: "space-between",
                 alignItems: "center",
                 flex: 1,
+                paddingTop: "20px",
+                paddingBottom: "20px",
               }}
             >
+              {/* STAGE.FUN Branding */}
+              <div
+                style={{
+                  fontSize: "36px",
+                  fontWeight: "900",
+                  color: "#FFFFFF",
+                  letterSpacing: "3px",
+                  textTransform: "uppercase",
+                  fontFamily: "system-ui, -apple-system, sans-serif",
+                  display: "flex",
+                }}
+              >
+                STAGE.FUN
+              </div>
+
+              {/* Title */}
               <div
                 style={{
                   fontSize: "48px",
                   fontWeight: "700",
                   color: "white",
                   textAlign: "center",
+                  lineHeight: "1.2",
+                  marginTop: "20px",
+                  display: "flex",
                 }}
               >
                 {displayTitle}
               </div>
 
+              {/* Twitter Handle - always render container */}
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginTop: "80px",
+                  fontSize: "28px",
+                  fontWeight: "500",
+                  color: "#cccccc",
+                  marginTop: "30px",
+                  display: twitterHandle ? "flex" : "none",
                 }}
               >
-                <img
-                  src={logoUrl}
-                  alt="StageFun Logo"
-                  width="48"
-                  height="48"
-                  style={{
-                    width: "48px",
-                    height: "48px",
-                    imageRendering: "crisp-edges",
-                  }}
-                />
+                @{twitterHandle ? twitterHandle.replace("@", "") : ""}
+              </div>
+
+              {/* Token Symbol - always render container */}
+              <div
+                style={{
+                  display: tokenSymbol ? "flex" : "none",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "24px",
+                  fontWeight: "700",
+                  color: "white",
+                  backgroundColor: "#333333",
+                  padding: "12px 24px",
+                  borderRadius: "12px",
+                  marginTop: "30px",
+                }}
+              >
+                ${tokenSymbol}
               </div>
             </div>
           </div>
