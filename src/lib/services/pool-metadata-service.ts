@@ -33,7 +33,9 @@ export interface PoolMetadata {
   creator?: {
     id: string;
     name: string;
+    username?: string;
     avatar_url: string;
+    twitter_username?: string;
   };
   tiers?: any[];
 }
@@ -64,7 +66,9 @@ export async function getPoolMetadataBySlug(
         creator:users!creator_id (
           id,
           name,
-          avatar_url
+          username,
+          avatar_url,
+          twitter_username
         )
       `
       )
@@ -74,6 +78,9 @@ export async function getPoolMetadataBySlug(
     if (error || !pool) {
       return null;
     }
+
+    // Debug logging to see the actual data structure
+    console.log("Raw pool data from Supabase:", JSON.stringify(pool, null, 2));
 
     // Strip HTML from description
     const cleanedPool = {
@@ -101,9 +108,7 @@ export async function getPoolWithFullDataBySlug(
         `
         *,
         creator:users!creator_id (
-          id,
-          name,
-          avatar_url
+          *
         ),
         tiers!pool_id (
           *,
