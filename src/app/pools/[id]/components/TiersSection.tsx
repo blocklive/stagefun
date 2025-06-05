@@ -20,6 +20,7 @@ import {
   isUncapped,
   formatCommitmentCounter,
 } from "@/lib/utils/contractValues";
+import SharePoolSection from "./SharePoolSection";
 
 interface TiersSectionProps {
   pool: Pool;
@@ -425,6 +426,9 @@ const TiersSection: React.FC<TiersSectionProps> = ({
           Show only my tiers
         </motion.button>
       )}
+
+      {/* Share Pool Section */}
+      <SharePoolSection pool={pool} />
 
       {selectedTier && (
         <CommitConfirmModal

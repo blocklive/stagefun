@@ -76,16 +76,6 @@ export async function generateMetadata({
         : ""
     }`;
 
-    // Debug logging to check creator data
-    console.log("Creator data:", pool.creator);
-    console.log(
-      "Twitter username from creator:",
-      pool.creator?.twitter_username
-    );
-    console.log("Username from creator:", pool.creator?.username);
-    console.log("Name from creator:", pool.creator?.name);
-    console.log("Generated OG image URL:", imageUrl);
-
     return {
       title,
       description,

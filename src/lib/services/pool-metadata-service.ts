@@ -79,9 +79,6 @@ export async function getPoolMetadataBySlug(
       return null;
     }
 
-    // Debug logging to see the actual data structure
-    console.log("Raw pool data from Supabase:", JSON.stringify(pool, null, 2));
-
     // Strip HTML from description
     const cleanedPool = {
       ...pool,
