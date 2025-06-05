@@ -19,6 +19,7 @@ import {
 } from "../../lib/contracts/types";
 import { useClaimRefund } from "../../hooks/useClaimRefund";
 import showToast from "../../utils/toast";
+import { useReferralTracking } from "../../hooks/useReferralTracking";
 
 // Import components
 import PoolHeader from "../pools/[id]/components/PoolHeader";
@@ -59,6 +60,9 @@ export default function ClientPoolDetailsPage({
   const { balance: usdcBalance, refresh: refreshBalance } =
     useSmartWalletBalance();
   const { isRefunding, handleClaimRefund } = useClaimRefund();
+
+  // Track referrals from URL parameters
+  useReferralTracking();
 
   // State
   const [contentTab, setContentTab] = useState<TabType>("overview");

@@ -4,22 +4,25 @@ import { useParams } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
-import { useSupabase } from "../../../contexts/SupabaseContext";
-import { useSmartWalletBalance } from "../../../hooks/useSmartWalletBalance";
-import { usePoolDetailsV2 } from "../../../hooks/usePoolDetailsV2";
-import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
-import { User } from "../../../lib/supabase";
-import { Pool, Tier } from "../../../lib/types";
-import { DBTier } from "../../../hooks/usePoolTiers";
-import { scrollToTop } from "../../../utils/scrollHelper";
-import { getUserById } from "../../../lib/services/user-service";
-import {
-  getDisplayStatus,
-  getPoolEffectiveStatus,
-} from "../../../lib/contracts/types";
+import { useSmartWalletBalance } from "../../../hooks/useSmartWalletBalance";
+import { Pool, Tier, User } from "../../../lib/supabase";
+import { usePoolDetailsV2 } from "../../../hooks/usePoolDetails";
+import { fromUSDCBaseUnits } from "../../../lib/contracts/StageDotFunPool";
+import { Tier as DBTier } from "../../../lib/types";
+import { getPoolEffectiveStatus } from "../../../lib/contracts/types";
 import { useClaimRefund } from "../../../hooks/useClaimRefund";
 import showToast from "../../../utils/toast";
+import { useReferralTracking } from "../../../hooks/useReferralTracking";
+import { useSupabase } from "../../../contexts/SupabaseContext";
+import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
+import { scrollToTop } from "../../../utils/scrollHelper";
+import { getUserById } from "../../../lib/services/user-service";
+import { getDisplayStatus } from "../../../lib/contracts/types";
+import { useSmartWallet } from "../../../hooks/useSmartWallet";
+import { DBTier as SupabaseDBTier } from "../../../hooks/usePoolTiers";
+import { scrollToTop } from "../../../utils/scrollHelper";
+import { formatCurrency } from "../../../lib/utils";
 
 // Import components
 import PoolHeader from "./components/PoolHeader";
@@ -40,6 +43,7 @@ import AppHeader from "../../components/AppHeader";
 import TiersSection from "./components/TiersSection";
 import CommitmentBanner from "./components/CommitmentBanner";
 import UpdatesList from "./components/pool-updates/UpdatesList";
+import CommitConfirmModal from "./components/CommitConfirmModal";
 
 // Define TabType to match TabsAndSocial.tsx
 type TabType = "overview" | "patrons" | "updates";
@@ -53,6 +57,9 @@ export default function PoolDetailsPage() {
   const { balance: usdcBalance, refresh: refreshBalance } =
     useSmartWalletBalance();
   const { isRefunding, handleClaimRefund } = useClaimRefund();
+
+  // Track referrals from URL parameters
+  useReferralTracking();
 
   // State
   const [contentTab, setContentTab] = useState<TabType>("overview");

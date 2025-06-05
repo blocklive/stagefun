@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/services/supabase-admin";
 import { withAuth } from "@/lib/auth/server";
 import { AuthContext } from "@/lib/auth/types";
+import { authenticateRequest } from "@/lib/auth/server";
 
 export const GET = withAuth(async (request: NextRequest, auth: AuthContext) => {
   try {
@@ -45,3 +46,143 @@ export const GET = withAuth(async (request: NextRequest, auth: AuthContext) => {
     );
   }
 });
+
+export async function POST(request: NextRequest) {
+  try {
+    // Authenticate the request
+    const authResult = await authenticateRequest(request);
+
+    if (!authResult.authenticated || !authResult.userId) {
+      return NextResponse.json(
+        { error: authResult.error || "Unauthorized" },
+        { status: authResult.statusCode || 401 }
+      );
+    }
+
+    const userId = authResult.userId;
+    const body = await request.json();
+    const { referrerTwitterUsername, poolId } = body;
+
+    console.log("Referral request:", {
+      userId,
+      referrerTwitterUsername,
+      poolId,
+    });
+
+    if (!referrerTwitterUsername || !poolId) {
+      return NextResponse.json(
+        { error: "Missing required parameters" },
+        { status: 400 }
+      );
+    }
+
+    // Create an admin client with service role permissions
+    const adminClient = getSupabaseAdmin();
+
+    // Validate referrer exists and get their user ID
+    const { data: referrerUser, error: referrerError } = await adminClient
+      .from("users")
+      .select("id")
+      .eq("twitter_username", referrerTwitterUsername)
+      .maybeSingle();
+
+    if (referrerError) {
+      console.error("Error finding referrer:", referrerError);
+      return NextResponse.json(
+        { error: "Failed to validate referrer" },
+        { status: 500 }
+      );
+    }
+
+    if (!referrerUser) {
+      return NextResponse.json(
+        { error: "Referrer not found" },
+        { status: 404 }
+      );
+    }
+
+    // Prevent self-referrals
+    if (referrerUser.id === userId) {
+      return NextResponse.json(
+        { error: "Cannot refer yourself" },
+        { status: 400 }
+      );
+    }
+
+    // Validate pool exists - first try by slug, then by ID
+    let pool;
+    let poolError;
+
+    // Try to find pool by slug first (most common case from URL)
+    const { data: poolBySlug, error: slugError } = await adminClient
+      .from("pools")
+      .select("id, slug")
+      .eq("slug", poolId)
+      .maybeSingle();
+
+    if (slugError) {
+      console.error("Error finding pool by slug:", slugError);
+      return NextResponse.json(
+        { error: "Failed to validate pool" },
+        { status: 500 }
+      );
+    }
+
+    if (poolBySlug) {
+      pool = poolBySlug;
+      console.log("Found pool by slug:", { slug: poolId, actualId: pool.id });
+    } else {
+      // Fallback: try to find by ID (in case someone passes actual UUID)
+      const { data: poolById, error: idError } = await adminClient
+        .from("pools")
+        .select("id, slug")
+        .eq("id", poolId)
+        .maybeSingle();
+
+      if (idError) {
+        console.error("Error finding pool by ID:", idError);
+        return NextResponse.json(
+          { error: "Failed to validate pool" },
+          { status: 500 }
+        );
+      }
+
+      pool = poolById;
+    }
+
+    if (!pool) {
+      return NextResponse.json({ error: "Pool not found" }, { status: 404 });
+    }
+
+    // Store referral (expires in 24 hours) - use the actual pool ID
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    const { error: insertError } = await adminClient
+      .from("user_referrals")
+      .upsert({
+        user_id: userId,
+        referrer_twitter_username: referrerTwitterUsername,
+        pool_id: pool.id, // Use the actual UUID from the database
+        expires_at: expiresAt.toISOString(),
+        used: false,
+      });
+
+    if (insertError) {
+      console.error("Error storing referral:", insertError);
+      return NextResponse.json(
+        { error: "Failed to store referral" },
+        { status: 500 }
+      );
+    }
+
+    console.log("Referral stored successfully");
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error processing referral:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

@@ -29,6 +29,7 @@ export enum PointType {
   RAISED = "raised",
   ONBOARDING = "onboarding",
   CHECKIN = "checkin",
+  REFERRAL = "referral",
 }
 
 export interface AwardPointsParams {
@@ -58,6 +59,7 @@ export async function awardPoints({
     [PointType.RAISED]: "raised_points",
     [PointType.ONBOARDING]: "onboarding_points",
     [PointType.CHECKIN]: "checkin_points",
+    [PointType.REFERRAL]: "referral_points",
   };
 
   const column = columnMap[type];
@@ -117,6 +119,7 @@ export async function awardPoints({
       raised_points: 0,
       onboarding_points: 0,
       checkin_points: 0,
+      referral_points: 0,
       [column]: amount,
     };
 
@@ -195,7 +198,9 @@ export async function getUserTotalPoints(
 ): Promise<number> {
   const { data, error } = await supabase
     .from("user_points")
-    .select("funded_points, raised_points, onboarding_points, checkin_points")
+    .select(
+      "funded_points, raised_points, onboarding_points, checkin_points, referral_points"
+    )
     .eq("user_id", userId)
     .single();
 
@@ -207,7 +212,8 @@ export async function getUserTotalPoints(
     (data.funded_points || 0) +
     (data.raised_points || 0) +
     (data.onboarding_points || 0) +
-    (data.checkin_points || 0)
+    (data.checkin_points || 0) +
+    (data.referral_points || 0)
   );
 }
 
@@ -545,6 +551,7 @@ export async function awardPointsForPoolCreation({
 /**
  * Awards points to a user for committing to a pool (depositing funds)
  * Also awards points to the pool creator based on the deposit amount
+ * And awards referral points if the commitment came through a referral link
  */
 export async function awardPointsForPoolCommitment({
   userAddress,
@@ -640,7 +647,7 @@ export async function awardPointsForPoolCommitment({
       // Find the pool creator
       const { data: poolData, error: poolFetchError } = await supabase
         .from("pools")
-        .select("creator_id")
+        .select("creator_id, id")
         .ilike("contract_address", poolAddress)
         .maybeSingle();
 
@@ -692,7 +699,67 @@ export async function awardPointsForPoolCommitment({
         );
       }
 
-      return { success: funderResult.success && creatorResult.success };
+      // 3. Award referral points if this commitment came through a referral link
+      let referralResult: { success: boolean; error?: string } = {
+        success: true,
+      }; // Default to success if no referral
+
+      try {
+        // Check if this user has an active referral for this pool
+        const { data: referralData, error: referralCheckError } = await supabase
+          .from("user_referrals")
+          .select("referrer_twitter_username")
+          .eq("user_id", userData.id)
+          .eq("pool_id", poolData.id) // We'll need to get the actual pool ID, not creator_id
+          .eq("used", false)
+          .gt("expires_at", new Date().toISOString())
+          .maybeSingle();
+
+        if (referralCheckError) {
+          console.error("Error checking for referrals:", referralCheckError);
+        } else if (referralData) {
+          // Award referral points
+          referralResult = await awardReferralPoints({
+            referrerTwitterUsername: referralData.referrer_twitter_username,
+            poolAddress,
+            amount,
+            txHash,
+            supabase,
+          });
+
+          if (referralResult.success) {
+            console.log(
+              `Awarded referral points to ${referralData.referrer_twitter_username} for pool commitment referral`
+            );
+
+            // Mark the referral as used
+            await supabase
+              .from("user_referrals")
+              .update({ used: true })
+              .eq("user_id", userData.id)
+              .eq(
+                "referrer_twitter_username",
+                referralData.referrer_twitter_username
+              );
+          } else {
+            console.error(
+              "Failed to award referral points:",
+              referralResult.error
+            );
+          }
+        }
+      } catch (referralError: any) {
+        console.error("Error processing referral points:", referralError);
+        referralResult = { success: false, error: referralError.message };
+      }
+
+      return {
+        success:
+          funderResult.success &&
+          creatorResult.success &&
+          referralResult.success,
+        error: !referralResult.success ? referralResult.error : undefined,
+      };
     } catch (creatorError: any) {
       console.error("Error awarding points to pool creator:", creatorError);
       return { success: funderResult.success, error: creatorError.message };
@@ -899,6 +966,99 @@ export async function awardPointsForDailyCheckin({
     }
   } catch (error: any) {
     console.error("Error awarding points for daily check-in:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Awards referral points to a user when someone funds through their referral link
+ */
+export async function awardReferralPoints({
+  referrerTwitterUsername,
+  poolAddress,
+  amount,
+  txHash,
+  supabase,
+}: {
+  referrerTwitterUsername: string;
+  poolAddress: string;
+  amount: string; // Base units
+  txHash: string;
+  supabase: SupabaseClient;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Calculate referral points (10 points per USDC)
+    const referralPoints = calculatePointsFromAmount(amount, 10);
+
+    if (referralPoints === 0) {
+      console.log(
+        `Funding amount too small for referral points: ${amount} base units`
+      );
+      return {
+        success: false,
+        error: "Funding amount too small for referral points",
+      };
+    }
+
+    // Find the referrer by their Twitter username
+    const { data: referrerData, error: referrerFetchError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("twitter_username", referrerTwitterUsername)
+      .maybeSingle();
+
+    if (referrerFetchError) {
+      console.error(
+        "Error fetching referrer for referral points:",
+        referrerFetchError
+      );
+      return { success: false, error: referrerFetchError.message };
+    }
+
+    if (!referrerData) {
+      console.log(
+        `Referrer not found with Twitter username: ${referrerTwitterUsername}`
+      );
+      return { success: false, error: "Referrer not found" };
+    }
+
+    // Award referral points to the referrer with multiplier
+    const referrerMultiplier = await getUserTotalMultiplier(
+      referrerData.id,
+      supabase
+    );
+    const finalReferralPoints = Math.floor(referralPoints * referrerMultiplier);
+    const bonusPoints = finalReferralPoints - referralPoints;
+
+    const referralResult = await awardPoints({
+      userId: referrerData.id,
+      type: PointType.REFERRAL,
+      amount: finalReferralPoints,
+      description: "pool_referral",
+      metadata: {
+        poolAddress,
+        amount,
+        txHash,
+        base_amount: referralPoints,
+        bonus_amount: bonusPoints,
+        multiplier_applied: referrerMultiplier,
+        multiplier_eligible: true,
+        referred_twitter_username: referrerTwitterUsername,
+      },
+      supabase,
+    });
+
+    if (referralResult.success) {
+      console.log(
+        `Awarded ${finalReferralPoints} referral points (${referralPoints} base + ${bonusPoints} bonus, ${referrerMultiplier}x multiplier) to user ${referrerData.id} for pool referral`
+      );
+    } else {
+      console.error("Failed to award referral points:", referralResult.error);
+    }
+
+    return referralResult;
+  } catch (error: any) {
+    console.error("Error awarding referral points:", error);
     return { success: false, error: error.message };
   }
 }
