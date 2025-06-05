@@ -50,11 +50,11 @@ export async function GET(request: NextRequest) {
             height: "100%",
             width: "100%",
             display: "flex",
-            backgroundColor: "#15161a",
             fontSize: 32,
             fontWeight: 600,
             color: "white",
             padding: "80px",
+            background: "linear-gradient(180deg, #0b0123 0%, #190241 100%)",
           }}
         >
           {/* Simple 2-Column Layout */}
@@ -62,7 +62,6 @@ export async function GET(request: NextRequest) {
             style={{
               display: "flex",
               flexDirection: "row",
-              background: "linear-gradient(180deg, #0b0123 0%, #190241 100%)",
               borderRadius: "24px",
               padding: "60px",
               width: "100%",
@@ -83,7 +82,7 @@ export async function GET(request: NextRequest) {
                 <div
                   style={{
                     width: "400px",
-                    height: "320px",
+                    height: "400px",
                     borderRadius: "16px",
                     overflow: "hidden",
                     backgroundColor: "#1a1b23",
@@ -98,7 +97,7 @@ export async function GET(request: NextRequest) {
                     style={{
                       width: "100%",
                       height: "100%",
-                      objectFit: "cover",
+                      objectFit: "contain",
                     }}
                   />
                 </div>
@@ -106,7 +105,7 @@ export async function GET(request: NextRequest) {
                 <div
                   style={{
                     width: "400px",
-                    height: "320px",
+                    height: "400px",
                     borderRadius: "16px",
                     backgroundColor: "#1a1b23",
                     display: "flex",
