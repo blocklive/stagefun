@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { FaShare, FaCopy, FaCheck } from "react-icons/fa";
+import { FaShare, FaCopy, FaCheck, FaLink } from "react-icons/fa";
 import { useSupabase } from "@/contexts/SupabaseContext";
 import showToast from "@/utils/toast";
 import { Pool } from "@/lib/supabase";
@@ -63,44 +63,27 @@ export default function SharePoolSection({ pool }: SharePoolSectionProps) {
             Share this party round
           </h3>
           <p className="text-sm text-gray-400">
-            Earn trading fees in MON for any commit. Seriously.
+            You'll earn points for every commitment made through your link.
+            Seriously.
           </p>
         </div>
 
-        <div className="bg-[#FFFFFF14] rounded-[12px] p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-300 truncate font-mono">
-                {referralLink}
-              </p>
-            </div>
-
-            <button
-              onClick={handleCopyLink}
-              className="ml-3 flex items-center gap-2 px-3 py-2 bg-[#836EF9] hover:bg-[#6F5BD0] text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              {copied ? (
-                <>
-                  <FaCheck size={14} />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <FaCopy size={14} />
-                  Copy
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-3 text-xs text-gray-400">
-          You'll earn{" "}
-          <span className="text-[#836EF9] font-semibold">
-            10 points per USDC
-          </span>{" "}
-          for every commitment made through your link
-        </div>
+        <button
+          onClick={handleCopyLink}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#FFFFFF14] hover:bg-[#FFFFFF20] text-white text-sm font-mono rounded-lg transition-colors border border-[#FFFFFF20] hover:border-[#836EF9]"
+        >
+          {copied ? (
+            <>
+              <FaCheck size={14} className="text-green-400" />
+              <span className="text-center">Link Copied!</span>
+            </>
+          ) : (
+            <>
+              <FaLink size={14} className="text-gray-400 flex-shrink-0" />
+              <span className="text-center">{twitterUsername}</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

@@ -6,11 +6,14 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
 import { useSmartWallet } from "../../../hooks/useSmartWallet";
 import { useSmartWalletBalance } from "../../../hooks/useSmartWalletBalance";
-import { Pool, Tier, User } from "../../../lib/supabase";
-import { usePoolDetailsV2 } from "../../../hooks/usePoolDetails";
+import { Pool, User } from "../../../lib/supabase";
+import { usePoolDetailsV2 } from "../../../hooks/usePoolDetailsV2";
 import { fromUSDCBaseUnits } from "../../../lib/contracts/StageDotFunPool";
-import { Tier as DBTier } from "../../../lib/types";
-import { getPoolEffectiveStatus } from "../../../lib/contracts/types";
+import { Tier } from "../../../lib/types";
+import {
+  getPoolEffectiveStatus,
+  getDisplayStatus,
+} from "../../../lib/contracts/types";
 import { useClaimRefund } from "../../../hooks/useClaimRefund";
 import showToast from "../../../utils/toast";
 import { useReferralTracking } from "../../../hooks/useReferralTracking";
@@ -18,10 +21,7 @@ import { useSupabase } from "../../../contexts/SupabaseContext";
 import { usePoolTimeLeft } from "../../../hooks/usePoolTimeLeft";
 import { scrollToTop } from "../../../utils/scrollHelper";
 import { getUserById } from "../../../lib/services/user-service";
-import { getDisplayStatus } from "../../../lib/contracts/types";
-import { useSmartWallet } from "../../../hooks/useSmartWallet";
-import { DBTier as SupabaseDBTier } from "../../../hooks/usePoolTiers";
-import { scrollToTop } from "../../../utils/scrollHelper";
+import { DBTier } from "../../../hooks/usePoolTiers";
 import { formatCurrency } from "../../../lib/utils";
 
 // Import components
@@ -77,30 +77,7 @@ export default function PoolDetailsPage() {
   const { pool: rawPool, isLoading, error, mutate } = usePoolDetailsV2({ id });
 
   // Cast pool to include required properties
-  const pool = rawPool as Pool & {
-    raised_amount: number;
-    target_amount: number;
-    contract_address: string;
-    title: string;
-    creator: {
-      id: string;
-      name: string;
-      avatar_url: string;
-    };
-    tiers: (DBTier & {
-      commitments: {
-        user_address: string;
-        amount: number;
-        committed_at: string;
-        user: {
-          id: string;
-          name: string;
-          avatar_url: string;
-        };
-      }[];
-      reward_items: any[];
-    })[];
-  };
+  const pool = rawPool as any;
 
   // Debug pool data when patrons tab is active
   useEffect(() => {
