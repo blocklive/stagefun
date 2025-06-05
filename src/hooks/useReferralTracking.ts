@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useParams } from "next/navigation";
 import { useSupabase } from "@/contexts/SupabaseContext";
 import { getAuthHeaders } from "@/lib/auth/client";
+import showToast from "@/utils/toast";
 
 export interface ReferralData {
   referrerTwitterUsername: string | null;
@@ -65,8 +66,46 @@ export function useReferralTracking(): ReferralData {
 
           if (response.ok) {
             console.log("✅ Referral stored successfully");
+
+            // Parse response to check if it was refreshed
+            try {
+              const successData = JSON.parse(responseData);
+              if (successData.message === "Referral link refreshed") {
+                showToast.success(`Referral link refreshed for ${ref}!`, {
+                  duration: 4000,
+                });
+              } else {
+                showToast.success(`Referral link activated for ${ref}!`, {
+                  duration: 4000,
+                });
+              }
+            } catch (e) {
+              // Default success message if parsing fails
+              showToast.success(`Referral link activated for ${ref}!`, {
+                duration: 4000,
+              });
+            }
           } else {
             console.warn("❌ Failed to store referral:", responseData);
+
+            // Parse the error message
+            let errorMessage = "Failed to activate referral link";
+            try {
+              const errorData = JSON.parse(responseData);
+              if (errorData.error === "Referrer not found") {
+                errorMessage = `Referrer "${ref}" not found. Make sure they have connected their Twitter account.`;
+              } else if (errorData.error === "Cannot refer yourself") {
+                errorMessage = "You cannot use your own referral link!";
+              } else {
+                errorMessage = errorData.error || errorMessage;
+              }
+            } catch (e) {
+              // Use default message if parsing fails
+            }
+
+            showToast.error(errorMessage, {
+              duration: 5000,
+            });
           }
         } catch (error) {
           console.error("💥 Error storing referral:", error);

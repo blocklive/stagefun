@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     const { data: referrerUser, error: referrerError } = await adminClient
       .from("users")
       .select("id")
-      .eq("twitter_username", referrerTwitterUsername)
+      .ilike("twitter_username", referrerTwitterUsername)
       .maybeSingle();
 
     if (referrerError) {
@@ -158,20 +158,42 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
+    console.log("Storing referral:", {
+      user_id: userId,
+      referrer_twitter_username: referrerTwitterUsername,
+      pool_id: pool.id,
+      expires_at: expiresAt.toISOString(),
+    });
+
     const { error: insertError } = await adminClient
       .from("user_referrals")
-      .upsert({
-        user_id: userId,
-        referrer_twitter_username: referrerTwitterUsername,
-        pool_id: pool.id, // Use the actual UUID from the database
-        expires_at: expiresAt.toISOString(),
-        used: false,
-      });
+      .upsert(
+        {
+          user_id: userId,
+          referrer_twitter_username: referrerTwitterUsername,
+          pool_id: pool.id,
+          expires_at: expiresAt.toISOString(),
+          used: false,
+        },
+        {
+          onConflict: "user_id,pool_id,referrer_twitter_username",
+        }
+      );
 
     if (insertError) {
       console.error("Error storing referral:", insertError);
+
+      // Check if this is a duplicate referral (already exists)
+      if (insertError.code === "23505") {
+        console.log("Referral already exists, updating expiry time");
+        return NextResponse.json({
+          success: true,
+          message: "Referral link refreshed",
+        });
+      }
+
       return NextResponse.json(
-        { error: "Failed to store referral" },
+        { error: `Failed to store referral: ${insertError.message}` },
         { status: 500 }
       );
     }
