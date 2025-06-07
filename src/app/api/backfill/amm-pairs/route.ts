@@ -7,6 +7,7 @@ import {
   startBlockchainSyncRun,
   completeBlockchainSyncRun,
 } from "@/lib/services/blockchain/sync-tracking.service";
+import { AmmPairSnapshot } from "@/lib/database/amm-types";
 
 // API key protection
 const BACKFILL_API_KEY = process.env.BACKFILL_API_KEY;
@@ -27,6 +28,262 @@ const PAIR_ABI = [
   "function name() external view returns (string)",
   "function symbol() external view returns (string)",
 ];
+
+// Helper interface for token info (minimal)
+interface TokenInfo {
+  address: string;
+  symbol: string;
+  decimals: number;
+}
+
+// Function to get token info with fallback
+const getTokenInfoWithFallback = (tokenAddress: string): TokenInfo => {
+  // Basic token mapping - extend as needed
+  const tokenMap: Record<string, TokenInfo> = {
+    "0xf817257fed379853cde0fa4f97ab987181b1e5ea": {
+      address: tokenAddress,
+      symbol: "USDC",
+      decimals: 6,
+    },
+    "0x0000000000000000000000000000000000000000": {
+      address: tokenAddress,
+      symbol: "MON",
+      decimals: 18,
+    },
+    "0x4b883edfd434d74ebe82fe6db5f058e6ff08cd53": {
+      address: tokenAddress,
+      symbol: "WMON",
+      decimals: 18,
+    },
+  };
+
+  return (
+    tokenMap[tokenAddress.toLowerCase()] || {
+      address: tokenAddress,
+      symbol: `TOKEN_${tokenAddress.slice(0, 6)}`,
+      decimals: 18,
+    }
+  );
+};
+
+// Function to calculate TVL with MON pricing
+const calculateTVL = (
+  token0: TokenInfo,
+  token1: TokenInfo,
+  reserve0: string,
+  reserve1: string,
+  monPriceUsd: number = 0
+): number => {
+  try {
+    const reserve0Raw = parseFloat(reserve0) || 0;
+    const reserve1Raw = parseFloat(reserve1) || 0;
+
+    if (reserve0Raw <= 0 || reserve1Raw <= 0) {
+      return 0;
+    }
+
+    const reserve0Num = reserve0Raw / Math.pow(10, token0.decimals);
+    const reserve1Num = reserve1Raw / Math.pow(10, token1.decimals);
+
+    // For USDC pairs, TVL = 2 * USDC reserve
+    if (token0.symbol === "USDC") {
+      return Math.max(0, reserve0Num * 2);
+    } else if (token1.symbol === "USDC") {
+      return Math.max(0, reserve1Num * 2);
+    }
+
+    // For MON/WMON pairs, use actual MON price if available
+    else if (monPriceUsd > 0) {
+      if (token0.symbol === "MON" || token0.symbol === "WMON") {
+        return Math.max(0, reserve0Num * monPriceUsd * 2);
+      } else if (token1.symbol === "MON" || token1.symbol === "WMON") {
+        return Math.max(0, reserve1Num * monPriceUsd * 2);
+      }
+    }
+
+    // Fallback: $1 per token
+    return Math.max(0, reserve0Num + reserve1Num);
+  } catch (error) {
+    console.error("Error calculating TVL:", error);
+    return 0;
+  }
+};
+
+// Function to calculate 24h volume from swap transactions
+const calculate24hVolume = async (
+  supabase: any,
+  pairAddress: string
+): Promise<number> => {
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const { data: swapTxs, error } = await supabase
+      .from("amm_transactions")
+      .select("amount0, amount1, amount0_out, amount1_out")
+      .eq("pair_address", pairAddress)
+      .eq("event_type", "swap")
+      .gte("timestamp", twentyFourHoursAgo.toISOString());
+
+    if (error || !swapTxs) {
+      console.warn(`Error getting 24h volume for ${pairAddress}:`, error);
+      return 0;
+    }
+
+    // Sum all swap amounts (simplified - just use amount0 for now)
+    const volume = swapTxs.reduce((sum: number, tx: any) => {
+      const amount0 = parseFloat(tx.amount0 || "0");
+      const amount0Out = parseFloat(tx.amount0_out || "0");
+      return sum + Math.max(amount0, amount0Out);
+    }, 0);
+
+    return volume / Math.pow(10, 18); // Assuming 18 decimals for simplicity
+  } catch (error) {
+    console.error(`Error calculating 24h volume for ${pairAddress}:`, error);
+    return 0;
+  }
+};
+
+// Function to create hourly snapshots for all pairs
+const createHourlySnapshots = async (
+  supabase: any
+): Promise<{ created: number; errors: number }> => {
+  try {
+    console.log("🔍 Fetching all current pairs...");
+
+    // Get all current pairs
+    const { data: pairs, error: pairsError } = await supabase
+      .from("amm_pairs")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (pairsError || !pairs) {
+      console.error("Error fetching pairs for snapshots:", pairsError);
+      return { created: 0, errors: 1 };
+    }
+
+    console.log(`📊 Found ${pairs.length} pairs to snapshot`);
+
+    // Calculate MON price from WMON/USDC pair
+    let monPriceUsd = 0;
+    const wmonUsdcPair = pairs.find((pair: any) => {
+      const token0Info = getTokenInfoWithFallback(pair.token0_address);
+      const token1Info = getTokenInfoWithFallback(pair.token1_address);
+
+      return (
+        (token0Info.symbol === "WMON" && token1Info.symbol === "USDC") ||
+        (token0Info.symbol === "USDC" && token1Info.symbol === "WMON")
+      );
+    });
+
+    if (wmonUsdcPair) {
+      try {
+        const token0Info = getTokenInfoWithFallback(
+          wmonUsdcPair.token0_address
+        );
+        const token1Info = getTokenInfoWithFallback(
+          wmonUsdcPair.token1_address
+        );
+
+        const reserve0 =
+          parseFloat(wmonUsdcPair.reserve0) / Math.pow(10, token0Info.decimals);
+        const reserve1 =
+          parseFloat(wmonUsdcPair.reserve1) / Math.pow(10, token1Info.decimals);
+
+        if (token0Info.symbol === "USDC" && reserve1 > 0) {
+          monPriceUsd = reserve0 / reserve1;
+        } else if (token1Info.symbol === "USDC" && reserve0 > 0) {
+          monPriceUsd = reserve1 / reserve0;
+        }
+
+        console.log(`💰 MON price: $${monPriceUsd.toFixed(4)}`);
+      } catch (error) {
+        console.warn("Error calculating MON price for snapshots:", error);
+      }
+    }
+
+    // Create snapshots for each pair
+    const snapshots: Partial<AmmPairSnapshot>[] = [];
+    const snapshotTimestamp = new Date();
+
+    for (const pair of pairs) {
+      try {
+        const token0Info = getTokenInfoWithFallback(pair.token0_address);
+        const token1Info = getTokenInfoWithFallback(pair.token1_address);
+
+        // Calculate metrics
+        const reserve0Num =
+          parseFloat(pair.reserve0) / Math.pow(10, token0Info.decimals);
+        const reserve1Num =
+          parseFloat(pair.reserve1) / Math.pow(10, token1Info.decimals);
+
+        const tvlUsd = calculateTVL(
+          token0Info,
+          token1Info,
+          pair.reserve0,
+          pair.reserve1,
+          monPriceUsd
+        );
+        const priceToken0 = reserve1Num > 0 ? reserve0Num / reserve1Num : 0;
+        const priceToken1 = reserve0Num > 0 ? reserve1Num / reserve0Num : 0;
+
+        // Calculate 24h volume
+        const volume24h = await calculate24hVolume(supabase, pair.pair_address);
+        const fees24h = volume24h * 0.003; // 0.3% fee
+
+        // Calculate APR (annualized fees / TVL)
+        const apr = tvlUsd > 0 ? ((fees24h * 365) / tvlUsd) * 100 : 0;
+
+        snapshots.push({
+          pair_address: pair.pair_address,
+          snapshot_timestamp: snapshotTimestamp,
+          tvl_usd: tvlUsd,
+          price_token0: priceToken0,
+          price_token1: priceToken1,
+          volume_24h: volume24h,
+          fees_24h: fees24h,
+          apr: apr,
+          reserve0: pair.reserve0,
+          reserve1: pair.reserve1,
+          total_supply: pair.total_supply,
+        });
+
+        console.log(
+          `📸 ${token0Info.symbol}/${token1Info.symbol}: TVL=$${tvlUsd.toFixed(
+            2
+          )}, Vol24h=$${volume24h.toFixed(2)}`
+        );
+      } catch (error) {
+        console.error(
+          `Error creating snapshot for pair ${pair.pair_address}:`,
+          error
+        );
+      }
+    }
+
+    // Bulk insert snapshots
+    if (snapshots.length > 0) {
+      const { data, error: insertError } = await supabase
+        .from("amm_pair_snapshots")
+        .upsert(snapshots, {
+          onConflict: "pair_address,snapshot_timestamp",
+          ignoreDuplicates: false,
+        });
+
+      if (insertError) {
+        console.error("Error inserting snapshots:", insertError);
+        return { created: 0, errors: snapshots.length };
+      }
+
+      console.log(`✅ Successfully created ${snapshots.length} snapshots`);
+      return { created: snapshots.length, errors: 0 };
+    }
+
+    return { created: 0, errors: 0 };
+  } catch (error) {
+    console.error("Error in createHourlySnapshots:", error);
+    return { created: 0, errors: 1 };
+  }
+};
 
 export async function GET(req: NextRequest) {
   const searchParams = new URL(req.url).searchParams;
@@ -209,6 +466,13 @@ export async function GET(req: NextRequest) {
     console.log(`   - Upserted pairs: ${upsertedPairsCount}`);
     console.log(`   - Errors: ${errorCount}`);
 
+    // Create snapshots for all pairs
+    console.log("\n📸 Creating hourly snapshots...");
+    const snapshotResults = await createHourlySnapshots(supabase);
+    console.log(`📊 Snapshot Results:`);
+    console.log(`   - Snapshots created: ${snapshotResults.created}`);
+    console.log(`   - Snapshot errors: ${snapshotResults.errors}`);
+
     // Complete the sync run
     if (syncRunId) {
       await completeBlockchainSyncRun({
@@ -222,13 +486,15 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      message: "AMM pairs discovery completed",
+      message: "AMM pairs discovery and snapshot creation completed",
       summary: {
         factoryAddress: AMM_CONTRACTS.FACTORY,
         totalPairsInFactory: totalPairs.toString(),
         processed: processedCount,
         upsertedPairs: upsertedPairsCount,
         errors: errorCount,
+        snapshotsCreated: snapshotResults.created,
+        snapshotErrors: snapshotResults.errors,
         syncRunId,
       },
     });
