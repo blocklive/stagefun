@@ -136,7 +136,7 @@ async function storeAmmEventsInTable(
     blockchain_network: "monad-testnet",
     block_number: parseInt(event.blockNumber, 16),
     transaction_hash: event.transactionHash,
-    log_index: event.logIndex,
+    log_index: event.logIndex || event.index || 0, // Handle different event formats
     event_topic: event.topics[0],
     contract_address: event.account?.address || event.address,
     raw_event: event,
@@ -200,7 +200,8 @@ async function filterAlreadyProcessedAmmEvents(
   const skippedEvents: any[] = [];
 
   events.forEach((event) => {
-    const eventKey = `${event.transactionHash}-${event.logIndex}`;
+    const logIndex = event.logIndex || event.index || 0;
+    const eventKey = `${event.transactionHash}-${logIndex}`;
     if (existingKeys.has(eventKey)) {
       skippedEvents.push({
         event: "amm_event",
@@ -332,21 +333,43 @@ async function handleTransactionEvent(
         eventTypeName = "unknown";
     }
 
+    // Extract timestamp from event or estimate from block number
+    let timestamp: Date;
+    if (event.blockTimestamp) {
+      timestamp = new Date(parseInt(event.blockTimestamp) * 1000);
+    } else {
+      // Fallback: estimate timestamp from block number (for backfill events)
+      // Monad testnet launched recently, assume ~2 second block time
+      const estimatedTimestamp = Date.now() - (20400000 - blockNumber) * 2000;
+      timestamp = new Date(estimatedTimestamp);
+    }
+
+    // Helper function to convert hex to decimal string
+    const hexToDecimal = (hexValue: string): string => {
+      if (!hexValue || hexValue === "0x0" || hexValue === "0") return "0";
+      try {
+        return BigInt(hexValue).toString();
+      } catch (error) {
+        console.warn(`Failed to convert hex value ${hexValue}:`, error);
+        return "0";
+      }
+    };
+
     // Insert transaction record
     const transactionRecord = {
       transaction_hash: event.transactionHash,
       block_number: blockNumber,
-      timestamp: new Date(parseInt(event.blockTimestamp) * 1000),
+      timestamp,
       pair_address: pairAddress?.toLowerCase(),
       event_type: eventTypeName,
       user_address:
         eventData.sender?.toLowerCase() || eventData.to?.toLowerCase(),
-      amount0: eventData.amount0 || eventData.amount0In || "0",
-      amount1: eventData.amount1 || eventData.amount1In || "0",
-      amount0_out: eventData.amount0Out || "0",
-      amount1_out: eventData.amount1Out || "0",
+      amount0: hexToDecimal(eventData.amount0 || eventData.amount0In || "0"),
+      amount1: hexToDecimal(eventData.amount1 || eventData.amount1In || "0"),
+      amount0_out: hexToDecimal(eventData.amount0Out || "0"),
+      amount1_out: hexToDecimal(eventData.amount1Out || "0"),
       liquidity_amount: "0", // Will be calculated separately if needed
-      log_index: event.logIndex,
+      log_index: event.logIndex || event.index || 0,
       raw_event_data: JSON.stringify(eventData),
       created_at: new Date(),
     };
@@ -532,6 +555,26 @@ export async function processAmmWebhookEvents(
 
       const isRemoved = event.removed === true;
       const blockNumber = parseInt(event.blockNumber, 16);
+
+      // For transaction events (not PairCreated), check if Router is involved
+      if (eventTopic !== AMM_EVENT_TOPICS.PAIR_CREATED) {
+        const routerAddress = AMM_CONTRACTS.ROUTER.toLowerCase();
+        const routerInTopics = event.topics.some(
+          (topic: string) =>
+            topic && topic.toLowerCase().includes(routerAddress.slice(2))
+        );
+
+        if (!routerInTopics) {
+          // Skip transaction events not involving our Router
+          results.push({
+            event: "transaction",
+            status: "skipped",
+            action: "not_router_related",
+            transaction_hash: event.transactionHash,
+          });
+          continue;
+        }
+      }
 
       // Process based on event type
       if (eventTopic === AMM_EVENT_TOPICS.PAIR_CREATED) {
