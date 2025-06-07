@@ -1,7 +1,7 @@
 "use client";
 
 import React, { Suspense } from "react";
-import { PositionsInterface } from "@/components/swap/PositionsInterface";
+import { PositionsInterfaceOptimized } from "@/components/swap/PositionsInterfaceOptimized";
 
 // Loading component to show while the interface is loading
 function LoadingInterface() {
@@ -22,7 +22,7 @@ function LoadingInterface() {
 export default function PositionsPage() {
   return (
     <Suspense fallback={<LoadingInterface />}>
-      <PositionsInterface />
+      <PositionsInterfaceOptimized />
     </Suspense>
   );
 }
