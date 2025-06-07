@@ -67,10 +67,9 @@ export const AllPoolsTableOptimized: React.FC<AllPoolsTableOptimizedProps> = ({
 
   return (
     <div>
-      <h3 className="text-xl font-medium text-white mb-4">All Pools</h3>
-      <div className="bg-[#1e1e2a] rounded-xl overflow-x-auto">
+      <div className="bg-[#FFFFFF0A] rounded-xl border border-[#FFFFFF14] overflow-x-auto">
         <table className="w-full text-left text-white min-w-[800px]">
-          <thead className="bg-[#15161a] border-b border-gray-800">
+          <thead className="bg-[#FFFFFF10] border-b border-[#FFFFFF14]">
             <tr>
               <th className="p-4 font-medium text-gray-400">#</th>
               <th className="p-4 font-medium text-gray-400">Pool</th>
@@ -84,7 +83,7 @@ export const AllPoolsTableOptimized: React.FC<AllPoolsTableOptimizedProps> = ({
             {positions.map((position, index) => (
               <tr
                 key={position.pairAddress}
-                className="border-b border-gray-800 hover:bg-gray-800/30 cursor-pointer"
+                className="border-b border-[#FFFFFF14] hover:bg-[#FFFFFF0A] cursor-pointer"
                 onClick={() => handleRowClick(position.pairAddress)}
               >
                 <td className="p-4 text-gray-300">{index + 1}</td>
@@ -173,9 +172,8 @@ export const AllPoolsTableOptimized: React.FC<AllPoolsTableOptimizedProps> = ({
                           isTopHalf(index)
                             ? "top-full mt-2" // Open downward for top half
                             : "bottom-full mb-2" // Open upward for bottom half
-                        } w-48 rounded-md shadow-xl z-[2000] border border-gray-700 overflow-hidden`}
+                        } w-48 rounded-xl shadow-xl z-[2000] border border-[#FFFFFF14] overflow-hidden bg-[#FFFFFF0A]`}
                         style={{
-                          backgroundColor: "#191C27",
                           boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.0)",
                           right: "calc(100% + 5px)", // Position to the left of the button
                         }}
@@ -187,7 +185,7 @@ export const AllPoolsTableOptimized: React.FC<AllPoolsTableOptimizedProps> = ({
                                 e.stopPropagation();
                                 onAddLiquidity(position, e);
                               }}
-                              className="block w-full px-4 py-2 text-sm text-white text-left bg-[#191C27] hover:bg-gray-700"
+                              className="block w-full px-4 py-2 text-sm text-white text-left hover:bg-[#FFFFFF14]"
                             >
                               Add Liquidity
                             </button>
@@ -195,7 +193,7 @@ export const AllPoolsTableOptimized: React.FC<AllPoolsTableOptimizedProps> = ({
                           <li className="block">
                             <Link
                               href={`/swap/positions/${position.pairAddress}`}
-                              className="block w-full px-4 py-2 text-sm text-white text-left bg-[#191C27] hover:bg-gray-700"
+                              className="block w-full px-4 py-2 text-sm text-white text-left hover:bg-[#FFFFFF14]"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 closeMenu();

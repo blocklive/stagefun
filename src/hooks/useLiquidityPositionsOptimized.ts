@@ -124,7 +124,8 @@ const calculateTVL = (
   token0: TokenInfo,
   token1: TokenInfo,
   reserve0: string,
-  reserve1: string
+  reserve1: string,
+  monPriceUsd: number = 0
 ): number => {
   try {
     // Parse reserves safely
@@ -147,12 +148,23 @@ const calculateTVL = (
     } else if (token1.symbol === "USDC") {
       const tvl = reserve1Num * 2;
       return Math.max(0, tvl); // Ensure non-negative
-    } else {
-      // No USDC pair - assign $1 value per token
-      // TVL = (token0 amount + token1 amount) * $1
-      const tvl = reserve0Num + reserve1Num;
-      return Math.max(0, tvl);
     }
+
+    // For MON/WMON pairs, use actual MON price if available
+    else if (monPriceUsd > 0) {
+      if (token0.symbol === "MON" || token0.symbol === "WMON") {
+        const tvl = reserve0Num * monPriceUsd * 2;
+        return Math.max(0, tvl);
+      } else if (token1.symbol === "MON" || token1.symbol === "WMON") {
+        const tvl = reserve1Num * monPriceUsd * 2;
+        return Math.max(0, tvl);
+      }
+    }
+
+    // Fallback: No USDC or MON pair - assign $1 value per token
+    // TVL = (token0 amount + token1 amount) * $1
+    const tvl = reserve0Num + reserve1Num;
+    return Math.max(0, tvl);
   } catch (error) {
     console.error("Error calculating TVL:", error);
     return 0;
@@ -256,6 +268,55 @@ const fetchLiquidityPositionsFromDB = async (): Promise<
 
     console.log(`📊 Found ${pairsData.length} pairs in database`);
 
+    // First, find the MON price from WMON/USDC pair
+    let monPriceUsd = 0;
+    const wmonUsdcPair = pairsData.find((pair: any) => {
+      const token0Info = getTokenInfoWithFallback(
+        pair.token0_address as string,
+        tokenSymbolMap
+      );
+      const token1Info = getTokenInfoWithFallback(
+        pair.token1_address as string,
+        tokenSymbolMap
+      );
+
+      return (
+        (token0Info.symbol === "WMON" && token1Info.symbol === "USDC") ||
+        (token0Info.symbol === "USDC" && token1Info.symbol === "WMON")
+      );
+    });
+
+    if (wmonUsdcPair) {
+      try {
+        const token0Info = getTokenInfoWithFallback(
+          wmonUsdcPair.token0_address as string,
+          tokenSymbolMap
+        );
+        const token1Info = getTokenInfoWithFallback(
+          wmonUsdcPair.token1_address as string,
+          tokenSymbolMap
+        );
+
+        const reserve0 =
+          parseFloat(wmonUsdcPair.reserve0) / Math.pow(10, token0Info.decimals);
+        const reserve1 =
+          parseFloat(wmonUsdcPair.reserve1) / Math.pow(10, token1Info.decimals);
+
+        // Calculate MON price: USDC reserve / WMON reserve
+        if (token0Info.symbol === "USDC" && reserve1 > 0) {
+          monPriceUsd = reserve0 / reserve1;
+        } else if (token1Info.symbol === "USDC" && reserve0 > 0) {
+          monPriceUsd = reserve1 / reserve0;
+        }
+
+        console.log(
+          `💰 MON price from WMON/USDC pair: $${monPriceUsd.toFixed(4)}`
+        );
+      } catch (error) {
+        console.warn("Error calculating MON price:", error);
+      }
+    }
+
     // Transform database records to LiquidityPosition format
     const positions: LiquidityPosition[] = pairsData.map((pair: any) => {
       const token0Info = getTokenInfoWithFallback(
@@ -279,12 +340,13 @@ const fetchLiquidityPositionsFromDB = async (): Promise<
         ),
       };
 
-      // Calculate TVL
+      // Calculate TVL with MON price
       position.tvlUsd = calculateTVL(
         token0Info,
         token1Info,
         position.reserve0,
-        position.reserve1
+        position.reserve1,
+        monPriceUsd
       );
 
       // Debug log for pools with issues

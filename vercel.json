@@ -3,6 +3,10 @@
     {
       "path": "/api/backfill/events?apiKey=$BACKFILL_API_KEY&hoursAgo=24",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/backfill/amm-pairs?apiKey=$BACKFILL_API_KEY",
+      "schedule": "0 * * * *"
     }
   ]
 }
